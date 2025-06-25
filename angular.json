@@ -21,6 +21,7 @@
               "base": "docs",
               "browser": ""
             },
+            "baseHref": "/game-of-life-tribes/",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
@@ -30,9 +31,7 @@
             "stylePreprocessorOptions": {
               "includePaths": ["src/styles", "src"]
             },
-            "polyfills": [
-              "@angular/localize/init"
-            ]
+            "polyfills": ["@angular/localize/init"]
           },
           "configurations": {
             "production": {

@@ -265,7 +265,6 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
         "no-sequences": "error",
         "no-multi-str": "error",
         "no-new-func": "error",
-        "no-bitwise": "error",
         "use-isnan": "error",
         "no-caller": "error",
         "no-alert": "error",
@@ -298,14 +297,6 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
 
         "@typescript-eslint/no-inferrable-types": ["warn", {
             ignoreParameters: true,
-        }],
-
-        "@typescript-eslint/no-magic-numbers": ["warn", {
-            ignore: [-1, 0, 1, 2, 100],
-            ignoreEnums: true,
-            ignoreNumericLiteralTypes: true,
-            ignoreReadonlyClassProperties: true,
-            ignoreTypeIndexes: true,
         }],
 
         "@stylistic/no-extra-parens": ["warn", "all", {

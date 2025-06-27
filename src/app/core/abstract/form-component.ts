@@ -2,9 +2,9 @@ import {Directive, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormGroup} from '@angular/forms';
 import {Observable, OperatorFunction, debounceTime, distinctUntilChanged, filter, pairwise, startWith} from 'rxjs';
 
-import {SubscriberComponent} from './subscriber.component';
-import {FormType} from '../model/form-type.type';
-import {TypedChanges} from '../model/typed-changes.type';
+import {SubscriberComponent} from './subscriber-component';
+import {FormType} from '../model/form-type';
+import {TypedChanges} from '../model/typed-change';
 
 /**
  * Value being used to call `patchValue` of a {@link FormGroup}.  

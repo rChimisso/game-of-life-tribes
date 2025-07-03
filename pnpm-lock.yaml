@@ -99,6 +99,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.35.0
         version: 8.35.0(eslint@9.29.0)(typescript@5.8.3)
+      '@webgpu/types':
+        specifier: ^0.1.63
+        version: 0.1.63
       eslint:
         specifier: ^9.29.0
         version: 9.29.0
@@ -1390,6 +1393,9 @@ packages:
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     peerDependencies:
       vite: ^6.0.0
+
+  '@webgpu/types@0.1.63':
+    resolution: {integrity: sha512-s9Kuh0nE/2+nKrvmKNMB2fE5Zlr3DL2t3OFKM55v5jRcfCOxbkOHhQoshoFum5mmXIfEtRXtLCWmkeTJsVjE9w==}
 
   '@yarnpkg/lockfile@1.1.0':
     resolution: {integrity: sha512-GpSwvyXOcOOlV70vbnzjj4fW5xW/FdUF6nQEt1ENy7m4ZCczi1+/buVUPAqmGfqznsORNFzUMjctTIp8a9tuCQ==}
@@ -4791,6 +4797,8 @@ snapshots:
   '@vitejs/plugin-basic-ssl@2.0.0(vite@6.3.5(@types/node@24.0.3)(sass@1.88.0))':
     dependencies:
       vite: 6.3.5(@types/node@24.0.3)(sass@1.88.0)
+
+  '@webgpu/types@0.1.63': {}
 
   '@yarnpkg/lockfile@1.1.0': {}
 

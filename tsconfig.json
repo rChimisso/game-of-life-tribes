@@ -34,7 +34,8 @@
       "~gol/core/*": ["app/core/*"],
       "~gol/feature/*": ["app/feature/*"],
       "~gol/shared/*": ["app/shared/*"]
-    }
+    },
+    "types": ["@webgpu/types"]
   },
   "angularCompilerOptions": {
     "typeCheckHostBindings": true,

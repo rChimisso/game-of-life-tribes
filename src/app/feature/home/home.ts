@@ -2,15 +2,7 @@ import {Component, HostListener} from '@angular/core';
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
-import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-
-const tribes = [
-  DEAD_TRIBE,
-  {
-    id: 'classic',
-    color: 'f0f0f0'
-  }
-] as const satisfies readonly Tribe[];
+import {AllowedTribe, ANY_TRIBE_ID, DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
 
 /**
  * Homepage.
@@ -27,13 +19,33 @@ const tribes = [
   styleUrl: './home.scss'
 })
 export class HomePage {
-  public ruleset: Ruleset<typeof tribes> = {
+  private readonly tribes = [
+    DEAD_TRIBE,
+    {
+      id: 'classic',
+      color: 'f0f0f0'
+    },
+    {
+      id: 'red',
+      color: 'ff0000'
+    },
+    {
+      id: 'blue',
+      color: '00ff00'
+    },
+    {
+      id: 'green',
+      color: '0000ff'
+    }
+  ] as const satisfies readonly Tribe[];
+
+  public ruleset: Ruleset<typeof this.tribes> = {
     cols: 100,
     rows: 100,
-    tribes,
+    tribes: this.tribes,
     rules: [
+      // Underpopulation rule.
       {
-        // Underpopulation rule.
         clause: {
           kind: 'and',
           clauses: [
@@ -109,14 +121,38 @@ export class HomePage {
 
   public state: 'running' | 'paused' = 'paused';
 
+  public speed = 1;
+
+  public drawTribe: Exclude<AllowedTribe<typeof this.tribes>, typeof ANY_TRIBE_ID> = 'classic';
+
+  private drawTribeIndex = 1;
+
   @HostListener('keydown', ['$event'])
   public test(ev: KeyboardEvent) {
-    if (ev.key === ' ') {
-      if (this.state === 'paused') {
-        this.state = 'running';
-      } else {
-        this.state = 'paused';
-      }
+    switch (ev.key) {
+      case ' ':
+        if (this.state === 'paused') {
+          this.state = 'running';
+        } else {
+          this.state = 'paused';
+        }
+        break;
+      case 'ArrowUp':
+        this.speed++;
+        break;
+      case 'ArrowDown':
+        this.speed--;
+        break;
+      case 'ArrowRight':
+        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
+        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        break;
+      case 'ArrowLeft':
+        this.drawTribeIndex = (this.drawTribeIndex - 1) % this.tribes.length;
+        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        break;
+      case 'r':
+        this.ruleset = {...this.ruleset};
     }
   }
 

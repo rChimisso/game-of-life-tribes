@@ -2,7 +2,7 @@
 import {AfterViewInit, Component, ElementRef, HostListener, Input,
   OnChanges, OnDestroy, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 
-import {Ruleset, Tribe} from '../../model/rule';
+import {AllowedTribe, ANY_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {CameraMessage, DrawMessage, ResizeMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -30,7 +30,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public state: 'running' | 'paused' = 'paused';
 
   @Input()
-  public drawTribe!: string;
+  public drawTribe!: Exclude<AllowedTribe<T>, typeof ANY_TRIBE_ID>;
 
   // ──────────────────────────────────────────
   private worker!: Worker;
@@ -87,20 +87,14 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @HostListener('mousemove', ['$event'])
   public onMove(ev: MouseEvent): void {
     if (this.isPanning) {
-      // Const dx = (ev.clientX - this.lastX) / this.scale;
-      // Const dy = (ev.clientY - this.lastY) / this.scale;
-      // This.offsetX -= dx;
-      // This.offsetY += dy;
-      // This.lastX = ev.clientX;
-      // This.lastY = ev.clientY;
-      const dx = ev.clientX - this.lastX; // * DevicePixelRatio;
-      const dy = ev.clientY - this.lastY; // * DevicePixelRatio;
+      const dx = ev.clientX - this.lastX;
+      const dy = ev.clientY - this.lastY;
       this.lastX = ev.clientX;
       this.lastY = ev.clientY;
       this.offsetX = (this.offsetX - dx / this.scale + this.ruleset.cols) % this.ruleset.cols;
       this.offsetY = (this.offsetY + dy / this.scale + this.ruleset.rows) % this.ruleset.rows;
       this.sendCamera();
-    } else if (ev.buttons & 1) { // Left held
+    } else if (ev.buttons & 1) {
       this.drawAt(ev);
     }
   }
@@ -132,7 +126,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         height: this.offscreen.height,
         dpr
       } as ResizeMessage);
-    } else { // First load
+    } else {
       const canvas = this.canvasRef.nativeElement;
       canvas.width = width;
       canvas.height = height;
@@ -211,9 +205,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.worker?.terminate();
   }
 
-  // ─────────────── Camera maths ──────────────
   private resetCamera(): void {
-    const w = window.innerWidth; // Canvas px
+    const w = window.innerWidth;
     const h = window.innerHeight;
     this.minScale = Math.max(w / this.ruleset.cols, h / this.ruleset.rows);
     this.scale = this.minScale; // Square cells: 1 cell = `scale` px

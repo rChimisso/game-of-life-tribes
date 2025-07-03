@@ -238,7 +238,15 @@ function renderFrame(): void {
   uploadColours();
 
   gl.bindVertexArray(vao);
-  gl.drawArrays(gl.POINTS, 0, cols * rows);
+  // Draw the grid 9 times
+  for (let y = -1; y <= 1; y++) {
+    for (let x = -1; x <= 1; x++) {
+      const torusOffsetX = offsetX - x * ruleset.cols;
+      const torusOffsetY = offsetY - y * ruleset.rows;
+      gl.uniform2f(uOffsetLoc, torusOffsetX, torusOffsetY);
+      gl.drawArrays(gl.POINTS, 0, cols * rows);
+    }
+  }
 }
 
 // --------------------------------------------------------------------------------------

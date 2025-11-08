@@ -267,8 +267,13 @@ function buildStaticPositionBuffer(): void {
 }
 
 function buildGLObjects(canvas: OffscreenCanvas): void {
-  gl = canvas.getContext('webgl2', {alpha: false,
-    antialias: false}) as WebGL2RenderingContext;
+  gl = canvas.getContext(
+    'webgl2',
+    {
+      alpha: false,
+      antialias: false
+    }
+  ) as WebGL2RenderingContext;
   if (!gl) {
     throw Error('WebGL2 not available inside worker');
   }

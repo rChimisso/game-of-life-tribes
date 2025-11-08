@@ -117,13 +117,13 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
     if (this.offscreen) { // Already transferred
       const dpr = window.devicePixelRatio || 1; // High-DPI support
-      this.offscreen.width = width * dpr;
-      this.offscreen.height = height * dpr;
+      const newWidth = width * dpr;
+      const newHeight = height * dpr;
 
       this.worker.postMessage({
         type: 'resize',
-        width: this.offscreen.width,
-        height: this.offscreen.height,
+        width: newWidth,
+        height: newHeight,
         dpr
       } as ResizeMessage);
     } else {
@@ -134,7 +134,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
     // Re-compute min-zoom but keep current view (so it may now be clipped):
     if (this.ruleset) {
-      this.minScale = Math.min(width / this.ruleset.cols, height / this.ruleset.rows);
+      this.minScale = Math.max(width / this.ruleset.cols, height / this.ruleset.rows);
+      if (this.minScale > this.scale) {
+        this.resetCamera();
+      }
     }
   }
 
@@ -173,24 +176,24 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   // Angular change-detection hook:
-  public ngOnChanges(chgs: TypedChanges<Engine<T>>): void {
+  public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
     if (!this.worker) {
       return;
     }
-    if (chgs.state) {
+    if (changes.state) {
       this.worker.postMessage({
         type: 'setRunning',
         running: this.state === 'running'
       });
     }
-    if (chgs.speed) {
+    if (changes.speed) {
       this.worker.postMessage({
         type: 'setSpeed',
         speed: this.speed
       });
     }
-    if (chgs.ruleset) {
-      const needViewReset = !chgs.ruleset.previousValue || chgs.ruleset.previousValue.rows !== this.ruleset.rows || chgs.ruleset.previousValue.cols !== this.ruleset.cols;
+    if (changes.ruleset) {
+      const needViewReset = !changes.ruleset.previousValue || changes.ruleset.previousValue.rows !== this.ruleset.rows || changes.ruleset.previousValue.cols !== this.ruleset.cols;
       this.worker.postMessage({
         type: 'setRuleset',
         ruleset: this.ruleset

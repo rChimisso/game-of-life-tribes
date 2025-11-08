@@ -138,17 +138,17 @@ export interface EqualityClause<T extends readonly Tribe[]> {
    */
   readonly kind: 'equality';
   /**
-   * Tribe to check the equality count for.
+   * Tribes to check the equality count for.
    *
    * @type {AllowedTribe<T>}
    */
-  tribe1: AllowedTribe<T>;
+  tribe1: [AllowedTribe<T>, ...AllowedTribe<T>[]];
   /**
-   * Tribe to check the equality count for.
+   * Tribes to check the equality count for.
    *
    * @type {AllowedTribe<T>}
    */
-  tribe2: AllowedTribe<T>;
+  tribe2: [AllowedTribe<T>, ...AllowedTribe<T>[]];
 }
 
 /**

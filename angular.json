@@ -17,6 +17,9 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "loader": {
+              ".wgsl": "text"
+            },
             "outputPath": {
               "base": "docs",
               "browser": ""

@@ -1,414 +1,1408 @@
-/* eslint-disable jsdoc/require-jsdoc */
+﻿/* eslint-disable jsdoc/require-jsdoc */
 /* eslint-disable import/exports-last */
-/* eslint-disable max-depth */
-/* eslint-disable complexity */
-/* Webengine.ts – WebWorker that simulates the multi‑tribe Game‑of‑Life superset **and** renders it with WebGL2 on an OffscreenCanvas.
+/**
+ * WebGPU Game-of-Life Tribes engine.
  *
- *  – Each cell holds an 8‑bit tribe id (0‥254). Dead tribe **must** be present in the ruleset and is hard‑mapped to colour #000000.
- *  – The world is toroidal (Pac‑Man).  X wraps columns, Y wraps rows.
- *  – The worker understands a small command protocol (Init / Resize / Camera / …) whose
- *    TypeScript definitions live below so the Angular host can import them for type safety.
- *
- *  The code tries to stay reasonably small but still prioritises clarity over micro‑optimisations.
- *  Feel free to tweak buffer update strategies or add instancing if you hit very large grids.
+ * Runs entirely in a Web Worker on an OffscreenCanvas.
+ * - Simulation: compute shader (dynamically generated from the ruleset).
+ * - Rendering: full-screen quad reading from the grid storage buffer.
+ * - Grid: ping-pong between two storage buffers (A and B).
+ * - Cells: u8 tribe IDs packed 4-per-u32 in storage buffers.
+ * - Toroidal: world wraps in both axes.
  */
 
-// --------------------------------------------------------------------------------------
-//  Public message contracts
-// --------------------------------------------------------------------------------------
+import renderWgsl from './render.wgsl';
+import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
 
-// --------------------------------------------------------------------------------------
-//  Types shared with the UI (imported from the model).
-// --------------------------------------------------------------------------------------
-import {Ruleset, Tribe, DEAD_TRIBE, Clause} from '../model/rule';
+// ---------------------------------------------------------------------------
+//  Public message contracts
+// ---------------------------------------------------------------------------
 
 export interface InitMessage {
   type: 'init';
   canvas: OffscreenCanvas;
-  ruleset: Ruleset;
-  speed: number; // Steps per second (–1 ⇒ max‑speed)
+  ruleset: Ruleset<readonly Tribe[]>;
+  speed: number;
   running: boolean;
 }
 
-export interface ResizeMessage { type: 'resize'; width: number; height: number }
-export interface SetRulesetMessage { type: 'setRuleset'; ruleset: Ruleset }
-export interface SetRunningMessage { type: 'setRunning'; running: boolean }
-export interface SetSpeedMessage { type: 'setSpeed'; speed: number }
-export interface DrawMessage { type: 'draw'; cells: {x:number; y:number}[]; tribe: string }
-export interface CameraMessage { type: 'camera'; scale:number; offsetX:number; offsetY:number }
+export interface SetRulesetMessage {
+  type: 'setRuleset';
+  ruleset: Ruleset<readonly Tribe[]>;
+}
+
+export interface SetRunningMessage {
+  type: 'setRunning';
+  running: boolean;
+}
+
+export interface SetSpeedMessage {
+  type: 'setSpeed';
+  speed: number;
+}
+
+export interface DrawMessage {
+  type: 'draw';
+  cells: {x: number; y: number}[];
+  tribe: string;
+}
+
+export interface CameraMessage {
+  type: 'camera';
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface ResizeMessage {
+  type: 'resize';
+  width: number;
+  height: number;
+}
+
+export interface GetSnapshotMessage {
+  type: 'getSnapshot';
+}
+
+export interface LoadSnapshotMessage {
+  type: 'loadSnapshot';
+  grid: Uint32Array;
+  generation: number;
+}
+
+export interface SetRecordingMessage {
+  type: 'setRecording';
+  recording: boolean;
+}
+
+export interface GetRecordingMessage {
+  type: 'getRecording';
+}
 
 export type WorkerMessage =
   | InitMessage
-  | ResizeMessage
   | SetRulesetMessage
   | SetRunningMessage
   | SetSpeedMessage
   | DrawMessage
-  | CameraMessage;
+  | CameraMessage
+  | ResizeMessage
+  | GetSnapshotMessage
+  | LoadSnapshotMessage
+  | SetRecordingMessage
+  | GetRecordingMessage;
 
 export interface MetricMessage {
   type: 'metrics';
   generation: number;
-  simFps: number; // Simulation steps / second actually achieved
+  population: Record<string, number>;
+  shannonEntropy: number;
+  simpsonIndex: number;
+  boundaryLength: number;
+  meanClusterSize?: Record<string, number>;
+  fps: number;
 }
 
-// --------------------------------------------------------------------------------------
-//  Globals (kept module‑local – there’s only one worker instance).
-// --------------------------------------------------------------------------------------
-let gl: WebGL2RenderingContext;
+export interface SnapshotMessage {
+  type: 'snapshot';
+  grid: Uint32Array;
+  generation: number;
+  cols: number;
+  rows: number;
+}
 
-// Simulation data  ----------------------------------------------------------------------
-let ruleset: Ruleset;
+export interface RecordingMessage {
+  type: 'recording';
+  frames: Uint8Array[];
+  startGeneration: number;
+  cols: number;
+  rows: number;
+}
+
+// ---------------------------------------------------------------------------
+//  WebGPU state
+// ---------------------------------------------------------------------------
+
+let device: GPUDevice;
+let context: GPUCanvasContext;
+let canvasFormat: GPUTextureFormat;
+let canvas: OffscreenCanvas;
+
+// Grid data
+let ruleset: Ruleset<readonly Tribe[]>;
 let cols = 0;
 let rows = 0;
 let tribes: Tribe[] = [];
-const tribeIndex = new Map<string, number>(); // TribeId → index in tribes[]  (0‑based)
-let grid: Uint8Array; // Current generation (row‑major)
+const tribeIndex = new Map<string, number>();
 
-// Camera / view state ------------------------------------------------------------------
-let scale = 1; // Px per cell (sent from the UI)
-let offsetX = 0; // In **cells**
+// GPU buffers
+let gridBufferA: GPUBuffer;
+let gridBufferB: GPUBuffer;
+let uniformBuffer: GPUBuffer;
+let tribeColorBuffer: GPUBuffer;
+
+// Pipelines
+let renderPipeline: GPURenderPipeline;
+let renderBindGroupA: GPUBindGroup;
+let renderBindGroupB: GPUBindGroup;
+let computePipeline: GPUComputePipeline;
+let computeBindGroupAtoB: GPUBindGroup;
+let computeBindGroupBtoA: GPUBindGroup;
+
+// Ping-pong state: false = A is current, true = B is current.
+let pingPong = false;
+
+// Camera
+let scale = 1;
+let offsetX = 0;
 let offsetY = 0;
 
-// Timing -------------------------------------------------------------------------------
+// Timing
 let simulationRunning = false;
-let targetStepDuration = 100; // Ms  (10 fps default – will be overwritten by init)
-let lastStepTime = 0; // Ms timestamp of last sim step
+let targetStepDuration = 100;
+let stepAccumulator = 0;
+let lastFrameTime = 0;
 let genCounter = 0;
-let simFps = 0;
 
-// WebGL objects ------------------------------------------------------------------------
-let program: WebGLProgram;
-let uCanvasLoc: WebGLUniformLocation;
-let uScaleLoc: WebGLUniformLocation;
-let uOffsetLoc: WebGLUniformLocation;
-let vao: WebGLVertexArrayObject;
-let positionBuf: WebGLBuffer;
-let colorBuf: WebGLBuffer;
-// We cache a never‑changing Float32Array with vertex positions (2 floats per cell)
-let precomputedPositions: Float32Array | null = null;
+// Pending draw operations
+let pendingDraws: {cellIndex: number; tribeId: number}[] = [];
 
-const vs = `#version 300 es
+// CPU shadow for draw support.
+let cpuShadow: Uint8Array | null = null;
 
-layout(location=0) in vec2 aPos;
-layout(location=1) in vec3 aCol;
+// Metrics: GPU histogram + boundary
+let histogramPipeline: GPUComputePipeline;
+let histogramBindGroupA: GPUBindGroup;
+let histogramBindGroupB: GPUBindGroup;
+let histogramBuffer: GPUBuffer; // Array<atomic<u32>, 256>
+let histogramReadBuffer: GPUBuffer;
+let boundaryPipeline: GPUComputePipeline;
+let boundaryBindGroupA: GPUBindGroup;
+let boundaryBindGroupB: GPUBindGroup;
+let boundaryBuffer: GPUBuffer; // Single atomic<u32>
+let boundaryReadBuffer: GPUBuffer;
+let lastFullReadbackGen = 0;
+let lastMetricsGen = -1;
+let lastClusterData: Record<string, number> | undefined;
 
-uniform vec2 uCanvas;
-uniform float uScale;
-uniform vec2 uOffset;
+// Recording state
+let isRecording = true;
+let recordedFrames: Uint8Array[] = [];
+let recordingStartGen = 0;
+let needGen0Capture = false;
 
-out vec3 vCol;
+// Optimized recording: persistent double-buffered readback
+let recordBufA: GPUBuffer;
+let recordBufB: GPUBuffer;
+let recordBufToggle = false;
+let recordBufAReady = true;
+let recordBufBReady = true;
 
-void main(){
-  vec2 world = (aPos - uOffset) * uScale;
-  vec2 clip = (world / uCanvas) * 2.0 - 1.0;
-  gl_Position = vec4(clip, 0.0, 1.0);
-  gl_PointSize = uScale;
-  vCol = aCol;
-}`;
+// FPS tracking
+let stepCount = 0;
+let lastFpsTime = 0;
+let currentFps = 0;
 
-const fs = `#version 300 es
+// ---------------------------------------------------------------------------
+//  Compute shader codegen
+// ---------------------------------------------------------------------------
 
-precision highp float;
+function generateComputeWgsl(): string {
+  const lines: string[] = [];
 
-in vec3 vCol;
+  lines.push('// Auto-generated simulation compute shader.');
+  lines.push(`// Tribes: ${tribes.map(t => t.id).join(', ')}`);
+  lines.push(`// Rules: ${ruleset.rules.length}`);
+  lines.push('');
+  lines.push('@group(0) @binding(0) var<storage, read> gridIn: array<u32>;');
+  lines.push('@group(0) @binding(1) var<storage, read_write> gridOut: array<u32>;');
+  lines.push('');
+  lines.push(`const COLS: u32 = ${ cols }u;`);
+  lines.push(`const ROWS: u32 = ${ rows }u;`);
+  lines.push(`const TOTAL: u32 = ${ cols * rows }u;`);
+  lines.push('');
 
-out vec4 outCol;
+  // Helper: read a cell's tribe ID.
+  lines.push('fn readCell(idx: u32) -> u32 {');
+  lines.push('  return gridIn[idx];');
+  lines.push('}');
+  lines.push('');
 
-void main(){
-  outCol = vec4(vCol, 1.0);
-}`;
+  // Helper: write a cell's tribe ID.
+  lines.push('fn writeCell(idx: u32, tribe: u32) {');
+  lines.push('  gridOut[idx] = tribe;');
+  lines.push('}');
+  lines.push('');
 
-function buildShader(src: string, type: GLenum): WebGLShader {
-  const s = gl.createShader(type)!;
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    throw Error(`Shader compile error: ${ gl.getShaderInfoLog(s)}`);
-  }
-  return s;
-}
+  // Main compute function.
+  lines.push('@compute @workgroup_size(256)');
+  lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
+  lines.push('  let idx = gid.x;');
+  lines.push('  if (idx >= TOTAL) { return; }');
+  lines.push('');
+  lines.push('  let x = idx % COLS;');
+  lines.push('  let y = idx / COLS;');
+  lines.push('');
+  lines.push('  let selfTribe = readCell(idx);');
+  lines.push('');
 
-function makeProgram(vsSrc: string, fsSrc: string): WebGLProgram {
-  const vss = buildShader(vsSrc, gl.VERTEX_SHADER);
-  const fss = buildShader(fsSrc, gl.FRAGMENT_SHADER);
-  const p = gl.createProgram();
-  gl.attachShader(p, vss);
-  gl.attachShader(p, fss);
-  // Gl.bindAttribLocation(p, 0, 'a_pos');
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-    throw Error(`Program link error: ${ gl.getProgramInfoLog(p)}`);
-  }
-  return p;
-}
-
-function neighbourIndex(x: number, y: number): number {
-  // Wrap toroidally.
-  const ix = (x + cols) % cols;
-  const iy = (y + rows) % rows;
-  return iy * cols + ix;
-}
-
-function countNeighbours(x: number, y: number, tribeSet: Set<number>): number {
-  let n = 0;
+  // Read all 8 neighbors.
+  lines.push('  // Neighbor tribe IDs (toroidal wrapping).');
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       if (dx === 0 && dy === 0) {
         continue;
       }
-      if (tribeSet.has(grid[neighbourIndex(x + dx, y + dy)]!)) {
-        n++;
+      const name = neighborVarName(dx, dy);
+      const xExpr = wrapExpr('x', dx, 'COLS');
+      const yExpr = wrapExpr('y', dy, 'ROWS');
+      lines.push(`  let ${ name } = readCell(${ yExpr } * COLS + ${ xExpr });`);
+    }
+  }
+  lines.push('');
+
+  // Precompute neighbor count variables for each unique tribe set used in count clauses.
+  const countSets = collectCountSets(ruleset.rules.map(r => r.clause));
+  const countVarMap = new Map<string, string>();
+  let countIdx = 0;
+  for (const key of countSets) {
+    const varName = `count_${ countIdx++}`;
+    countVarMap.set(key, varName);
+  }
+
+  for (const [key, varName] of countVarMap) {
+    const tribeIds = key.split(',').map(Number);
+    const neighbors = getNeighborVarNames();
+    const checks = neighbors.map(n => {
+      const conditions = tribeIds.map(id => `${n } == ${ id }u`);
+      return `select(0u, 1u, ${ conditions.join(' || ') })`;
+    });
+    lines.push(`  let ${ varName } = ${ checks.join(' + ') };`);
+  }
+  if (countSets.size > 0) {
+    lines.push('');
+  }
+
+  // Precompute equality group counts.
+  const equalitySets = collectEqualitySets(ruleset.rules.map(r => r.clause));
+  const eqVarMap = new Map<string, string>();
+  let eqIdx = 0;
+  for (const key of equalitySets) {
+    if (countVarMap.has(key)) {
+      eqVarMap.set(key, countVarMap.get(key)!);
+    } else {
+      const varName = `eq_count_${ eqIdx++}`;
+      eqVarMap.set(key, varName);
+    }
+  }
+  for (const [key, varName] of eqVarMap) {
+    if (countVarMap.has(key)) {
+      continue;
+    }
+    const tribeIds = key.split(',').map(Number);
+    const neighbors = getNeighborVarNames();
+    const checks = neighbors.map(n => {
+      const conditions = tribeIds.map(id => `${n } == ${ id }u`);
+      return `select(0u, 1u, ${ conditions.join(' || ') })`;
+    });
+    lines.push(`  let ${ varName } = ${ checks.join(' + ') };`);
+  }
+  if (equalitySets.size > 0 && eqIdx > 0) {
+    lines.push('');
+  }
+
+  // Default: dead tribe.
+  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  lines.push(`  var result: u32 = ${ deadIdx }u;`);
+  lines.push('');
+
+  // Rule chain: first matching rule wins.
+  for (let ri = 0; ri < ruleset.rules.length; ri++) {
+    const rule = ruleset.rules[ri]!;
+    const condExpr = generateClauseExpr(rule.clause, countVarMap, eqVarMap);
+    const targetIdx = resolveTribeTarget(rule.tribe);
+    if (ri === 0) {
+      lines.push(`  if (${ condExpr }) {`);
+    } else {
+      lines.push(`  } else if (${ condExpr }) {`);
+    }
+    lines.push(`    result = ${ targetIdx }u;`);
+  }
+  if (ruleset.rules.length > 0) {
+    lines.push('  }');
+  }
+  lines.push('');
+  lines.push('  writeCell(idx, result);');
+  lines.push('}');
+
+  return lines.join('\n');
+}
+
+function neighborVarName(dx: number, dy: number): string {
+  const xName = dx === -1 ? 'L' : dx === 1 ? 'R' : 'C';
+  const yName = dy === -1 ? 'T' : dy === 1 ? 'B' : 'C';
+  return `n${ yName }${xName}`;
+}
+
+function getNeighborVarNames(): string[] {
+  const names: string[] = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) {
+        continue;
+      }
+      names.push(neighborVarName(dx, dy));
+    }
+  }
+  return names;
+}
+
+function wrapExpr(varName: string, delta: number, limit: string): string {
+  if (delta === 0) {
+    return varName;
+  }
+  if (delta === -1) {
+    return `(${ varName } + ${ limit } - 1u) % ${ limit}`;
+  }
+  return `(${ varName } + 1u) % ${ limit}`;
+}
+
+function resolveTribeIds(tribeNames: string[]): number[] {
+  const ids: number[] = [];
+  for (const name of tribeNames) {
+    if (name === 'any') {
+      for (let i = 0; i < tribes.length; i++) {
+        ids.push(i);
+      }
+    } else {
+      const idx = tribeIndex.get(name);
+      if (idx !== undefined) {
+        ids.push(idx);
       }
     }
   }
-  return n;
+  return [...new Set(ids)];
 }
 
-// The rules are expressed as well‑formed propositional‐logic trees.
-function evalClause(clause: Clause<Tribe[]>, x: number, y: number): boolean {
-  switch (clause.kind) {
+function resolveTribeTarget(tribeName: string): number {
+  if (tribeName === 'any') {
+    return 0;
+  }
+  return tribeIndex.get(tribeName) ?? 0;
+}
+
+function collectCountSets(clauses: Clause<Tribe[]>[]): Set<string> {
+  const result = new Set<string>();
+  for (const c of clauses) {
+    collectCountSetsRec(c, result);
+  }
+  return result;
+}
+
+function collectCountSetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
+  switch (c.kind) {
+    case 'count': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      result.add(ids.join(','));
+      break;
+    }
+    case 'not':
+      collectCountSetsRec(c.clause, result);
+      break;
+    case 'and':
+    case 'or':
+      for (const sub of c.clauses) {
+        collectCountSetsRec(sub, result);
+      }
+      break;
+  }
+}
+
+function collectEqualitySets(clauses: Clause<Tribe[]>[]): Set<string> {
+  const result = new Set<string>();
+  for (const c of clauses) {
+    collectEqualitySetsRec(c, result);
+  }
+  return result;
+}
+
+function collectEqualitySetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
+  switch (c.kind) {
+    case 'equality': {
+      const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
+      const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
+      result.add(ids1.join(','));
+      result.add(ids2.join(','));
+      break;
+    }
+    case 'not':
+      collectEqualitySetsRec(c.clause, result);
+      break;
+    case 'and':
+    case 'or':
+      for (const sub of c.clauses) {
+        collectEqualitySetsRec(sub, result);
+      }
+      break;
+  }
+}
+
+function generateClauseExpr(
+  c: Clause<Tribe[]>,
+  countVarMap: Map<string, string>,
+  eqVarMap: Map<string, string>,
+): string {
+  switch (c.kind) {
     case 'is': {
-      const cellTribe = tribes[grid[neighbourIndex(x, y)]!]!.id;
-      return clause.tribes.includes(cellTribe);
+      const ids = resolveTribeIds(c.tribes as string[]);
+      if (ids.length === 0) {
+        return 'false';
+      }
+      if (ids.length === tribes.length) {
+        return 'true';
+      }
+      const checks = ids.map(id => `selfTribe == ${ id }u`);
+      return `(${ checks.join(' || ') })`;
     }
     case 'count': {
-      const wanted = new Set<number>(clause.tribes.map(id => tribeIndex.get(id)!));
-      const cnt = countNeighbours(x, y, wanted);
-      return cnt >= clause.interval[0] && cnt <= clause.interval[1];
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      const varName = countVarMap.get(ids.join(','))!;
+      return `(${ varName } >= ${ c.interval[0] }u && ${ varName } <= ${ c.interval[1] }u)`;
     }
-    case 'equality':
-      return clause.tribe1 === clause.tribe2;
+    case 'equality': {
+      const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
+      const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
+      const var1 = eqVarMap.get(ids1.join(','))!;
+      const var2 = eqVarMap.get(ids2.join(','))!;
+      return `(${ var1 } == ${ var2 })`;
+    }
     case 'not':
-      return !evalClause(clause.clause, x, y);
-    case 'and':
-      return clause.clauses.every(c => evalClause(c, x, y));
-    case 'or':
-      return clause.clauses.some(c => evalClause(c, x, y));
+      return `!(${ generateClauseExpr(c.clause, countVarMap, eqVarMap) })`;
+    case 'and': {
+      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
+      return `(${ parts.join(' && ') })`;
+    }
+    case 'or': {
+      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
+      return `(${ parts.join(' || ') })`;
+    }
     default:
-      return false;
+      return 'false';
   }
 }
 
-function stepSimulation(): void {
-  const next = new Uint8Array(cols * rows);
-  const deadIdx = tribeIndex.get(DEAD_TRIBE.id)!;
+// ---------------------------------------------------------------------------
+//  Uniform layout (must match render.wgsl Uniforms struct)
+//
+//  Offset  0: canvas_size  vec2f    8 bytes
+//  Offset  8: grid_size    vec2f    8 bytes
+//  Offset 16: scale        f32      4 bytes
+//  Offset 20: pad                   4 bytes
+//  Offset 24: offset       vec2f    8 bytes
+//  Offset 32: tribe_count  u32      4 bytes
+//  Offset 36: pad                  12 bytes
+//  Total: 48 bytes
+// ---------------------------------------------------------------------------
+const UNIFORM_SIZE = 48;
 
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      let newIdx = deadIdx;
-      for (const rule of ruleset.rules) {
-        if (evalClause(rule.clause, x, y)) {
-          newIdx = tribeIndex.get(rule.tribe)!;
-          break; // First matching rule wins
-        }
-      }
-      next[y * cols + x] = newIdx;
+function writeUniforms(): void {
+  const data = new ArrayBuffer(UNIFORM_SIZE);
+  const f32 = new Float32Array(data);
+  const u32 = new Uint32Array(data);
+
+  f32[0] = canvas.width;
+  f32[1] = canvas.height;
+  f32[2] = cols;
+  f32[3] = rows;
+  f32[4] = scale;
+  // F32[5] = padding
+  f32[6] = offsetX;
+  f32[7] = offsetY;
+  u32[8] = tribes.length;
+
+  device.queue.writeBuffer(uniformBuffer, 0, data);
+}
+
+// ---------------------------------------------------------------------------
+//  Buffer management
+// ---------------------------------------------------------------------------
+
+function gridBufferSize(): number {
+  return cols * rows * 4; // 1 u32 (4 bytes) per cell
+}
+
+function createGridBuffers(): void {
+  const byteSize = gridBufferSize();
+
+  gridBufferA = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+  });
+
+  gridBufferB = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+  });
+
+  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  const initData = new Uint32Array(cols * rows);
+  initData.fill(deadIdx);
+  device.queue.writeBuffer(gridBufferA, 0, initData);
+  device.queue.writeBuffer(gridBufferB, 0, initData);
+
+  pingPong = false;
+}
+
+function createTribeColorBuffer(): void {
+  const data = new Uint32Array(256);
+  for (let i = 0; i < tribes.length; i++) {
+    const hex = tribes[i]!.color;
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    data[i] = r | (g << 8) | (b << 16);
+  }
+
+  if (tribeColorBuffer) {
+    tribeColorBuffer.destroy();
+  }
+  tribeColorBuffer = device.createBuffer({
+    size: data.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+  });
+  device.queue.writeBuffer(tribeColorBuffer, 0, data);
+}
+
+// ---------------------------------------------------------------------------
+//  Pipeline creation
+// ---------------------------------------------------------------------------
+
+function createRenderPipeline(): void {
+  const module = device.createShaderModule({code: renderWgsl});
+
+  renderPipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module,
+      entryPoint: 'vs_main'
+    },
+    fragment: {
+      module,
+      entryPoint: 'fs_main',
+      targets: [{format: canvasFormat}]
+    },
+    primitive: {
+      topology: 'triangle-list'
+    }
+  });
+}
+
+function createRenderBindGroups(): void {
+  renderBindGroupA = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: uniformBuffer} },
+      {binding: 1,
+        resource: {buffer: gridBufferA} },
+      {binding: 2,
+        resource: {buffer: tribeColorBuffer} }
+    ]
+  });
+
+  renderBindGroupB = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: uniformBuffer} },
+      {binding: 1,
+        resource: {buffer: gridBufferB} },
+      {binding: 2,
+        resource: {buffer: tribeColorBuffer} }
+    ]
+  });
+}
+
+function createComputePipeline(): void {
+  const wgsl = generateComputeWgsl();
+  const module = device.createShaderModule({code: wgsl});
+
+  computePipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {
+      module,
+      entryPoint: 'main'
+    }
+  });
+
+  computeBindGroupAtoB = device.createBindGroup({
+    layout: computePipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferA} },
+      {binding: 1,
+        resource: {buffer: gridBufferB} }
+    ]
+  });
+
+  computeBindGroupBtoA = device.createBindGroup({
+    layout: computePipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferB} },
+      {binding: 1,
+        resource: {buffer: gridBufferA} }
+    ]
+  });
+}
+
+// ---------------------------------------------------------------------------
+//  Metrics compute pipelines (histogram + boundary)
+// ---------------------------------------------------------------------------
+
+const HISTOGRAM_WGSL = `
+@group(0) @binding(0) var<storage, read> grid: array<u32>;
+@group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;
+
+const TOTAL: u32 = ${0}u; // placeholder, replaced at creation time
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let idx = gid.x;
+  if (idx >= TOTAL) { return; }
+  let tribe = grid[idx];
+  atomicAdd(&hist[tribe], 1u);
+}
+`;
+
+function generateBoundaryWgsl(): string {
+  return `
+@group(0) @binding(0) var<storage, read> grid: array<u32>;
+@group(0) @binding(1) var<storage, read_write> boundary: atomic<u32>;
+
+const COLS: u32 = ${cols}u;
+const ROWS: u32 = ${rows}u;
+const TOTAL: u32 = ${cols * rows}u;
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let idx = gid.x;
+  if (idx >= TOTAL) { return; }
+  let x = idx % COLS;
+  let y = idx / COLS;
+  let self_tribe = grid[idx];
+
+  // Check right neighbor.
+  let rx = (x + 1u) % COLS;
+  if (grid[y * COLS + rx] != self_tribe) {
+    atomicAdd(&boundary, 1u);
+  }
+
+  // Check bottom neighbor.
+  let by = (y + 1u) % ROWS;
+  if (grid[by * COLS + x] != self_tribe) {
+    atomicAdd(&boundary, 1u);
+  }
+}
+`;
+}
+
+function createMetricsPipelines(): void {
+  // Histogram
+  const histWgsl = HISTOGRAM_WGSL.replace(`${0}u`, `${cols * rows}u`);
+  const histModule = device.createShaderModule({code: histWgsl});
+  histogramPipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {module: histModule,
+      entryPoint: 'main'}
+  });
+
+  histogramBuffer = device.createBuffer({
+    size: 256 * 4, // 256 tribes max
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  });
+  histogramReadBuffer = device.createBuffer({
+    size: 256 * 4,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+
+  histogramBindGroupA = device.createBindGroup({
+    layout: histogramPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferA} },
+      {binding: 1,
+        resource: {buffer: histogramBuffer} }
+    ]
+  });
+  histogramBindGroupB = device.createBindGroup({
+    layout: histogramPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferB} },
+      {binding: 1,
+        resource: {buffer: histogramBuffer} }
+    ]
+  });
+
+  // Boundary
+  const boundaryModule = device.createShaderModule({code: generateBoundaryWgsl()});
+  boundaryPipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {module: boundaryModule,
+      entryPoint: 'main'}
+  });
+
+  boundaryBuffer = device.createBuffer({
+    size: 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  });
+  boundaryReadBuffer = device.createBuffer({
+    size: 4,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+
+  boundaryBindGroupA = device.createBindGroup({
+    layout: boundaryPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferA} },
+      {binding: 1,
+        resource: {buffer: boundaryBuffer} }
+    ]
+  });
+  boundaryBindGroupB = device.createBindGroup({
+    layout: boundaryPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferB} },
+      {binding: 1,
+        resource: {buffer: boundaryBuffer} }
+    ]
+  });
+}
+
+// ---------------------------------------------------------------------------
+//  Draw staging
+// ---------------------------------------------------------------------------
+
+function applyPendingDraws(): void {
+  if (pendingDraws.length === 0) {
+    return;
+  }
+
+  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+
+  for (const {cellIndex, tribeId} of pendingDraws) {
+    const wordArray = new Uint32Array([tribeId]);
+    device.queue.writeBuffer(currentGrid, cellIndex * 4, wordArray);
+    if (cpuShadow) {
+      cpuShadow[cellIndex] = tribeId;
     }
   }
-  grid = next;
+
+  pendingDraws = [];
+}
+
+function initCpuShadow(): void {
+  cpuShadow = new Uint8Array(cols * rows);
+  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  cpuShadow.fill(deadIdx);
+}
+
+function syncShadowFromGpu(): void {
+  if (!cpuShadow) {
+    return;
+  }
+
+  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  const byteSize = gridBufferSize();
+
+  const readbackBuffer = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+
+  const encoder = device.createCommandEncoder();
+  encoder.copyBufferToBuffer(currentGrid, 0, readbackBuffer, 0, byteSize);
+  device.queue.submit([encoder.finish()]);
+
+  readbackBuffer.mapAsync(GPUMapMode.READ).then(() => {
+    const data = new Uint32Array(readbackBuffer.getMappedRange());
+    for (let i = 0; i < cols * rows; i++) {
+      cpuShadow![i] = data[i]!;
+    }
+    readbackBuffer.unmap();
+    readbackBuffer.destroy();
+  });
+}
+
+function readbackGrid(): Promise<Uint32Array> {
+  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  const byteSize = gridBufferSize();
+
+  const readBuffer = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+
+  const encoder = device.createCommandEncoder();
+  encoder.copyBufferToBuffer(currentGrid, 0, readBuffer, 0, byteSize);
+  device.queue.submit([encoder.finish()]);
+
+  return readBuffer.mapAsync(GPUMapMode.READ).then(() => {
+    const copy = new Uint32Array(readBuffer.getMappedRange().slice(0));
+    readBuffer.unmap();
+    readBuffer.destroy();
+    return copy;
+  });
+}
+
+// ---------------------------------------------------------------------------
+//  Metrics helpers
+// ---------------------------------------------------------------------------
+
+function metricsInterval(): number {
+  // Modulate metrics frequency based on simulation speed.
+  // Slow (<=1 fps): every step. Fast (max speed): every ~60 steps.
+  if (targetStepDuration <= 0) {
+    return 60;
+  }
+  const stepsPerSecond = 1000 / targetStepDuration;
+  return Math.max(1, Math.round(stepsPerSecond));
+}
+
+function fullReadbackInterval(): number {
+  // Expensive cluster analysis: less often at high speed.
+  return Math.max(5, metricsInterval() * 4);
+}
+
+function runMetricsGpu(encoder: GPUCommandEncoder): void {
+  // Clear histogram buffer.
+  const zeros256 = new Uint32Array(256);
+  device.queue.writeBuffer(histogramBuffer, 0, zeros256);
+  // Clear boundary buffer.
+  const zeros1 = new Uint32Array([0]);
+  device.queue.writeBuffer(boundaryBuffer, 0, zeros1);
+
+  const wgCount = Math.ceil((cols * rows) / 256);
+
+  // Histogram pass.
+  const hp = encoder.beginComputePass();
+  hp.setPipeline(histogramPipeline);
+  hp.setBindGroup(0, pingPong ? histogramBindGroupB : histogramBindGroupA);
+  hp.dispatchWorkgroups(wgCount);
+  hp.end();
+
+  // Boundary pass.
+  const bp = encoder.beginComputePass();
+  bp.setPipeline(boundaryPipeline);
+  bp.setBindGroup(0, pingPong ? boundaryBindGroupB : boundaryBindGroupA);
+  bp.dispatchWorkgroups(wgCount);
+  bp.end();
+
+  // Copy results to read buffers.
+  encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
+  encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
+}
+
+function readMetricsAndPost(includeCluster: boolean): void {
+  const gen = genCounter;
+  if (gen === lastMetricsGen) {
+    return;
+  }
+  lastMetricsGen = gen;
+
+  // Read histogram.
+  histogramReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
+    const histData = new Uint32Array(histogramReadBuffer.getMappedRange().slice(0));
+    histogramReadBuffer.unmap();
+
+    return boundaryReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
+      const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
+      boundaryReadBuffer.unmap();
+
+      const population: Record<string, number> = {};
+      let totalAlive = 0;
+      const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+      for (let i = 0; i < tribes.length; i++) {
+        const count = histData[i] ?? 0;
+        population[tribes[i]!.id] = count;
+        if (i !== deadIdx) {
+          totalAlive += count;
+        }
+      }
+
+      // Shannon entropy & Simpson index (over non-dead tribes).
+      let shannonEntropy = 0;
+      let simpsonSum = 0;
+      if (totalAlive > 0) {
+        for (let i = 0; i < tribes.length; i++) {
+          if (i === deadIdx) {
+            continue;
+          }
+          const p = (histData[i] ?? 0) / totalAlive;
+          if (p > 0) {
+            shannonEntropy -= p * Math.log2(p);
+            simpsonSum += p * p;
+          }
+        }
+      }
+
+      // Cluster data: use latest if available.
+      if (includeCluster && cpuShadow) {
+        lastClusterData = computeClusterSizes();
+      }
+
+      self.postMessage({
+        type: 'metrics',
+        generation: gen,
+        population,
+        shannonEntropy,
+        simpsonIndex: 1 - simpsonSum,
+        boundaryLength: bData[0] ?? 0,
+        meanClusterSize: lastClusterData,
+        fps: currentFps
+      } satisfies MetricMessage);
+    });
+  });
+}
+
+function computeClusterSizes(): Record<string, number> {
+  if (!cpuShadow) {
+    return {};
+  }
+  const total = cols * rows;
+  const visited = new Uint8Array(total);
+  const clusterCounts: Map<number, number[]> = new Map();
+
+  for (let i = 0; i < total; i++) {
+    if (visited[i]) {
+      continue;
+    }
+    const tribe = cpuShadow[i]!;
+    visited[i] = 1;
+
+    // BFS flood-fill.
+    let size = 0;
+    const queue = [i];
+    while (queue.length > 0) {
+      const ci = queue.pop()!;
+      size++;
+      const cx = ci % cols;
+      const cy = (ci - cx) / cols;
+      // 4-connected neighbors (toroidal).
+      const neighbors = [
+        ((cy + rows - 1) % rows) * cols + cx,
+        ((cy + 1) % rows) * cols + cx,
+        cy * cols + ((cx + cols - 1) % cols),
+        cy * cols + ((cx + 1) % cols)
+      ];
+      for (const ni of neighbors) {
+        if (!visited[ni] && cpuShadow[ni] === tribe) {
+          visited[ni] = 1;
+          queue.push(ni);
+        }
+      }
+    }
+
+    if (!clusterCounts.has(tribe)) {
+      clusterCounts.set(tribe, []);
+    }
+    clusterCounts.get(tribe)!.push(size);
+  }
+
+  const result: Record<string, number> = {};
+  for (const [tribeIdx, sizes] of clusterCounts) {
+    if (tribeIdx < tribes.length) {
+      const mean = sizes.reduce((a, b) => a + b, 0) / sizes.length;
+      result[tribes[tribeIdx]!.id] = mean;
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+//  Simulation step
+// ---------------------------------------------------------------------------
+
+function stepSimulation(): void {
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginComputePass();
+  pass.setPipeline(computePipeline);
+  pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
+
+  const workgroupCount = Math.ceil((cols * rows) / 256);
+  pass.dispatchWorkgroups(workgroupCount);
+  pass.end();
+
+  device.queue.submit([encoder.finish()]);
+
+  pingPong = !pingPong;
   genCounter++;
 }
 
-function uploadColours(): void {
-  // Convert each cell’s tribe colour into the colour buffer.
-  const total = cols * rows;
-  const colours = new Float32Array(total * 3);
-  let idx = 0;
-  for (let i = 0; i < total; i++) {
-    const rgb = tribes[grid[i]!]!.color;
-    colours[idx++] = parseInt(rgb.substring(0, 2), 16);
-    colours[idx++] = parseInt(rgb.substring(2, 4), 16);
-    colours[idx++] = parseInt(rgb.substring(4, 6), 16);
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, colours, gl.STREAM_DRAW);
-}
+// ---------------------------------------------------------------------------
+//  Render frame
+// ---------------------------------------------------------------------------
 
 function renderFrame(): void {
-  const canvas = gl.canvas as OffscreenCanvas;
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  writeUniforms();
 
-  gl.useProgram(program);
-  gl.uniform2f(uCanvasLoc, canvas.width, canvas.height);
-  gl.uniform1f(uScaleLoc, scale);
-  gl.uniform2f(uOffsetLoc, offsetX, offsetY);
+  const textureView = context.getCurrentTexture().createView();
 
-  uploadColours();
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginRenderPass({
+    colorAttachments: [
+      {
+        view: textureView,
+        loadOp: 'clear' as GPULoadOp,
+        storeOp: 'store' as GPUStoreOp,
+        clearValue: {
+          r: 0,
+          g: 0,
+          b: 0,
+          a: 1
+        }
+      }
+    ]
+  });
 
-  gl.bindVertexArray(vao);
-  // Draw the grid 9 times
-  for (let y = -1; y <= 1; y++) {
-    for (let x = -1; x <= 1; x++) {
-      const torusOffsetX = offsetX - x * ruleset.cols;
-      const torusOffsetY = offsetY - y * ruleset.rows;
-      gl.uniform2f(uOffsetLoc, torusOffsetX, torusOffsetY);
-      gl.drawArrays(gl.POINTS, 0, cols * rows);
-    }
-  }
+  pass.setPipeline(renderPipeline);
+  pass.setBindGroup(0, pingPong ? renderBindGroupB : renderBindGroupA);
+  pass.draw(3);
+  pass.end();
+
+  device.queue.submit([encoder.finish()]);
 }
 
-// --------------------------------------------------------------------------------------
-//  Initialisation helpers
-// --------------------------------------------------------------------------------------
-function buildStaticPositionBuffer(): void {
-  const total = cols * rows;
-  precomputedPositions = new Float32Array(total * 2);
-  let i = 0;
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      precomputedPositions[i++] = x + 0.5;
-      precomputedPositions[i++] = y + 0.5;
-    }
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, precomputedPositions, gl.STATIC_DRAW);
-}
+// ---------------------------------------------------------------------------
+//  Main loop
+// ---------------------------------------------------------------------------
 
-function buildGLObjects(canvas: OffscreenCanvas): void {
-  gl = canvas.getContext(
-    'webgl2',
-    {
-      alpha: false,
-      antialias: false
-    }
-  ) as WebGL2RenderingContext;
-  if (!gl) {
-    throw Error('WebGL2 not available inside worker');
-  }
-
-  program = makeProgram(vs, fs);
-  uCanvasLoc = gl.getUniformLocation(program, 'uCanvas')!;
-  uScaleLoc = gl.getUniformLocation(program, 'uScale')!;
-  uOffsetLoc = gl.getUniformLocation(program, 'uOffset')!;
-
-  vao = gl.createVertexArray()!;
-  positionBuf = gl.createBuffer()!;
-  colorBuf = gl.createBuffer()!;
-
-  gl.bindVertexArray(vao);
-
-  // Attribute 0 – positions (STATIC)
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuf);
-  gl.enableVertexAttribArray(0);
-  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-
-  // Attribute 1 – colours (STREAM)
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuf);
-  gl.enableVertexAttribArray(1);
-  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
-
-  gl.clearColor(0, 0, 0, 1);
-}
-
-function initRuleset(rs: Ruleset): void {
-  ruleset = rs;
-  cols = rs.cols;
-  rows = rs.rows;
-  tribes = rs.tribes;
-
-  tribeIndex.clear();
-  tribes.forEach((t, i) => tribeIndex.set(t.id, i));
-
-  grid = new Uint8Array(cols * rows);
-  grid.fill(tribeIndex.get(DEAD_TRIBE.id)!);
-
-  buildStaticPositionBuffer();
-  genCounter = 0;
-}
-
-function resetCamera(canvasW: number, canvasH: number): void {
-  // Lowest zoom so that **whole** grid fits inside the shorter canvas dimension.
-  scale = Math.floor(Math.min(canvasW / cols, canvasH / rows));
-  if (scale < 0.5) {
-    scale = 0.5;
-  } // Guarantee >0 to avoid division by zero
-  offsetX = 0;
-  offsetY = 0;
-}
-
-// --------------------------------------------------------------------------------------
-//  Main render / sim loop (runs forever) ------------------------------------------------
 function mainLoop(now: number): void {
-  if (simulationRunning) {
-    const elapsed = now - lastStepTime;
-    if (targetStepDuration <= 0 || elapsed >= targetStepDuration) {
-      const start = performance.now();
-      stepSimulation();
-      const end = performance.now();
-      simFps = 1000 / (end - start);
-      lastStepTime = now;
+  applyPendingDraws();
 
-      // Send basic metrics every 15 frames (cheap throttling).
-      if (genCounter % 15 === 0) {
-        self.postMessage({
-          type: 'metrics',
-          generation: genCounter,
-          simFps
-        } as MetricMessage);
+  // Capture gen0 (initial state) when recording starts.
+  if (isRecording && needGen0Capture) {
+    needGen0Capture = false;
+    readbackGrid().then(grid => {
+      const frame = new Uint8Array(cols * rows);
+      for (let i = 0; i < cols * rows; i++) {
+        frame[i] = grid[i]!;
+      }
+      recordedFrames.unshift(frame);
+    });
+  }
+
+  // FPS tracking.
+  if (lastFpsTime === 0) {
+    lastFpsTime = now;
+  }
+  const fpsElapsed = now - lastFpsTime;
+  if (fpsElapsed >= 1000) {
+    currentFps = stepCount / (fpsElapsed / 1000);
+    stepCount = 0;
+    lastFpsTime = now;
+  }
+
+  if (simulationRunning) {
+    let didStep = false;
+    if (lastFrameTime === 0) {
+      lastFrameTime = now;
+    }
+    const delta = now - lastFrameTime;
+    lastFrameTime = now;
+
+    if (targetStepDuration <= 0) {
+      // Max speed: run as many steps as fit in a ~14 ms budget per frame.
+      const deadline = performance.now() + 14;
+      while (performance.now() < deadline) {
+        stepSimulation();
+        stepCount++;
+      }
+      didStep = true;
+    } else {
+      // Accumulate elapsed time and step as many times as needed.
+      stepAccumulator += delta;
+      while (stepAccumulator >= targetStepDuration) {
+        stepSimulation();
+        stepCount++;
+        stepAccumulator -= targetStepDuration;
+        didStep = true;
       }
     }
+
+    if (didStep) {
+    // Record frame using persistent double-buffered readback.
+      if (isRecording) {
+        const useBufA = !recordBufToggle;
+        const buf = useBufA ? recordBufA : recordBufB;
+        const ready = useBufA ? recordBufAReady : recordBufBReady;
+
+        if (ready) {
+          const currentGrid = pingPong ? gridBufferB : gridBufferA;
+          const byteSize = gridBufferSize();
+          const copyEncoder = device.createCommandEncoder();
+          copyEncoder.copyBufferToBuffer(currentGrid, 0, buf, 0, byteSize);
+          device.queue.submit([copyEncoder.finish()]);
+
+          if (useBufA) {
+            recordBufAReady = false;
+          } else {
+            recordBufBReady = false;
+          }
+
+          buf.mapAsync(GPUMapMode.READ).then(() => {
+            const data = new Uint32Array(buf.getMappedRange());
+            const frame = new Uint8Array(cols * rows);
+            for (let i = 0; i < cols * rows; i++) {
+              frame[i] = data[i]!;
+            }
+            buf.unmap();
+            if (useBufA) {
+              recordBufAReady = true;
+            } else {
+              recordBufBReady = true;
+            }
+            recordedFrames.push(frame);
+          });
+
+          recordBufToggle = !recordBufToggle;
+        }
+      }
+
+      const mi = metricsInterval();
+      if (genCounter - lastMetricsGen >= mi) {
+      // Run GPU metrics passes and submit together.
+        const encoder = device.createCommandEncoder();
+        runMetricsGpu(encoder);
+        device.queue.submit([encoder.finish()]);
+
+        const fri = fullReadbackInterval();
+        const doCluster = genCounter - lastFullReadbackGen >= fri;
+        if (doCluster) {
+          syncShadowFromGpu();
+          lastFullReadbackGen = genCounter;
+        }
+        readMetricsAndPost(doCluster);
+      }
+    } // DidStep
   }
-  renderFrame();
+
+  // Skip rendering in max speed mode to avoid UI lag.
+  if (targetStepDuration > 0) {
+    renderFrame();
+  }
   self.requestAnimationFrame(mainLoop);
 }
 
-// --------------------------------------------------------------------------------------
-//  Message handler (public API) ---------------------------------------------------------
-self.onmessage = (ev: MessageEvent<WorkerMessage>) => {
+// ---------------------------------------------------------------------------
+//  Initialization
+// ---------------------------------------------------------------------------
+
+function initRuleset(rs: Ruleset<readonly Tribe[]>): void {
+  ruleset = rs;
+  cols = rs.cols;
+  rows = rs.rows;
+  tribes = [...rs.tribes];
+
+  tribeIndex.clear();
+  tribes.forEach((t, i) => tribeIndex.set(t.id, i));
+}
+
+async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
+  canvas = offscreen;
+
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) {
+    throw new Error('WebGPU adapter not available');
+  }
+
+  device = await adapter.requestDevice();
+  context = canvas.getContext('webgpu') as GPUCanvasContext;
+  canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+
+  context.configure({
+    device,
+    format: canvasFormat,
+    alphaMode: 'opaque'
+  });
+}
+
+function createRecordBuffers(): void {
+  const byteSize = gridBufferSize();
+  recordBufA = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+  recordBufB = device.createBuffer({
+    size: byteSize,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+  recordBufToggle = false;
+  recordBufAReady = true;
+  recordBufBReady = true;
+}
+
+function buildPipelines(): void {
+  uniformBuffer = device.createBuffer({
+    size: UNIFORM_SIZE,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+
+  createGridBuffers();
+  createTribeColorBuffer();
+  initCpuShadow();
+
+  createRenderPipeline();
+  createRenderBindGroups();
+  createComputePipeline();
+  createMetricsPipelines();
+  createRecordBuffers();
+}
+
+function rebuildForNewRuleset(): void {
+  gridBufferA?.destroy();
+  gridBufferB?.destroy();
+  histogramBuffer?.destroy();
+  histogramReadBuffer?.destroy();
+  boundaryBuffer?.destroy();
+  boundaryReadBuffer?.destroy();
+  recordBufA?.destroy();
+  recordBufB?.destroy();
+
+  createGridBuffers();
+  createTribeColorBuffer();
+  initCpuShadow();
+  createComputePipeline();
+  createRenderBindGroups();
+  createMetricsPipelines();
+  createRecordBuffers();
+  lastClusterData = undefined;
+  recordedFrames = [];
+  recordingStartGen = genCounter;
+}
+
+// ---------------------------------------------------------------------------
+//  Message handler
+// ---------------------------------------------------------------------------
+
+self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
   const m = ev.data;
   switch (m.type) {
     case 'init': {
-      buildGLObjects(m.canvas);
       initRuleset(m.ruleset);
-      resetCamera(m.canvas.width, m.canvas.height);
+      await initWebGPU(m.canvas);
+      buildPipelines();
+
       simulationRunning = m.running;
       targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      lastStepTime = performance.now();
+      lastFrameTime = 0;
+      stepAccumulator = 0;
+
       self.requestAnimationFrame(mainLoop);
       break;
     }
-    case 'resize': {
-      const canvas = gl.canvas as OffscreenCanvas;
-      canvas.width = m.width;
-      canvas.height = m.height;
-      gl.viewport(0, 0, m.width, m.height);
-      // Keep camera & grid – view simply cuts off; spec requirement.
+
+    case 'setRuleset': {
+      initRuleset(m.ruleset);
+      rebuildForNewRuleset();
+      genCounter = 0;
       break;
     }
-    case 'camera': {
+
+    case 'setRunning':
+      simulationRunning = m.running;
+      if (m.running) {
+        lastFrameTime = 0;
+        stepAccumulator = 0;
+        if (isRecording && recordedFrames.length === 0) {
+          needGen0Capture = true;
+        }
+      }
+      break;
+
+    case 'setSpeed':
+      targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
+      stepAccumulator = 0;
+      break;
+
+    case 'camera':
       scale = m.scale;
       offsetX = m.offsetX;
       offsetY = m.offsetY;
       break;
-    }
-    case 'setRunning':
-      simulationRunning = m.running;
+
+    case 'resize':
+      canvas.width = m.width;
+      canvas.height = m.height;
       break;
-    case 'setSpeed':
-      targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      break;
-    case 'setRuleset': {
-      const prevCols = cols;
-      const prevRows = rows;
-      initRuleset(m.ruleset);
-      // Spec: if grid size changed, camera resets.
-      const canvas = gl.canvas as OffscreenCanvas;
-      if (prevCols !== cols || prevRows !== rows) {
-        resetCamera(canvas.width, canvas.height);
-      }
-      break;
-    }
+
     case 'draw': {
       const idx = tribeIndex.get(m.tribe);
       if (idx === undefined) {
         break;
       }
       for (const c of m.cells) {
-        const i = neighbourIndex(c.x, c.y); // Reuse wrap logic
-        grid[i] = idx;
+        const cx = ((c.x % cols) + cols) % cols;
+        const cy = ((c.y % rows) + rows) % rows;
+        const cellIndex = cy * cols + cx;
+        pendingDraws.push({cellIndex,
+          tribeId: idx});
       }
+      break;
+    }
+
+    case 'getSnapshot': {
+      readbackGrid().then(grid => {
+        self.postMessage({
+          type: 'snapshot',
+          grid,
+          generation: genCounter,
+          cols,
+          rows
+        } satisfies SnapshotMessage, {transfer: [grid.buffer]});
+      });
+      break;
+    }
+
+    case 'loadSnapshot': {
+      const currentGrid = pingPong ? gridBufferB : gridBufferA;
+      device.queue.writeBuffer(currentGrid, 0, m.grid);
+      if (cpuShadow) {
+        for (let i = 0; i < m.grid.length; i++) {
+          cpuShadow[i] = m.grid[i]!;
+        }
+      }
+      genCounter = m.generation;
+      lastClusterData = undefined;
+      break;
+    }
+
+    case 'setRecording': {
+      if (m.recording && !isRecording) {
+        isRecording = true;
+        recordedFrames = [];
+        recordingStartGen = genCounter;
+        needGen0Capture = true;
+      } else if (!m.recording) {
+        isRecording = false;
+      }
+      break;
+    }
+
+    case 'getRecording': {
+      // Copy frames so the originals stay intact for future downloads.
+      const frames = recordedFrames.map(f => new Uint8Array(f));
+      const transferables = frames.map(f => f.buffer);
+      self.postMessage({
+        type: 'recording',
+        frames,
+        startGeneration: recordingStartGen,
+        cols,
+        rows
+      } satisfies RecordingMessage, {transfer: transferables as Transferable[]});
       break;
     }
   }

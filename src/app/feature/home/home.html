@@ -1,4 +1,11 @@
-<section>WIP</section>
-<section>
-  <gol-engine [drawTribe]="drawTribe" [ruleset]="ruleset" [speed]="speed" [state]="state" />
+<gol-sidebar [deleteMode]="deleteMode" [drawTribe]="drawTribe" [gridCols]="ruleset.cols" [gridRows]="ruleset.rows" [maxSpeed]="maxSpeed" [metrics]="latestMetrics" [ruleset]="ruleset" [running]="state === 'running'" [speed]="speed" [tribes]="tribes" (sidebarEvent)="onSidebarEvent($event)" />
+<section class="canvas-section">
+  <gol-engine [drawTribe]="drawTribe" [ruleset]="ruleset" [speed]="effectiveSpeed" [state]="state" (metrics)="onMetrics($event)" (recording)="onRecording($event)" (snapshot)="onSnapshot($event)" />
+  @if (maxSpeed) {
+    <div class="max-speed-overlay">
+      <mat-icon>speed</mat-icon>
+      <span>Max speed enabled — rendering paused</span>
+      <span class="max-speed-hint">Disable max speed to render again</span>
+    </div>
+  }
 </section>

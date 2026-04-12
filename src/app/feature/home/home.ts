@@ -1,58 +1,48 @@
-import {Component, HostListener} from '@angular/core';
+import {ChangeDetectorRef, Component, HostListener, ViewChild} from '@angular/core';
+import {MatIconModule} from '@angular/material/icon';
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
-import {AllowedTribe, ANY_TRIBE_ID, DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
+import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
+import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
+import {MetricMessage, RecordingMessage, SnapshotMessage} from './worker/webengine';
 
-/**
- * Homepage.
- *
- * @export
- * @class Home
- * @typedef {HomePage}
- */
 @Component({
   selector: 'gol-home',
   standalone: true,
-  imports: [RouterModule, Engine],
+  imports: [
+    RouterModule,
+    Engine,
+    Sidebar,
+    MatIconModule
+  ],
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
 export class HomePage {
-  private readonly tribes = [
-    DEAD_TRIBE,
-    {
-      id: 'classic',
-      color: 'f0f0f0'
-    },
-    {
-      id: 'red',
-      color: 'ff0000'
-    },
-    {
-      id: 'blue',
-      color: '00ff00'
-    },
-    {
-      id: 'green',
-      color: '0000ff'
-    }
-  ] as const satisfies readonly Tribe[];
+  @ViewChild(Engine) engine!: Engine<Tribe[]>;
 
-  public ruleset: Ruleset<typeof this.tribes> = {
+  ruleset: Ruleset = {
     cols: 100,
     rows: 100,
-    tribes: this.tribes,
+    tribes: [
+      DEAD_TRIBE,
+      {id: 'classic',
+        color: 'f0f0f0'},
+      {id: 'red',
+        color: 'ff0000'},
+      {id: 'blue',
+        color: '00ff00'},
+      {id: 'green',
+        color: '0000ff'}
+    ],
     rules: [
-      // Underpopulation rule.
       {
         clause: {
           kind: 'and',
           clauses: [
-            {
-              kind: 'is',
-              tribes: ['classic']
-            },
+            {kind: 'is',
+              tribes: ['classic']},
             {
               kind: 'count',
               interval: [0, 1],
@@ -62,15 +52,12 @@ export class HomePage {
         },
         tribe: DEAD_TRIBE.id
       },
-      // Survival rule.
       {
         clause: {
           kind: 'and',
           clauses: [
-            {
-              kind: 'is',
-              tribes: ['classic']
-            },
+            {kind: 'is',
+              tribes: ['classic']},
             {
               kind: 'count',
               interval: [2, 3],
@@ -80,15 +67,12 @@ export class HomePage {
         },
         tribe: 'classic'
       },
-      // Overpopulation rule.
       {
         clause: {
           kind: 'and',
           clauses: [
-            {
-              kind: 'is',
-              tribes: ['classic']
-            },
+            {kind: 'is',
+              tribes: ['classic']},
             {
               kind: 'count',
               interval: [4, 8],
@@ -98,15 +82,12 @@ export class HomePage {
         },
         tribe: DEAD_TRIBE.id
       },
-      // Reproduction rule.
       {
         clause: {
           kind: 'and',
           clauses: [
-            {
-              kind: 'is',
-              tribes: ['dead']
-            },
+            {kind: 'is',
+              tribes: ['dead']},
             {
               kind: 'count',
               interval: [3, 3],
@@ -119,44 +100,290 @@ export class HomePage {
     ]
   };
 
-  public state: 'running' | 'paused' = 'paused';
+  state: 'running' | 'paused' = 'paused';
 
-  public speed = 1;
+  speed = 1;
 
-  public drawTribe: Exclude<AllowedTribe<typeof this.tribes>, typeof ANY_TRIBE_ID> = 'classic';
+  maxSpeed = false;
+
+  drawTribe = 'classic';
+
+  deleteMode = false;
+
+  latestMetrics: MetricMessage | null = null;
 
   private drawTribeIndex = 1;
 
-  @HostListener('keydown', ['$event'])
-  public test(ev: KeyboardEvent) {
-    switch (ev.key) {
-      case ' ':
-        if (this.state === 'paused') {
-          this.state = 'running';
-        } else {
-          this.state = 'paused';
-        }
-        break;
-      case 'ArrowUp':
-        this.speed++;
-        break;
-      case 'ArrowDown':
-        this.speed--;
-        break;
-      case 'ArrowRight':
-        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
-        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
-        break;
-      case 'ArrowLeft':
-        this.drawTribeIndex = (this.drawTribeIndex - 1) % this.tribes.length;
-        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
-        break;
-      case 'r':
-        this.ruleset = {...this.ruleset};
+  private metricsHistory: MetricMessage[] = [];
+
+  constructor(private readonly cdr: ChangeDetectorRef) {}
+
+  get tribes(): readonly Tribe[] {
+    return this.ruleset.tribes;
+  }
+
+  get effectiveSpeed(): number {
+    return this.maxSpeed ? -1 : this.speed;
+  }
+
+  @HostListener('mousedown', ['$event'])
+  onHostMousedown(ev: MouseEvent): void {
+    const target = ev.target as HTMLElement;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+      (document.activeElement as HTMLElement)?.blur?.();
     }
   }
 
-  public onMetrics(data: unknown) {
-    console.log(data);
+  @HostListener('keydown', ['$event'])
+  onKeydown(ev: KeyboardEvent): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
+      return;
+    }
+    if (active instanceof HTMLInputElement) {
+      const t = active.type;
+      if (t !== 'checkbox' && t !== 'radio') {
+        return;
+      }
+      active.blur();
+    }
+    switch (ev.key) {
+      case ' ':
+        ev.preventDefault();
+        this.toggleRun();
+        break;
+      case 'ArrowUp':
+        this.speed = Math.min(60, this.speed + 1);
+        this.maxSpeed = false;
+        break;
+      case 'ArrowDown':
+        this.speed = Math.max(1, this.speed - 1);
+        break;
+      case 'ArrowRight':
+        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
+        if (this.drawTribeIndex === 0) {
+          this.drawTribeIndex = 1;
+        }
+        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        this.deleteMode = false;
+        break;
+      case 'ArrowLeft':
+        this.drawTribeIndex -= 1;
+        if (this.drawTribeIndex <= 0) {
+          this.drawTribeIndex = this.tribes.length - 1;
+        }
+        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        this.deleteMode = false;
+        break;
+      case 'r':
+        this.restart();
+        break;
+      case 'd':
+        this.deleteMode = !this.deleteMode;
+        if (this.deleteMode) {
+          this.drawTribe = DEAD_TRIBE.id;
+        } else {
+          this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        }
+        break;
+    }
+  }
+
+  onMetrics(data: MetricMessage): void {
+    this.latestMetrics = data;
+    this.metricsHistory.push(data);
+    this.cdr.markForCheck();
+  }
+
+  onSnapshot(snap: SnapshotMessage): void {
+    if (this.pendingSnapshotResolve) {
+      this.pendingSnapshotResolve(snap);
+      this.pendingSnapshotResolve = null;
+    } else {
+      const state = {
+        version: 1,
+        generation: snap.generation,
+        cols: snap.cols,
+        rows: snap.rows,
+        tribes: [...this.tribes],
+        rules: this.ruleset.rules,
+        grid: Array.from(snap.grid)
+      };
+      this.downloadFile(`gol-state-gen${snap.generation}.json`, JSON.stringify(state), 'application/json');
+    }
+  }
+
+  onRecording(rec: RecordingMessage): void {
+    if (this.pendingRecordingResolve) {
+      this.pendingRecordingResolve(rec);
+      this.pendingRecordingResolve = null;
+    } else {
+      this.pendingRecording = rec;
+    }
+  }
+
+  private pendingRecording: RecordingMessage | null = null;
+
+  private pendingSnapshotResolve: ((snap: SnapshotMessage) => void) | null = null;
+
+  private pendingRecordingResolve: ((rec: RecordingMessage) => void) | null = null;
+
+  onSidebarEvent(ev: SidebarEvent): void {
+    switch (ev.action) {
+      case 'toggleRun':
+        this.toggleRun();
+        break;
+      case 'restart':
+        this.restart();
+        break;
+      case 'selectTribe':
+        this.deleteMode = false;
+        this.drawTribe = ev.value as string;
+        this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribe);
+        break;
+      case 'setSpeed':
+        this.speed = ev.value as number;
+        this.maxSpeed = false;
+        break;
+      case 'setMaxSpeed':
+        this.maxSpeed = ev.value as boolean;
+        break;
+      case 'setGridSize': {
+        const {cols, rows} = ev.value as {cols: number; rows: number};
+        this.ruleset = {
+          ...this.ruleset,
+          cols,
+          rows
+        };
+        this.metricsHistory = [];
+        this.latestMetrics = null;
+        break;
+      }
+      case 'download':
+        this.downloadZip(ev.value as {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number});
+        break;
+      case 'saveState':
+        this.engine.requestSnapshot();
+        break;
+      case 'loadState':
+        this.loadState(ev.value as string);
+        break;
+      case 'deleteMode':
+        this.deleteMode = !this.deleteMode;
+        if (this.deleteMode) {
+          this.drawTribe = DEAD_TRIBE.id;
+        } else {
+          this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        }
+        break;
+      case 'updateRuleset': {
+        const newRuleset = ev.value as Ruleset;
+        this.ruleset = newRuleset;
+        if (!newRuleset.tribes.some(t => t.id === this.drawTribe)) {
+          this.drawTribe = newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead';
+        }
+        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribe);
+        this.metricsHistory = [];
+        this.latestMetrics = null;
+        break;
+      }
+    }
+  }
+
+  private toggleRun(): void {
+    this.state = this.state === 'paused' ? 'running' : 'paused';
+  }
+
+  private restart(): void {
+    this.ruleset = {...this.ruleset};
+    this.metricsHistory = [];
+    this.latestMetrics = null;
+  }
+
+  private downloadZip(opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number}): void {
+    const needFrames = opts.frames || opts.mp4 || opts.png || opts.csv || opts.json;
+
+    const snapshotP = new Promise<SnapshotMessage>(resolve => {
+      this.pendingSnapshotResolve = resolve;
+      this.engine.requestSnapshot();
+    });
+
+    const framesP = needFrames ?
+      new Promise<RecordingMessage>(resolve => {
+        this.pendingRecordingResolve = resolve;
+        this.engine.requestRecording();
+      }) :
+      Promise.resolve(null);
+
+    Promise.all([snapshotP, framesP]).then(([snap, rec]) => {
+      const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
+      worker.onmessage = (e: MessageEvent) => {
+        if (e.data.type === 'done') {
+          this.downloadBlob(new Blob([e.data.zip]), 'gol-export.zip');
+          worker.terminate();
+        }
+      };
+      worker.postMessage({
+        type: 'download',
+        opts,
+        snapshot: {
+          generation: snap.generation,
+          cols: snap.cols,
+          rows: snap.rows,
+          grid: Array.from(snap.grid)
+        },
+        recording: rec && rec.frames.length > 0 ? {
+          frames: rec.frames,
+          startGeneration: rec.startGeneration,
+          cols: rec.cols,
+          rows: rec.rows
+        } : null,
+        tribes: this.tribes.map(t => ({id: t.id,
+          color: t.color})),
+        rules: this.ruleset.rules,
+        metricsHistory: this.metricsHistory
+      });
+    });
+  }
+
+  private loadState(jsonString: string): void {
+    try {
+      const data = JSON.parse(jsonString);
+      if (data.version !== 1 || !data.grid || !data.cols || !data.rows) {
+        return;
+      }
+      // Update ruleset if grid size changed.
+      if (data.cols !== this.ruleset.cols || data.rows !== this.ruleset.rows) {
+        this.ruleset = {
+          ...this.ruleset,
+          cols: data.cols,
+          rows: data.rows
+        };
+      }
+      // Wait a tick for the engine to rebuild, then load the grid.
+      setTimeout(() => {
+        const grid = new Uint32Array(data.grid);
+        this.engine.loadSnapshot(grid, data.generation ?? 0);
+        this.metricsHistory = [];
+        this.latestMetrics = null;
+        this.cdr.markForCheck();
+      }, 100);
+    } catch {
+      // Invalid JSON — ignore.
+    }
+  }
+
+  private downloadFile(filename: string, content: string, mimeType: string): void {
+    const blob = new Blob([content], {type: mimeType});
+    this.downloadBlob(blob, filename);
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

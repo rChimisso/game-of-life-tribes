@@ -1,9 +1,8 @@
-/* eslint-disable jsdoc/require-jsdoc */
-import {AfterViewInit, Component, ElementRef, HostListener, Input,
-  OnChanges, OnDestroy, ViewChild, ChangeDetectionStrategy} from '@angular/core';
+﻿/* eslint-disable jsdoc/require-jsdoc */
+import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {AllowedTribe, ANY_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
-import {CameraMessage, DrawMessage, ResizeMessage} from '../../worker/webengine';
+import {CameraMessage, DrawMessage, MetricMessage, RecordingMessage, SnapshotMessage, WorkerMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -17,14 +16,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @ViewChild('engineCanvas', {static: true})
   public canvasRef!: ElementRef<HTMLCanvasElement>;
 
-  /**
-   * External inputs.
-   */
   @Input()
   public ruleset!: Ruleset<T>;
 
   @Input()
-  public speed = 1; // Steps per second (or -1 = max)
+  public speed = 1;
 
   @Input()
   public state: 'running' | 'paused' = 'paused';
@@ -32,76 +28,98 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @Input()
   public drawTribe!: Exclude<AllowedTribe<T>, typeof ANY_TRIBE_ID>;
 
-  // ──────────────────────────────────────────
+  @Output()
+  public readonly metrics = new EventEmitter<MetricMessage>();
+
+  @Output()
+  public readonly snapshot = new EventEmitter<SnapshotMessage>();
+
+  @Output()
+  public readonly recording = new EventEmitter<RecordingMessage>();
+
+  // Â”€â”€ Worker â”€â”€
   private worker!: Worker;
 
-  private offscreen!: OffscreenCanvas;
+  // Â”€â”€ Camera â”€â”€
+  private scale = 1;
 
-  // Camera
-  private scale = 1; // Px per cell
-
-  private offsetX = 0; // In cells
+  private offsetX = 0;
 
   private offsetY = 0;
 
-  private minScale = 1; // Fit-whole-grid when we know size
+  private minScale = 1;
 
-  private readonly maxScale = 128; // 1 cell = 128 px
+  private readonly maxScale = 128;
 
-  // Pointer state
+  // Â”€â”€ Pointer state â”€â”€
   private isPanning = false;
+
+  private isDrawing = false;
 
   private lastX = 0;
 
   private lastY = 0;
 
-  // ─────────────── Mouse events ──────────────
+  private readonly onDocMove = (ev: MouseEvent) => this.onMove(ev);
+
+  private readonly onDocUp = () => this.onUp();
+
+  // Â”€â”€ Zoom (wheel) â”€â”€
   @HostListener('wheel', ['$event'])
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
-    const {offsetX: cx, offsetY: cy} = ev;
-    const worldX = (cx / this.scale) + this.offsetX;
-    const worldY = (cy / this.scale) + this.offsetY;
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const cx = ev.clientX - rect.left;
+    const cy = ev.clientY - rect.top;
+
+    // World point under cursor before zoom.
+    const worldX = cx / this.scale + this.offsetX;
+    const worldY = cy / this.scale + this.offsetY;
 
     const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
     this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
 
-    // Keep cursor-point stable:
-    this.offsetX = worldX - (cx / this.scale);
-    this.offsetY = worldY - (cy / this.scale);
+    // Keep cursor-point stable.
+    this.offsetX = worldX - cx / this.scale;
+    this.offsetY = worldY - cy / this.scale;
 
     this.sendCamera();
   }
 
+  // Â”€â”€ Pan & Draw (mouse) â”€â”€
   @HostListener('mousedown', ['$event'])
   public onDown(ev: MouseEvent): void {
-    if (ev.button === 2) { // Right-button = pan
+    if (ev.button === 2) {
       this.isPanning = true;
       this.lastX = ev.clientX;
       this.lastY = ev.clientY;
-    } else if (ev.button === 0) { // Left-button = draw
+      this.attachDocListeners();
+    } else if (ev.button === 0) {
+      this.isDrawing = true;
       this.drawAt(ev);
+      this.attachDocListeners();
     }
   }
 
-  @HostListener('mousemove', ['$event'])
-  public onMove(ev: MouseEvent): void {
+  private onMove(ev: MouseEvent): void {
     if (this.isPanning) {
       const dx = ev.clientX - this.lastX;
       const dy = ev.clientY - this.lastY;
       this.lastX = ev.clientX;
       this.lastY = ev.clientY;
-      this.offsetX = (this.offsetX - dx / this.scale + this.ruleset.cols) % this.ruleset.cols;
-      this.offsetY = (this.offsetY + dy / this.scale + this.ruleset.rows) % this.ruleset.rows;
+      // Panning moves the offset in cell space (toroidal).
+      this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
+      this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
       this.sendCamera();
-    } else if (ev.buttons & 1) {
+    } else if (this.isDrawing) {
       this.drawAt(ev);
     }
   }
 
-  @HostListener('mouseup')
-  public onUp(): void {
+  private onUp(): void {
     this.isPanning = false;
+    this.isDrawing = false;
+    this.detachDocListeners();
   }
 
   @HostListener('contextmenu', ['$event'])
@@ -109,156 +127,172 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     ev.preventDefault();
   }
 
-  // ─────────────── Resize handling ───────────
-  @HostListener('window:resize')
-  public resizeCanvas(): void {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    if (this.offscreen) { // Already transferred
-      const dpr = window.devicePixelRatio || 1; // High-DPI support
-      const newWidth = width * dpr;
-      const newHeight = height * dpr;
-
-      this.worker.postMessage({
-        type: 'resize',
-        width: newWidth,
-        height: newHeight,
-        dpr
-      } as ResizeMessage);
-    } else {
-      const canvas = this.canvasRef.nativeElement;
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    // Re-compute min-zoom but keep current view (so it may now be clipped):
-    if (this.ruleset) {
-      this.minScale = Math.max(width / this.ruleset.cols, height / this.ruleset.rows);
-      if (this.minScale > this.scale) {
-        this.resetCamera();
-      }
-    }
+  private attachDocListeners(): void {
+    document.addEventListener('mousemove', this.onDocMove);
+    document.addEventListener('mouseup', this.onDocUp);
   }
 
-  public ngAfterViewInit(): void {
-    // 1. Size canvas & compute initial min-zoom
-    this.resizeCanvas();
+  private detachDocListeners(): void {
+    document.removeEventListener('mousemove', this.onDocMove);
+    document.removeEventListener('mouseup', this.onDocUp);
+  }
 
-    // 2. Offscreen + worker
-    this.offscreen = this.canvasRef.nativeElement.transferControlToOffscreen();
+  // Â”€â”€ Resize â”€â”€
+  @HostListener('window:resize')
+  public onResize(): void {
+    if (!this.ruleset) {
+      return;
+    }
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    // Tell the worker to resize the OffscreenCanvas.
+    this.worker?.postMessage({
+      type: 'resize',
+      width: Math.round(rect.width * dpr),
+      height: Math.round(rect.height * dpr)
+    });
+
+    // Recompute min-scale and clamp.
+    this.computeMinScale();
+    if (this.scale < this.minScale) {
+      this.scale = this.minScale;
+    }
+    this.sendCamera();
+  }
+
+  // Â”€â”€ Lifecycle â”€â”€
+  public ngAfterViewInit(): void {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+
     this.worker = new Worker(new URL('../../worker/webengine.ts', import.meta.url), {type: 'module'});
 
-    // 3. Start worker
+    const offscreen = canvas.transferControlToOffscreen();
     this.worker.postMessage({
       type: 'init',
-      canvas: this.offscreen,
+      canvas: offscreen,
       ruleset: this.ruleset,
       speed: this.speed,
       running: this.state === 'running'
-    }, [this.offscreen]);
-    this.worker.postMessage({
-      type: 'setRunning',
-      running: this.state === 'running'
-    });
-    this.worker.postMessage({
-      type: 'setSpeed',
-      speed: this.speed
-    });
-    this.worker.postMessage({
-      type: 'setRuleset',
-      ruleset: this.ruleset
-    });
+    } satisfies WorkerMessage, [offscreen]);
+
     this.resetCamera();
 
-    // 4. Listen for metrics / events from worker (if you later add them)
-    this.worker.onmessage = _ => { /* Metrics hook */ };
+    this.worker.onmessage = (ev: MessageEvent) => {
+      if (ev.data?.type === 'metrics') {
+        this.metrics.emit(ev.data as MetricMessage);
+      } else if (ev.data?.type === 'snapshot') {
+        this.snapshot.emit(ev.data as SnapshotMessage);
+      } else if (ev.data?.type === 'recording') {
+        this.recording.emit(ev.data as RecordingMessage);
+      }
+    };
   }
 
-  // Angular change-detection hook:
+  public requestSnapshot(): void {
+    this.worker?.postMessage({type: 'getSnapshot'});
+  }
+
+  public loadSnapshot(grid: Uint32Array, generation: number): void {
+    this.worker?.postMessage({
+      type: 'loadSnapshot',
+      grid,
+      generation
+    });
+  }
+
+  public setRecording(recording: boolean): void {
+    this.worker?.postMessage({type: 'setRecording',
+      recording});
+  }
+
+  public requestRecording(): void {
+    this.worker?.postMessage({type: 'getRecording'});
+  }
+
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
     if (!this.worker) {
       return;
     }
+
     if (changes.state) {
-      this.worker.postMessage({
-        type: 'setRunning',
-        running: this.state === 'running'
-      });
+      this.worker.postMessage({type: 'setRunning',
+        running: this.state === 'running'});
     }
     if (changes.speed) {
-      this.worker.postMessage({
-        type: 'setSpeed',
-        speed: this.speed
-      });
+      this.worker.postMessage({type: 'setSpeed',
+        speed: this.speed});
     }
     if (changes.ruleset) {
-      const needViewReset = !changes.ruleset.previousValue || changes.ruleset.previousValue.rows !== this.ruleset.rows || changes.ruleset.previousValue.cols !== this.ruleset.cols;
-      this.worker.postMessage({
-        type: 'setRuleset',
-        ruleset: this.ruleset
-      });
-      if (needViewReset) {
+      const needReset = !changes.ruleset.previousValue ||
+        changes.ruleset.previousValue.rows !== this.ruleset.rows ||
+        changes.ruleset.previousValue.cols !== this.ruleset.cols;
+      this.worker.postMessage({type: 'setRuleset',
+        ruleset: this.ruleset});
+      if (needReset) {
         this.resetCamera();
       }
     }
   }
 
   public ngOnDestroy(): void {
+    this.detachDocListeners();
     this.worker?.terminate();
   }
 
+  // Â”€â”€ Camera helpers â”€â”€
+  private computeMinScale(): void {
+    const el = this.canvasRef.nativeElement;
+    const rect = el.getBoundingClientRect();
+    // Min scale (CSS px/cell): entire grid visible, no duplicates.
+    this.minScale = Math.max(
+      rect.width / this.ruleset.cols,
+      rect.height / this.ruleset.rows,
+    );
+  }
+
   private resetCamera(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.minScale = Math.max(w / this.ruleset.cols, h / this.ruleset.rows);
-    this.scale = this.minScale; // Square cells: 1 cell = `scale` px
-    this.offsetX = 0; // Start at top-left; wider side will overflow
+    this.computeMinScale();
+    this.scale = this.minScale;
+    this.offsetX = 0;
     this.offsetY = 0;
     this.sendCamera();
   }
 
   private sendCamera(): void {
-    this.worker?.postMessage(({
+    const dpr = window.devicePixelRatio || 1;
+    this.worker?.postMessage({
       type: 'camera',
-      scale: this.scale,
+      scale: this.scale * dpr,
       offsetX: this.offsetX,
       offsetY: this.offsetY
-    } as CameraMessage));
+    } satisfies CameraMessage);
   }
 
+  // Â”€â”€ Drawing â”€â”€
   private drawAt(ev: MouseEvent): void {
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const px = ev.clientX - rect.left;
-    const py = ev.clientY - rect.top;
+    const cssX = ev.clientX - rect.left;
+    const cssY = ev.clientY - rect.top;
 
-    // ── margin (in px) added by letter-boxing on each side ──
-    const marginX = 0;// Math.abs((window.innerWidth - this.ruleset.cols * this.scale) / 8);
-    const marginY = window.innerHeight - this.ruleset.rows * this.scale;
+    // Convert CSS pixel to world (cell) coordinate (scale is CSS px/cell).
+    const worldX = cssX / this.scale + this.offsetX;
+    const worldY = cssY / this.scale + this.offsetY;
 
-    // Subtract the margin before converting to world-space
-    const worldX = ((px - marginX) / this.scale) + this.offsetX;
-    const worldY = ((py - marginY) / this.scale) - this.offsetY;
-
-    // How many cells under a pixel?
-    const span = Math.ceil(1 / this.scale);
-    const startX = Math.floor(worldX) - Math.floor(span / 2);
-    const startY = Math.floor(worldY) - Math.floor(span / 2);
-
-    const cells: { x: number; y: number }[] = [];
-    for (let y = 0; y < span; y++) {
-      for (let x = 0; x < span; x++) {
-        cells.push({
-          x: startX + x,
-          y: this.ruleset.rows - 1 - startY + y
-        });
-      }
-    }
+    const cellX = Math.floor(worldX);
+    const cellY = Math.floor(worldY);
 
     this.worker?.postMessage({
       type: 'draw',
       tribe: this.drawTribe,
-      cells
-    } as DrawMessage);
+      cells: [
+        {x: cellX,
+          y: cellY}
+      ]
+    } satisfies DrawMessage);
   }
 }

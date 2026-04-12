@@ -1,0 +1,379 @@
+<button class="toggle-btn floating" mat-icon-button [class.hidden]="!collapsed" (click)="toggle()">
+  <mat-icon>menu</mat-icon>
+</button>
+<div class="sidebar-panel" [class.open]="!collapsed" [style.width.px]="sidebarWidth">
+  <div class="sidebar-header">
+    <span class="sidebar-title">Controls</span>
+    <button mat-icon-button (click)="toggle()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="sidebar-content">
+    <!-- Playback -->
+    <div class="section">
+      <h3 class="section-title">Playback</h3>
+      <div class="section-row">
+        <button mat-flat-button (click)="emit('toggleRun')">
+          <mat-icon>{{ running ? "pause" : "play_arrow" }}</mat-icon>
+          {{ running ? "Pause" : "Run" }}
+        </button>
+        <button mat-flat-button (click)="emit('restart')">
+          <mat-icon>restart_alt</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Speed -->
+    <div class="section">
+      <h3 class="section-title">Speed</h3>
+      <div class="speed-row">
+        <input class="speed-input" min="1" type="number" [disabled]="maxSpeed" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
+        <span class="speed-unit">gen/s</span>
+        <mat-checkbox [checked]="maxSpeed" (change)="onMaxSpeedChange($event.checked)"> Max </mat-checkbox>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Drawing -->
+    <div class="section">
+      <h3 class="section-title">Draw tribe</h3>
+      <div class="tribe-picker">
+        @for (tribe of tribes; track tribe.id) {
+          @if (tribe.id !== "dead") {
+            <button class="tribe-swatch" [class.active]="drawTribe === tribe.id && !deleteMode" [style.background-color]="'#' + tribe.color" (click)="onTribeChange(tribe.id)"></button>
+          }
+        }
+        <button class="tribe-swatch delete-swatch" [class.active]="deleteMode" (click)="emit('deleteMode')">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Grid size -->
+    <div class="section">
+      <h3 class="section-title">
+        Grid size<span class="section-desc">{{ gridCols }}&times;{{ gridRows }}</span>
+      </h3>
+      <div class="grid-size-inputs">
+        <label>
+          Cols
+          <input max="2000" min="10" type="number" [(ngModel)]="pendingCols" />
+        </label>
+        <label>
+          Rows
+          <input max="2000" min="10" type="number" [(ngModel)]="pendingRows" />
+        </label>
+        <button mat-flat-button (click)="onGridSizeApply()">Apply (resets simulation)</button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Tribes editor -->
+    <div class="section">
+      <h3 class="section-title">Tribes</h3>
+
+      @for (tribe of editTribes; track $index; let i = $index) {
+        @if (tribe.id !== "dead") {
+          <div class="tribe-edit-row">
+            <span class="tribe-color-dot" [style.background-color]="'#' + tribe.color"></span>
+            <span class="tribe-id">{{ tribe.id }}</span>
+            <button class="small-btn" mat-icon-button (click)="startEditTribe(i)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button class="small-btn" mat-icon-button (click)="removeTribe(i)">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          @if (editingTribeIndex === i) {
+            <div class="color-editor">
+              <div class="name-edit-row">
+                <span class="name-label">Name</span>
+                <input class="tribe-name-input" [ngModel]="editingTribeName" (ngModelChange)="updateTribeName(i, $event)" />
+              </div>
+              <div class="color-palette">
+                @for (c of basicColors; track c) {
+                  <button class="color-swatch" [class.selected]="tribe.color === c" [style.background-color]="'#' + c" (click)="updateTribeColor(i, c)"></button>
+                }
+                <button class="color-swatch random-swatch" (click)="updateTribeColor(i, randomColor())">🎲</button>
+              </div>
+              <div class="hex-row">
+                <span class="hex-hash">#</span>
+                <input class="hex-input" maxlength="6" [ngModel]="tribe.color" (ngModelChange)="updateTribeColor(i, $event)" />
+                <input class="native-picker" type="color" [value]="'#' + tribe.color" (input)="updateTribeColor(i, $any($event.target).value.substring(1))" />
+              </div>
+            </div>
+          }
+        }
+      }
+
+      @if (showTribeAdder) {
+        <div class="tribe-adder">
+          <input class="tribe-name-input" placeholder="Name (a-z, 0-9)" [(ngModel)]="newTribeId" />
+          <div class="color-palette">
+            @for (c of basicColors; track c) {
+              <button class="color-swatch" [class.selected]="newTribeColor === c" [style.background-color]="'#' + c" (click)="newTribeColor = c"></button>
+            }
+            <button class="color-swatch random-swatch" (click)="newTribeColor = randomColor()">🎲</button>
+          </div>
+          <div class="hex-row">
+            <span class="hex-hash">#</span>
+            <input class="hex-input" maxlength="6" [(ngModel)]="newTribeColor" />
+            <input class="native-picker" type="color" [value]="'#' + newTribeColor" (input)="newTribeColor = $any($event.target).value.substring(1)" />
+          </div>
+          <div class="swatch-preview" [style.background-color]="'#' + newTribeColor"></div>
+          <div class="section-row">
+            <button mat-flat-button [disabled]="!isValidNewTribe()" (click)="confirmAddTribe()">Add</button>
+            <button mat-stroked-button (click)="showTribeAdder = false">Cancel</button>
+          </div>
+        </div>
+      } @else {
+        <button class="full-width" mat-stroked-button (click)="startAddTribe()"><mat-icon>add</mat-icon> Add tribe</button>
+      }
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Rules editor -->
+    <div class="section">
+      <h3 class="section-title">Rules</h3>
+
+      @for (rule of editRules; track $index; let i = $index) {
+        <div class="rule-card">
+          <div class="rule-header" (click)="toggleRuleExpand(i)">
+            <mat-icon class="expand-icon">{{ expandedRuleIndex === i ? "expand_more" : "chevron_right" }}</mat-icon>
+            <span class="rule-summary">{{ clauseSummary(rule.clause) }}</span>
+            <span class="rule-arrow">→</span>
+            <span class="rule-output" [style.background-color]="'#' + getTribeColor(rule.tribe)">{{ rule.tribe }}</span>
+            <button class="small-btn" mat-icon-button (click)="removeRule(i); $event.stopPropagation()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <div class="collapsible" [class.open]="expandedRuleIndex === i">
+            <div class="collapsible-inner">
+              <div class="rule-body">
+                <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: rule.clause, depth: 0, ruleIndex: i, path: [] }"></ng-container>
+                <div class="rule-output-row">
+                  <label>→ becomes</label>
+                  <select class="tribe-select" [ngModel]="rule.tribe" (ngModelChange)="setRuleOutput(i, $event)">
+                    @for (t of editTribes; track t.id) {
+                      <option [value]="t.id">{{ t.id }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <button class="full-width" mat-stroked-button (click)="addRule()"><mat-icon>add</mat-icon> Add rule</button>
+    </div>
+
+    <!-- Apply button -->
+    @if (hasUnappliedChanges) {
+      <button class="apply-btn" mat-flat-button (click)="applyRulesetChanges()">Apply changes (resets simulation)</button>
+    }
+
+    <hr class="divider" />
+
+    <!-- Metrics -->
+    <div class="section">
+      <h3 class="section-title">Metrics</h3>
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>General</mat-panel-title>
+        </mat-expansion-panel-header>
+        @if (metrics) {
+          <div class="metrics-grid">
+            <span class="metric-label">Generation</span>
+            <span class="metric-value">{{ metrics.generation | number }}</span>
+            <span class="metric-label">FPS</span>
+            <span class="metric-value">{{ metrics.fps | number: "1.0-1" }}</span>
+          </div>
+        } @else {
+          <p class="muted">No data yet</p>
+        }
+      </mat-expansion-panel>
+
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Population</mat-panel-title>
+        </mat-expansion-panel-header>
+        @if (metrics) {
+          <div class="metrics-grid">
+            @for (entry of metrics.population | keyvalue; track entry.key) {
+              <span class="metric-label">{{ entry.key }}</span>
+              <span class="metric-value">{{ entry.value | number }}</span>
+            }
+          </div>
+        } @else {
+          <p class="muted">No data yet</p>
+        }
+      </mat-expansion-panel>
+
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Diversity</mat-panel-title>
+        </mat-expansion-panel-header>
+        @if (metrics) {
+          <div class="metrics-grid">
+            <span class="metric-label">Shannon entropy</span>
+            <span class="metric-value">{{ metrics.shannonEntropy | number: "1.0-4" }}</span>
+            <span class="metric-label">Simpson index</span>
+            <span class="metric-value">{{ metrics.simpsonIndex | number: "1.0-4" }}</span>
+          </div>
+        } @else {
+          <p class="muted">No data yet</p>
+        }
+      </mat-expansion-panel>
+
+      <mat-expansion-panel>
+        <mat-expansion-panel-header>
+          <mat-panel-title>Spatial</mat-panel-title>
+        </mat-expansion-panel-header>
+        @if (metrics) {
+          <div class="metrics-grid">
+            <span class="metric-label">Boundary length</span>
+            <span class="metric-value">{{ metrics.boundaryLength | number }}</span>
+            @if (metrics.meanClusterSize) {
+              @for (entry of metrics.meanClusterSize | keyvalue; track entry.key) {
+                <span class="metric-label">Cluster ({{ entry.key }})</span>
+                <span class="metric-value">{{ entry.value | number: "1.0-2" }}</span>
+              }
+            }
+          </div>
+        } @else {
+          <p class="muted">No data yet</p>
+        }
+      </mat-expansion-panel>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Download -->
+    <div class="section">
+      <h3 class="section-title">Download</h3>
+      <div class="download-checks">
+        <mat-checkbox [(ngModel)]="downloadJson">JSON</mat-checkbox>
+        <mat-checkbox [(ngModel)]="downloadCsv">CSV</mat-checkbox>
+        <mat-checkbox [(ngModel)]="downloadFrames">Frames</mat-checkbox>
+        <mat-checkbox [(ngModel)]="downloadPng">PNG</mat-checkbox>
+        <mat-checkbox [(ngModel)]="downloadMp4">MP4</mat-checkbox>
+        <input class="mp4-fps-input" max="60" min="1" placeholder="FPS" type="number" [disabled]="!downloadMp4" [(ngModel)]="mp4Fps" />
+      </div>
+      <button mat-stroked-button [disabled]="!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng" (click)="onDownload()">
+        <mat-icon>download</mat-icon>
+        Download ZIP
+      </button>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Save / Load -->
+    <div class="section">
+      <h3 class="section-title">Save / Load</h3>
+      <div class="section-row">
+        <button mat-stroked-button (click)="emit('saveState')">Save state</button>
+        <button mat-stroked-button (click)="fileInput.click()">Load state</button>
+        <input #fileInput accept=".json" hidden type="file" (change)="onFileSelect($event)" />
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Shortcuts -->
+    <div class="section">
+      <h3 class="section-title shortcuts-toggle" (click)="shortcutsExpanded = !shortcutsExpanded">
+        <mat-icon class="expand-icon">{{ shortcutsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
+        Shortcuts
+      </h3>
+      <div class="collapsible" [class.open]="shortcutsExpanded">
+        <div class="collapsible-inner">
+          <div class="shortcuts-grid"><kbd>Space</kbd><span>Play / Pause</span> <kbd>R</kbd><span>Restart</span> <kbd>D</kbd><span>Delete mode</span> <kbd>&uarr; / &darr;</kbd><span>Speed</span> <kbd>&larr; / &rarr;</kbd><span>Cycle tribe</span> <kbd>LMB</kbd><span>Draw</span> <kbd>RMB</kbd><span>Pan</span> <kbd>Scroll</kbd><span>Zoom</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="resize-handle" (mousedown)="onResizeStart($event)"></div>
+</div>
+
+<!-- Recursive clause template -->
+<ng-template #clauseTpl let-clause let-depth="depth" let-path="path" let-ruleIndex="ruleIndex">
+  <div class="clause-node" [style.padding-left.px]="depth * 16">
+    <div class="clause-header">
+      <select class="clause-type-select" [ngModel]="clause.kind" (ngModelChange)="changeClauseKind(ruleIndex, path, $event)">
+        <option value="is">IS</option>
+        <option value="count">COUNT</option>
+        <option value="equality">EQ</option>
+        <option value="not">NOT</option>
+        <option value="and">AND</option>
+        <option value="or">OR</option>
+      </select>
+      @if (depth > 0) {
+        <button class="small-btn" mat-icon-button (click)="removeChildClause(ruleIndex, path)">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </div>
+
+    @switch (clause.kind) {
+      @case ("is") {
+        <div class="clause-tribes" [style.padding-left.px]="depth * 16">
+          @for (t of editTribes; track t.id) {
+            <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="toggleClauseTribe(ruleIndex, path, t.id)"></button>
+          }
+        </div>
+      }
+      @case ("count") {
+        <div class="clause-tribes" [style.padding-left.px]="depth * 16">
+          @for (t of editTribes; track t.id) {
+            <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="toggleClauseTribe(ruleIndex, path, t.id)"></button>
+          }
+        </div>
+        <div class="clause-interval" [style.padding-left.px]="depth * 16">
+          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[0]" (ngModelChange)="setClauseInterval(ruleIndex, path, 0, $event)" />
+          <span class="interval-sep">–</span>
+          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[1]" (ngModelChange)="setClauseInterval(ruleIndex, path, 1, $event)" />
+          <span class="interval-label">neighbors</span>
+        </div>
+      }
+      @case ("equality") {
+        <div class="clause-eq" [style.padding-left.px]="depth * 16">
+          <div class="clause-tribes">
+            @for (t of editTribes; track t.id) {
+              <button class="tribe-dot" [class.selected]="clause.tribe1.includes(t.id)" [style.background-color]="'#' + t.color" (click)="toggleClauseEqTribe(ruleIndex, path, 1, t.id)"></button>
+            }
+          </div>
+          <span class="eq-sign">=</span>
+          <div class="clause-tribes">
+            @for (t of editTribes; track t.id) {
+              <button class="tribe-dot" [class.selected]="clause.tribe2.includes(t.id)" [style.background-color]="'#' + t.color" (click)="toggleClauseEqTribe(ruleIndex, path, 2, t.id)"></button>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (clause.kind === "and" || clause.kind === "or") {
+      @for (child of clause.clauses; track $index; let ci = $index) {
+        <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1, ruleIndex: ruleIndex, path: path.concat(ci) }"></ng-container>
+      }
+      <div class="clause-add" [style.padding-left.px]="(depth + 1) * 16">
+        <button class="small-btn" mat-icon-button (click)="addChildClause(ruleIndex, path)">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    }
+
+    @if (clause.kind === "not") {
+      <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: clause.clause, depth: depth + 1, ruleIndex: ruleIndex, path: path.concat(0) }"></ng-container>
+    }
+  </div>
+</ng-template>

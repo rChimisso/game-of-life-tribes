@@ -43,7 +43,11 @@ export interface SetSpeedMessage {
 
 export interface DrawMessage {
   type: 'draw';
-  cells: {x: number; y: number}[];
+  x: number;
+  y: number;
+  size: number;
+  shape: 'square' | 'round';
+  fill: 'full' | 'spray';
   tribe: string;
 }
 
@@ -79,6 +83,16 @@ export interface GetRecordingMessage {
   type: 'getRecording';
 }
 
+export interface StepBackMessage {
+  type: 'stepBack';
+  count: number;
+}
+
+export interface StepForwardMessage {
+  type: 'stepForward';
+  count: number;
+}
+
 export type WorkerMessage =
   | InitMessage
   | SetRulesetMessage
@@ -90,7 +104,9 @@ export type WorkerMessage =
   | GetSnapshotMessage
   | LoadSnapshotMessage
   | SetRecordingMessage
-  | GetRecordingMessage;
+  | GetRecordingMessage
+  | StepBackMessage
+  | StepForwardMessage;
 
 export interface MetricMessage {
   type: 'metrics';
@@ -117,6 +133,16 @@ export interface RecordingMessage {
   startGeneration: number;
   cols: number;
   rows: number;
+}
+
+export interface LimitsMessage {
+  type: 'limits';
+  maxCells: number;
+}
+
+export interface SteppingMessage {
+  type: 'stepping';
+  active: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,10 +190,17 @@ let stepAccumulator = 0;
 let lastFrameTime = 0;
 let genCounter = 0;
 
-// Pending draw operations
-let pendingDraws: {cellIndex: number; tribeId: number}[] = [];
+// Brush compute pipeline
+let brushPipeline: GPUComputePipeline;
+let brushUniformBuffer: GPUBuffer;
+let brushBindGroupA: GPUBindGroup;
+let brushBindGroupB: GPUBindGroup;
+let brushSeedCounter = 0;
 
-// CPU shadow for draw support.
+// Pending brush (coalesced per frame)
+let pendingBrush: {centerX: number; centerY: number; brushSize: number; shape: number; fill: number; tribeId: number} | null = null;
+
+// CPU shadow for cluster analysis.
 let cpuShadow: Uint8Array | null = null;
 
 // Metrics: GPU histogram + boundary
@@ -183,13 +216,15 @@ let boundaryBuffer: GPUBuffer; // Single atomic<u32>
 let boundaryReadBuffer: GPUBuffer;
 let lastFullReadbackGen = 0;
 let lastMetricsGen = -1;
+let metricsInFlight = false;
+let lastMetricsTime = 0;
 let lastClusterData: Record<string, number> | undefined;
 
 // Recording state
 let isRecording = true;
 let recordedFrames: Uint8Array[] = [];
 let recordingStartGen = 0;
-let needGen0Capture = false;
+let needPreStepCapture = false;
 
 // Optimized recording: persistent double-buffered readback
 let recordBufA: GPUBuffer;
@@ -235,13 +270,13 @@ function generateComputeWgsl(): string {
   lines.push('');
 
   // Main compute function.
-  lines.push('@compute @workgroup_size(256)');
+  lines.push('@compute @workgroup_size(16, 16)');
   lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
-  lines.push('  let idx = gid.x;');
-  lines.push('  if (idx >= TOTAL) { return; }');
+  lines.push('  let x = gid.x;');
+  lines.push('  let y = gid.y;');
+  lines.push('  if (x >= COLS || y >= ROWS) { return; }');
   lines.push('');
-  lines.push('  let x = idx % COLS;');
-  lines.push('  let y = idx / COLS;');
+  lines.push('  let idx = y * COLS + x;');
   lines.push('');
   lines.push('  let selfTribe = readCell(idx);');
   lines.push('');
@@ -664,13 +699,15 @@ const HISTOGRAM_WGSL = `
 @group(0) @binding(0) var<storage, read> grid: array<u32>;
 @group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;
 
-const TOTAL: u32 = ${0}u; // placeholder, replaced at creation time
+const COLS: u32 = ${0}u; // placeholder, replaced at creation time
+const ROWS: u32 = ${0}u; // placeholder, replaced at creation time
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
-  let idx = gid.x;
-  if (idx >= TOTAL) { return; }
-  let tribe = grid[idx];
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= COLS || y >= ROWS) { return; }
+  let tribe = grid[y * COLS + x];
   atomicAdd(&hist[tribe], 1u);
 }
 `;
@@ -682,14 +719,13 @@ function generateBoundaryWgsl(): string {
 
 const COLS: u32 = ${cols}u;
 const ROWS: u32 = ${rows}u;
-const TOTAL: u32 = ${cols * rows}u;
 
-@compute @workgroup_size(256)
+@compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
-  let idx = gid.x;
-  if (idx >= TOTAL) { return; }
-  let x = idx % COLS;
-  let y = idx / COLS;
+  let x = gid.x;
+  let y = gid.y;
+  if (x >= COLS || y >= ROWS) { return; }
+  let idx = y * COLS + x;
   let self_tribe = grid[idx];
 
   // Check right neighbor.
@@ -709,7 +745,9 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
 function createMetricsPipelines(): void {
   // Histogram
-  const histWgsl = HISTOGRAM_WGSL.replace(`${0}u`, `${cols * rows}u`);
+  const histWgsl = HISTOGRAM_WGSL
+    .replace('const COLS: u32 = 0u;', `const COLS: u32 = ${cols}u;`)
+    .replace('const ROWS: u32 = 0u;', `const ROWS: u32 = ${rows}u;`);
   const histModule = device.createShaderModule({code: histWgsl});
   histogramPipeline = device.createComputePipeline({
     layout: 'auto',
@@ -783,25 +821,142 @@ function createMetricsPipelines(): void {
 }
 
 // ---------------------------------------------------------------------------
-//  Draw staging
+//  Brush compute shader
 // ---------------------------------------------------------------------------
 
-function applyPendingDraws(): void {
-  if (pendingDraws.length === 0) {
-    return;
+//  BrushParams uniform layout (10 × u32 = 40 bytes):
+//    0: centerX (i32)    4: centerY (i32)
+//    8: cols    (u32)   12: rows    (u32)
+//   16: brushSize (u32) 20: shape   (u32)  0=square,1=round
+//   24: fill    (u32)   28: tribeId (u32)
+//   32: deadId  (u32)   36: seed    (u32)
+const BRUSH_UNIFORM_SIZE = 40;
+
+const BRUSH_WGSL = `
+struct BrushParams {
+  centerX: i32,
+  centerY: i32,
+  cols: u32,
+  rows: u32,
+  brushSize: u32,
+  shape: u32,
+  fill: u32,
+  tribeId: u32,
+  deadId: u32,
+  seed: u32,
+}
+
+@group(0) @binding(0) var<storage, read_write> grid: array<u32>;
+@group(0) @binding(1) var<uniform> params: BrushParams;
+
+fn pcg(inp: u32) -> u32 {
+  var state = inp * 747796405u + 2891336453u;
+  var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let bx = gid.x;
+  let by = gid.y;
+  if (bx >= params.brushSize || by >= params.brushSize) { return; }
+  let idx = by * params.brushSize + bx;
+
+  let half = i32(params.brushSize - 1u) / 2;
+  let dy = i32(by) - half;
+  let dx = i32(bx) - half;
+
+  // Round brush: skip cells outside the radius.
+  if (params.shape == 1u) {
+    let fhalf = f32(params.brushSize - 1u) / 2.0;
+    let fdx = f32(dx) - fhalf + f32(half);
+    let fdy = f32(dy) - fhalf + f32(half);
+    let r = f32(params.brushSize) / 2.0 - 0.25;
+    if (fdx * fdx + fdy * fdy > r * r) { return; }
   }
 
-  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  // Toroidal wrapping.
+  let cx = ((params.centerX + dx) % i32(params.cols) + i32(params.cols)) % i32(params.cols);
+  let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
+  let cellIdx = u32(cy) * params.cols + u32(cx);
 
-  for (const {cellIndex, tribeId} of pendingDraws) {
-    const wordArray = new Uint32Array([tribeId]);
-    device.queue.writeBuffer(currentGrid, cellIndex * 4, wordArray);
-    if (cpuShadow) {
-      cpuShadow[cellIndex] = tribeId;
+  // Spray fill: 50% chance to skip/set-dead.
+  if (params.fill == 1u) {
+    let h = pcg(params.seed ^ idx);
+    if ((h & 1u) != 0u) {
+      if (params.tribeId != params.deadId) {
+        grid[cellIdx] = params.deadId;
+      }
+      return;
     }
   }
 
-  pendingDraws = [];
+  grid[cellIdx] = params.tribeId;
+}
+`;
+
+function createBrushPipeline(): void {
+  const module = device.createShaderModule({code: BRUSH_WGSL});
+
+  brushPipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: {module,
+      entryPoint: 'main'}
+  });
+
+  brushUniformBuffer = device.createBuffer({
+    size: BRUSH_UNIFORM_SIZE,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+
+  brushBindGroupA = device.createBindGroup({
+    layout: brushPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferA} },
+      {binding: 1,
+        resource: {buffer: brushUniformBuffer} }
+    ]
+  });
+
+  brushBindGroupB = device.createBindGroup({
+    layout: brushPipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0,
+        resource: {buffer: gridBufferB} },
+      {binding: 1,
+        resource: {buffer: brushUniformBuffer} }
+    ]
+  });
+}
+
+function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeId: number): void {
+  const deadId = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  const seed = brushSeedCounter++;
+
+  const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
+  const i32View = new Int32Array(data);
+  const u32View = new Uint32Array(data);
+  i32View[0] = centerX;
+  i32View[1] = centerY;
+  u32View[2] = cols;
+  u32View[3] = rows;
+  u32View[4] = brushSize;
+  u32View[5] = shape;
+  u32View[6] = fill;
+  u32View[7] = tribeId;
+  u32View[8] = deadId;
+  u32View[9] = seed;
+
+  device.queue.writeBuffer(brushUniformBuffer, 0, data);
+
+  const wgBrush = Math.ceil(brushSize / 8);
+  const pass = encoder.beginComputePass();
+  pass.setPipeline(brushPipeline);
+  pass.setBindGroup(0, pingPong ? brushBindGroupB : brushBindGroupA);
+  pass.dispatchWorkgroups(wgBrush, wgBrush);
+  pass.end();
+  // CpuShadow is refreshed by periodic syncShadowFromGpu during metrics.
 }
 
 function initCpuShadow(): void {
@@ -885,20 +1040,21 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
   const zeros1 = new Uint32Array([0]);
   device.queue.writeBuffer(boundaryBuffer, 0, zeros1);
 
-  const wgCount = Math.ceil((cols * rows) / 256);
+  const wgX = Math.ceil(cols / 16);
+  const wgY = Math.ceil(rows / 16);
 
   // Histogram pass.
   const hp = encoder.beginComputePass();
   hp.setPipeline(histogramPipeline);
   hp.setBindGroup(0, pingPong ? histogramBindGroupB : histogramBindGroupA);
-  hp.dispatchWorkgroups(wgCount);
+  hp.dispatchWorkgroups(wgX, wgY);
   hp.end();
 
   // Boundary pass.
   const bp = encoder.beginComputePass();
   bp.setPipeline(boundaryPipeline);
   bp.setBindGroup(0, pingPong ? boundaryBindGroupB : boundaryBindGroupA);
-  bp.dispatchWorkgroups(wgCount);
+  bp.dispatchWorkgroups(wgX, wgY);
   bp.end();
 
   // Copy results to read buffers.
@@ -908,10 +1064,11 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
 
 function readMetricsAndPost(includeCluster: boolean): void {
   const gen = genCounter;
-  if (gen === lastMetricsGen) {
+  if (gen === lastMetricsGen || metricsInFlight) {
     return;
   }
   lastMetricsGen = gen;
+  metricsInFlight = true;
 
   // Read histogram.
   histogramReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
@@ -921,6 +1078,7 @@ function readMetricsAndPost(includeCluster: boolean): void {
     return boundaryReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
       const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
       boundaryReadBuffer.unmap();
+      metricsInFlight = false;
 
       const population: Record<string, number> = {};
       let totalAlive = 0;
@@ -1032,8 +1190,9 @@ function stepSimulation(): void {
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
 
-  const workgroupCount = Math.ceil((cols * rows) / 256);
-  pass.dispatchWorkgroups(workgroupCount);
+  const wgX = Math.ceil(cols / 16);
+  const wgY = Math.ceil(rows / 16);
+  pass.dispatchWorkgroups(wgX, wgY);
   pass.end();
 
   device.queue.submit([encoder.finish()]);
@@ -1081,17 +1240,30 @@ function renderFrame(): void {
 // ---------------------------------------------------------------------------
 
 function mainLoop(now: number): void {
-  applyPendingDraws();
+  // Apply coalesced brush draw (one per frame max).
+  if (pendingBrush) {
+    const b = pendingBrush;
+    pendingBrush = null;
+    const encoder = device.createCommandEncoder();
+    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeId);
+    device.queue.submit([encoder.finish()]);
+  }
 
-  // Capture gen0 (initial state) when recording starts.
-  if (isRecording && needGen0Capture) {
-    needGen0Capture = false;
+  // Capture current state before the first step when recording.
+  if (isRecording && needPreStepCapture) {
+    needPreStepCapture = false;
     readbackGrid().then(grid => {
       const frame = new Uint8Array(cols * rows);
       for (let i = 0; i < cols * rows; i++) {
         frame[i] = grid[i]!;
       }
-      recordedFrames.unshift(frame);
+      const idx = genCounter - recordingStartGen;
+      if (idx >= 0 && idx < recordedFrames.length) {
+        recordedFrames[idx] = frame;
+      } else {
+        recordedFrames.push(frame);
+      }
+      recordedFrames.length = idx + 1;
     });
   }
 
@@ -1114,12 +1286,18 @@ function mainLoop(now: number): void {
     const delta = now - lastFrameTime;
     lastFrameTime = now;
 
+    const mi = metricsInterval();
+
     if (targetStepDuration <= 0) {
       // Max speed: run as many steps as fit in a ~14 ms budget per frame.
+      // Break at metrics boundaries to keep metrics on precise multiples.
       const deadline = performance.now() + 14;
       while (performance.now() < deadline) {
         stepSimulation();
         stepCount++;
+        if (genCounter % mi === 0) {
+          break;
+        }
       }
       didStep = true;
     } else {
@@ -1172,20 +1350,24 @@ function mainLoop(now: number): void {
         }
       }
 
-      const mi = metricsInterval();
-      if (genCounter - lastMetricsGen >= mi) {
-      // Run GPU metrics passes and submit together.
-        const encoder = device.createCommandEncoder();
-        runMetricsGpu(encoder);
-        device.queue.submit([encoder.finish()]);
+      if (genCounter % mi === 0 || genCounter - lastMetricsGen >= mi * 2) {
+        // Only update metrics ~once per second.
+        const metricsElapsed = now - lastMetricsTime;
+        if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
+          lastMetricsTime = now;
+          // Run GPU metrics passes and submit together.
+          const encoder = device.createCommandEncoder();
+          runMetricsGpu(encoder);
+          device.queue.submit([encoder.finish()]);
 
-        const fri = fullReadbackInterval();
-        const doCluster = genCounter - lastFullReadbackGen >= fri;
-        if (doCluster) {
-          syncShadowFromGpu();
-          lastFullReadbackGen = genCounter;
+          const fri = fullReadbackInterval();
+          const doCluster = genCounter - lastFullReadbackGen >= fri;
+          if (doCluster) {
+            syncShadowFromGpu();
+            lastFullReadbackGen = genCounter;
+          }
+          readMetricsAndPost(doCluster);
         }
-        readMetricsAndPost(doCluster);
       }
     } // DidStep
   }
@@ -1219,7 +1401,17 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     throw new Error('WebGPU adapter not available');
   }
 
-  device = await adapter.requestDevice();
+  device = await adapter.requestDevice({
+    requiredLimits: {
+      maxBufferSize: adapter.limits.maxBufferSize,
+      maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
+    }
+  });
+
+  const maxCells = Math.floor(device.limits.maxBufferSize / 4);
+  self.postMessage({type: 'limits',
+    maxCells} satisfies LimitsMessage);
+
   context = canvas.getContext('webgpu') as GPUCanvasContext;
   canvasFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -1258,6 +1450,7 @@ function buildPipelines(): void {
   createRenderPipeline();
   createRenderBindGroups();
   createComputePipeline();
+  createBrushPipeline();
   createMetricsPipelines();
   createRecordBuffers();
 }
@@ -1276,6 +1469,7 @@ function rebuildForNewRuleset(): void {
   createTribeColorBuffer();
   initCpuShadow();
   createComputePipeline();
+  createBrushPipeline();
   createRenderBindGroups();
   createMetricsPipelines();
   createRecordBuffers();
@@ -1309,6 +1503,17 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       initRuleset(m.ruleset);
       rebuildForNewRuleset();
       genCounter = 0;
+      lastMetricsGen = -1;
+      recordedFrames = [];
+      recordingStartGen = 0;
+      needPreStepCapture = false;
+      // Post initial metrics for the fresh (empty) grid.
+      if (!metricsInFlight) {
+        const resetEncoder = device.createCommandEncoder();
+        runMetricsGpu(resetEncoder);
+        device.queue.submit([resetEncoder.finish()]);
+        readMetricsAndPost(true);
+      }
       break;
     }
 
@@ -1317,8 +1522,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.running) {
         lastFrameTime = 0;
         stepAccumulator = 0;
-        if (isRecording && recordedFrames.length === 0) {
-          needGen0Capture = true;
+        if (isRecording) {
+          needPreStepCapture = true;
         }
       }
       break;
@@ -1341,15 +1546,15 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
     case 'draw': {
       const idx = tribeIndex.get(m.tribe);
-      if (idx === undefined) {
-        break;
-      }
-      for (const c of m.cells) {
-        const cx = ((c.x % cols) + cols) % cols;
-        const cy = ((c.y % rows) + rows) % rows;
-        const cellIndex = cy * cols + cx;
-        pendingDraws.push({cellIndex,
-          tribeId: idx});
+      if (idx !== undefined) {
+        pendingBrush = {
+          centerX: m.x,
+          centerY: m.y,
+          brushSize: m.size,
+          shape: m.shape === 'round' ? 1 : 0,
+          fill: m.fill === 'spray' ? 1 : 0,
+          tribeId: idx
+        };
       }
       break;
     }
@@ -1385,7 +1590,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         isRecording = true;
         recordedFrames = [];
         recordingStartGen = genCounter;
-        needGen0Capture = true;
+        needPreStepCapture = true;
       } else if (!m.recording) {
         isRecording = false;
       }
@@ -1403,6 +1608,88 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         cols,
         rows
       } satisfies RecordingMessage, {transfer: transferables as Transferable[]});
+      break;
+    }
+
+    case 'stepBack': {
+      const k = Math.min(m.count, recordedFrames.length - 1);
+      if (k <= 0) {
+        break;
+      }
+      recordedFrames.splice(recordedFrames.length - k, k);
+      const lastFrame = recordedFrames[recordedFrames.length - 1]!;
+      const gridData = new Uint32Array(cols * rows);
+      for (let i = 0; i < cols * rows; i++) {
+        gridData[i] = lastFrame[i]!;
+      }
+      const currentGrid = pingPong ? gridBufferB : gridBufferA;
+      device.queue.writeBuffer(currentGrid, 0, gridData);
+      if (cpuShadow) {
+        for (let i = 0; i < cols * rows; i++) {
+          cpuShadow[i] = lastFrame[i]!;
+        }
+      }
+      genCounter = recordingStartGen + recordedFrames.length - 1;
+      lastClusterData = undefined;
+      lastMetricsGen = -1;
+      if (!metricsInFlight) {
+        const bEncoder = device.createCommandEncoder();
+        runMetricsGpu(bEncoder);
+        device.queue.submit([bEncoder.finish()]);
+        readMetricsAndPost(true);
+      }
+      renderFrame();
+      break;
+    }
+
+    case 'stepForward': {
+      const doForward = async() => {
+        if (m.count > 1) {
+          self.postMessage({type: 'stepping',
+            active: true} satisfies SteppingMessage);
+        }
+        if (isRecording) {
+          // Save current state before stepping (handles gen0 + drawing overwrites).
+          const preGrid = await readbackGrid();
+          const preFrame = new Uint8Array(cols * rows);
+          for (let j = 0; j < cols * rows; j++) {
+            preFrame[j] = preGrid[j]!;
+          }
+          const idx = genCounter - recordingStartGen;
+          if (idx >= 0 && idx < recordedFrames.length) {
+            recordedFrames[idx] = preFrame;
+          } else {
+            recordedFrames.push(preFrame);
+          }
+          recordedFrames.length = idx + 1;
+        }
+        // Run steps: record each intermediate frame but skip canvas rendering.
+        for (let i = 0; i < m.count; i++) {
+          stepSimulation();
+          stepCount++;
+          if (isRecording) {
+            const grid = await readbackGrid();
+            const frame = new Uint8Array(cols * rows);
+            for (let j = 0; j < cols * rows; j++) {
+              frame[j] = grid[j]!;
+            }
+            recordedFrames.push(frame);
+          }
+        }
+        lastMetricsGen = -1;
+        if (!metricsInFlight) {
+          const fEncoder = device.createCommandEncoder();
+          runMetricsGpu(fEncoder);
+          device.queue.submit([fEncoder.finish()]);
+          readMetricsAndPost(true);
+        }
+        renderFrame();
+        if (m.count > 1) {
+          self.postMessage({type: 'stepping',
+            active: false} satisfies SteppingMessage);
+        }
+      };
+      doForward();
       break;
     }
   }

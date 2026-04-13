@@ -2,7 +2,7 @@
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {AllowedTribe, ANY_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
-import {CameraMessage, DrawMessage, MetricMessage, RecordingMessage, SnapshotMessage, WorkerMessage} from '../../worker/webengine';
+import {CameraMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -28,6 +28,15 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @Input()
   public drawTribe!: Exclude<AllowedTribe<T>, typeof ANY_TRIBE_ID>;
 
+  @Input()
+  public brushSize = 1;
+
+  @Input()
+  public brushShape: 'square' | 'round' = 'square';
+
+  @Input()
+  public brushFill: 'full' | 'spray' = 'full';
+
   @Output()
   public readonly metrics = new EventEmitter<MetricMessage>();
 
@@ -36,6 +45,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   @Output()
   public readonly recording = new EventEmitter<RecordingMessage>();
+
+  @Output()
+  public readonly limits = new EventEmitter<LimitsMessage>();
+
+  @Output()
+  public readonly stepping = new EventEmitter<SteppingMessage>();
 
   // Â”€â”€ Worker â”€â”€
   private worker!: Worker;
@@ -51,7 +66,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private readonly maxScale = 128;
 
-  // Â”€â”€ Pointer state â”€â”€
+  // ── Pointer state ──
   private isPanning = false;
 
   private isDrawing = false;
@@ -63,6 +78,17 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   private readonly onDocMove = (ev: MouseEvent) => this.onMove(ev);
 
   private readonly onDocUp = () => this.onUp();
+
+  // ── Touch state ──
+  private touchDrawing = false;
+
+  private wasTwoFinger = false;
+
+  private lastPinchDist = 0;
+
+  private lastMidX = 0;
+
+  private lastMidY = 0;
 
   // Â”€â”€ Zoom (wheel) â”€â”€
   @HostListener('wheel', ['$event'])
@@ -189,8 +215,18 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         this.snapshot.emit(ev.data as SnapshotMessage);
       } else if (ev.data?.type === 'recording') {
         this.recording.emit(ev.data as RecordingMessage);
+      } else if (ev.data?.type === 'limits') {
+        this.limits.emit(ev.data as LimitsMessage);
+      } else if (ev.data?.type === 'stepping') {
+        this.stepping.emit(ev.data as SteppingMessage);
       }
     };
+
+    // Touch events (need passive: false for preventDefault).
+    const host = this.canvasRef.nativeElement.parentElement!;
+    host.addEventListener('touchstart', e => this.onTouchStart(e), {passive: false});
+    host.addEventListener('touchmove', e => this.onTouchMove(e), {passive: false});
+    host.addEventListener('touchend', e => this.onTouchEnd(e));
   }
 
   public requestSnapshot(): void {
@@ -212,6 +248,16 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   public requestRecording(): void {
     this.worker?.postMessage({type: 'getRecording'});
+  }
+
+  public stepBack(count: number): void {
+    this.worker?.postMessage({type: 'stepBack',
+      count});
+  }
+
+  public stepForward(count: number): void {
+    this.worker?.postMessage({type: 'stepForward',
+      count});
   }
 
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
@@ -274,25 +320,94 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   // Â”€â”€ Drawing â”€â”€
+  // ── Drawing ──
   private drawAt(ev: MouseEvent): void {
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const cssX = ev.clientX - rect.left;
-    const cssY = ev.clientY - rect.top;
+    this.drawAtPoint(ev.clientX, ev.clientY);
+  }
 
-    // Convert CSS pixel to world (cell) coordinate (scale is CSS px/cell).
+  // ── Touch handling ──
+  private onTouchStart(ev: TouchEvent): void {
+    ev.preventDefault();
+    if (ev.touches.length === 1 && !this.wasTwoFinger) {
+      this.touchDrawing = true;
+      this.drawAtPoint(ev.touches[0]!.clientX, ev.touches[0]!.clientY);
+    } else if (ev.touches.length >= 2) {
+      this.touchDrawing = false;
+      this.wasTwoFinger = true;
+      this.lastMidX = (ev.touches[0]!.clientX + ev.touches[1]!.clientX) / 2;
+      this.lastMidY = (ev.touches[0]!.clientY + ev.touches[1]!.clientY) / 2;
+      this.lastPinchDist = this.pinchDist(ev.touches[0]!, ev.touches[1]!);
+    }
+  }
+
+  private onTouchMove(ev: TouchEvent): void {
+    ev.preventDefault();
+    if (ev.touches.length === 1 && this.touchDrawing) {
+      this.drawAtPoint(ev.touches[0]!.clientX, ev.touches[0]!.clientY);
+    } else if (ev.touches.length >= 2) {
+      this.touchDrawing = false;
+      this.wasTwoFinger = true;
+      const midX = (ev.touches[0]!.clientX + ev.touches[1]!.clientX) / 2;
+      const midY = (ev.touches[0]!.clientY + ev.touches[1]!.clientY) / 2;
+
+      // Pan.
+      const dx = midX - this.lastMidX;
+      const dy = midY - this.lastMidY;
+      this.lastMidX = midX;
+      this.lastMidY = midY;
+      this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
+      this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
+
+      // Pinch zoom.
+      const dist = this.pinchDist(ev.touches[0]!, ev.touches[1]!);
+      if (this.lastPinchDist > 0) {
+        const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+        const worldX = (midX - rect.left) / this.scale + this.offsetX;
+        const worldY = (midY - rect.top) / this.scale + this.offsetY;
+
+        const factor = dist / this.lastPinchDist;
+        this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
+
+        this.offsetX = worldX - (midX - rect.left) / this.scale;
+        this.offsetY = worldY - (midY - rect.top) / this.scale;
+      }
+      this.lastPinchDist = dist;
+
+      this.sendCamera();
+    }
+  }
+
+  private onTouchEnd(ev: TouchEvent): void {
+    if (ev.touches.length === 0) {
+      this.touchDrawing = false;
+      this.wasTwoFinger = false;
+      this.lastPinchDist = 0;
+    } else if (ev.touches.length === 1) {
+      // Went from 2 fingers to 1 — don't start drawing.
+      this.lastPinchDist = 0;
+    }
+  }
+
+  private pinchDist(a: Touch, b: Touch): number {
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private drawAtPoint(clientX: number, clientY: number): void {
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const cssX = clientX - rect.left;
+    const cssY = clientY - rect.top;
     const worldX = cssX / this.scale + this.offsetX;
     const worldY = cssY / this.scale + this.offsetY;
-
-    const cellX = Math.floor(worldX);
-    const cellY = Math.floor(worldY);
-
     this.worker?.postMessage({
       type: 'draw',
-      tribe: this.drawTribe,
-      cells: [
-        {x: cellX,
-          y: cellY}
-      ]
+      x: Math.floor(worldX),
+      y: Math.floor(worldY),
+      size: this.brushSize,
+      shape: this.brushShape,
+      fill: this.brushFill,
+      tribe: this.drawTribe as string
     } satisfies DrawMessage);
   }
 }

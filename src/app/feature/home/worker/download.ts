@@ -27,7 +27,7 @@ interface MetricEntry {
   simpsonIndex: number;
   boundaryLength: number;
   meanClusterSize?: Record<string, number>;
-  fps: number;
+  fps?: number;
 }
 
 type WorkerInput = DownloadRequest;
@@ -259,8 +259,7 @@ function computeFrameMetrics(
     shannonEntropy,
     simpsonIndex: 1 - simpsonSum,
     boundaryLength,
-    meanClusterSize,
-    fps: 0
+    meanClusterSize
   };
 }
 
@@ -441,14 +440,14 @@ async function generatePngEntries(
   const colorMap = buildColorMap(tribes);
   const offscreen = new OffscreenCanvas(width, height);
   const ctx = offscreen.getContext('2d')!;
-  const digits = String(rec.frames.length).length;
+  const digits = String(Math.max(0, rec.frames.length - 1)).length;
   const entries: ZipEntry[] = [];
 
   for (let i = 0; i < rec.frames.length; i++) {
     renderFrameToCanvas(rec.frames[i]!, rec.cols, rec.rows, colorMap, ctx, width, height, scale);
     const blob = await offscreen.convertToBlob({type: 'image/png'});
     const data = new Uint8Array(await blob.arrayBuffer());
-    const name = String(i + 1).padStart(digits, '0');
+    const name = String(i).padStart(digits, '0');
     entries.push({path: `frames/${name}.png`,
       data});
   }
@@ -467,6 +466,11 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   const encoder = new TextEncoder();
   const entries: ZipEntry[] = [];
 
+  const progress = (percent: number) => self.postMessage({type: 'progress',
+    percent});
+
+  progress(2);
+
   // State JSON.
   const state = {
     version: 1,
@@ -480,6 +484,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   entries.push({path: 'state.json',
     data: encoder.encode(JSON.stringify(state))});
 
+  progress(5);
+
   // Metrics.
   const hasFrames = rec !== null && rec.frames.length > 0;
   if (hasFrames && (opts.csv || opts.json)) {
@@ -487,18 +493,20 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     const perFrameMetrics = rec.frames.map((frame, i) =>
       computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, rec.startGeneration + i));
 
+    const cleanMetrics = perFrameMetrics.map(({type: _t, fps: _f, ...rest}) => rest);
     if (opts.json) {
       entries.push({path: 'metrics.json',
-        data: encoder.encode(JSON.stringify(perFrameMetrics, null, 2))});
+        data: encoder.encode(JSON.stringify(cleanMetrics, null, 2))});
     }
     if (opts.csv) {
       entries.push({path: 'metrics.csv',
         data: encoder.encode(buildCsvFromMetrics(perFrameMetrics))});
     }
   } else if (opts.csv || opts.json) {
-    if (opts.json && metricsHistory.length > 0) {
+    const cleanHistory = metricsHistory.map(({type: _t, fps: _f, ...rest}) => rest);
+    if (opts.json && cleanHistory.length > 0) {
       entries.push({path: 'metrics.json',
-        data: encoder.encode(JSON.stringify(metricsHistory, null, 2))});
+        data: encoder.encode(JSON.stringify(cleanHistory, null, 2))});
     }
     if (opts.csv && metricsHistory.length > 0) {
       entries.push({path: 'metrics.csv',
@@ -506,9 +514,11 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
   }
 
+  progress(15);
+
   // Raw frames.
   if (hasFrames && opts.frames) {
-    const digits = String(rec.frames.length).length;
+    const digits = String(Math.max(0, rec.frames.length - 1)).length;
     const meta = JSON.stringify({
       cols: rec.cols,
       rows: rec.rows,
@@ -533,15 +543,18 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     entries.push({path: 'frames/metadata.json',
       data: encoder.encode(meta)});
     for (let i = 0; i < rec.frames.length; i++) {
-      const name = String(i + 1).padStart(digits, '0');
+      const name = String(i).padStart(digits, '0');
       entries.push({path: `frames/${name}`,
         data: rec.frames[i]!});
     }
   }
 
+  progress(25);
+
   // MP4.
   if (hasFrames && opts.mp4) {
     try {
+      progress(30);
       const mp4Buffer = await generateMp4(rec, tribes, opts.fps);
       entries.push({path: 'recording.mp4',
         data: new Uint8Array(mp4Buffer)});
@@ -550,13 +563,18 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
   }
 
+  progress(65);
+
   // PNG.
   if (hasFrames && opts.png) {
     const pngEntries = await generatePngEntries(rec, tribes);
     entries.push(...pngEntries);
   }
 
+  progress(90);
+
   const zipBuffer = createZip(entries);
+  progress(100);
   self.postMessage({type: 'done',
     zip: zipBuffer}, {transfer: [zipBuffer]} as never);
 };

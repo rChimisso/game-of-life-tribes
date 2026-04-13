@@ -1,11 +1,12 @@
-import {ChangeDetectorRef, Component, HostListener, ViewChild} from '@angular/core';
+import {ChangeDetectorRef, Component, HostListener, OnDestroy, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
 import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-import {MetricMessage, RecordingMessage, SnapshotMessage} from './worker/webengine';
+import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage} from './worker/webengine';
 
 @Component({
   selector: 'gol-home',
@@ -14,12 +15,13 @@ import {MetricMessage, RecordingMessage, SnapshotMessage} from './worker/webengi
     RouterModule,
     Engine,
     Sidebar,
-    MatIconModule
+    MatIconModule,
+    MatProgressBarModule
   ],
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
-export class HomePage {
+export class HomePage implements OnDestroy {
   @ViewChild(Engine) engine!: Engine<Tribe[]>;
 
   ruleset: Ruleset = {
@@ -112,11 +114,33 @@ export class HomePage {
 
   latestMetrics: MetricMessage | null = null;
 
+  brushSize = 1;
+
+  brushShape: 'square' | 'round' = 'square';
+
+  brushFill: 'full' | 'spray' = 'full';
+
+  skipAmount = 1;
+
+  downloadProgress = -1;
+
+  maxCells = Infinity;
+
+  stepping = false;
+
   private drawTribeIndex = 1;
 
   private metricsHistory: MetricMessage[] = [];
 
-  constructor(private readonly cdr: ChangeDetectorRef) {}
+  private readonly boundKeydown = (ev: KeyboardEvent) => this.handleKeydown(ev);
+
+  constructor(private readonly cdr: ChangeDetectorRef) {
+    document.addEventListener('keydown', this.boundKeydown, true);
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('keydown', this.boundKeydown, true);
+  }
 
   get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
@@ -129,13 +153,14 @@ export class HomePage {
   @HostListener('mousedown', ['$event'])
   onHostMousedown(ev: MouseEvent): void {
     const target = ev.target as HTMLElement;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
-      (document.activeElement as HTMLElement)?.blur?.();
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+      return;
     }
+    // Defer blur so it fires after the browser sets focus on the clicked element.
+    setTimeout(() => (document.activeElement as HTMLElement)?.blur?.());
   }
 
-  @HostListener('keydown', ['$event'])
-  onKeydown(ev: KeyboardEvent): void {
+  private handleKeydown(ev: KeyboardEvent): void {
     const active = document.activeElement;
     if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
       return;
@@ -145,15 +170,14 @@ export class HomePage {
       if (t !== 'checkbox' && t !== 'radio') {
         return;
       }
-      active.blur();
     }
+    let handled = true;
     switch (ev.key) {
       case ' ':
-        ev.preventDefault();
         this.toggleRun();
         break;
       case 'ArrowUp':
-        this.speed = Math.min(60, this.speed + 1);
+        this.speed += 1;
         this.maxSpeed = false;
         break;
       case 'ArrowDown':
@@ -186,12 +210,30 @@ export class HomePage {
           this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
         }
         break;
+      default:
+        handled = false;
+    }
+    if (handled) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      (document.activeElement as HTMLElement)?.blur?.();
+      this.cdr.markForCheck();
     }
   }
 
   onMetrics(data: MetricMessage): void {
     this.latestMetrics = data;
     this.metricsHistory.push(data);
+    this.cdr.markForCheck();
+  }
+
+  onLimits(data: LimitsMessage): void {
+    this.maxCells = data.maxCells;
+    this.cdr.markForCheck();
+  }
+
+  onStepping(data: SteppingMessage): void {
+    this.stepping = data.active;
     this.cdr.markForCheck();
   }
 
@@ -257,6 +299,7 @@ export class HomePage {
         };
         this.metricsHistory = [];
         this.latestMetrics = null;
+        this.clampBrushSize();
         break;
       }
       case 'download':
@@ -285,8 +328,24 @@ export class HomePage {
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribe);
         this.metricsHistory = [];
         this.latestMetrics = null;
+        this.clampBrushSize();
         break;
       }
+      case 'stepBack':
+        this.engine.stepBack(ev.value as number);
+        break;
+      case 'stepForward':
+        this.engine.stepForward(ev.value as number);
+        break;
+      case 'setBrushSize':
+        this.brushSize = ev.value as number;
+        break;
+      case 'setBrushShape':
+        this.brushShape = ev.value as 'square' | 'round';
+        break;
+      case 'setBrushFill':
+        this.brushFill = ev.value as 'full' | 'spray';
+        break;
     }
   }
 
@@ -295,13 +354,24 @@ export class HomePage {
   }
 
   private restart(): void {
+    this.state = 'paused';
     this.ruleset = {...this.ruleset};
     this.metricsHistory = [];
     this.latestMetrics = null;
   }
 
+  private clampBrushSize(): void {
+    const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
+    if (this.brushSize > max) {
+      this.brushSize = max;
+    }
+  }
+
   private downloadZip(opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number}): void {
     const needFrames = opts.frames || opts.mp4 || opts.png || opts.csv || opts.json;
+
+    this.downloadProgress = 0;
+    this.cdr.markForCheck();
 
     const snapshotP = new Promise<SnapshotMessage>(resolve => {
       this.pendingSnapshotResolve = resolve;
@@ -318,8 +388,13 @@ export class HomePage {
     Promise.all([snapshotP, framesP]).then(([snap, rec]) => {
       const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
       worker.onmessage = (e: MessageEvent) => {
-        if (e.data.type === 'done') {
+        if (e.data.type === 'progress') {
+          this.downloadProgress = e.data.percent;
+          this.cdr.markForCheck();
+        } else if (e.data.type === 'done') {
           this.downloadBlob(new Blob([e.data.zip]), 'gol-export.zip');
+          this.downloadProgress = -1;
+          this.cdr.markForCheck();
           worker.terminate();
         }
       };

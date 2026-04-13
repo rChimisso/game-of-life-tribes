@@ -1,7 +1,10 @@
 <button class="toggle-btn floating" mat-icon-button [class.hidden]="!collapsed" (click)="toggle()">
   <mat-icon>menu</mat-icon>
 </button>
-<div class="sidebar-panel" [class.open]="!collapsed" [style.width.px]="sidebarWidth">
+<div class="sidebar-panel" [class.open]="!collapsed" [style.--sheet-translate]="sheetTranslate" [style.width.px]="sidebarWidth">
+  <div class="sheet-handle" (touchstart)="onSheetDragStart($event)">
+    <div class="sheet-handle-bar"></div>
+  </div>
   <div class="sidebar-header">
     <span class="sidebar-title">Controls</span>
     <button mat-icon-button (click)="toggle()">
@@ -20,6 +23,15 @@
         </button>
         <button mat-flat-button (click)="emit('restart')">
           <mat-icon>restart_alt</mat-icon>
+        </button>
+      </div>
+      <div class="step-row">
+        <button mat-icon-button [disabled]="running" (click)="onStepBack()">
+          <mat-icon>skip_previous</mat-icon>
+        </button>
+        <input class="skip-input" min="1" type="number" [(ngModel)]="skipAmount" />
+        <button mat-icon-button [disabled]="running" (click)="onStepForward()">
+          <mat-icon>skip_next</mat-icon>
         </button>
       </div>
     </div>
@@ -51,6 +63,30 @@
           <mat-icon>close</mat-icon>
         </button>
       </div>
+      <div class="brush-options">
+        <div class="brush-row">
+          <span class="brush-label">Size</span>
+          <input class="brush-size-input" min="1" type="number" [max]="brushMaxSize" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)" />
+        </div>
+        <div class="brush-row">
+          <span class="brush-label">Shape</span>
+          <div class="brush-toggle-group">
+            <button class="brush-toggle" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
+              <mat-icon>square</mat-icon>
+            </button>
+            <button class="brush-toggle" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
+              <mat-icon>circle</mat-icon>
+            </button>
+          </div>
+        </div>
+        <div class="brush-row">
+          <span class="brush-label">Fill</span>
+          <div class="brush-toggle-group">
+            <button class="brush-toggle" [class.active]="brushFill === 'full'" (click)="onBrushFillChange('full')">Full</button>
+            <button class="brush-toggle" [class.active]="brushFill === 'spray'" (click)="onBrushFillChange('spray')">Spray</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <hr class="divider" />
@@ -63,13 +99,19 @@
       <div class="grid-size-inputs">
         <label>
           Cols
-          <input max="2000" min="10" type="number" [(ngModel)]="pendingCols" />
+          <input min="10" type="number" [(ngModel)]="pendingCols" />
         </label>
         <label>
           Rows
-          <input max="2000" min="10" type="number" [(ngModel)]="pendingRows" />
+          <input min="10" type="number" [(ngModel)]="pendingRows" />
         </label>
-        <button mat-flat-button (click)="onGridSizeApply()">Apply (resets simulation)</button>
+        @if (gridSizeError) {
+          <span class="grid-size-error">{{ gridSizeError }}</span>
+        }
+        <div class="apply-row">
+          <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedGridSize || gridSizeError" (click)="onGridSizeApply()">Apply</button>
+          <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedGridSize" (click)="restoreGridSize()">Restore</button>
+        </div>
       </div>
     </div>
 
@@ -136,6 +178,10 @@
       } @else {
         <button class="full-width" mat-stroked-button (click)="startAddTribe()"><mat-icon>add</mat-icon> Add tribe</button>
       }
+      <div class="apply-row">
+        <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedTribes" (click)="applyTribes()">Apply</button>
+        <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedTribes" (click)="restoreTribes()">Restore</button>
+      </div>
     </div>
 
     <hr class="divider" />
@@ -174,12 +220,11 @@
       }
 
       <button class="full-width" mat-stroked-button (click)="addRule()"><mat-icon>add</mat-icon> Add rule</button>
+      <div class="apply-row">
+        <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedRules" (click)="applyRules()">Apply</button>
+        <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedRules" (click)="restoreRules()">Restore</button>
+      </div>
     </div>
-
-    <!-- Apply button -->
-    @if (hasUnappliedChanges) {
-      <button class="apply-btn" mat-flat-button (click)="applyRulesetChanges()">Apply changes (resets simulation)</button>
-    }
 
     <hr class="divider" />
 
@@ -194,8 +239,8 @@
           <div class="metrics-grid">
             <span class="metric-label">Generation</span>
             <span class="metric-value">{{ metrics.generation | number }}</span>
-            <span class="metric-label">FPS</span>
-            <span class="metric-value">{{ metrics.fps | number: "1.0-1" }}</span>
+            <span class="metric-label">Gen/s</span>
+            <span class="metric-value">{{ metrics.fps | number: "1.0-0" }}</span>
           </div>
         } @else {
           <p class="muted">No data yet</p>
@@ -266,9 +311,15 @@
         <mat-checkbox [(ngModel)]="downloadFrames">Frames</mat-checkbox>
         <mat-checkbox [(ngModel)]="downloadPng">PNG</mat-checkbox>
         <mat-checkbox [(ngModel)]="downloadMp4">MP4</mat-checkbox>
-        <input class="mp4-fps-input" max="60" min="1" placeholder="FPS" type="number" [disabled]="!downloadMp4" [(ngModel)]="mp4Fps" />
+        <label class="mp4-fps-label">
+          <span class="fps-text">FPS</span>
+          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4" [(ngModel)]="mp4Fps" />
+        </label>
       </div>
-      <button mat-stroked-button [disabled]="!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng" (click)="onDownload()">
+      @if (downloadProgress >= 0) {
+        <mat-progress-bar mode="determinate" [value]="downloadProgress"></mat-progress-bar>
+      }
+      <button mat-stroked-button [disabled]="downloadProgress >= 0 || (!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng)" (click)="onDownload()">
         <mat-icon>download</mat-icon>
         Download ZIP
       </button>
@@ -286,10 +337,10 @@
       </div>
     </div>
 
-    <hr class="divider" />
+    <hr class="divider shortcuts-divider" />
 
     <!-- Shortcuts -->
-    <div class="section">
+    <div class="section shortcuts-section">
       <h3 class="section-title shortcuts-toggle" (click)="shortcutsExpanded = !shortcutsExpanded">
         <mat-icon class="expand-icon">{{ shortcutsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Shortcuts

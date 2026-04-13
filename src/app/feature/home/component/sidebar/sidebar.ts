@@ -6,6 +6,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {MetricMessage} from '../../worker/webengine';
@@ -22,7 +23,12 @@ export interface SidebarEvent {
     | 'saveState'
     | 'loadState'
     | 'deleteMode'
-    | 'updateRuleset';
+    | 'updateRuleset'
+    | 'stepBack'
+    | 'stepForward'
+    | 'setBrushSize'
+    | 'setBrushShape'
+    | 'setBrushFill';
   value?: unknown;
 }
 
@@ -36,6 +42,7 @@ export interface SidebarEvent {
     MatCheckboxModule,
     MatExpansionModule,
     MatIconModule,
+    MatProgressBarModule,
     DecimalPipe,
     KeyValuePipe
   ],
@@ -71,6 +78,18 @@ export class Sidebar implements OnChanges {
 
   @Input() ruleset!: Ruleset;
 
+  @Input() brushSize = 1;
+
+  @Input() brushShape: 'square' | 'round' = 'square';
+
+  @Input() brushFill: 'full' | 'spray' = 'full';
+
+  @Input() skipAmount = 1;
+
+  @Input() downloadProgress = -1;
+
+  @Input() maxCells = Infinity;
+
   @Output() sidebarEvent = new EventEmitter<SidebarEvent>();
 
   collapsed = true;
@@ -94,6 +113,9 @@ export class Sidebar implements OnChanges {
   // Sidebar resize
   sidebarWidth = 280;
 
+  // Bottom sheet (mobile)
+  sheetTranslate = 'calc(100% - 0px)';
+
   // Shortcuts
   shortcutsExpanded = false;
 
@@ -115,7 +137,9 @@ export class Sidebar implements OnChanges {
 
   expandedRuleIndex: number | null = null;
 
-  hasUnappliedChanges = false;
+  hasUnappliedTribes = false;
+
+  hasUnappliedRules = false;
 
   readonly basicColors = [
     'ff0000',
@@ -135,7 +159,8 @@ export class Sidebar implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['ruleset'] && this.ruleset) {
       this.syncFromRuleset();
-      this.hasUnappliedChanges = false;
+      this.hasUnappliedTribes = false;
+      this.hasUnappliedRules = false;
     }
     if (changes['gridCols'] || changes['gridRows']) {
       this.pendingCols = this.gridCols;
@@ -152,6 +177,9 @@ export class Sidebar implements OnChanges {
 
   toggle(): void {
     this.collapsed = !this.collapsed;
+    if (!this.collapsed) {
+      this.sheetTranslate = '0px';
+    }
   }
 
   emit(action: SidebarEvent['action'], value?: unknown): void {
@@ -188,6 +216,29 @@ export class Sidebar implements OnChanges {
       png: this.downloadPng,
       fps: this.mp4Fps
     });
+  }
+
+  onStepBack(): void {
+    this.emit('stepBack', this.skipAmount);
+  }
+
+  onStepForward(): void {
+    this.emit('stepForward', this.skipAmount);
+  }
+
+  onBrushSizeChange(value: string): void {
+    const n = Math.min(Math.max(1, parseInt(value, 10) || 1), this.brushMaxSize);
+    if (n > 0) {
+      this.emit('setBrushSize', n);
+    }
+  }
+
+  onBrushShapeChange(shape: 'square' | 'round'): void {
+    this.emit('setBrushShape', shape);
+  }
+
+  onBrushFillChange(fill: 'full' | 'spray'): void {
+    this.emit('setBrushFill', fill);
   }
 
   onFileSelect(event: Event): void {
@@ -229,7 +280,7 @@ export class Sidebar implements OnChanges {
     this.editTribes.push({id,
       color: this.newTribeColor});
     this.showTribeAdder = false;
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedTribes = true;
   }
 
   removeTribe(index: number): void {
@@ -242,7 +293,8 @@ export class Sidebar implements OnChanges {
       this.removeTribeIdFromClause(r.clause, id);
       return r.tribe !== id;
     });
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedTribes = true;
+    this.hasUnappliedRules = true;
   }
 
   private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
@@ -294,7 +346,7 @@ export class Sidebar implements OnChanges {
       this.renameTribeInClause(rule.clause, oldId, clean);
     }
     this.editingTribeName = clean;
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedTribes = true;
   }
 
   private renameTribeInClause(clause: Clause<Tribe[]>, oldId: string, newId: string): void {
@@ -326,7 +378,7 @@ export class Sidebar implements OnChanges {
     if (c.length === 6) {
       this.editTribes[index] = {...this.editTribes[index]!,
         color: c};
-      this.hasUnappliedChanges = true;
+      this.hasUnappliedTribes = true;
     }
   }
 
@@ -348,7 +400,7 @@ export class Sidebar implements OnChanges {
       tribe: dt
     });
     this.expandedRuleIndex = this.editRules.length - 1;
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   removeRule(index: number): void {
@@ -358,13 +410,13 @@ export class Sidebar implements OnChanges {
     } else if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
       this.expandedRuleIndex--;
     }
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   setRuleOutput(index: number, tribe: string): void {
     this.editRules[index] = {...this.editRules[index]!,
       tribe};
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   toggleRuleExpand(index: number): void {
@@ -438,7 +490,7 @@ export class Sidebar implements OnChanges {
       default: return;
     }
     this.setClauseAtPath(this.editRules[ruleIndex]!, path, nc);
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   toggleClauseTribe(ruleIndex: number, path: number[], tribeId: string): void {
@@ -454,7 +506,7 @@ export class Sidebar implements OnChanges {
     } else {
       clause.tribes.push(tribeId);
     }
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   toggleClauseEqTribe(ruleIndex: number, path: number[], group: 1 | 2, tribeId: string): void {
@@ -471,7 +523,7 @@ export class Sidebar implements OnChanges {
     } else {
       arr.push(tribeId);
     }
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   setClauseInterval(ruleIndex: number, path: number[], which: 0 | 1, value: string): void {
@@ -481,7 +533,7 @@ export class Sidebar implements OnChanges {
     }
     const n = Math.max(0, Math.min(8, parseInt(value, 10) || 0)) as NeighborCount;
     clause.interval[which] = n;
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   addChildClause(ruleIndex: number, path: number[]): void {
@@ -492,7 +544,7 @@ export class Sidebar implements OnChanges {
     const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
     (clause.clauses as Clause<Tribe[]>[]).push({kind: 'is',
       tribes: [dt]});
-    this.hasUnappliedChanges = true;
+    this.hasUnappliedRules = true;
   }
 
   removeChildClause(ruleIndex: number, path: number[]): void {
@@ -504,18 +556,66 @@ export class Sidebar implements OnChanges {
     const parent = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, parentPath);
     if ((parent.kind === 'and' || parent.kind === 'or') && parent.clauses.length > 2) {
       (parent.clauses as Clause<Tribe[]>[]).splice(childIdx, 1);
-      this.hasUnappliedChanges = true;
+      this.hasUnappliedRules = true;
     }
   }
 
-  applyRulesetChanges(): void {
+  applyTribes(): void {
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => ({...t})),
       rules: structuredClone(this.editRules),
       cols: this.ruleset.cols,
       rows: this.ruleset.rows
     });
-    this.hasUnappliedChanges = false;
+    this.hasUnappliedTribes = false;
+  }
+
+  restoreTribes(): void {
+    this.editTribes = this.ruleset.tribes.map(t => ({...t}));
+    this.editingTribeIndex = null;
+    this.editingTribeName = null;
+    this.showTribeAdder = false;
+    this.hasUnappliedTribes = false;
+  }
+
+  applyRules(): void {
+    this.emit('updateRuleset', {
+      tribes: this.editTribes.map(t => ({...t})),
+      rules: structuredClone(this.editRules),
+      cols: this.ruleset.cols,
+      rows: this.ruleset.rows
+    });
+    this.hasUnappliedRules = false;
+  }
+
+  restoreRules(): void {
+    this.editRules = structuredClone(this.ruleset.rules);
+    this.expandedRuleIndex = null;
+    this.hasUnappliedRules = false;
+  }
+
+  restoreGridSize(): void {
+    this.pendingCols = this.gridCols;
+    this.pendingRows = this.gridRows;
+  }
+
+  get hasUnappliedGridSize(): boolean {
+    return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
+  }
+
+  get gridSizeError(): string | null {
+    const cells = this.pendingCols * this.pendingRows;
+    if (cells > this.maxCells) {
+      return `Grid requires ${cells.toLocaleString()} cells but GPU supports at most ${this.maxCells.toLocaleString()}`;
+    }
+    if (this.pendingCols < 10 || this.pendingRows < 10) {
+      return 'Minimum grid size is 10×10';
+    }
+    return null;
+  }
+
+  get brushMaxSize(): number {
+    return Math.max(1, Math.floor(Math.max(this.gridCols, this.gridRows) / 4));
   }
 
   clauseSummary(clause: Clause<Tribe[]>): string {
@@ -538,12 +638,52 @@ export class Sidebar implements OnChanges {
     return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
   }
 
+  // ── Bottom sheet drag (mobile) ──
+
+  onSheetDragStart(event: TouchEvent): void {
+    const startY = event.touches[0]!.clientY;
+    const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement;
+    const panelHeight = panel.offsetHeight;
+    const currentTranslateY = panel.getBoundingClientRect().bottom - window.innerHeight;
+
+    panel.classList.add('dragging');
+
+    const onMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const dy = e.touches[0]!.clientY - startY;
+      const newTranslate = Math.max(0, currentTranslateY + dy);
+      this.sheetTranslate = `${newTranslate}px`;
+      this.cdr.detectChanges();
+    };
+
+    const onEnd = (e: TouchEvent) => {
+      panel.classList.remove('dragging');
+      const dy = e.changedTouches[0]!.clientY - startY;
+      const finalTranslate = Math.max(0, currentTranslateY + dy);
+      // If dragged down more than 50% of the panel height, close.
+      if (finalTranslate > panelHeight * 0.5) {
+        this.collapsed = true;
+        this.sheetTranslate = '0px';
+      } else {
+        // Stay at dragged position.
+        this.sheetTranslate = `${finalTranslate}px`;
+      }
+      this.cdr.detectChanges();
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    };
+
+    document.addEventListener('touchmove', onMove, {passive: false});
+    document.addEventListener('touchend', onEnd);
+  }
+
   // ── Sidebar resize ──
 
   onResizeStart(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.resizing = true;
+    document.body.style.userSelect = 'none';
     const startX = event.clientX;
     const startWidth = this.sidebarWidth;
 
@@ -551,13 +691,14 @@ export class Sidebar implements OnChanges {
       e.preventDefault();
       e.stopPropagation();
       this.sidebarWidth = Math.max(220, Math.min(600, startWidth + e.clientX - startX));
-      this.cdr.markForCheck();
+      this.cdr.detectChanges();
     };
 
     const onUp = (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       this.resizing = false;
+      document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMove, true);
       document.removeEventListener('mouseup', onUp, true);
     };

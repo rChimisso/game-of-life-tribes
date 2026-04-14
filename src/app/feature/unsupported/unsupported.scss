@@ -16,19 +16,19 @@
     color: #d0d0d0;
 
     &.error-code {
-      font-size: 14rem;
-      line-height: 13rem;
+      font-size: 6rem;
+      line-height: 6rem;
       padding: 0;
       color: #d0d0d0;
 
       @media (max-width: $mobile) {
-        font-size: 10rem;
-        line-height: 9rem;
+        font-size: 4rem;
+        line-height: 4rem;
       }
 
       @media (max-width: $mobile-small) {
-        font-size: 8rem;
-        line-height: 7rem;
+        font-size: 3rem;
+        line-height: 3rem;
       }
     }
 
@@ -48,7 +48,7 @@
 
   > .error-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     width: 100%;
     max-width: 32rem;
     margin-top: 1rem;

@@ -117,7 +117,6 @@ export interface MetricMessage {
   shannonEntropy: number;
   simpsonIndex: number;
   boundaryLength: number;
-  frontierLength: Record<string, number>;
   extinctionTime: Record<string, number | null>;
   fps: number;
 }
@@ -217,7 +216,6 @@ let boundaryReadBuffer: GPUBuffer;
 let lastMetricsGen = -1;
 let metricsInFlight = false;
 let lastMetricsTime = 0;
-let metricsGridReadBuffer: GPUBuffer;
 
 // Extinction tracking: per-tribe last generation seen alive
 let tribeLastAliveGen: Map<number, number> = new Map();
@@ -808,11 +806,6 @@ function createMetricsPipelines(): void {
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
   });
 
-  metricsGridReadBuffer = device.createBuffer({
-    size: gridBufferSize(),
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
-
   boundaryBindGroupA = device.createBindGroup({
     layout: boundaryPipeline.getBindGroupLayout(0),
     entries: [
@@ -1015,10 +1008,15 @@ function readbackGrid(): Promise<Uint32Array> {
   const currentGrid = pingPong ? gridBufferB : gridBufferA;
   const byteSize = gridBufferSize();
 
-  const readBuffer = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
+  let readBuffer: GPUBuffer;
+  try {
+    readBuffer = device.createBuffer({
+      size: byteSize,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    });
+  } catch {
+    return Promise.reject(new Error(`Failed to allocate ${byteSize} byte readback buffer`));
+  }
 
   const encoder = device.createCommandEncoder();
   encoder.copyBufferToBuffer(currentGrid, 0, readBuffer, 0, byteSize);
@@ -1128,10 +1126,6 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
   bp.end();
 
   encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
-
-  // Copy grid for CPU-side frontier computation.
-  const currentGrid = pingPong ? gridBufferB : gridBufferA;
-  encoder.copyBufferToBuffer(currentGrid, 0, metricsGridReadBuffer, 0, gridBufferSize());
 }
 
 function readMetricsAndPost(): void {
@@ -1142,16 +1136,15 @@ function readMetricsAndPost(): void {
   lastMetricsGen = gen;
   metricsInFlight = true;
 
-  // Map only the buffers we actually dispatched.
+  // Map only the buffers we need (histogram + boundary).
   const mapPromises: Promise<void>[] = [];
   mapPromises.push(histogramReadBuffer.mapAsync(GPUMapMode.READ));
   mapPromises.push(boundaryReadBuffer.mapAsync(GPUMapMode.READ));
-  mapPromises.push(metricsGridReadBuffer.mapAsync(GPUMapMode.READ));
 
   Promise.all(mapPromises).then(() => {
     const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
 
-    // Population + diversity metrics.
+    // Population + diversity metrics (derived from histogram — cheap).
     const population: Record<string, number> = {};
     let shannonEntropy = 0;
     let simpsonSum = 0;
@@ -1200,37 +1193,10 @@ function readMetricsAndPost(): void {
       }
     }
 
-    // Spatial metrics.
-    let boundaryLength = 0;
-    const frontierLength: Record<string, number> = {};
-
+    // Boundary length (from GPU pass — free).
     const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
     boundaryReadBuffer.unmap();
-    boundaryLength = bData[0] ?? 0;
-
-    const gridData = new Uint32Array(metricsGridReadBuffer.getMappedRange().slice(0));
-    metricsGridReadBuffer.unmap();
-
-    const frontierCounts = new Uint32Array(tribes.length);
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const idx = y * cols + x;
-        const t = gridData[idx]!;
-        const rx = (x + 1) % cols;
-        if (gridData[y * cols + rx] !== t) {
-          frontierCounts[t]!++;
-        }
-        const by = (y + 1) % rows;
-        if (gridData[by * cols + x] !== t) {
-          frontierCounts[t]!++;
-        }
-      }
-    }
-    for (let i = 0; i < tribes.length; i++) {
-      if (i !== deadIdx) {
-        frontierLength[tribes[i]!.id] = frontierCounts[i]!;
-      }
-    }
+    const boundaryLength = bData[0] ?? 0;
 
     metricsInFlight = false;
 
@@ -1241,7 +1207,6 @@ function readMetricsAndPost(): void {
       shannonEntropy,
       simpsonIndex: 1 - simpsonSum,
       boundaryLength,
-      frontierLength,
       extinctionTime,
       fps: currentFps
     } satisfies MetricMessage);
@@ -1566,7 +1531,6 @@ function rebuildForNewRuleset(): void {
   histogramReadBuffer?.destroy();
   boundaryBuffer?.destroy();
   boundaryReadBuffer?.destroy();
-  metricsGridReadBuffer?.destroy();
   recordBufA?.destroy();
   recordBufB?.destroy();
 
@@ -1685,6 +1649,16 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           cols,
           rows
         } satisfies SnapshotMessage, [grid.buffer] as never);
+      }).catch(() => {
+        // Grid too large to read back — send empty grid.
+        const empty = new Uint32Array(0);
+        self.postMessage({
+          type: 'snapshot',
+          grid: empty,
+          generation: genCounter,
+          cols,
+          rows
+        } satisfies SnapshotMessage);
       });
       break;
     }

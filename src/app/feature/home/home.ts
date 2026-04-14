@@ -421,10 +421,15 @@ export class HomePage implements OnDestroy {
       };
       const gridBuf = snap.grid;
       const recFrames = rec && rec.frames.length > 0 ? rec.frames : null;
-      const transferables: ArrayBuffer[] = [gridBuf.buffer];
+      const transferables: ArrayBuffer[] = [];
+      if (gridBuf?.buffer?.byteLength > 0) {
+        transferables.push(gridBuf.buffer);
+      }
       if (recFrames) {
         for (const f of recFrames) {
-          transferables.push(f.buffer);
+          if (f.buffer.byteLength > 0) {
+            transferables.push(f.buffer);
+          }
         }
       }
       worker.postMessage({

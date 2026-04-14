@@ -870,59 +870,57 @@ fn pcg(inp: u32) -> u32 {
   return (word >> 22u) ^ word;
 }
 
-fn inShape(dx: i32, dy: i32, half: i32, size: u32, shape: u32) -> bool {
+fn inShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
+  if (bx < 0 || by < 0 || bx >= i32(size) || by >= i32(size)) { return false; }
+  let hf = f32(size - 1u) / 2.0;
+  let fdx = f32(bx) - hf;
+  let fdy = f32(by) - hf;
   switch (shape) {
     case 1u: { // round
-      let fhalf = f32(size - 1u) / 2.0;
-      let fdx = f32(dx) - fhalf + f32(half);
-      let fdy = f32(dy) - fhalf + f32(half);
       let r = f32(size) / 2.0 - 0.25;
       return fdx * fdx + fdy * fdy <= r * r;
     }
     case 2u: { // diamond
-      return abs(dx) + abs(dy) <= half;
+      return abs(fdx) + abs(fdy) <= f32(size) / 2.0;
     }
-    case 3u: { // line (vertical)
-      return dx == 0;
+    case 3u: { // vline
+      return bx == i32(size - 1u) / 2;
     }
-    case 4u: { // line (horizontal)
-      return dy == 0;
+    case 4u: { // hline
+      return by == i32(size - 1u) / 2;
     }
     default: { // 0 = square
-      return abs(dx) <= half && abs(dy) <= half;
+      return true; // bounds already checked above
     }
   }
 }
 
-fn onBorder(dx: i32, dy: i32, half: i32, size: u32, shape: u32) -> bool {
-  if (!inShape(dx, dy, half, size, shape)) { return false; }
-  // Check 4-connected neighbors: if any is outside shape, this is a border cell.
-  return !inShape(dx - 1, dy, half, size, shape)
-      || !inShape(dx + 1, dy, half, size, shape)
-      || !inShape(dx, dy - 1, half, size, shape)
-      || !inShape(dx, dy + 1, half, size, shape);
+fn onBorder(bx: i32, by: i32, size: u32, shape: u32) -> bool {
+  if (!inShape(bx, by, size, shape)) { return false; }
+  return !inShape(bx - 1, by, size, shape)
+      || !inShape(bx + 1, by, size, shape)
+      || !inShape(bx, by - 1, size, shape)
+      || !inShape(bx, by + 1, size, shape);
 }
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
-  let bx = gid.x;
-  let by = gid.y;
-  if (bx >= params.brushSize || by >= params.brushSize) { return; }
-  let idx = by * params.brushSize + bx;
-
-  let half = i32(params.brushSize - 1u) / 2;
-  let dy = i32(by) - half;
-  let dx = i32(bx) - half;
+  let bx = i32(gid.x);
+  let by = i32(gid.y);
+  if (bx >= i32(params.brushSize) || by >= i32(params.brushSize)) { return; }
+  let idx = u32(by) * params.brushSize + u32(bx);
 
   // Shape test.
   if (params.fill == 2u) {
-    // Outline mode: only draw border cells.
-    if (!onBorder(dx, dy, half, params.brushSize, params.shape)) { return; }
+    if (!onBorder(bx, by, params.brushSize, params.shape)) { return; }
   } else {
-    if (!inShape(dx, dy, half, params.brushSize, params.shape)) { return; }
+    if (!inShape(bx, by, params.brushSize, params.shape)) { return; }
   }
 
   // Toroidal wrapping.
+  let half = i32(params.brushSize - 1u) / 2;
+  let dx = bx - half;
+  let dy = by - half;
   let cx = ((params.centerX + dx) % i32(params.cols) + i32(params.cols)) % i32(params.cols);
   let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
   let cellIdx = u32(cy) * params.cols + u32(cx);
@@ -1039,42 +1037,96 @@ function readbackGrid(): Promise<Uint32Array> {
 // ---------------------------------------------------------------------------
 
 function metricsInterval(): number {
-  // Modulate metrics frequency based on simulation speed.
-  // Slow (<=1 fps): every step. Fast (max speed): every ~60 steps.
+  // Scale down frequency for larger grids.
+  const cellCount = cols * rows;
+  const areaFactor = cellCount > 1_000_000 ? 10 : cellCount > 100_000 ? 3 : 1;
+
   if (targetStepDuration <= 0) {
-    return 60;
+    return 60 * areaFactor;
   }
   const stepsPerSecond = 1000 / targetStepDuration;
-  return Math.max(1, Math.round(stepsPerSecond));
+  let interval = Math.max(1, Math.round(stepsPerSecond));
+
+  // When FPS < 1, increase interval to reduce metrics overhead.
+  if (currentFps > 0 && currentFps < 1) {
+    interval = Math.max(interval, Math.ceil(1 / currentFps));
+  }
+
+  return interval * areaFactor;
+}
+
+// ---------------------------------------------------------------------------
+//  RLE compression for recorded frames
+// ---------------------------------------------------------------------------
+
+function rleEncode(data: Uint8Array): Uint8Array {
+  if (data.length === 0) {
+    return data;
+  }
+  const out = new Uint8Array(data.length * 2); // Worst case
+  let oi = 0;
+  let i = 0;
+  while (i < data.length) {
+    const val = data[i]!;
+    let run = 1;
+    while (i + run < data.length && data[i + run] === val && run < 255) {
+      run++;
+    }
+    out[oi++] = run;
+    out[oi++] = val;
+    i += run;
+  }
+  return out.slice(0, oi);
+}
+
+function rleDecode(encoded: Uint8Array, length: number): Uint8Array {
+  const out = new Uint8Array(length);
+  let oi = 0;
+  for (let i = 0; i < encoded.length; i += 2) {
+    const run = encoded[i]!;
+    const val = encoded[i + 1]!;
+    out.fill(val, oi, oi + run);
+    oi += run;
+  }
+  return out;
+}
+
+function rleEncodeFrame(frame: Uint8Array): Uint8Array {
+  const encoded = rleEncode(frame);
+  return encoded.length < frame.length ? encoded : frame;
+}
+
+function rleDecodeFrame(stored: Uint8Array): Uint8Array {
+  const expectedLen = cols * rows;
+  return stored.length < expectedLen ? rleDecode(stored, expectedLen) : stored;
 }
 
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
-  // Clear histogram buffer.
-  const zeros256 = new Uint32Array(256);
-  device.queue.writeBuffer(histogramBuffer, 0, zeros256);
-  // Clear boundary buffer.
-  const zeros1 = new Uint32Array([0]);
-  device.queue.writeBuffer(boundaryBuffer, 0, zeros1);
-
   const wgX = Math.ceil(cols / 16);
   const wgY = Math.ceil(rows / 16);
 
-  // Histogram pass.
+  // Histogram pass (population + diversity metrics).
+  const zeros256 = new Uint32Array(256);
+  device.queue.writeBuffer(histogramBuffer, 0, zeros256);
+
   const hp = encoder.beginComputePass();
   hp.setPipeline(histogramPipeline);
   hp.setBindGroup(0, pingPong ? histogramBindGroupB : histogramBindGroupA);
   hp.dispatchWorkgroups(wgX, wgY);
   hp.end();
 
-  // Boundary pass.
+  encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
+
+  // Boundary pass (spatial metrics).
+  const zeros1 = new Uint32Array([0]);
+  device.queue.writeBuffer(boundaryBuffer, 0, zeros1);
+
   const bp = encoder.beginComputePass();
   bp.setPipeline(boundaryPipeline);
   bp.setBindGroup(0, pingPong ? boundaryBindGroupB : boundaryBindGroupA);
   bp.dispatchWorkgroups(wgX, wgY);
   bp.end();
 
-  // Copy results to read buffers.
-  encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
   encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
 
   // Copy grid for CPU-side frontier computation.
@@ -1090,106 +1142,109 @@ function readMetricsAndPost(): void {
   lastMetricsGen = gen;
   metricsInFlight = true;
 
-  // Read histogram.
-  histogramReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
+  // Map only the buffers we actually dispatched.
+  const mapPromises: Promise<void>[] = [];
+  mapPromises.push(histogramReadBuffer.mapAsync(GPUMapMode.READ));
+  mapPromises.push(boundaryReadBuffer.mapAsync(GPUMapMode.READ));
+  mapPromises.push(metricsGridReadBuffer.mapAsync(GPUMapMode.READ));
+
+  Promise.all(mapPromises).then(() => {
+    const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+
+    // Population + diversity metrics.
+    const population: Record<string, number> = {};
+    let shannonEntropy = 0;
+    let simpsonSum = 0;
+    const extinctionTime: Record<string, number | null> = {};
+
     const histData = new Uint32Array(histogramReadBuffer.getMappedRange().slice(0));
     histogramReadBuffer.unmap();
 
-    return boundaryReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
-      const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
-      boundaryReadBuffer.unmap();
-
-      return metricsGridReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
-        const gridData = new Uint32Array(metricsGridReadBuffer.getMappedRange().slice(0));
-        metricsGridReadBuffer.unmap();
-        metricsInFlight = false;
-
-        const population: Record<string, number> = {};
-        let totalAlive = 0;
-        const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
-        for (let i = 0; i < tribes.length; i++) {
-          const count = histData[i] ?? 0;
-          population[tribes[i]!.id] = count;
-          if (i !== deadIdx) {
-            totalAlive += count;
-            if (count > 0) {
-              tribeLastAliveGen.set(i, gen);
-              tribeEverAlive.add(i);
-            }
-          }
+    let totalAlive = 0;
+    for (let i = 0; i < tribes.length; i++) {
+      const count = histData[i] ?? 0;
+      population[tribes[i]!.id] = count;
+      if (i !== deadIdx) {
+        totalAlive += count;
+        if (count > 0) {
+          tribeLastAliveGen.set(i, gen);
+          tribeEverAlive.add(i);
         }
+      }
+    }
 
-        // Shannon entropy & Simpson index (over non-dead tribes).
-        let shannonEntropy = 0;
-        let simpsonSum = 0;
-        if (totalAlive > 0) {
-          for (let i = 0; i < tribes.length; i++) {
-            if (i === deadIdx) {
-              continue;
-            }
-            const p = (histData[i] ?? 0) / totalAlive;
-            if (p > 0) {
-              shannonEntropy -= p * Math.log2(p);
-              simpsonSum += p * p;
-            }
-          }
+    if (totalAlive > 0) {
+      for (let i = 0; i < tribes.length; i++) {
+        if (i === deadIdx) {
+          continue;
         }
+        const p = (histData[i] ?? 0) / totalAlive;
+        if (p > 0) {
+          shannonEntropy -= p * Math.log2(p);
+          simpsonSum += p * p;
+        }
+      }
+    }
 
-        // Extinction time per tribe.
-        const extinctionTime: Record<string, number | null> = {};
-        for (let i = 0; i < tribes.length; i++) {
-          if (i === deadIdx) {
-            continue;
-          }
-          const count = histData[i] ?? 0;
-          if (count > 0) {
-            extinctionTime[tribes[i]!.id] = null; // Still alive
-          } else if (!tribeEverAlive.has(i)) {
-            extinctionTime[tribes[i]!.id] = 0; // Never existed
-          } else {
-            extinctionTime[tribes[i]!.id] = tribeLastAliveGen.get(i) ?? 0;
-          }
-        }
+    for (let i = 0; i < tribes.length; i++) {
+      if (i === deadIdx) {
+        continue;
+      }
+      const count = histData[i] ?? 0;
+      if (count > 0) {
+        extinctionTime[tribes[i]!.id] = null;
+      } else if (!tribeEverAlive.has(i)) {
+        extinctionTime[tribes[i]!.id] = 0;
+      } else {
+        extinctionTime[tribes[i]!.id] = tribeLastAliveGen.get(i) ?? 0;
+      }
+    }
 
-        // Frontier length per tribe (CPU-side from grid readback).
-        const frontierCounts = new Uint32Array(tribes.length);
-        for (let y = 0; y < rows; y++) {
-          for (let x = 0; x < cols; x++) {
-            const idx = y * cols + x;
-            const t = gridData[idx]!;
-            // Right neighbor.
-            const rx = (x + 1) % cols;
-            if (gridData[y * cols + rx] !== t) {
-              frontierCounts[t]!++;
-            }
-            // Bottom neighbor.
-            const by = (y + 1) % rows;
-            if (gridData[by * cols + x] !== t) {
-              frontierCounts[t]!++;
-            }
-          }
-        }
-        const frontierLength: Record<string, number> = {};
-        for (let i = 0; i < tribes.length; i++) {
-          if (i === deadIdx) {
-            continue;
-          }
-          frontierLength[tribes[i]!.id] = frontierCounts[i]!;
-        }
+    // Spatial metrics.
+    let boundaryLength = 0;
+    const frontierLength: Record<string, number> = {};
 
-        self.postMessage({
-          type: 'metrics',
-          generation: gen,
-          population,
-          shannonEntropy,
-          simpsonIndex: 1 - simpsonSum,
-          boundaryLength: bData[0] ?? 0,
-          frontierLength,
-          extinctionTime,
-          fps: currentFps
-        } satisfies MetricMessage);
-      });
-    });
+    const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
+    boundaryReadBuffer.unmap();
+    boundaryLength = bData[0] ?? 0;
+
+    const gridData = new Uint32Array(metricsGridReadBuffer.getMappedRange().slice(0));
+    metricsGridReadBuffer.unmap();
+
+    const frontierCounts = new Uint32Array(tribes.length);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const idx = y * cols + x;
+        const t = gridData[idx]!;
+        const rx = (x + 1) % cols;
+        if (gridData[y * cols + rx] !== t) {
+          frontierCounts[t]!++;
+        }
+        const by = (y + 1) % rows;
+        if (gridData[by * cols + x] !== t) {
+          frontierCounts[t]!++;
+        }
+      }
+    }
+    for (let i = 0; i < tribes.length; i++) {
+      if (i !== deadIdx) {
+        frontierLength[tribes[i]!.id] = frontierCounts[i]!;
+      }
+    }
+
+    metricsInFlight = false;
+
+    self.postMessage({
+      type: 'metrics',
+      generation: gen,
+      population,
+      shannonEntropy,
+      simpsonIndex: 1 - simpsonSum,
+      boundaryLength,
+      frontierLength,
+      extinctionTime,
+      fps: currentFps
+    } satisfies MetricMessage);
   });
 }
 
@@ -1274,7 +1329,7 @@ function mainLoop(now: number): void {
           for (let i = 0; i < cols * rows; i++) {
             frame[i] = grid[i]!;
           }
-          recordedFrames.push(frame);
+          recordedFrames.push(rleEncodeFrame(frame));
         });
       }
 
@@ -1311,11 +1366,12 @@ function mainLoop(now: number): void {
       for (let i = 0; i < cols * rows; i++) {
         frame[i] = grid[i]!;
       }
+      const encoded = rleEncodeFrame(frame);
       const idx = genCounter - recordingStartGen;
       if (idx >= 0 && idx < recordedFrames.length) {
-        recordedFrames[idx] = frame;
+        recordedFrames[idx] = encoded;
       } else {
-        recordedFrames.push(frame);
+        recordedFrames.push(encoded);
       }
       recordedFrames.length = idx + 1;
     });
@@ -1397,7 +1453,7 @@ function mainLoop(now: number): void {
             } else {
               recordBufBReady = true;
             }
-            recordedFrames.push(frame);
+            recordedFrames.push(rleEncodeFrame(frame));
           });
 
           recordBufToggle = !recordBufToggle;
@@ -1407,7 +1463,8 @@ function mainLoop(now: number): void {
       if (genCounter % mi === 0 || genCounter - lastMetricsGen >= mi * 2) {
         // Only update metrics ~once per second.
         const metricsElapsed = now - lastMetricsTime;
-        if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
+        const metricsMinMs = cols * rows > 1_000_000 ? 3000 : cols * rows > 100_000 ? 2000 : 1000;
+        if ((metricsElapsed >= metricsMinMs || lastMetricsTime === 0) && !metricsInFlight) {
           lastMetricsTime = now;
           // Run GPU metrics passes and submit together.
           const encoder = device.createCommandEncoder();
@@ -1627,7 +1684,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           generation: genCounter,
           cols,
           rows
-        } satisfies SnapshotMessage, {transfer: [grid.buffer]});
+        } satisfies SnapshotMessage, [grid.buffer] as never);
       });
       break;
     }
@@ -1652,16 +1709,17 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'getRecording': {
-      // Copy frames so the originals stay intact for future downloads.
-      const frames = recordedFrames.map(f => new Uint8Array(f));
-      const transferables = frames.map(f => f.buffer);
+      // Decode RLE-compressed frames and send copies (keep originals).
+      const decodedFrames = recordedFrames.map(f => rleDecodeFrame(f));
+      const frameCopies = decodedFrames.map(f => new Uint8Array(f));
+      const buffers = frameCopies.map(f => f.buffer).filter(b => b.byteLength > 0);
       self.postMessage({
         type: 'recording',
-        frames,
+        frames: frameCopies,
         startGeneration: recordingStartGen,
         cols,
         rows
-      } satisfies RecordingMessage, {transfer: transferables as Transferable[]});
+      } satisfies RecordingMessage, buffers as never);
       break;
     }
 
@@ -1671,7 +1729,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         break;
       }
       recordedFrames.splice(recordedFrames.length - k, k);
-      const lastFrame = recordedFrames[recordedFrames.length - 1]!;
+      const lastFrame = rleDecodeFrame(recordedFrames[recordedFrames.length - 1]!);
       const gridData = new Uint32Array(cols * rows);
       for (let i = 0; i < cols * rows; i++) {
         gridData[i] = lastFrame[i]!;
@@ -1699,11 +1757,12 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
             for (let j = 0; j < cols * rows; j++) {
               preFrame[j] = grid[j]!;
             }
+            const encodedPre = rleEncodeFrame(preFrame);
             const idx = genCounter - recordingStartGen;
             if (idx >= 0 && idx < recordedFrames.length) {
-              recordedFrames[idx] = preFrame;
+              recordedFrames[idx] = encodedPre;
             } else {
-              recordedFrames.push(preFrame);
+              recordedFrames.push(encodedPre);
             }
             recordedFrames.length = idx + 1;
 
@@ -1715,7 +1774,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
               for (let j = 0; j < cols * rows; j++) {
                 postFrame[j] = postGrid[j]!;
               }
-              recordedFrames.push(postFrame);
+              recordedFrames.push(rleEncodeFrame(postFrame));
 
               lastMetricsGen = -1;
               if (!metricsInFlight) {
@@ -1751,11 +1810,12 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
             for (let j = 0; j < cols * rows; j++) {
               preFrame[j] = grid[j]!;
             }
+            const encodedSkipPre = rleEncodeFrame(preFrame);
             const idx = genCounter - recordingStartGen;
             if (idx >= 0 && idx < recordedFrames.length) {
-              recordedFrames[idx] = preFrame;
+              recordedFrames[idx] = encodedSkipPre;
             } else {
-              recordedFrames.push(preFrame);
+              recordedFrames.push(encodedSkipPre);
             }
             recordedFrames.length = idx + 1;
 

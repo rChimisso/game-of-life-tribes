@@ -34,6 +34,10 @@
           <mat-icon>skip_next</mat-icon>
         </button>
       </div>
+      <div class="generation-display">
+        <span class="gen-label">Generation</span>
+        <span class="gen-value">{{ metrics ? (metrics.generation | number) : 0 }}</span>
+      </div>
     </div>
 
     <hr class="divider" />
@@ -56,7 +60,7 @@
       <div class="tribe-picker">
         @for (tribe of tribes; track tribe.id) {
           @if (tribe.id !== "dead") {
-            <button class="tribe-swatch" [class.active]="drawTribe === tribe.id && !deleteMode" [style.background-color]="'#' + tribe.color" (click)="onTribeChange(tribe.id)"></button>
+            <button class="tribe-swatch" [class.active]="drawTribes.includes(tribe.id) && !deleteMode" [style.background-color]="'#' + tribe.color" (click)="onTribeChange(tribe.id)"></button>
           }
         }
         <button class="tribe-swatch delete-swatch" [class.active]="deleteMode" (click)="emit('deleteMode')">
@@ -71,19 +75,36 @@
         <div class="brush-row">
           <span class="brush-label">Shape</span>
           <div class="brush-toggle-group">
-            <button class="brush-toggle" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
+            <button class="brush-toggle" title="Square" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
               <mat-icon>square</mat-icon>
             </button>
-            <button class="brush-toggle" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
+            <button class="brush-toggle" title="Round" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
               <mat-icon>circle</mat-icon>
+            </button>
+            <button class="brush-toggle" title="Diamond" [class.active]="brushShape === 'diamond'" (click)="onBrushShapeChange('diamond')">
+              <mat-icon style="transform: rotate(45deg)">square</mat-icon>
+            </button>
+            <button class="brush-toggle" title="Vertical Line" [class.active]="brushShape === 'vline'" (click)="onBrushShapeChange('vline')">
+              <mat-icon>vertical_rule</mat-icon>
+            </button>
+            <button class="brush-toggle" title="Horizontal Line" [class.active]="brushShape === 'hline'" (click)="onBrushShapeChange('hline')">
+              <mat-icon>horizontal_rule</mat-icon>
             </button>
           </div>
         </div>
         <div class="brush-row">
-          <span class="brush-label">Fill</span>
+          <span class="brush-label">Mode</span>
           <div class="brush-toggle-group">
             <button class="brush-toggle" [class.active]="brushFill === 'full'" (click)="onBrushFillChange('full')">Full</button>
             <button class="brush-toggle" [class.active]="brushFill === 'spray'" (click)="onBrushFillChange('spray')">Spray</button>
+            <button class="brush-toggle" [class.active]="brushFill === 'outline'" (click)="onBrushFillChange('outline')">Outline</button>
+          </div>
+        </div>
+        <div class="brush-row mobile-only">
+          <span class="brush-label">Touch</span>
+          <div class="brush-toggle-group">
+            <button class="brush-toggle" [class.active]="!panMode" (click)="panMode ? emit('togglePanMode') : null">Draw</button>
+            <button class="brush-toggle" [class.active]="panMode" (click)="!panMode ? emit('togglePanMode') : null">Pan</button>
           </div>
         </div>
       </div>
@@ -252,12 +273,30 @@
           <mat-panel-title>Population</mat-panel-title>
         </mat-expansion-panel-header>
         @if (metrics) {
+          <h4 class="subsection-title">Cells</h4>
           <div class="metrics-grid">
-            @for (entry of metrics.population | keyvalue; track entry.key) {
-              <span class="metric-label">{{ entry.key }}</span>
-              <span class="metric-value">{{ entry.value | number }}</span>
+            @for (tribe of tribes; track tribe.id) {
+              <span class="metric-label">{{ tribe.id }}</span>
+              <span class="metric-value">{{ metrics.population[tribe.id] | number }}</span>
             }
           </div>
+          @if (metrics.extinctionTime) {
+            <h4 class="subsection-title">Extinction time</h4>
+            <div class="metrics-grid">
+              @for (tribe of tribes; track tribe.id) {
+                @if (tribe.id !== "dead" && metrics.extinctionTime[tribe.id] !== undefined) {
+                  <span class="metric-label">{{ tribe.id }}</span>
+                  <span class="metric-value">
+                    @if (metrics.extinctionTime[tribe.id] === null) {
+                      &mdash;
+                    } @else {
+                      {{ metrics.extinctionTime[tribe.id] | number }}
+                    }
+                  </span>
+                }
+              }
+            </div>
+          }
         } @else {
           <p class="muted">No data yet</p>
         }
@@ -287,13 +326,18 @@
           <div class="metrics-grid">
             <span class="metric-label">Boundary length</span>
             <span class="metric-value">{{ metrics.boundaryLength | number }}</span>
-            @if (metrics.meanClusterSize) {
-              @for (entry of metrics.meanClusterSize | keyvalue; track entry.key) {
-                <span class="metric-label">Cluster ({{ entry.key }})</span>
-                <span class="metric-value">{{ entry.value | number: "1.0-2" }}</span>
-              }
-            }
           </div>
+          @if (metrics.frontierLength) {
+            <h4 class="subsection-title">Frontier length</h4>
+            <div class="metrics-grid">
+              @for (tribe of tribes; track tribe.id) {
+                @if (tribe.id !== "dead" && metrics.frontierLength[tribe.id] !== undefined) {
+                  <span class="metric-label">{{ tribe.id }}</span>
+                  <span class="metric-value">{{ metrics.frontierLength[tribe.id] | number }}</span>
+                }
+              }
+            </div>
+          }
         } @else {
           <p class="muted">No data yet</p>
         }
@@ -317,7 +361,12 @@
         </label>
       </div>
       @if (downloadProgress >= 0) {
-        <mat-progress-bar mode="determinate" [value]="downloadProgress"></mat-progress-bar>
+        <div class="download-status">
+          <mat-progress-bar mode="determinate" [value]="downloadProgress"></mat-progress-bar>
+          @if (downloadStatus) {
+            <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
+          }
+        </div>
       }
       <button mat-stroked-button [disabled]="downloadProgress >= 0 || (!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng)" (click)="onDownload()">
         <mat-icon>download</mat-icon>

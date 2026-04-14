@@ -1,8 +1,8 @@
 ﻿/* eslint-disable jsdoc/require-jsdoc */
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
-import {AllowedTribe, ANY_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
-import {CameraMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
+import {Ruleset, Tribe} from '../../model/rule';
+import {BrushShape, CameraMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -26,16 +26,19 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public state: 'running' | 'paused' = 'paused';
 
   @Input()
-  public drawTribe!: Exclude<AllowedTribe<T>, typeof ANY_TRIBE_ID>;
+  public drawTribes: string[] = [];
+
+  @Input()
+  public panMode = false;
 
   @Input()
   public brushSize = 1;
 
   @Input()
-  public brushShape: 'square' | 'round' = 'square';
+  public brushShape: BrushShape = 'square';
 
   @Input()
-  public brushFill: 'full' | 'spray' = 'full';
+  public brushFill: 'full' | 'spray' | 'outline' = 'full';
 
   @Output()
   public readonly metrics = new EventEmitter<MetricMessage>();
@@ -66,29 +69,16 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private readonly maxScale = 128;
 
-  // ── Pointer state ──
-  private isPanning = false;
+  // ── Pointer state (unified mouse + touch) ──
+  private readonly pointers = new Map<number, {x: number; y: number}>();
 
-  private isDrawing = false;
+  private mode: 'idle' | 'draw' | 'pan' | 'pinch' = 'idle';
 
-  private lastX = 0;
+  private primaryPointerId = -1;
 
-  private lastY = 0;
-
-  private readonly onDocMove = (ev: MouseEvent) => this.onMove(ev);
-
-  private readonly onDocUp = () => this.onUp();
-
-  // ── Touch state ──
-  private touchDrawing = false;
-
-  private wasTwoFinger = false;
+  private touchPendingDraw: {x: number; y: number} | null = null;
 
   private lastPinchDist = 0;
-
-  private lastMidX = 0;
-
-  private lastMidY = 0;
 
   // Â”€â”€ Zoom (wheel) â”€â”€
   @HostListener('wheel', ['$event'])
@@ -113,54 +103,112 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   // Â”€â”€ Pan & Draw (mouse) â”€â”€
-  @HostListener('mousedown', ['$event'])
-  public onDown(ev: MouseEvent): void {
+  // ── Pointer events (unified mouse + touch) ──
+  @HostListener('pointerdown', ['$event'])
+  public onPointerDown(ev: PointerEvent): void {
+    ev.preventDefault();
+    (ev.target as Element).setPointerCapture(ev.pointerId);
+    this.pointers.set(ev.pointerId, {x: ev.clientX,
+      y: ev.clientY});
+
     if (ev.button === 2) {
-      this.isPanning = true;
-      this.lastX = ev.clientX;
-      this.lastY = ev.clientY;
-      this.attachDocListeners();
-    } else if (ev.button === 0) {
-      this.isDrawing = true;
-      this.drawAt(ev);
-      this.attachDocListeners();
+      this.mode = 'pan';
+      this.primaryPointerId = ev.pointerId;
+      return;
+    }
+
+    if (this.pointers.size >= 2) {
+      this.mode = 'pinch';
+      this.touchPendingDraw = null;
+      this.lastPinchDist = this.currentPinchDist();
+      return;
+    }
+
+    if (ev.pointerType === 'touch' && this.panMode) {
+      this.mode = 'pan';
+      this.primaryPointerId = ev.pointerId;
+    } else if (ev.pointerType === 'touch') {
+      this.touchPendingDraw = {x: ev.clientX,
+        y: ev.clientY};
+      this.primaryPointerId = ev.pointerId;
+    } else {
+      this.mode = 'draw';
+      this.primaryPointerId = ev.pointerId;
+      this.drawAtPoint(ev.clientX, ev.clientY);
     }
   }
 
-  private onMove(ev: MouseEvent): void {
-    if (this.isPanning) {
-      const dx = ev.clientX - this.lastX;
-      const dy = ev.clientY - this.lastY;
-      this.lastX = ev.clientX;
-      this.lastY = ev.clientY;
-      // Panning moves the offset in cell space (toroidal).
+  @HostListener('pointermove', ['$event'])
+  public onPointerMove(ev: PointerEvent): void {
+    if (!this.pointers.has(ev.pointerId)) {
+      return;
+    }
+    const prev = this.pointers.get(ev.pointerId)!;
+    this.pointers.set(ev.pointerId, {x: ev.clientX,
+      y: ev.clientY});
+
+    if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
+      const dx = ev.clientX - prev.x;
+      const dy = ev.clientY - prev.y;
       this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
       this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
       this.sendCamera();
-    } else if (this.isDrawing) {
-      this.drawAt(ev);
+      return;
+    }
+
+    if (this.mode === 'pinch' || this.pointers.size >= 2) {
+      this.mode = 'pinch';
+      this.touchPendingDraw = null;
+      const dist = this.currentPinchDist();
+      if (this.lastPinchDist > 0 && dist > 0) {
+        const mid = this.currentPinchMid();
+        const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+        const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
+        const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
+        const factor = dist / this.lastPinchDist;
+        this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
+        this.offsetX = worldX - (mid.x - rect.left) / this.scale;
+        this.offsetY = worldY - (mid.y - rect.top) / this.scale;
+        this.sendCamera();
+      }
+      this.lastPinchDist = dist;
+      return;
+    }
+
+    if (this.touchPendingDraw) {
+      this.mode = 'draw';
+      this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+      this.touchPendingDraw = null;
+    }
+    if (this.mode === 'draw') {
+      this.drawAtPoint(ev.clientX, ev.clientY);
     }
   }
 
-  private onUp(): void {
-    this.isPanning = false;
-    this.isDrawing = false;
-    this.detachDocListeners();
+  @HostListener('pointerup', ['$event'])
+  @HostListener('pointercancel', ['$event'])
+  public onPointerUp(ev: PointerEvent): void {
+    this.pointers.delete(ev.pointerId);
+
+    if (ev.pointerId === this.primaryPointerId) {
+      if (this.touchPendingDraw && this.mode !== 'pinch') {
+        this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+      }
+      this.touchPendingDraw = null;
+      this.primaryPointerId = -1;
+    }
+
+    if (this.pointers.size === 0) {
+      this.mode = 'idle';
+      this.lastPinchDist = 0;
+    } else if (this.pointers.size === 1) {
+      this.lastPinchDist = 0;
+    }
   }
 
   @HostListener('contextmenu', ['$event'])
   public disableCtx(ev: Event): void {
     ev.preventDefault();
-  }
-
-  private attachDocListeners(): void {
-    document.addEventListener('mousemove', this.onDocMove);
-    document.addEventListener('mouseup', this.onDocUp);
-  }
-
-  private detachDocListeners(): void {
-    document.removeEventListener('mousemove', this.onDocMove);
-    document.removeEventListener('mouseup', this.onDocUp);
   }
 
   // Â”€â”€ Resize â”€â”€
@@ -221,12 +269,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         this.stepping.emit(ev.data as SteppingMessage);
       }
     };
-
-    // Touch events (need passive: false for preventDefault).
-    const host = this.canvasRef.nativeElement.parentElement!;
-    host.addEventListener('touchstart', e => this.onTouchStart(e), {passive: false});
-    host.addEventListener('touchmove', e => this.onTouchMove(e), {passive: false});
-    host.addEventListener('touchend', e => this.onTouchEnd(e));
   }
 
   public requestSnapshot(): void {
@@ -286,7 +328,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public ngOnDestroy(): void {
-    this.detachDocListeners();
     this.worker?.terminate();
   }
 
@@ -321,77 +362,23 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   // Â”€â”€ Drawing â”€â”€
   // ── Drawing ──
-  private drawAt(ev: MouseEvent): void {
-    this.drawAtPoint(ev.clientX, ev.clientY);
-  }
-
-  // ── Touch handling ──
-  private onTouchStart(ev: TouchEvent): void {
-    ev.preventDefault();
-    if (ev.touches.length === 1 && !this.wasTwoFinger) {
-      this.touchDrawing = true;
-      this.drawAtPoint(ev.touches[0]!.clientX, ev.touches[0]!.clientY);
-    } else if (ev.touches.length >= 2) {
-      this.touchDrawing = false;
-      this.wasTwoFinger = true;
-      this.lastMidX = (ev.touches[0]!.clientX + ev.touches[1]!.clientX) / 2;
-      this.lastMidY = (ev.touches[0]!.clientY + ev.touches[1]!.clientY) / 2;
-      this.lastPinchDist = this.pinchDist(ev.touches[0]!, ev.touches[1]!);
+  // ── Pinch helpers ──
+  private currentPinchDist(): number {
+    const pts = [...this.pointers.values()];
+    if (pts.length < 2) {
+      return 0;
     }
-  }
-
-  private onTouchMove(ev: TouchEvent): void {
-    ev.preventDefault();
-    if (ev.touches.length === 1 && this.touchDrawing) {
-      this.drawAtPoint(ev.touches[0]!.clientX, ev.touches[0]!.clientY);
-    } else if (ev.touches.length >= 2) {
-      this.touchDrawing = false;
-      this.wasTwoFinger = true;
-      const midX = (ev.touches[0]!.clientX + ev.touches[1]!.clientX) / 2;
-      const midY = (ev.touches[0]!.clientY + ev.touches[1]!.clientY) / 2;
-
-      // Pan.
-      const dx = midX - this.lastMidX;
-      const dy = midY - this.lastMidY;
-      this.lastMidX = midX;
-      this.lastMidY = midY;
-      this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
-      this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
-
-      // Pinch zoom.
-      const dist = this.pinchDist(ev.touches[0]!, ev.touches[1]!);
-      if (this.lastPinchDist > 0) {
-        const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-        const worldX = (midX - rect.left) / this.scale + this.offsetX;
-        const worldY = (midY - rect.top) / this.scale + this.offsetY;
-
-        const factor = dist / this.lastPinchDist;
-        this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-
-        this.offsetX = worldX - (midX - rect.left) / this.scale;
-        this.offsetY = worldY - (midY - rect.top) / this.scale;
-      }
-      this.lastPinchDist = dist;
-
-      this.sendCamera();
-    }
-  }
-
-  private onTouchEnd(ev: TouchEvent): void {
-    if (ev.touches.length === 0) {
-      this.touchDrawing = false;
-      this.wasTwoFinger = false;
-      this.lastPinchDist = 0;
-    } else if (ev.touches.length === 1) {
-      // Went from 2 fingers to 1 — don't start drawing.
-      this.lastPinchDist = 0;
-    }
-  }
-
-  private pinchDist(a: Touch, b: Touch): number {
-    const dx = a.clientX - b.clientX;
-    const dy = a.clientY - b.clientY;
+    const dx = pts[0]!.x - pts[1]!.x;
+    const dy = pts[0]!.y - pts[1]!.y;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private currentPinchMid(): {x: number; y: number} {
+    const pts = [...this.pointers.values()];
+    return {
+      x: (pts[0]!.x + pts[1]!.x) / 2,
+      y: (pts[0]!.y + pts[1]!.y) / 2
+    };
   }
 
   private drawAtPoint(clientX: number, clientY: number): void {
@@ -407,7 +394,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       size: this.brushSize,
       shape: this.brushShape,
       fill: this.brushFill,
-      tribe: this.drawTribe as string
+      tribes: this.drawTribes
     } satisfies DrawMessage);
   }
 }

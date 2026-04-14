@@ -41,14 +41,16 @@ export interface SetSpeedMessage {
   speed: number;
 }
 
+export type BrushShape = 'square' | 'round' | 'diamond' | 'vline' | 'hline';
+
 export interface DrawMessage {
   type: 'draw';
   x: number;
   y: number;
   size: number;
-  shape: 'square' | 'round';
-  fill: 'full' | 'spray';
-  tribe: string;
+  shape: BrushShape;
+  fill: 'full' | 'spray' | 'outline';
+  tribes: string[];
 }
 
 export interface CameraMessage {
@@ -115,7 +117,8 @@ export interface MetricMessage {
   shannonEntropy: number;
   simpsonIndex: number;
   boundaryLength: number;
-  meanClusterSize?: Record<string, number>;
+  frontierLength: Record<string, number>;
+  extinctionTime: Record<string, number | null>;
   fps: number;
 }
 
@@ -198,10 +201,7 @@ let brushBindGroupB: GPUBindGroup;
 let brushSeedCounter = 0;
 
 // Pending brush (coalesced per frame)
-let pendingBrush: {centerX: number; centerY: number; brushSize: number; shape: number; fill: number; tribeId: number} | null = null;
-
-// CPU shadow for cluster analysis.
-let cpuShadow: Uint8Array | null = null;
+let pendingBrush: {centerX: number; centerY: number; brushSize: number; shape: number; fill: number; tribeIds: number[]} | null = null;
 
 // Metrics: GPU histogram + boundary
 let histogramPipeline: GPUComputePipeline;
@@ -214,17 +214,25 @@ let boundaryBindGroupA: GPUBindGroup;
 let boundaryBindGroupB: GPUBindGroup;
 let boundaryBuffer: GPUBuffer; // Single atomic<u32>
 let boundaryReadBuffer: GPUBuffer;
-let lastFullReadbackGen = 0;
 let lastMetricsGen = -1;
 let metricsInFlight = false;
 let lastMetricsTime = 0;
-let lastClusterData: Record<string, number> | undefined;
+let metricsGridReadBuffer: GPUBuffer;
+
+// Extinction tracking: per-tribe last generation seen alive
+let tribeLastAliveGen: Map<number, number> = new Map();
+let tribeEverAlive: Set<number> = new Set();
 
 // Recording state
 let isRecording = true;
 let recordedFrames: Uint8Array[] = [];
 let recordingStartGen = 0;
 let needPreStepCapture = false;
+
+// Skip-forward state
+let skipTarget = -1;
+let preSkipRunning = false;
+let preSkipStepDuration = 100;
 
 // Optimized recording: persistent double-buffered readback
 let recordBufA: GPUBuffer;
@@ -800,6 +808,11 @@ function createMetricsPipelines(): void {
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
   });
 
+  metricsGridReadBuffer = device.createBuffer({
+    size: gridBufferSize(),
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+
   boundaryBindGroupA = device.createBindGroup({
     layout: boundaryPipeline.getBindGroupLayout(0),
     entries: [
@@ -827,10 +840,10 @@ function createMetricsPipelines(): void {
 //  BrushParams uniform layout (10 × u32 = 40 bytes):
 //    0: centerX (i32)    4: centerY (i32)
 //    8: cols    (u32)   12: rows    (u32)
-//   16: brushSize (u32) 20: shape   (u32)  0=square,1=round
+//   16: brushSize (u32) 20: shape   (u32)
 //   24: fill    (u32)   28: tribeId (u32)
 //   32: deadId  (u32)   36: seed    (u32)
-const BRUSH_UNIFORM_SIZE = 40;
+const BRUSH_UNIFORM_SIZE = 176; // 44 bytes header + 32*4 = 128 bytes tribe array = 172, rounded to 176
 
 const BRUSH_WGSL = `
 struct BrushParams {
@@ -839,11 +852,13 @@ struct BrushParams {
   cols: u32,
   rows: u32,
   brushSize: u32,
-  shape: u32,
-  fill: u32,
-  tribeId: u32,
+  shape: u32,      // 0=square 1=round 2=diamond 3=vline, 4=hline
+  fill: u32,        // 0=full 1=spray 2=outline
   deadId: u32,
   seed: u32,
+  tribeCount: u32,
+  pad: u32,
+  tribeIds: array<u32, 32>,
 }
 
 @group(0) @binding(0) var<storage, read_write> grid: array<u32>;
@@ -853,6 +868,39 @@ fn pcg(inp: u32) -> u32 {
   var state = inp * 747796405u + 2891336453u;
   var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
   return (word >> 22u) ^ word;
+}
+
+fn inShape(dx: i32, dy: i32, half: i32, size: u32, shape: u32) -> bool {
+  switch (shape) {
+    case 1u: { // round
+      let fhalf = f32(size - 1u) / 2.0;
+      let fdx = f32(dx) - fhalf + f32(half);
+      let fdy = f32(dy) - fhalf + f32(half);
+      let r = f32(size) / 2.0 - 0.25;
+      return fdx * fdx + fdy * fdy <= r * r;
+    }
+    case 2u: { // diamond
+      return abs(dx) + abs(dy) <= half;
+    }
+    case 3u: { // line (vertical)
+      return dx == 0;
+    }
+    case 4u: { // line (horizontal)
+      return dy == 0;
+    }
+    default: { // 0 = square
+      return abs(dx) <= half && abs(dy) <= half;
+    }
+  }
+}
+
+fn onBorder(dx: i32, dy: i32, half: i32, size: u32, shape: u32) -> bool {
+  if (!inShape(dx, dy, half, size, shape)) { return false; }
+  // Check 4-connected neighbors: if any is outside shape, this is a border cell.
+  return !inShape(dx - 1, dy, half, size, shape)
+      || !inShape(dx + 1, dy, half, size, shape)
+      || !inShape(dx, dy - 1, half, size, shape)
+      || !inShape(dx, dy + 1, half, size, shape);
 }
 
 @compute @workgroup_size(8, 8)
@@ -866,13 +914,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let dy = i32(by) - half;
   let dx = i32(bx) - half;
 
-  // Round brush: skip cells outside the radius.
-  if (params.shape == 1u) {
-    let fhalf = f32(params.brushSize - 1u) / 2.0;
-    let fdx = f32(dx) - fhalf + f32(half);
-    let fdy = f32(dy) - fhalf + f32(half);
-    let r = f32(params.brushSize) / 2.0 - 0.25;
-    if (fdx * fdx + fdy * fdy > r * r) { return; }
+  // Shape test.
+  if (params.fill == 2u) {
+    // Outline mode: only draw border cells.
+    if (!onBorder(dx, dy, half, params.brushSize, params.shape)) { return; }
+  } else {
+    if (!inShape(dx, dy, half, params.brushSize, params.shape)) { return; }
   }
 
   // Toroidal wrapping.
@@ -880,18 +927,22 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
   let cellIdx = u32(cy) * params.cols + u32(cx);
 
-  // Spray fill: 50% chance to skip/set-dead.
+  // Pick a random tribe from the list.
+  let h = pcg(params.seed ^ idx);
+  let selectedTribe = params.tribeIds[h % params.tribeCount];
+
+  // Spray fill: 50% chance to skip/set-dead (use high bits to avoid
+  // correlation with tribe selection which uses low bits via modulo).
   if (params.fill == 1u) {
-    let h = pcg(params.seed ^ idx);
-    if ((h & 1u) != 0u) {
-      if (params.tribeId != params.deadId) {
+    if (((h >> 16u) & 1u) != 0u) {
+      if (selectedTribe != params.deadId) {
         grid[cellIdx] = params.deadId;
       }
       return;
     }
   }
 
-  grid[cellIdx] = params.tribeId;
+  grid[cellIdx] = selectedTribe;
 }
 `;
 
@@ -930,7 +981,7 @@ function createBrushPipeline(): void {
   });
 }
 
-function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeId: number): void {
+function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeIds: number[]): void {
   const deadId = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
   const seed = brushSeedCounter++;
 
@@ -944,9 +995,13 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
   u32View[4] = brushSize;
   u32View[5] = shape;
   u32View[6] = fill;
-  u32View[7] = tribeId;
-  u32View[8] = deadId;
-  u32View[9] = seed;
+  u32View[7] = deadId;
+  u32View[8] = seed;
+  u32View[9] = tribeIds.length;
+  u32View[10] = 0; // Pad
+  for (let i = 0; i < tribeIds.length && i < 32; i++) {
+    u32View[11 + i] = tribeIds[i]!;
+  }
 
   device.queue.writeBuffer(brushUniformBuffer, 0, data);
 
@@ -956,40 +1011,6 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
   pass.setBindGroup(0, pingPong ? brushBindGroupB : brushBindGroupA);
   pass.dispatchWorkgroups(wgBrush, wgBrush);
   pass.end();
-  // CpuShadow is refreshed by periodic syncShadowFromGpu during metrics.
-}
-
-function initCpuShadow(): void {
-  cpuShadow = new Uint8Array(cols * rows);
-  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
-  cpuShadow.fill(deadIdx);
-}
-
-function syncShadowFromGpu(): void {
-  if (!cpuShadow) {
-    return;
-  }
-
-  const currentGrid = pingPong ? gridBufferB : gridBufferA;
-  const byteSize = gridBufferSize();
-
-  const readbackBuffer = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
-
-  const encoder = device.createCommandEncoder();
-  encoder.copyBufferToBuffer(currentGrid, 0, readbackBuffer, 0, byteSize);
-  device.queue.submit([encoder.finish()]);
-
-  readbackBuffer.mapAsync(GPUMapMode.READ).then(() => {
-    const data = new Uint32Array(readbackBuffer.getMappedRange());
-    for (let i = 0; i < cols * rows; i++) {
-      cpuShadow![i] = data[i]!;
-    }
-    readbackBuffer.unmap();
-    readbackBuffer.destroy();
-  });
 }
 
 function readbackGrid(): Promise<Uint32Array> {
@@ -1027,11 +1048,6 @@ function metricsInterval(): number {
   return Math.max(1, Math.round(stepsPerSecond));
 }
 
-function fullReadbackInterval(): number {
-  // Expensive cluster analysis: less often at high speed.
-  return Math.max(5, metricsInterval() * 4);
-}
-
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
   // Clear histogram buffer.
   const zeros256 = new Uint32Array(256);
@@ -1060,9 +1076,13 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
   // Copy results to read buffers.
   encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
   encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
+
+  // Copy grid for CPU-side frontier computation.
+  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  encoder.copyBufferToBuffer(currentGrid, 0, metricsGridReadBuffer, 0, gridBufferSize());
 }
 
-function readMetricsAndPost(includeCluster: boolean): void {
+function readMetricsAndPost(): void {
   const gen = genCounter;
   if (gen === lastMetricsGen || metricsInFlight) {
     return;
@@ -1078,106 +1098,99 @@ function readMetricsAndPost(includeCluster: boolean): void {
     return boundaryReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
       const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
       boundaryReadBuffer.unmap();
-      metricsInFlight = false;
 
-      const population: Record<string, number> = {};
-      let totalAlive = 0;
-      const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
-      for (let i = 0; i < tribes.length; i++) {
-        const count = histData[i] ?? 0;
-        population[tribes[i]!.id] = count;
-        if (i !== deadIdx) {
-          totalAlive += count;
+      return metricsGridReadBuffer.mapAsync(GPUMapMode.READ).then(() => {
+        const gridData = new Uint32Array(metricsGridReadBuffer.getMappedRange().slice(0));
+        metricsGridReadBuffer.unmap();
+        metricsInFlight = false;
+
+        const population: Record<string, number> = {};
+        let totalAlive = 0;
+        const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+        for (let i = 0; i < tribes.length; i++) {
+          const count = histData[i] ?? 0;
+          population[tribes[i]!.id] = count;
+          if (i !== deadIdx) {
+            totalAlive += count;
+            if (count > 0) {
+              tribeLastAliveGen.set(i, gen);
+              tribeEverAlive.add(i);
+            }
+          }
         }
-      }
 
-      // Shannon entropy & Simpson index (over non-dead tribes).
-      let shannonEntropy = 0;
-      let simpsonSum = 0;
-      if (totalAlive > 0) {
+        // Shannon entropy & Simpson index (over non-dead tribes).
+        let shannonEntropy = 0;
+        let simpsonSum = 0;
+        if (totalAlive > 0) {
+          for (let i = 0; i < tribes.length; i++) {
+            if (i === deadIdx) {
+              continue;
+            }
+            const p = (histData[i] ?? 0) / totalAlive;
+            if (p > 0) {
+              shannonEntropy -= p * Math.log2(p);
+              simpsonSum += p * p;
+            }
+          }
+        }
+
+        // Extinction time per tribe.
+        const extinctionTime: Record<string, number | null> = {};
         for (let i = 0; i < tribes.length; i++) {
           if (i === deadIdx) {
             continue;
           }
-          const p = (histData[i] ?? 0) / totalAlive;
-          if (p > 0) {
-            shannonEntropy -= p * Math.log2(p);
-            simpsonSum += p * p;
+          const count = histData[i] ?? 0;
+          if (count > 0) {
+            extinctionTime[tribes[i]!.id] = null; // Still alive
+          } else if (!tribeEverAlive.has(i)) {
+            extinctionTime[tribes[i]!.id] = 0; // Never existed
+          } else {
+            extinctionTime[tribes[i]!.id] = tribeLastAliveGen.get(i) ?? 0;
           }
         }
-      }
 
-      // Cluster data: use latest if available.
-      if (includeCluster && cpuShadow) {
-        lastClusterData = computeClusterSizes();
-      }
+        // Frontier length per tribe (CPU-side from grid readback).
+        const frontierCounts = new Uint32Array(tribes.length);
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const idx = y * cols + x;
+            const t = gridData[idx]!;
+            // Right neighbor.
+            const rx = (x + 1) % cols;
+            if (gridData[y * cols + rx] !== t) {
+              frontierCounts[t]!++;
+            }
+            // Bottom neighbor.
+            const by = (y + 1) % rows;
+            if (gridData[by * cols + x] !== t) {
+              frontierCounts[t]!++;
+            }
+          }
+        }
+        const frontierLength: Record<string, number> = {};
+        for (let i = 0; i < tribes.length; i++) {
+          if (i === deadIdx) {
+            continue;
+          }
+          frontierLength[tribes[i]!.id] = frontierCounts[i]!;
+        }
 
-      self.postMessage({
-        type: 'metrics',
-        generation: gen,
-        population,
-        shannonEntropy,
-        simpsonIndex: 1 - simpsonSum,
-        boundaryLength: bData[0] ?? 0,
-        meanClusterSize: lastClusterData,
-        fps: currentFps
-      } satisfies MetricMessage);
+        self.postMessage({
+          type: 'metrics',
+          generation: gen,
+          population,
+          shannonEntropy,
+          simpsonIndex: 1 - simpsonSum,
+          boundaryLength: bData[0] ?? 0,
+          frontierLength,
+          extinctionTime,
+          fps: currentFps
+        } satisfies MetricMessage);
+      });
     });
   });
-}
-
-function computeClusterSizes(): Record<string, number> {
-  if (!cpuShadow) {
-    return {};
-  }
-  const total = cols * rows;
-  const visited = new Uint8Array(total);
-  const clusterCounts: Map<number, number[]> = new Map();
-
-  for (let i = 0; i < total; i++) {
-    if (visited[i]) {
-      continue;
-    }
-    const tribe = cpuShadow[i]!;
-    visited[i] = 1;
-
-    // BFS flood-fill.
-    let size = 0;
-    const queue = [i];
-    while (queue.length > 0) {
-      const ci = queue.pop()!;
-      size++;
-      const cx = ci % cols;
-      const cy = (ci - cx) / cols;
-      // 4-connected neighbors (toroidal).
-      const neighbors = [
-        ((cy + rows - 1) % rows) * cols + cx,
-        ((cy + 1) % rows) * cols + cx,
-        cy * cols + ((cx + cols - 1) % cols),
-        cy * cols + ((cx + 1) % cols)
-      ];
-      for (const ni of neighbors) {
-        if (!visited[ni] && cpuShadow[ni] === tribe) {
-          visited[ni] = 1;
-          queue.push(ni);
-        }
-      }
-    }
-
-    if (!clusterCounts.has(tribe)) {
-      clusterCounts.set(tribe, []);
-    }
-    clusterCounts.get(tribe)!.push(size);
-  }
-
-  const result: Record<string, number> = {};
-  for (const [tribeIdx, sizes] of clusterCounts) {
-    if (tribeIdx < tribes.length) {
-      const mean = sizes.reduce((a, b) => a + b, 0) / sizes.length;
-      result[tribes[tribeIdx]!.id] = mean;
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1240,12 +1253,53 @@ function renderFrame(): void {
 // ---------------------------------------------------------------------------
 
 function mainLoop(now: number): void {
+  // Skip-forward mode: run at max speed without rendering or recording.
+  if (skipTarget >= 0) {
+    const deadline = performance.now() + 14;
+    while (genCounter < skipTarget && performance.now() < deadline) {
+      stepSimulation();
+      stepCount++;
+    }
+    if (genCounter >= skipTarget) {
+      skipTarget = -1;
+      simulationRunning = preSkipRunning;
+      targetStepDuration = preSkipStepDuration;
+      lastFrameTime = 0;
+      stepAccumulator = 0;
+
+      // Record final frame if recording.
+      if (isRecording) {
+        readbackGrid().then(grid => {
+          const frame = new Uint8Array(cols * rows);
+          for (let i = 0; i < cols * rows; i++) {
+            frame[i] = grid[i]!;
+          }
+          recordedFrames.push(frame);
+        });
+      }
+
+      // Update metrics and render.
+      lastMetricsGen = -1;
+      if (!metricsInFlight) {
+        const encoder = device.createCommandEncoder();
+        runMetricsGpu(encoder);
+        device.queue.submit([encoder.finish()]);
+        readMetricsAndPost();
+      }
+      renderFrame();
+      self.postMessage({type: 'stepping',
+        active: false} satisfies SteppingMessage);
+    }
+    self.requestAnimationFrame(mainLoop);
+    return;
+  }
+
   // Apply coalesced brush draw (one per frame max).
   if (pendingBrush) {
     const b = pendingBrush;
     pendingBrush = null;
     const encoder = device.createCommandEncoder();
-    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeId);
+    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
     device.queue.submit([encoder.finish()]);
   }
 
@@ -1360,13 +1414,7 @@ function mainLoop(now: number): void {
           runMetricsGpu(encoder);
           device.queue.submit([encoder.finish()]);
 
-          const fri = fullReadbackInterval();
-          const doCluster = genCounter - lastFullReadbackGen >= fri;
-          if (doCluster) {
-            syncShadowFromGpu();
-            lastFullReadbackGen = genCounter;
-          }
-          readMetricsAndPost(doCluster);
+          readMetricsAndPost();
         }
       }
     } // DidStep
@@ -1445,7 +1493,6 @@ function buildPipelines(): void {
 
   createGridBuffers();
   createTribeColorBuffer();
-  initCpuShadow();
 
   createRenderPipeline();
   createRenderBindGroups();
@@ -1462,18 +1509,17 @@ function rebuildForNewRuleset(): void {
   histogramReadBuffer?.destroy();
   boundaryBuffer?.destroy();
   boundaryReadBuffer?.destroy();
+  metricsGridReadBuffer?.destroy();
   recordBufA?.destroy();
   recordBufB?.destroy();
 
   createGridBuffers();
   createTribeColorBuffer();
-  initCpuShadow();
   createComputePipeline();
   createBrushPipeline();
   createRenderBindGroups();
   createMetricsPipelines();
   createRecordBuffers();
-  lastClusterData = undefined;
   recordedFrames = [];
   recordingStartGen = genCounter;
 }
@@ -1507,12 +1553,14 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       recordedFrames = [];
       recordingStartGen = 0;
       needPreStepCapture = false;
+      tribeLastAliveGen = new Map();
+      tribeEverAlive = new Set();
       // Post initial metrics for the fresh (empty) grid.
       if (!metricsInFlight) {
         const resetEncoder = device.createCommandEncoder();
         runMetricsGpu(resetEncoder);
         device.queue.submit([resetEncoder.finish()]);
-        readMetricsAndPost(true);
+        readMetricsAndPost();
       }
       break;
     }
@@ -1545,15 +1593,27 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       break;
 
     case 'draw': {
-      const idx = tribeIndex.get(m.tribe);
-      if (idx !== undefined) {
+      const ids = m.tribes.map(t => tribeIndex.get(t)).filter((v): v is number => v !== undefined);
+      if (ids.length > 0) {
+        const shapeMap: Record<string, number> = {
+          square: 0,
+          round: 1,
+          diamond: 2,
+          vline: 3,
+          hline: 4
+        };
+        const fillMap: Record<string, number> = {
+          full: 0,
+          spray: 1,
+          outline: 2
+        };
         pendingBrush = {
           centerX: m.x,
           centerY: m.y,
           brushSize: m.size,
-          shape: m.shape === 'round' ? 1 : 0,
-          fill: m.fill === 'spray' ? 1 : 0,
-          tribeId: idx
+          shape: shapeMap[m.shape] ?? 0,
+          fill: fillMap[m.fill] ?? 0,
+          tribeIds: ids
         };
       }
       break;
@@ -1575,13 +1635,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     case 'loadSnapshot': {
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
       device.queue.writeBuffer(currentGrid, 0, m.grid);
-      if (cpuShadow) {
-        for (let i = 0; i < m.grid.length; i++) {
-          cpuShadow[i] = m.grid[i]!;
-        }
-      }
       genCounter = m.generation;
-      lastClusterData = undefined;
       break;
     }
 
@@ -1624,72 +1678,101 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       }
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
       device.queue.writeBuffer(currentGrid, 0, gridData);
-      if (cpuShadow) {
-        for (let i = 0; i < cols * rows; i++) {
-          cpuShadow[i] = lastFrame[i]!;
-        }
-      }
       genCounter = recordingStartGen + recordedFrames.length - 1;
-      lastClusterData = undefined;
       lastMetricsGen = -1;
       if (!metricsInFlight) {
         const bEncoder = device.createCommandEncoder();
         runMetricsGpu(bEncoder);
         device.queue.submit([bEncoder.finish()]);
-        readMetricsAndPost(true);
+        readMetricsAndPost();
       }
       renderFrame();
       break;
     }
 
     case 'stepForward': {
-      const doForward = async() => {
-        if (m.count > 1) {
-          self.postMessage({type: 'stepping',
-            active: true} satisfies SteppingMessage);
-        }
+      if (m.count === 1) {
+        // Single step: immediate, with recording.
         if (isRecording) {
-          // Save current state before stepping (handles gen0 + drawing overwrites).
-          const preGrid = await readbackGrid();
-          const preFrame = new Uint8Array(cols * rows);
-          for (let j = 0; j < cols * rows; j++) {
-            preFrame[j] = preGrid[j]!;
-          }
-          const idx = genCounter - recordingStartGen;
-          if (idx >= 0 && idx < recordedFrames.length) {
-            recordedFrames[idx] = preFrame;
-          } else {
-            recordedFrames.push(preFrame);
-          }
-          recordedFrames.length = idx + 1;
-        }
-        // Run steps: record each intermediate frame but skip canvas rendering.
-        for (let i = 0; i < m.count; i++) {
+          readbackGrid().then(grid => {
+            const preFrame = new Uint8Array(cols * rows);
+            for (let j = 0; j < cols * rows; j++) {
+              preFrame[j] = grid[j]!;
+            }
+            const idx = genCounter - recordingStartGen;
+            if (idx >= 0 && idx < recordedFrames.length) {
+              recordedFrames[idx] = preFrame;
+            } else {
+              recordedFrames.push(preFrame);
+            }
+            recordedFrames.length = idx + 1;
+
+            stepSimulation();
+            stepCount++;
+
+            readbackGrid().then(postGrid => {
+              const postFrame = new Uint8Array(cols * rows);
+              for (let j = 0; j < cols * rows; j++) {
+                postFrame[j] = postGrid[j]!;
+              }
+              recordedFrames.push(postFrame);
+
+              lastMetricsGen = -1;
+              if (!metricsInFlight) {
+                const fEncoder = device.createCommandEncoder();
+                runMetricsGpu(fEncoder);
+                device.queue.submit([fEncoder.finish()]);
+                readMetricsAndPost();
+              }
+              renderFrame();
+            });
+          });
+        } else {
           stepSimulation();
           stepCount++;
-          if (isRecording) {
-            const grid = await readbackGrid();
-            const frame = new Uint8Array(cols * rows);
-            for (let j = 0; j < cols * rows; j++) {
-              frame[j] = grid[j]!;
-            }
-            recordedFrames.push(frame);
+          lastMetricsGen = -1;
+          if (!metricsInFlight) {
+            const fEncoder = device.createCommandEncoder();
+            runMetricsGpu(fEncoder);
+            device.queue.submit([fEncoder.finish()]);
+            readMetricsAndPost();
           }
+          renderFrame();
         }
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const fEncoder = device.createCommandEncoder();
-          runMetricsGpu(fEncoder);
-          device.queue.submit([fEncoder.finish()]);
-          readMetricsAndPost(true);
+      } else {
+        // Multi-step: enter skip-forward mode (max speed, no rendering).
+        self.postMessage({type: 'stepping',
+          active: true} satisfies SteppingMessage);
+
+        // Save pre-step frame if recording.
+        if (isRecording) {
+          readbackGrid().then(grid => {
+            const preFrame = new Uint8Array(cols * rows);
+            for (let j = 0; j < cols * rows; j++) {
+              preFrame[j] = grid[j]!;
+            }
+            const idx = genCounter - recordingStartGen;
+            if (idx >= 0 && idx < recordedFrames.length) {
+              recordedFrames[idx] = preFrame;
+            } else {
+              recordedFrames.push(preFrame);
+            }
+            recordedFrames.length = idx + 1;
+
+            preSkipRunning = simulationRunning;
+            preSkipStepDuration = targetStepDuration;
+            skipTarget = genCounter + m.count;
+            simulationRunning = true;
+            targetStepDuration = 0;
+          });
+        } else {
+          preSkipRunning = simulationRunning;
+          preSkipStepDuration = targetStepDuration;
+          skipTarget = genCounter + m.count;
+          simulationRunning = true;
+          targetStepDuration = 0;
         }
-        renderFrame();
-        if (m.count > 1) {
-          self.postMessage({type: 'stepping',
-            active: false} satisfies SteppingMessage);
-        }
-      };
-      doForward();
+      }
       break;
     }
   }

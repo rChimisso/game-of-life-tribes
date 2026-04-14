@@ -12,7 +12,7 @@ interface TribeInfo {
 interface DownloadRequest {
   type: 'download';
   opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number};
-  snapshot: {generation: number; cols: number; rows: number; grid: number[]};
+  snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]};
   recording: {frames: Uint8Array[]; startGeneration: number; cols: number; rows: number} | null;
   tribes: TribeInfo[];
   rules: unknown;
@@ -26,7 +26,8 @@ interface MetricEntry {
   shannonEntropy: number;
   simpsonIndex: number;
   boundaryLength: number;
-  meanClusterSize?: Record<string, number>;
+  frontierLength?: Record<string, number>;
+  extinctionTime?: Record<string, number | null>;
   fps?: number;
 }
 
@@ -200,55 +201,27 @@ function computeFrameMetrics(
   }
 
   let boundaryLength = 0;
+  const frontierCounts = new Array<number>(tribeList.length).fill(0);
   for (let y = 0; y < frameRows; y++) {
     for (let x = 0; x < frameCols; x++) {
-      const self = frame[y * frameCols + x]!;
-      if (frame[y * frameCols + ((x + 1) % frameCols)]! !== self) {
+      const selfTribe = frame[y * frameCols + x]!;
+      const right = frame[y * frameCols + ((x + 1) % frameCols)]!;
+      if (right !== selfTribe) {
         boundaryLength++;
+        frontierCounts[selfTribe]!++;
       }
-      if (frame[((y + 1) % frameRows) * frameCols + x]! !== self) {
+      const bottom = frame[((y + 1) % frameRows) * frameCols + x]!;
+      if (bottom !== selfTribe) {
         boundaryLength++;
+        frontierCounts[selfTribe]!++;
       }
     }
   }
 
-  const visited = new Uint8Array(total);
-  const clusterCounts = new Map<number, number[]>();
-  for (let i = 0; i < total; i++) {
-    if (visited[i]) {
-      continue;
-    }
-    const tribe = frame[i]!;
-    visited[i] = 1;
-    let size = 0;
-    const queue = [i];
-    while (queue.length > 0) {
-      const ci = queue.pop()!;
-      size++;
-      const cx = ci % frameCols;
-      const cy = (ci - cx) / frameCols;
-      const neighbors = [
-        cy * frameCols + ((cx + 1) % frameCols),
-        cy * frameCols + ((cx - 1 + frameCols) % frameCols),
-        ((cy + 1) % frameRows) * frameCols + cx,
-        ((cy - 1 + frameRows) % frameRows) * frameCols + cx
-      ];
-      for (const ni of neighbors) {
-        if (!visited[ni] && frame[ni] === tribe) {
-          visited[ni] = 1;
-          queue.push(ni);
-        }
-      }
-    }
-    if (!clusterCounts.has(tribe)) {
-      clusterCounts.set(tribe, []);
-    }
-    clusterCounts.get(tribe)!.push(size);
-  }
-  const meanClusterSize: Record<string, number> = {};
-  for (const [tribeIdx, sizes] of clusterCounts) {
-    if (tribeIdx < tribeList.length) {
-      meanClusterSize[tribeList[tribeIdx]!.id] = sizes.reduce((a, b) => a + b, 0) / sizes.length;
+  const frontierLength: Record<string, number> = {};
+  for (let t = 0; t < tribeList.length; t++) {
+    if (t !== deadIdx) {
+      frontierLength[tribeList[t]!.id] = frontierCounts[t]!;
     }
   }
 
@@ -259,7 +232,7 @@ function computeFrameMetrics(
     shannonEntropy,
     simpsonIndex: 1 - simpsonSum,
     boundaryLength,
-    meanClusterSize
+    frontierLength
   };
 }
 
@@ -333,26 +306,26 @@ function renderFrameToCanvas(
 
 function buildCsvFromMetrics(metrics: MetricEntry[]): string {
   const popKeys = new Set<string>();
-  const clusterKeys = new Set<string>();
+  const frontierKeys = new Set<string>();
   for (const m of metrics) {
     for (const k of Object.keys(m.population)) {
       popKeys.add(k);
     }
-    if (m.meanClusterSize) {
-      for (const k of Object.keys(m.meanClusterSize)) {
-        clusterKeys.add(k);
+    if (m.frontierLength) {
+      for (const k of Object.keys(m.frontierLength)) {
+        frontierKeys.add(k);
       }
     }
   }
   const popCols = [...popKeys];
-  const clusterCols = [...clusterKeys];
+  const frCols = [...frontierKeys];
   const header = [
     'generation',
     ...popCols.map(k => `pop_${k}`),
     'shannon_entropy',
     'simpson_index',
     'boundary_length',
-    ...clusterCols.map(k => `cluster_${k}`)
+    ...frCols.map(k => `frontier_${k}`)
   ].join(',');
   const rows = metrics.map(m => [
     m.generation,
@@ -360,7 +333,7 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
     m.shannonEntropy,
     m.simpsonIndex,
     m.boundaryLength,
-    ...clusterCols.map(k => m.meanClusterSize?.[k] ?? '')
+    ...frCols.map(k => m.frontierLength?.[k] ?? 0)
   ].join(','));
   return [header, ...rows].join('\n');
 }
@@ -466,12 +439,16 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   const encoder = new TextEncoder();
   const entries: ZipEntry[] = [];
 
-  const progress = (percent: number) => self.postMessage({type: 'progress',
-    percent});
+  const progress = (percent: number, status = '') => self.postMessage({
+    type: 'progress',
+    percent,
+    status
+  });
 
-  progress(2);
+  progress(2, 'Preparing state');
 
-  // State JSON.
+  // State JSON — convert Uint32Array to regular array for JSON serialization.
+  const gridArray = snapshot.grid instanceof Uint32Array ? Array.from(snapshot.grid) : snapshot.grid;
   const state = {
     version: 1,
     generation: snapshot.generation,
@@ -479,12 +456,12 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     rows: snapshot.rows,
     tribes: [...tribes],
     rules,
-    grid: snapshot.grid
+    grid: gridArray
   };
   entries.push({path: 'state.json',
     data: encoder.encode(JSON.stringify(state))});
 
-  progress(5);
+  progress(5, 'Computing metrics');
 
   // Metrics.
   const hasFrames = rec !== null && rec.frames.length > 0;
@@ -514,7 +491,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
   }
 
-  progress(15);
+  progress(15, 'Packing raw frames');
 
   // Raw frames.
   if (hasFrames && opts.frames) {
@@ -549,12 +526,12 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
   }
 
-  progress(25);
+  progress(25, 'Encoding MP4');
 
   // MP4.
   if (hasFrames && opts.mp4) {
     try {
-      progress(30);
+      progress(30, 'Encoding MP4');
       const mp4Buffer = await generateMp4(rec, tribes, opts.fps);
       entries.push({path: 'recording.mp4',
         data: new Uint8Array(mp4Buffer)});
@@ -563,7 +540,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
   }
 
-  progress(65);
+  progress(65, 'Rendering PNGs');
 
   // PNG.
   if (hasFrames && opts.png) {
@@ -571,10 +548,10 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     entries.push(...pngEntries);
   }
 
-  progress(90);
+  progress(90, 'Building ZIP');
 
   const zipBuffer = createZip(entries);
-  progress(100);
+  progress(100, 'Done');
   self.postMessage({type: 'done',
     zip: zipBuffer}, {transfer: [zipBuffer]} as never);
 };

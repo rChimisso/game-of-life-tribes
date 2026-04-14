@@ -6,7 +6,7 @@ import {RouterModule} from '@angular/router';
 import {Engine} from './component/engine/engine';
 import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
 import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage} from './worker/webengine';
+import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage, BrushShape} from './worker/webengine';
 
 @Component({
   selector: 'gol-home',
@@ -108,21 +108,25 @@ export class HomePage implements OnDestroy {
 
   maxSpeed = false;
 
-  drawTribe = 'classic';
+  drawTribes: string[] = ['classic'];
 
   deleteMode = false;
+
+  panMode = false;
 
   latestMetrics: MetricMessage | null = null;
 
   brushSize = 1;
 
-  brushShape: 'square' | 'round' = 'square';
+  brushShape: BrushShape = 'square';
 
-  brushFill: 'full' | 'spray' = 'full';
+  brushFill: 'full' | 'spray' | 'outline' = 'full';
 
   skipAmount = 1;
 
   downloadProgress = -1;
+
+  downloadStatus = '';
 
   maxCells = Infinity;
 
@@ -188,7 +192,7 @@ export class HomePage implements OnDestroy {
         if (this.drawTribeIndex === 0) {
           this.drawTribeIndex = 1;
         }
-        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         this.deleteMode = false;
         break;
       case 'ArrowLeft':
@@ -196,7 +200,7 @@ export class HomePage implements OnDestroy {
         if (this.drawTribeIndex <= 0) {
           this.drawTribeIndex = this.tribes.length - 1;
         }
-        this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         this.deleteMode = false;
         break;
       case 'r':
@@ -205,9 +209,9 @@ export class HomePage implements OnDestroy {
       case 'd':
         this.deleteMode = !this.deleteMode;
         if (this.deleteMode) {
-          this.drawTribe = DEAD_TRIBE.id;
+          this.drawTribes = [DEAD_TRIBE.id];
         } else {
-          this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
         break;
       default:
@@ -280,8 +284,15 @@ export class HomePage implements OnDestroy {
         break;
       case 'selectTribe':
         this.deleteMode = false;
-        this.drawTribe = ev.value as string;
-        this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribe);
+        this.drawTribes = [ev.value as string];
+        this.drawTribeIndex = this.tribes.findIndex(t => t.id === (ev.value as string));
+        break;
+      case 'selectTribes':
+        this.drawTribes = ev.value as string[];
+        this.deleteMode = this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE.id;
+        if (!this.deleteMode && this.drawTribes.length === 1) {
+          this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribes[0]);
+        }
         break;
       case 'setSpeed':
         this.speed = ev.value as number;
@@ -314,18 +325,18 @@ export class HomePage implements OnDestroy {
       case 'deleteMode':
         this.deleteMode = !this.deleteMode;
         if (this.deleteMode) {
-          this.drawTribe = DEAD_TRIBE.id;
+          this.drawTribes = [DEAD_TRIBE.id];
         } else {
-          this.drawTribe = this.tribes[this.drawTribeIndex]!.id;
+          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
         break;
       case 'updateRuleset': {
         const newRuleset = ev.value as Ruleset;
         this.ruleset = newRuleset;
-        if (!newRuleset.tribes.some(t => t.id === this.drawTribe)) {
-          this.drawTribe = newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead';
+        if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
         }
-        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribe);
+        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
         this.metricsHistory = [];
         this.latestMetrics = null;
         this.clampBrushSize();
@@ -337,14 +348,17 @@ export class HomePage implements OnDestroy {
       case 'stepForward':
         this.engine.stepForward(ev.value as number);
         break;
+      case 'togglePanMode':
+        this.panMode = !this.panMode;
+        break;
       case 'setBrushSize':
         this.brushSize = ev.value as number;
         break;
       case 'setBrushShape':
-        this.brushShape = ev.value as 'square' | 'round';
+        this.brushShape = ev.value as BrushShape;
         break;
       case 'setBrushFill':
-        this.brushFill = ev.value as 'full' | 'spray';
+        this.brushFill = ev.value as 'full' | 'spray' | 'outline';
         break;
     }
   }
@@ -370,6 +384,11 @@ export class HomePage implements OnDestroy {
   private downloadZip(opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number}): void {
     const needFrames = opts.frames || opts.mp4 || opts.png || opts.csv || opts.json;
 
+    // Pause the simulation so the download captures a consistent state.
+    if (this.state === 'running') {
+      this.state = 'paused';
+    }
+
     this.downloadProgress = 0;
     this.cdr.markForCheck();
 
@@ -390,14 +409,24 @@ export class HomePage implements OnDestroy {
       worker.onmessage = (e: MessageEvent) => {
         if (e.data.type === 'progress') {
           this.downloadProgress = e.data.percent;
+          this.downloadStatus = e.data.status ?? '';
           this.cdr.markForCheck();
         } else if (e.data.type === 'done') {
           this.downloadBlob(new Blob([e.data.zip]), 'gol-export.zip');
           this.downloadProgress = -1;
+          this.downloadStatus = '';
           this.cdr.markForCheck();
           worker.terminate();
         }
       };
+      const gridBuf = snap.grid;
+      const recFrames = rec && rec.frames.length > 0 ? rec.frames : null;
+      const transferables: ArrayBuffer[] = [gridBuf.buffer];
+      if (recFrames) {
+        for (const f of recFrames) {
+          transferables.push(f.buffer);
+        }
+      }
       worker.postMessage({
         type: 'download',
         opts,
@@ -405,19 +434,19 @@ export class HomePage implements OnDestroy {
           generation: snap.generation,
           cols: snap.cols,
           rows: snap.rows,
-          grid: Array.from(snap.grid)
+          grid: gridBuf
         },
-        recording: rec && rec.frames.length > 0 ? {
-          frames: rec.frames,
-          startGeneration: rec.startGeneration,
-          cols: rec.cols,
-          rows: rec.rows
+        recording: recFrames ? {
+          frames: recFrames,
+          startGeneration: rec!.startGeneration,
+          cols: rec!.cols,
+          rows: rec!.rows
         } : null,
         tribes: this.tribes.map(t => ({id: t.id,
           color: t.color})),
         rules: this.ruleset.rules,
         metricsHistory: this.metricsHistory
-      });
+      }, transferables);
     });
   }
 

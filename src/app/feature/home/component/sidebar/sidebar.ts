@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import {DecimalPipe, KeyValuePipe, NgTemplateOutlet} from '@angular/common';
+import {DecimalPipe, NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, SimpleChanges, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
@@ -9,13 +9,14 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
-import {MetricMessage} from '../../worker/webengine';
+import {BrushShape, MetricMessage} from '../../worker/webengine';
 
 export interface SidebarEvent {
   action:
     | 'toggleRun'
     | 'restart'
     | 'selectTribe'
+    | 'selectTribes'
     | 'setSpeed'
     | 'setMaxSpeed'
     | 'setGridSize'
@@ -28,7 +29,8 @@ export interface SidebarEvent {
     | 'stepForward'
     | 'setBrushSize'
     | 'setBrushShape'
-    | 'setBrushFill';
+    | 'setBrushFill'
+    | 'togglePanMode';
   value?: unknown;
 }
 
@@ -43,8 +45,7 @@ export interface SidebarEvent {
     MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
-    DecimalPipe,
-    KeyValuePipe
+    DecimalPipe
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -60,7 +61,7 @@ export class Sidebar implements OnChanges {
 
   @Input() tribes: readonly Tribe[] = [];
 
-  @Input() drawTribe = '';
+  @Input() drawTribes: string[] = [];
 
   @Input() speed = 10;
 
@@ -76,17 +77,21 @@ export class Sidebar implements OnChanges {
 
   @Input() deleteMode = false;
 
+  @Input() panMode = false;
+
   @Input() ruleset!: Ruleset;
 
   @Input() brushSize = 1;
 
-  @Input() brushShape: 'square' | 'round' = 'square';
+  @Input() brushShape: BrushShape = 'square';
 
-  @Input() brushFill: 'full' | 'spray' = 'full';
+  @Input() brushFill: 'full' | 'spray' | 'outline' = 'full';
 
   @Input() skipAmount = 1;
 
   @Input() downloadProgress = -1;
+
+  @Input() downloadStatus = '';
 
   @Input() maxCells = Infinity;
 
@@ -188,7 +193,27 @@ export class Sidebar implements OnChanges {
   }
 
   onTribeChange(id: string): void {
-    this.emit('selectTribe', id);
+    this.emit('selectTribes', this.toggleTribeSelection(id));
+  }
+
+  private toggleTribeSelection(id: string): string[] {
+    if (id === 'dead') {
+      return ['dead'];
+    }
+    // If currently in delete mode (only 'dead' selected), start fresh.
+    if (this.drawTribes.length === 1 && this.drawTribes[0] === 'dead') {
+      return [id];
+    }
+    const current = this.drawTribes.filter(t => t !== 'dead');
+    const idx = current.indexOf(id);
+    if (idx >= 0) {
+      // Don't allow deselecting the last tribe.
+      if (current.length > 1) {
+        current.splice(idx, 1);
+      }
+      return current;
+    }
+    return [...current, id];
   }
 
   onSpeedChange(value: string): void {
@@ -233,11 +258,11 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  onBrushShapeChange(shape: 'square' | 'round'): void {
+  onBrushShapeChange(shape: BrushShape): void {
     this.emit('setBrushShape', shape);
   }
 
-  onBrushFillChange(fill: 'full' | 'spray'): void {
+  onBrushFillChange(fill: 'full' | 'spray' | 'outline'): void {
     this.emit('setBrushFill', fill);
   }
 

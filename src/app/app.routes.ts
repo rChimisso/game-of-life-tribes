@@ -2,13 +2,27 @@ import {inject} from '@angular/core';
 import {Router, Routes, UrlTree} from '@angular/router';
 
 /**
+ * Checks whether WebGPU API is supported and an adapter can be requested.
+ *
+ * @async
+ * @returns {Promise<boolean>} whether WebGPU API is supported.
+ */
+async function hasWebGpu(): Promise<boolean> {
+  try {
+    return !!await navigator?.gpu?.requestAdapter?.();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Checks whether WebGPU API is supported in the current environment.  
  * If it is not, creates a new UrlTree that redirects to the unsupported page.
  *
- * @returns {boolean | UrlTree} whether WebGPU API is supported.
+ * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
  */
-function webGpuGuard(): boolean | UrlTree {
-  if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+async function webGpuGuard(): Promise<boolean | UrlTree> {
+  if (await hasWebGpu()) {
     return true;
   }
   return inject(Router).createUrlTree(['/unsupported']);
@@ -18,10 +32,10 @@ function webGpuGuard(): boolean | UrlTree {
  * Checks whether WebGPU API is supported in the current environment.  
  * If it is, creates a new UrlTree that redirects to the 404 page, since the unsupported page should only be accessible if WebGPU is not supported.
  *
- * @returns {boolean | UrlTree} whether WebGPU API is supported.
+ * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
  */
-function unsupportedGuard(): boolean | UrlTree {
-  if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+async function unsupportedGuard(): Promise<boolean | UrlTree> {
+  if (await hasWebGpu()) {
     return inject(Router).createUrlTree(['/404']);
   }
   return true;

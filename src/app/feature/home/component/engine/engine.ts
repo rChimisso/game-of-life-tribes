@@ -26,6 +26,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public state: 'running' | 'paused' = 'paused';
 
   @Input()
+  public isRecording = false;
+
+  @Input()
   public drawTribes: string[] = [];
 
   @Input()
@@ -254,6 +257,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       running: this.state === 'running'
     } satisfies WorkerMessage, [offscreen]);
 
+    this.worker.postMessage({type: 'setRecording',
+      recording: this.isRecording});
+
     this.resetCamera();
 
     this.worker.onmessage = (ev: MessageEvent) => {
@@ -310,6 +316,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     if (changes.state) {
       this.worker.postMessage({type: 'setRunning',
         running: this.state === 'running'});
+    }
+    if (changes.isRecording) {
+      this.worker.postMessage({type: 'setRecording',
+        recording: this.isRecording});
     }
     if (changes.speed) {
       this.worker.postMessage({type: 'setSpeed',

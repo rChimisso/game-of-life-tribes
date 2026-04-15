@@ -108,6 +108,8 @@ export class HomePage implements OnDestroy {
 
   maxSpeed = false;
 
+  recording = false;
+
   drawTribes: string[] = ['classic'];
 
   deleteMode = false;
@@ -300,6 +302,9 @@ export class HomePage implements OnDestroy {
         break;
       case 'setMaxSpeed':
         this.maxSpeed = ev.value as boolean;
+        break;
+      case 'setRecording':
+        this.recording = ev.value as boolean;
         break;
       case 'setGridSize': {
         const {cols, rows} = ev.value as {cols: number; rows: number};

@@ -19,6 +19,7 @@ export interface SidebarEvent {
     | 'selectTribes'
     | 'setSpeed'
     | 'setMaxSpeed'
+    | 'setRecording'
     | 'setGridSize'
     | 'download'
     | 'saveState'
@@ -66,6 +67,8 @@ export class Sidebar implements OnChanges {
   @Input() speed = 10;
 
   @Input() maxSpeed = false;
+
+  @Input() recording = false;
 
   @Input() running = false;
 
@@ -225,6 +228,10 @@ export class Sidebar implements OnChanges {
 
   onMaxSpeedChange(checked: boolean): void {
     this.emit('setMaxSpeed', checked);
+  }
+
+  onRecordingChange(checked: boolean): void {
+    this.emit('setRecording', checked);
   }
 
   onGridSizeApply(): void {

@@ -51,6 +51,7 @@
         <input class="speed-input" min="1" type="number" [disabled]="maxSpeed" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
         <span class="speed-unit">gen/s</span>
         <mat-checkbox [checked]="maxSpeed" (change)="onMaxSpeedChange($event.checked)"> Max </mat-checkbox>
+        <mat-checkbox [checked]="recording" (change)="onRecordingChange($event.checked)"> Rec </mat-checkbox>
       </div>
     </div>
 

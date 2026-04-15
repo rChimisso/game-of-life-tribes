@@ -1,13 +1,11 @@
-﻿/* eslint-disable jsdoc/require-jsdoc */
-/* eslint-disable import/exports-last */
-/**
+﻿/**
  * WebGPU Game-of-Life Tribes engine.
  *
  * Runs entirely in a Web Worker on an OffscreenCanvas.
  * - Simulation: compute shader (dynamically generated from the ruleset).
  * - Rendering: full-screen quad reading from the grid storage buffer.
  * - Grid: ping-pong between two storage buffers (A and B).
- * - Cells: u8 tribe IDs packed 4-per-u32 in storage buffers.
+ * - Cells: u8 tribe IDs packed 4-per-u32 in row-packed storage buffers.
  * - Toroidal: world wraps in both axes.
  */
 
@@ -160,6 +158,7 @@ let canvas: OffscreenCanvas;
 let ruleset: Ruleset<readonly Tribe[]>;
 let cols = 0;
 let rows = 0;
+let packedCols = 0; // Ceil(cols / 4) — u32 words per row in packed grid
 let tribes: Tribe[] = [];
 const tribeIndex = new Map<string, number>();
 
@@ -250,6 +249,7 @@ let currentFps = 0;
 
 function generateComputeWgsl(): string {
   const lines: string[] = [];
+  const pc = packedCols;
 
   lines.push('// Auto-generated simulation compute shader.');
   lines.push(`// Tribes: ${tribes.map(t => t.id).join(', ')}`);
@@ -260,47 +260,20 @@ function generateComputeWgsl(): string {
   lines.push('');
   lines.push(`const COLS: u32 = ${ cols }u;`);
   lines.push(`const ROWS: u32 = ${ rows }u;`);
-  lines.push(`const TOTAL: u32 = ${ cols * rows }u;`);
+  lines.push(`const PACKED_COLS: u32 = ${ pc }u;`);
   lines.push('');
 
-  // Helper: read a cell's tribe ID.
-  lines.push('fn readCell(idx: u32) -> u32 {');
-  lines.push('  return gridIn[idx];');
+  // Helper: read a cell's tribe ID from packed grid.
+  lines.push('fn readCell(x: u32, y: u32) -> u32 {');
+  lines.push('  let wordIdx = y * PACKED_COLS + (x >> 2u);');
+  lines.push('  let shift = (x & 3u) * 8u;');
+  lines.push('  return (gridIn[wordIdx] >> shift) & 0xFFu;');
   lines.push('}');
   lines.push('');
 
-  // Helper: write a cell's tribe ID.
-  lines.push('fn writeCell(idx: u32, tribe: u32) {');
-  lines.push('  gridOut[idx] = tribe;');
-  lines.push('}');
-  lines.push('');
-
-  // Main compute function.
-  lines.push('@compute @workgroup_size(16, 16)');
-  lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
-  lines.push('  let x = gid.x;');
-  lines.push('  let y = gid.y;');
-  lines.push('  if (x >= COLS || y >= ROWS) { return; }');
-  lines.push('');
-  lines.push('  let idx = y * COLS + x;');
-  lines.push('');
-  lines.push('  let selfTribe = readCell(idx);');
-  lines.push('');
-
-  // Read all 8 neighbors.
-  lines.push('  // Neighbor tribe IDs (toroidal wrapping).');
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) {
-        continue;
-      }
-      const name = neighborVarName(dx, dy);
-      const xExpr = wrapExpr('x', dx, 'COLS');
-      const yExpr = wrapExpr('y', dy, 'ROWS');
-      lines.push(`  let ${ name } = readCell(${ yExpr } * COLS + ${ xExpr });`);
-    }
-  }
-  lines.push('');
+  // Generate applyRules function containing all rule logic.
+  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
 
   // Precompute neighbor count variables for each unique tribe set used in count clauses.
   const countSets = collectCountSets(ruleset.rules.map(r => r.clause));
@@ -353,7 +326,6 @@ function generateComputeWgsl(): string {
   }
 
   // Default: dead tribe.
-  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
   lines.push(`  var result: u32 = ${ deadIdx }u;`);
   lines.push('');
 
@@ -373,7 +345,43 @@ function generateComputeWgsl(): string {
     lines.push('  }');
   }
   lines.push('');
-  lines.push('  writeCell(idx, result);');
+  lines.push('  return result;');
+  lines.push('}');
+  lines.push('');
+
+  // Main compute function: each thread processes 4 cells (one packed u32).
+  lines.push('@compute @workgroup_size(16, 16)');
+  lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
+  lines.push('  let px = gid.x;');
+  lines.push('  let y = gid.y;');
+  lines.push('  if (px >= PACKED_COLS || y >= ROWS) { return; }');
+  lines.push('');
+  lines.push('  let baseX = px * 4u;');
+  lines.push('  var packed: u32 = 0u;');
+  lines.push('');
+  lines.push('  for (var i: u32 = 0u; i < 4u; i = i + 1u) {');
+  lines.push('    let x = baseX + i;');
+  lines.push('    if (x >= COLS) { break; }');
+  lines.push('');
+  lines.push('    let selfTribe = readCell(x, y);');
+
+  // Read 8 neighbors using readCell(wrappedX, wrappedY).
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) {
+        continue;
+      }
+      const name = neighborVarName(dx, dy);
+      const xExpr = wrapExpr('x', dx, 'COLS');
+      const yExpr = wrapExpr('y', dy, 'ROWS');
+      lines.push(`    let ${ name } = readCell(${ xExpr }, ${ yExpr });`);
+    }
+  }
+  lines.push('');
+  lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & 0xFFu) << (i * 8u));');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  gridOut[y * PACKED_COLS + px] = packed;');
   lines.push('}');
 
   return lines.join('\n');
@@ -569,7 +577,7 @@ function writeUniforms(): void {
 // ---------------------------------------------------------------------------
 
 function gridBufferSize(): number {
-  return cols * rows * 4; // 1 u32 (4 bytes) per cell
+  return packedCols * rows * 4; // 4 cells packed per u32, row-packed layout
 }
 
 function createGridBuffers(): void {
@@ -586,8 +594,9 @@ function createGridBuffers(): void {
   });
 
   const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
-  const initData = new Uint32Array(cols * rows);
-  initData.fill(deadIdx);
+  const packedDead = deadIdx | (deadIdx << 8) | (deadIdx << 16) | (deadIdx << 24);
+  const initData = new Uint32Array(packedCols * rows);
+  initData.fill(packedDead);
   device.queue.writeBuffer(gridBufferA, 0, initData);
   device.queue.writeBuffer(gridBufferB, 0, initData);
 
@@ -708,12 +717,19 @@ const HISTOGRAM_WGSL = `
 const COLS: u32 = ${0}u; // placeholder, replaced at creation time
 const ROWS: u32 = ${0}u; // placeholder, replaced at creation time
 
+fn readCell(x: u32, y: u32) -> u32 {
+  let packed_cols = (COLS + 3u) / 4u;
+  let wordIdx = y * packed_cols + (x >> 2u);
+  let shift = (x & 3u) * 8u;
+  return (grid[wordIdx] >> shift) & 0xFFu;
+}
+
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   let x = gid.x;
   let y = gid.y;
   if (x >= COLS || y >= ROWS) { return; }
-  let tribe = grid[y * COLS + x];
+  let tribe = readCell(x, y);
   atomicAdd(&hist[tribe], 1u);
 }
 `;
@@ -726,23 +742,29 @@ function generateBoundaryWgsl(): string {
 const COLS: u32 = ${cols}u;
 const ROWS: u32 = ${rows}u;
 
+fn readCell(x: u32, y: u32) -> u32 {
+  let packed_cols = (COLS + 3u) / 4u;
+  let wordIdx = y * packed_cols + (x >> 2u);
+  let shift = (x & 3u) * 8u;
+  return (grid[wordIdx] >> shift) & 0xFFu;
+}
+
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
   let x = gid.x;
   let y = gid.y;
   if (x >= COLS || y >= ROWS) { return; }
-  let idx = y * COLS + x;
-  let self_tribe = grid[idx];
+  let self_tribe = readCell(x, y);
 
   // Check right neighbor.
   let rx = (x + 1u) % COLS;
-  if (grid[y * COLS + rx] != self_tribe) {
+  if (readCell(rx, y) != self_tribe) {
     atomicAdd(&boundary, 1u);
   }
 
   // Check bottom neighbor.
   let by = (y + 1u) % ROWS;
-  if (grid[by * COLS + x] != self_tribe) {
+  if (readCell(x, by) != self_tribe) {
     atomicAdd(&boundary, 1u);
   }
 }
@@ -854,13 +876,28 @@ struct BrushParams {
   tribeIds: array<u32, 32>,
 }
 
-@group(0) @binding(0) var<storage, read_write> grid: array<u32>;
+@group(0) @binding(0) var<storage, read_write> grid: array<atomic<u32>>;
 @group(0) @binding(1) var<uniform> params: BrushParams;
 
 fn pcg(inp: u32) -> u32 {
   var state = inp * 747796405u + 2891336453u;
   var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
   return (word >> 22u) ^ word;
+}
+
+fn writePackedCell(cx: u32, cy: u32, value: u32) {
+  let packed_cols = (params.cols + 3u) / 4u;
+  let wordIdx = cy * packed_cols + (cx >> 2u);
+  let shift = (cx & 3u) * 8u;
+  let mask = 0xFFu << shift;
+  let newBits = (value & 0xFFu) << shift;
+  var old = atomicLoad(&grid[wordIdx]);
+  loop {
+    let updated = (old & ~mask) | newBits;
+    let result = atomicCompareExchangeWeak(&grid[wordIdx], old, updated);
+    if (result.exchanged) { break; }
+    old = result.old_value;
+  }
 }
 
 fn inShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
@@ -916,7 +953,6 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let dy = by - half;
   let cx = ((params.centerX + dx) % i32(params.cols) + i32(params.cols)) % i32(params.cols);
   let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
-  let cellIdx = u32(cy) * params.cols + u32(cx);
 
   // Pick a random tribe from the list.
   let h = pcg(params.seed ^ idx);
@@ -927,13 +963,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   if (params.fill == 1u) {
     if (((h >> 16u) & 1u) != 0u) {
       if (selectedTribe != params.deadId) {
-        grid[cellIdx] = params.deadId;
+        writePackedCell(u32(cx), u32(cy), params.deadId);
       }
       return;
     }
   }
 
-  grid[cellIdx] = selectedTribe;
+  writePackedCell(u32(cx), u32(cy), selectedTribe);
 }
 `;
 
@@ -1002,6 +1038,39 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
   pass.setBindGroup(0, pingPong ? brushBindGroupB : brushBindGroupA);
   pass.dispatchWorkgroups(wgBrush, wgBrush);
   pass.end();
+}
+
+// ---------------------------------------------------------------------------
+//  Pack / unpack helpers
+// ---------------------------------------------------------------------------
+
+function unpackGridToFrame(packed: Uint32Array): Uint8Array {
+  const frame = new Uint8Array(cols * rows);
+  for (let y = 0; y < rows; y++) {
+    for (let px = 0; px < packedCols; px++) {
+      const word = packed[y * packedCols + px]!;
+      const baseX = px * 4;
+      for (let b = 0; b < 4 && baseX + b < cols; b++) {
+        frame[y * cols + baseX + b] = (word >> (b * 8)) & 0xFF;
+      }
+    }
+  }
+  return frame;
+}
+
+function packFrameToGrid(frame: Uint8Array): Uint32Array {
+  const gridData = new Uint32Array(packedCols * rows);
+  for (let y = 0; y < rows; y++) {
+    for (let px = 0; px < packedCols; px++) {
+      const baseX = px * 4;
+      let word = 0;
+      for (let b = 0; b < 4 && baseX + b < cols; b++) {
+        word |= (frame[y * cols + baseX + b]! & 0xFF) << (b * 8);
+      }
+      gridData[y * packedCols + px] = word;
+    }
+  }
+  return gridData;
 }
 
 function readbackGrid(): Promise<Uint32Array> {
@@ -1223,7 +1292,7 @@ function stepSimulation(): void {
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
 
-  const wgX = Math.ceil(cols / 16);
+  const wgX = Math.ceil(packedCols / 16);
   const wgY = Math.ceil(rows / 16);
   pass.dispatchWorkgroups(wgX, wgY);
   pass.end();
@@ -1290,11 +1359,7 @@ function mainLoop(now: number): void {
       // Record final frame if recording.
       if (isRecording) {
         readbackGrid().then(grid => {
-          const frame = new Uint8Array(cols * rows);
-          for (let i = 0; i < cols * rows; i++) {
-            frame[i] = grid[i]!;
-          }
-          recordedFrames.push(rleEncodeFrame(frame));
+          recordedFrames.push(rleEncodeFrame(unpackGridToFrame(grid)));
         });
       }
 
@@ -1327,11 +1392,7 @@ function mainLoop(now: number): void {
   if (isRecording && needPreStepCapture) {
     needPreStepCapture = false;
     readbackGrid().then(grid => {
-      const frame = new Uint8Array(cols * rows);
-      for (let i = 0; i < cols * rows; i++) {
-        frame[i] = grid[i]!;
-      }
-      const encoded = rleEncodeFrame(frame);
+      const encoded = rleEncodeFrame(unpackGridToFrame(grid));
       const idx = genCounter - recordingStartGen;
       if (idx >= 0 && idx < recordedFrames.length) {
         recordedFrames[idx] = encoded;
@@ -1408,10 +1469,7 @@ function mainLoop(now: number): void {
 
           buf.mapAsync(GPUMapMode.READ).then(() => {
             const data = new Uint32Array(buf.getMappedRange());
-            const frame = new Uint8Array(cols * rows);
-            for (let i = 0; i < cols * rows; i++) {
-              frame[i] = data[i]!;
-            }
+            const frame = unpackGridToFrame(data);
             buf.unmap();
             if (useBufA) {
               recordBufAReady = true;
@@ -1457,6 +1515,7 @@ function initRuleset(rs: Ruleset<readonly Tribe[]>): void {
   ruleset = rs;
   cols = rs.cols;
   rows = rs.rows;
+  packedCols = Math.ceil(cols / 4);
   tribes = [...rs.tribes];
 
   tribeIndex.clear();
@@ -1478,7 +1537,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     }
   });
 
-  const maxCells = Math.floor(device.limits.maxBufferSize / 4);
+  const maxCells = Math.floor(device.limits.maxBufferSize); // ~1 byte per cell with packing
   self.postMessage({type: 'limits',
     maxCells} satisfies LimitsMessage);
 
@@ -1704,10 +1763,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       }
       recordedFrames.splice(recordedFrames.length - k, k);
       const lastFrame = rleDecodeFrame(recordedFrames[recordedFrames.length - 1]!);
-      const gridData = new Uint32Array(cols * rows);
-      for (let i = 0; i < cols * rows; i++) {
-        gridData[i] = lastFrame[i]!;
-      }
+      const gridData = packFrameToGrid(lastFrame);
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
       device.queue.writeBuffer(currentGrid, 0, gridData);
       genCounter = recordingStartGen + recordedFrames.length - 1;
@@ -1727,11 +1783,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         // Single step: immediate, with recording.
         if (isRecording) {
           readbackGrid().then(grid => {
-            const preFrame = new Uint8Array(cols * rows);
-            for (let j = 0; j < cols * rows; j++) {
-              preFrame[j] = grid[j]!;
-            }
-            const encodedPre = rleEncodeFrame(preFrame);
+            const encodedPre = rleEncodeFrame(unpackGridToFrame(grid));
             const idx = genCounter - recordingStartGen;
             if (idx >= 0 && idx < recordedFrames.length) {
               recordedFrames[idx] = encodedPre;
@@ -1744,11 +1796,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
             stepCount++;
 
             readbackGrid().then(postGrid => {
-              const postFrame = new Uint8Array(cols * rows);
-              for (let j = 0; j < cols * rows; j++) {
-                postFrame[j] = postGrid[j]!;
-              }
-              recordedFrames.push(rleEncodeFrame(postFrame));
+              recordedFrames.push(rleEncodeFrame(unpackGridToFrame(postGrid)));
 
               lastMetricsGen = -1;
               if (!metricsInFlight) {
@@ -1780,11 +1828,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         // Save pre-step frame if recording.
         if (isRecording) {
           readbackGrid().then(grid => {
-            const preFrame = new Uint8Array(cols * rows);
-            for (let j = 0; j < cols * rows; j++) {
-              preFrame[j] = grid[j]!;
-            }
-            const encodedSkipPre = rleEncodeFrame(preFrame);
+            const encodedSkipPre = rleEncodeFrame(unpackGridToFrame(grid));
             const idx = genCounter - recordingStartGen;
             if (idx >= 0 && idx < recordedFrames.length) {
               recordedFrames[idx] = encodedSkipPre;

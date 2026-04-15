@@ -483,14 +483,17 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
 
 // AVC codec strings from highest to lowest level (High profile).
 const AVC_CODECS = [
-  'avc1.640033', // High 5.1 — up to ~9.4M coded pixels
-  'avc1.640032', // High 5.0 — up to ~5.6M
-  'avc1.640029', // High 4.1 — up to ~2.1M
-  'avc1.640028', // High 4.0 — up to ~2.1M
-  'avc1.64001F', // High 3.1 — up to ~921k
+  'avc1.64003D', // High 6.1
+  'avc1.64003C', // High 6.0
+  'avc1.640034', // High 5.2
+  'avc1.640033', // High 5.1
+  'avc1.640032', // High 5.0
+  'avc1.640029', // High 4.1
+  'avc1.640028', // High 4.0
+  'avc1.64001F', // High 3.1
   'avc1.4D0029', // Main 4.1
   'avc1.4D0028', // Main 4.0
-  'avc1.42001f' // Baseline 3.1 (fallback)
+  'avc1.42001F' // Baseline 3.1
 ];
 
 async function findVideoConfig(

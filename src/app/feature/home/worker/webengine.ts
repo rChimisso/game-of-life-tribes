@@ -137,7 +137,7 @@ export interface RecordingMessage {
 
 export interface LimitsMessage {
   type: 'limits';
-  maxCells: number;
+  maxBytes: number;
 }
 
 export interface SteppingMessage {
@@ -1533,9 +1533,10 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     }
   });
 
-  const maxCells = Math.floor(device.limits.maxBufferSize); // ~1 byte per cell with packing
-  self.postMessage({type: 'limits',
-    maxCells} satisfies LimitsMessage);
+  self.postMessage({
+    type: 'limits',
+    maxBytes: Math.min(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize)
+  } satisfies LimitsMessage);
 
   context = canvas.getContext('webgpu') as GPUCanvasContext;
   canvasFormat = navigator.gpu.getPreferredCanvasFormat();

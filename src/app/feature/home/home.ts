@@ -130,7 +130,7 @@ export class HomePage implements OnDestroy {
 
   downloadStatus = '';
 
-  maxCells = Infinity;
+  maxBytes = Infinity;
 
   stepping = false;
 
@@ -138,32 +138,30 @@ export class HomePage implements OnDestroy {
 
   private metricsHistory: MetricMessage[] = [];
 
-  private readonly boundKeydown = (ev: KeyboardEvent) => this.handleKeydown(ev);
-
-  constructor(private readonly cdr: ChangeDetectorRef) {
-    document.addEventListener('keydown', this.boundKeydown, true);
-  }
-
-  ngOnDestroy(): void {
-    document.removeEventListener('keydown', this.boundKeydown, true);
-  }
-
-  get tribes(): readonly Tribe[] {
+  public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
 
-  get effectiveSpeed(): number {
+  public get effectiveSpeed(): number {
     return this.maxSpeed ? -1 : this.speed;
   }
 
+  public constructor(private readonly cdr: ChangeDetectorRef) {
+    document.addEventListener('keydown', this.boundKeydown, true);
+  }
+
   @HostListener('mousedown', ['$event'])
-  onHostMousedown(ev: MouseEvent): void {
+  public onHostMousedown(ev: MouseEvent): void {
     const target = ev.target as HTMLElement;
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
       return;
     }
     // Defer blur so it fires after the browser sets focus on the clicked element.
     setTimeout(() => (document.activeElement as HTMLElement)?.blur?.());
+  }
+
+  public ngOnDestroy(): void {
+    document.removeEventListener('keydown', this.boundKeydown, true);
   }
 
   private handleKeydown(ev: KeyboardEvent): void {
@@ -234,7 +232,7 @@ export class HomePage implements OnDestroy {
   }
 
   onLimits(data: LimitsMessage): void {
-    this.maxCells = data.maxCells;
+    this.maxBytes = data.maxBytes;
     this.cdr.markForCheck();
   }
 
@@ -500,4 +498,6 @@ export class HomePage implements OnDestroy {
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  private readonly boundKeydown = (ev: KeyboardEvent) => this.handleKeydown(ev);
 }

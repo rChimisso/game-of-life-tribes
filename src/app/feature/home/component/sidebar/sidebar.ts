@@ -56,100 +56,116 @@ export interface SidebarEvent {
   }
 })
 export class Sidebar implements OnChanges {
-  private resizing = false;
+  @Input()
+  public tribes: readonly Tribe[] = [];
 
-  constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {}
+  @Input()
+  public drawTribes: string[] = [];
 
-  @Input() tribes: readonly Tribe[] = [];
+  @Input()
+  public speed = 10;
 
-  @Input() drawTribes: string[] = [];
+  @Input()
+  public maxSpeed = false;
 
-  @Input() speed = 10;
+  @Input()
+  public recording = false;
 
-  @Input() maxSpeed = false;
+  @Input()
+  public running = false;
 
-  @Input() recording = false;
+  @Input()
+  public gridCols = 100;
 
-  @Input() running = false;
+  @Input()
+  public gridRows = 100;
 
-  @Input() gridCols = 100;
+  @Input()
+  public metrics: MetricMessage | null = null;
 
-  @Input() gridRows = 100;
+  @Input()
+  public deleteMode = false;
 
-  @Input() metrics: MetricMessage | null = null;
+  @Input()
+  public panMode = false;
 
-  @Input() deleteMode = false;
+  @Input()
+  public ruleset!: Ruleset;
 
-  @Input() panMode = false;
+  @Input()
+  public brushSize = 1;
 
-  @Input() ruleset!: Ruleset;
+  @Input()
+  public brushShape: BrushShape = 'square';
 
-  @Input() brushSize = 1;
+  @Input()
+  public brushFill: 'full' | 'spray' | 'outline' = 'full';
 
-  @Input() brushShape: BrushShape = 'square';
+  @Input()
+  public skipAmount = 1;
 
-  @Input() brushFill: 'full' | 'spray' | 'outline' = 'full';
+  @Input()
+  public downloadProgress = -1;
 
-  @Input() skipAmount = 1;
+  @Input()
+  public downloadStatus = '';
 
-  @Input() downloadProgress = -1;
+  @Input()
+  public maxBytes = Infinity;
 
-  @Input() downloadStatus = '';
+  @Output()
+  public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
-  @Input() maxCells = Infinity;
+  public collapsed = true;
 
-  @Output() sidebarEvent = new EventEmitter<SidebarEvent>();
+  public pendingCols = 100;
 
-  collapsed = true;
+  public pendingRows = 100;
 
-  pendingCols = 100;
+  public downloadCsv = true;
 
-  pendingRows = 100;
+  public downloadJson = true;
 
-  downloadCsv = true;
+  public downloadFrames = true;
 
-  downloadJson = true;
+  public downloadMp4 = false;
 
-  downloadFrames = true;
+  public downloadPng = false;
 
-  downloadMp4 = false;
-
-  downloadPng = false;
-
-  mp4Fps = 12;
+  public mp4Fps = 12;
 
   // Sidebar resize
-  sidebarWidth = 280;
+  public sidebarWidth = 280;
 
   // Bottom sheet (mobile)
-  sheetTranslate = 'calc(100% - 0px)';
+  public sheetTranslate = 'calc(100% - 0px)';
 
   // Shortcuts
-  shortcutsExpanded = false;
+  public shortcutsExpanded = false;
 
   // Tribe editing
-  editTribes: Tribe[] = [];
+  public editTribes: Tribe[] = [];
 
-  showTribeAdder = false;
+  public showTribeAdder = false;
 
-  newTribeId = '';
+  public newTribeId = '';
 
-  newTribeColor = '';
+  public newTribeColor = '';
 
-  editingTribeIndex: number | null = null;
+  public editingTribeIndex: number | null = null;
 
-  editingTribeName: string | null = null;
+  public editingTribeName: string | null = null;
 
   // Rule editing
-  editRules: Rule<Tribe[]>[] = [];
+  public editRules: Rule<Tribe[]>[] = [];
 
-  expandedRuleIndex: number | null = null;
+  public expandedRuleIndex: number | null = null;
 
-  hasUnappliedTribes = false;
+  public hasUnappliedTribes = false;
 
-  hasUnappliedRules = false;
+  public hasUnappliedRules = false;
 
-  readonly basicColors = [
+  public readonly basicColors = [
     'ff0000',
     '00ff00',
     '0000ff',
@@ -164,7 +180,31 @@ export class Sidebar implements OnChanges {
     'ffffff'
   ];
 
-  ngOnChanges(changes: SimpleChanges): void {
+  private resizing = false;
+
+  public get hasUnappliedGridSize(): boolean {
+    return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
+  }
+
+  public get gridSizeError(): string | null {
+    const packedGridByteSize = Math.ceil(this.pendingCols / 4) * this.pendingRows * 4;
+
+    if (packedGridByteSize > this.maxBytes) {
+      return `Grid requires ${packedGridByteSize.toLocaleString()} bytes but GPU supports at most ${this.maxBytes.toLocaleString()}`;
+    }
+    if (this.pendingCols < 10 || this.pendingRows < 10) {
+      return 'Minimum grid size is 10×10';
+    }
+    return null;
+  }
+
+  public get brushMaxSize(): number {
+    return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
+  }
+
+  public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {}
+
+  public ngOnChanges(changes: SimpleChanges): void {
     if (changes['ruleset'] && this.ruleset) {
       this.syncFromRuleset();
       this.hasUnappliedTribes = false;
@@ -176,70 +216,43 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  private syncFromRuleset(): void {
-    this.editTribes = this.ruleset.tribes.map(t => ({...t}));
-    this.editRules = structuredClone(this.ruleset.rules);
-    this.pendingCols = this.ruleset.cols;
-    this.pendingRows = this.ruleset.rows;
-  }
-
-  toggle(): void {
+  public toggle(): void {
     this.collapsed = !this.collapsed;
     if (!this.collapsed) {
       this.sheetTranslate = '0px';
     }
   }
 
-  emit(action: SidebarEvent['action'], value?: unknown): void {
+  public emit(action: SidebarEvent['action'], value?: unknown): void {
     this.sidebarEvent.emit({action,
       value});
   }
 
-  onTribeChange(id: string): void {
+  public onTribeChange(id: string): void {
     this.emit('selectTribes', this.toggleTribeSelection(id));
   }
 
-  private toggleTribeSelection(id: string): string[] {
-    if (id === 'dead') {
-      return ['dead'];
-    }
-    // If currently in delete mode (only 'dead' selected), start fresh.
-    if (this.drawTribes.length === 1 && this.drawTribes[0] === 'dead') {
-      return [id];
-    }
-    const current = this.drawTribes.filter(t => t !== 'dead');
-    const idx = current.indexOf(id);
-    if (idx >= 0) {
-      // Don't allow deselecting the last tribe.
-      if (current.length > 1) {
-        current.splice(idx, 1);
-      }
-      return current;
-    }
-    return [...current, id];
-  }
-
-  onSpeedChange(value: string): void {
+  public onSpeedChange(value: string): void {
     const n = parseInt(value, 10);
     if (n > 0) {
       this.emit('setSpeed', n);
     }
   }
 
-  onMaxSpeedChange(checked: boolean): void {
+  public onMaxSpeedChange(checked: boolean): void {
     this.emit('setMaxSpeed', checked);
   }
 
-  onRecordingChange(checked: boolean): void {
+  public onRecordingChange(checked: boolean): void {
     this.emit('setRecording', checked);
   }
 
-  onGridSizeApply(): void {
+  public onGridSizeApply(): void {
     this.emit('setGridSize', {cols: this.pendingCols,
       rows: this.pendingRows});
   }
 
-  onDownload(): void {
+  public onDownload(): void {
     this.emit('download', {
       csv: this.downloadCsv,
       json: this.downloadJson,
@@ -250,30 +263,30 @@ export class Sidebar implements OnChanges {
     });
   }
 
-  onStepBack(): void {
+  public onStepBack(): void {
     this.emit('stepBack', this.skipAmount);
   }
 
-  onStepForward(): void {
+  public onStepForward(): void {
     this.emit('stepForward', this.skipAmount);
   }
 
-  onBrushSizeChange(value: string): void {
+  public onBrushSizeChange(value: string): void {
     const n = Math.min(Math.max(1, parseInt(value, 10) || 1), this.brushMaxSize);
     if (n > 0) {
       this.emit('setBrushSize', n);
     }
   }
 
-  onBrushShapeChange(shape: BrushShape): void {
+  public onBrushShapeChange(shape: BrushShape): void {
     this.emit('setBrushShape', shape);
   }
 
-  onBrushFillChange(fill: 'full' | 'spray' | 'outline'): void {
+  public onBrushFillChange(fill: 'full' | 'spray' | 'outline'): void {
     this.emit('setBrushFill', fill);
   }
 
-  onFileSelect(event: Event): void {
+  public onFileSelect(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) {
@@ -287,19 +300,17 @@ export class Sidebar implements OnChanges {
     reader.readAsText(file);
   }
 
-  // ── Tribe editing ──
-
-  startAddTribe(): void {
+  public startAddTribe(): void {
     this.showTribeAdder = true;
     this.newTribeId = '';
     this.newTribeColor = this.randomColor();
   }
 
-  randomColor(): string {
+  public randomColor(): string {
     return Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
   }
 
-  isValidNewTribe(): boolean {
+  public isValidNewTribe(): boolean {
     if (!this.newTribeId || !this.newTribeColor || this.newTribeColor.length !== 6) {
       return false;
     }
@@ -307,7 +318,7 @@ export class Sidebar implements OnChanges {
     return id.length > 0 && !this.editTribes.some(t => t.id === id);
   }
 
-  confirmAddTribe(): void {
+  public confirmAddTribe(): void {
     const id = this.newTribeId.toLowerCase().replace(/[^a-z0-9]/g, '');
     this.editTribes.push({id,
       color: this.newTribeColor});
@@ -315,7 +326,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedTribes = true;
   }
 
-  removeTribe(index: number): void {
+  public removeTribe(index: number): void {
     const {id} = (this.editTribes[index]!);
     if (id === 'dead') {
       return;
@@ -329,31 +340,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
-    if (clause.kind === 'is' || clause.kind === 'count') {
-      const idx = clause.tribes.indexOf(tribeId);
-      if (idx >= 0 && clause.tribes.length > 1) {
-        clause.tribes.splice(idx, 1);
-      }
-    } else if (clause.kind === 'equality') {
-      const idx1 = clause.tribe1.indexOf(tribeId);
-      if (idx1 >= 0 && clause.tribe1.length > 1) {
-        clause.tribe1.splice(idx1, 1);
-      }
-      const idx2 = clause.tribe2.indexOf(tribeId);
-      if (idx2 >= 0 && clause.tribe2.length > 1) {
-        clause.tribe2.splice(idx2, 1);
-      }
-    } else if (clause.kind === 'not') {
-      this.removeTribeIdFromClause(clause.clause, tribeId);
-    } else if (clause.kind === 'and' || clause.kind === 'or') {
-      for (const child of clause.clauses) {
-        this.removeTribeIdFromClause(child, tribeId);
-      }
-    }
-  }
-
-  startEditTribe(index: number): void {
+  public startEditTribe(index: number): void {
     if (this.editingTribeIndex === index) {
       this.editingTribeIndex = null;
       this.editingTribeName = null;
@@ -363,7 +350,7 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  updateTribeName(index: number, newName: string): void {
+  public updateTribeName(index: number, newName: string): void {
     const clean = newName.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (!clean || clean === 'dead' || this.editTribes.some((t, i) => i !== index && t.id === clean)) {
       return;
@@ -381,31 +368,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedTribes = true;
   }
 
-  private renameTribeInClause(clause: Clause<Tribe[]>, oldId: string, newId: string): void {
-    if (clause.kind === 'is' || clause.kind === 'count') {
-      const idx = clause.tribes.indexOf(oldId);
-      if (idx >= 0) {
-        clause.tribes[idx] = newId;
-      }
-    } else if (clause.kind === 'equality') {
-      const idx1 = clause.tribe1.indexOf(oldId);
-      if (idx1 >= 0) {
-        clause.tribe1[idx1] = newId;
-      }
-      const idx2 = clause.tribe2.indexOf(oldId);
-      if (idx2 >= 0) {
-        clause.tribe2[idx2] = newId;
-      }
-    } else if (clause.kind === 'not') {
-      this.renameTribeInClause(clause.clause, oldId, newId);
-    } else if (clause.kind === 'and' || clause.kind === 'or') {
-      for (const child of clause.clauses) {
-        this.renameTribeInClause(child, oldId, newId);
-      }
-    }
-  }
-
-  updateTribeColor(index: number, color: string): void {
+  public updateTribeColor(index: number, color: string): void {
     const c = color.toLowerCase().replace(/[^0-9a-f]/g, '');
     if (c.length === 6) {
       this.editTribes[index] = {...this.editTribes[index]!,
@@ -414,9 +377,7 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  // ── Rule editing ──
-
-  addRule(): void {
+  public addRule(): void {
     const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
     this.editRules.push({
       clause: {kind: 'and',
@@ -435,7 +396,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  removeRule(index: number): void {
+  public removeRule(index: number): void {
     this.editRules.splice(index, 1);
     if (this.expandedRuleIndex === index) {
       this.expandedRuleIndex = null;
@@ -445,45 +406,17 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  setRuleOutput(index: number, tribe: string): void {
+  public setRuleOutput(index: number, tribe: string): void {
     this.editRules[index] = {...this.editRules[index]!,
       tribe};
     this.hasUnappliedRules = true;
   }
 
-  toggleRuleExpand(index: number): void {
+  public toggleRuleExpand(index: number): void {
     this.expandedRuleIndex = this.expandedRuleIndex === index ? null : index;
   }
 
-  // ── Clause editing ──
-
-  private getClauseAtPath(root: Clause<Tribe[]>, path: number[]): Clause<Tribe[]> {
-    let current: Clause<Tribe[]> = root;
-    for (const idx of path) {
-      if (current.kind === 'and' || current.kind === 'or') {
-        current = current.clauses[idx]!;
-      } else if (current.kind === 'not') {
-        current = current.clause;
-      }
-    }
-    return current;
-  }
-
-  private setClauseAtPath(rule: Rule<Tribe[]>, path: number[], newClause: Clause<Tribe[]>): void {
-    if (path.length === 0) {
-      rule.clause = newClause;
-      return;
-    }
-    const parent = this.getClauseAtPath(rule.clause, path.slice(0, -1));
-    const lastIdx = path[path.length - 1]!;
-    if (parent.kind === 'and' || parent.kind === 'or') {
-      (parent.clauses as Clause<Tribe[]>[])[lastIdx] = newClause;
-    } else if (parent.kind === 'not') {
-      (parent as {kind: 'not'; clause: Clause<Tribe[]>}).clause = newClause;
-    }
-  }
-
-  changeClauseKind(ruleIndex: number, path: number[], newKind: string): void {
+  public changeClauseKind(ruleIndex: number, path: number[], newKind: string): void {
     const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
     let nc: Clause<Tribe[]>;
     switch (newKind) {
@@ -525,7 +458,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  toggleClauseTribe(ruleIndex: number, path: number[], tribeId: string): void {
+  public toggleClauseTribe(ruleIndex: number, path: number[], tribeId: string): void {
     const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
     if (clause.kind !== 'is' && clause.kind !== 'count') {
       return;
@@ -541,7 +474,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  toggleClauseEqTribe(ruleIndex: number, path: number[], group: 1 | 2, tribeId: string): void {
+  public toggleClauseEqTribe(ruleIndex: number, path: number[], group: 1 | 2, tribeId: string): void {
     const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
     if (clause.kind !== 'equality') {
       return;
@@ -558,7 +491,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  setClauseInterval(ruleIndex: number, path: number[], which: 0 | 1, value: string): void {
+  public setClauseInterval(ruleIndex: number, path: number[], which: 0 | 1, value: string): void {
     const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
     if (clause.kind !== 'count') {
       return;
@@ -568,7 +501,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  addChildClause(ruleIndex: number, path: number[]): void {
+  public addChildClause(ruleIndex: number, path: number[]): void {
     const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
     if (clause.kind !== 'and' && clause.kind !== 'or') {
       return;
@@ -579,7 +512,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = true;
   }
 
-  removeChildClause(ruleIndex: number, path: number[]): void {
+  public removeChildClause(ruleIndex: number, path: number[]): void {
     if (path.length === 0) {
       return;
     }
@@ -592,7 +525,7 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  applyTribes(): void {
+  public applyTribes(): void {
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => ({...t})),
       rules: structuredClone(this.editRules),
@@ -602,7 +535,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedTribes = false;
   }
 
-  restoreTribes(): void {
+  public restoreTribes(): void {
     this.editTribes = this.ruleset.tribes.map(t => ({...t}));
     this.editingTribeIndex = null;
     this.editingTribeName = null;
@@ -610,7 +543,7 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedTribes = false;
   }
 
-  applyRules(): void {
+  public applyRules(): void {
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => ({...t})),
       rules: structuredClone(this.editRules),
@@ -620,59 +553,27 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedRules = false;
   }
 
-  restoreRules(): void {
+  public restoreRules(): void {
     this.editRules = structuredClone(this.ruleset.rules);
     this.expandedRuleIndex = null;
     this.hasUnappliedRules = false;
   }
 
-  restoreGridSize(): void {
+  public restoreGridSize(): void {
     this.pendingCols = this.gridCols;
     this.pendingRows = this.gridRows;
   }
 
-  get hasUnappliedGridSize(): boolean {
-    return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
-  }
-
-  get gridSizeError(): string | null {
-    const cells = this.pendingCols * this.pendingRows;
-    if (cells > this.maxCells) {
-      return `Grid requires ${cells.toLocaleString()} cells but GPU supports at most ${this.maxCells.toLocaleString()}`;
-    }
-    if (this.pendingCols < 10 || this.pendingRows < 10) {
-      return 'Minimum grid size is 10×10';
-    }
-    return null;
-  }
-
-  get brushMaxSize(): number {
-    return Math.max(1, Math.floor(Math.max(this.gridCols, this.gridRows) / 4));
-  }
-
-  clauseSummary(clause: Clause<Tribe[]>): string {
+  public clauseSummary(clause: Clause<Tribe[]>): string {
     const s = this.clauseStr(clause);
     return s.length > 50 ? `${s.substring(0, 47) }…` : s;
   }
 
-  private clauseStr(clause: Clause<Tribe[]>): string {
-    switch (clause.kind) {
-      case 'is': return `is ${clause.tribes.join('/')}`;
-      case 'count': return `${clause.tribes.join('/')} ∈ [${clause.interval[0]},${clause.interval[1]}]`;
-      case 'equality': return `#${clause.tribe1.join('/')} = #${clause.tribe2.join('/')}`;
-      case 'not': return `¬(${this.clauseStr(clause.clause)})`;
-      case 'and': return clause.clauses.map(c => this.clauseStr(c)).join(' ∧ ');
-      case 'or': return clause.clauses.map(c => this.clauseStr(c)).join(' ∨ ');
-    }
-  }
-
-  getTribeColor(tribeId: string): string {
+  public getTribeColor(tribeId: string): string {
     return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
   }
 
-  // ── Bottom sheet drag (mobile) ──
-
-  onSheetDragStart(event: TouchEvent): void {
+  public onSheetDragStart(event: TouchEvent): void {
     const startY = event.touches[0]!.clientY;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement;
     const panelHeight = panel.offsetHeight;
@@ -709,9 +610,7 @@ export class Sidebar implements OnChanges {
     document.addEventListener('touchend', onEnd);
   }
 
-  // ── Sidebar resize ──
-
-  onResizeStart(event: MouseEvent): void {
+  public onResizeStart(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.resizing = true;
@@ -737,5 +636,118 @@ export class Sidebar implements OnChanges {
 
     document.addEventListener('mousemove', onMove, true);
     document.addEventListener('mouseup', onUp, true);
+  }
+
+  private toggleTribeSelection(id: string): string[] {
+    if (id === 'dead') {
+      return ['dead'];
+    }
+    // If currently in delete mode (only 'dead' selected), start fresh.
+    if (this.drawTribes.length === 1 && this.drawTribes[0] === 'dead') {
+      return [id];
+    }
+    const current = this.drawTribes.filter(t => t !== 'dead');
+    const idx = current.indexOf(id);
+    if (idx >= 0) {
+      // Don't allow deselecting the last tribe.
+      if (current.length > 1) {
+        current.splice(idx, 1);
+      }
+      return current;
+    }
+    return [...current, id];
+  }
+
+  private syncFromRuleset(): void {
+    this.editTribes = this.ruleset.tribes.map(t => ({...t}));
+    this.editRules = structuredClone(this.ruleset.rules);
+    this.pendingCols = this.ruleset.cols;
+    this.pendingRows = this.ruleset.rows;
+  }
+
+  private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
+    if (clause.kind === 'is' || clause.kind === 'count') {
+      const idx = clause.tribes.indexOf(tribeId);
+      if (idx >= 0 && clause.tribes.length > 1) {
+        clause.tribes.splice(idx, 1);
+      }
+    } else if (clause.kind === 'equality') {
+      const idx1 = clause.tribe1.indexOf(tribeId);
+      if (idx1 >= 0 && clause.tribe1.length > 1) {
+        clause.tribe1.splice(idx1, 1);
+      }
+      const idx2 = clause.tribe2.indexOf(tribeId);
+      if (idx2 >= 0 && clause.tribe2.length > 1) {
+        clause.tribe2.splice(idx2, 1);
+      }
+    } else if (clause.kind === 'not') {
+      this.removeTribeIdFromClause(clause.clause, tribeId);
+    } else if (clause.kind === 'and' || clause.kind === 'or') {
+      for (const child of clause.clauses) {
+        this.removeTribeIdFromClause(child, tribeId);
+      }
+    }
+  }
+
+  private renameTribeInClause(clause: Clause<Tribe[]>, oldId: string, newId: string): void {
+    if (clause.kind === 'is' || clause.kind === 'count') {
+      const idx = clause.tribes.indexOf(oldId);
+      if (idx >= 0) {
+        clause.tribes[idx] = newId;
+      }
+    } else if (clause.kind === 'equality') {
+      const idx1 = clause.tribe1.indexOf(oldId);
+      if (idx1 >= 0) {
+        clause.tribe1[idx1] = newId;
+      }
+      const idx2 = clause.tribe2.indexOf(oldId);
+      if (idx2 >= 0) {
+        clause.tribe2[idx2] = newId;
+      }
+    } else if (clause.kind === 'not') {
+      this.renameTribeInClause(clause.clause, oldId, newId);
+    } else if (clause.kind === 'and' || clause.kind === 'or') {
+      for (const child of clause.clauses) {
+        this.renameTribeInClause(child, oldId, newId);
+      }
+    }
+  }
+
+  private getClauseAtPath(root: Clause<Tribe[]>, path: number[]): Clause<Tribe[]> {
+    let current: Clause<Tribe[]> = root;
+    for (const idx of path) {
+      if (current.kind === 'and' || current.kind === 'or') {
+        current = current.clauses[idx]!;
+      } else if (current.kind === 'not') {
+        current = current.clause;
+      }
+    }
+    return current;
+  }
+
+  private setClauseAtPath(rule: Rule<Tribe[]>, path: number[], newClause: Clause<Tribe[]>): void {
+    if (path.length === 0) {
+      rule.clause = newClause;
+      return;
+    }
+    const parent = this.getClauseAtPath(rule.clause, path.slice(0, -1));
+    const lastIdx = path[path.length - 1]!;
+    if (parent.kind === 'and' || parent.kind === 'or') {
+      (parent.clauses as Clause<Tribe[]>[])[lastIdx] = newClause;
+    } else if (parent.kind === 'not') {
+      (parent as {kind: 'not'; clause: Clause<Tribe[]>}).clause = newClause;
+    }
+  }
+
+  private clauseStr(clause: Clause<Tribe[]>): string {
+    switch (clause.kind) {
+      case 'is': return `is ${clause.tribes.join('/')}`;
+      case 'count': return `${clause.tribes.join('/')} ∈ [${clause.interval[0]},${clause.interval[1]}]`;
+      case 'equality': return `#${clause.tribe1.join('/')} = #${clause.tribe2.join('/')}`;
+      case 'not': return `¬(${this.clauseStr(clause.clause)})`;
+      case 'and': return clause.clauses.map(c => this.clauseStr(c)).join(' ∧ ');
+      case 'or': return clause.clauses.map(c => this.clauseStr(c)).join(' ∨ ');
+      default: return '';
+    }
   }
 }

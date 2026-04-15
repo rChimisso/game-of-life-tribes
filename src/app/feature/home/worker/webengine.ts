@@ -1426,14 +1426,10 @@ function mainLoop(now: number): void {
 
     if (targetStepDuration <= 0) {
       // Max speed: run as many steps as fit in a ~14 ms budget per frame.
-      // Break at metrics boundaries to keep metrics on precise multiples.
       const deadline = performance.now() + 14;
       while (performance.now() < deadline) {
         stepSimulation();
         stepCount++;
-        if (genCounter % mi === 0) {
-          break;
-        }
       }
       didStep = true;
     } else {

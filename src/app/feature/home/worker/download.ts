@@ -36,13 +36,8 @@ interface MetricEntry {
 type WorkerInput = DownloadRequest;
 
 // ---------------------------------------------------------------------------
-//  ZIP creation (copied from zip.ts to keep worker self-contained)
+//  CRC-32 (used by streaming ZIP)
 // ---------------------------------------------------------------------------
-
-interface ZipEntry {
-  path: string;
-  data: Uint8Array;
-}
 
 const crcTable = new Uint32Array(256);
 for (let i = 0; i < 256; i++) {
@@ -61,102 +56,124 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function writeU16(view: DataView, offset: number, value: number): void {
-  view.setUint16(offset, value, true);
+// ---------------------------------------------------------------------------
+//  Streaming ZIP writer
+//  Writes local file entries immediately into a growing list of byte chunks.
+//  Keeps only a compact central-directory record per entry (no file data).
+//  Finalizes by appending the central directory + EOCD and merging once.
+// ---------------------------------------------------------------------------
+
+interface CentralDirRecord {
+  nameBytes: Uint8Array;
+  crc: number;
+  size: number;
+  localOffset: number;
 }
 
-function writeU32(view: DataView, offset: number, value: number): void {
-  view.setUint32(offset, value, true);
-}
+class StreamingZip {
+  private chunks: Uint8Array[] = [];
 
-function createZip(entries: ZipEntry[]): ArrayBuffer {
-  const encoder = new TextEncoder();
-  const fileNames = entries.map(e => encoder.encode(e.path));
+  private offset = 0;
 
-  let localHeadersSize = 0;
-  for (let i = 0; i < entries.length; i++) {
-    localHeadersSize += 30 + fileNames[i]!.length + entries[i]!.data.length;
+  private records: CentralDirRecord[] = [];
+
+  addEntry(path: string, data: Uint8Array): void {
+    const encoder = new TextEncoder();
+    const nameBytes = encoder.encode(path);
+    const entryCrc = crc32(data);
+    const localOffset = this.offset;
+
+    // Local file header: 30 bytes + name + data
+    const headerSize = 30 + nameBytes.length;
+    const header = new Uint8Array(headerSize);
+    const hv = new DataView(header.buffer);
+    hv.setUint32(0, 0x04034b50, true);
+    hv.setUint16(4, 20, true);
+    hv.setUint16(6, 0, true);
+    hv.setUint16(8, 0, true);
+    hv.setUint16(10, 0, true);
+    hv.setUint16(12, 0, true);
+    hv.setUint32(14, entryCrc, true);
+    hv.setUint32(18, data.length, true);
+    hv.setUint32(22, data.length, true);
+    hv.setUint16(26, nameBytes.length, true);
+    hv.setUint16(28, 0, true);
+    header.set(nameBytes, 30);
+
+    this.chunks.push(header);
+    this.chunks.push(data);
+    this.offset += headerSize + data.length;
+
+    this.records.push({
+      nameBytes,
+      crc: entryCrc,
+      size: data.length,
+      localOffset
+    });
   }
 
-  let centralDirSize = 0;
-  for (let i = 0; i < entries.length; i++) {
-    centralDirSize += 46 + fileNames[i]!.length;
+  finalize(): ArrayBuffer {
+    const centralDirOffset = this.offset;
+    let centralDirSize = 0;
+
+    for (const rec of this.records) {
+      const entry = new Uint8Array(46 + rec.nameBytes.length);
+      const ev = new DataView(entry.buffer);
+      ev.setUint32(0, 0x02014b50, true);
+      ev.setUint16(4, 20, true);
+      ev.setUint16(6, 20, true);
+      ev.setUint16(8, 0, true);
+      ev.setUint16(10, 0, true);
+      ev.setUint16(12, 0, true);
+      ev.setUint16(14, 0, true);
+      ev.setUint32(16, rec.crc, true);
+      ev.setUint32(20, rec.size, true);
+      ev.setUint32(24, rec.size, true);
+      ev.setUint16(28, rec.nameBytes.length, true);
+      ev.setUint16(30, 0, true);
+      ev.setUint16(32, 0, true);
+      ev.setUint16(34, 0, true);
+      ev.setUint16(36, 0, true);
+      ev.setUint32(38, 0, true);
+      ev.setUint32(42, rec.localOffset, true);
+      entry.set(rec.nameBytes, 46);
+
+      this.chunks.push(entry);
+      centralDirSize += entry.length;
+    }
+
+    // End of central directory
+    const eocd = new Uint8Array(22);
+    const ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(4, 0, true);
+    ev.setUint16(6, 0, true);
+    ev.setUint16(8, this.records.length, true);
+    ev.setUint16(10, this.records.length, true);
+    ev.setUint32(12, centralDirSize, true);
+    ev.setUint32(16, centralDirOffset, true);
+    ev.setUint16(20, 0, true);
+    this.chunks.push(eocd);
+
+    const totalSize = this.offset + centralDirSize + 22;
+    const out = new Uint8Array(totalSize);
+    let pos = 0;
+    for (const chunk of this.chunks) {
+      out.set(chunk, pos);
+      pos += chunk.length;
+    }
+    this.chunks = [];
+    this.records = [];
+    return out.buffer;
   }
 
-  const totalSize = localHeadersSize + centralDirSize + 22;
-  const buffer = new ArrayBuffer(totalSize);
-  const view = new DataView(buffer);
-  const bytes = new Uint8Array(buffer);
-
-  let offset = 0;
-  const localOffsets: number[] = [];
-
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
-    const name = fileNames[i]!;
-    const crc = crc32(entry.data);
-
-    localOffsets.push(offset);
-
-    writeU32(view, offset, 0x04034b50);
-    writeU16(view, offset + 4, 20);
-    writeU16(view, offset + 6, 0);
-    writeU16(view, offset + 8, 0);
-    writeU16(view, offset + 10, 0);
-    writeU16(view, offset + 12, 0);
-    writeU32(view, offset + 14, crc);
-    writeU32(view, offset + 18, entry.data.length);
-    writeU32(view, offset + 22, entry.data.length);
-    writeU16(view, offset + 26, name.length);
-    writeU16(view, offset + 28, 0);
-    offset += 30;
-
-    bytes.set(name, offset);
-    offset += name.length;
-
-    bytes.set(entry.data, offset);
-    offset += entry.data.length;
+  get currentSize(): number {
+    return this.offset;
   }
 
-  const centralDirOffset = offset;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
-    const name = fileNames[i]!;
-    const crc = crc32(entry.data);
-
-    writeU32(view, offset, 0x02014b50);
-    writeU16(view, offset + 4, 20);
-    writeU16(view, offset + 6, 20);
-    writeU16(view, offset + 8, 0);
-    writeU16(view, offset + 10, 0);
-    writeU16(view, offset + 12, 0);
-    writeU16(view, offset + 14, 0);
-    writeU32(view, offset + 16, crc);
-    writeU32(view, offset + 20, entry.data.length);
-    writeU32(view, offset + 24, entry.data.length);
-    writeU16(view, offset + 28, name.length);
-    writeU16(view, offset + 30, 0);
-    writeU16(view, offset + 32, 0);
-    writeU16(view, offset + 34, 0);
-    writeU16(view, offset + 36, 0);
-    writeU32(view, offset + 38, 0);
-    writeU32(view, offset + 42, localOffsets[i]!);
-    offset += 46;
-
-    bytes.set(name, offset);
-    offset += name.length;
+  get entryCount(): number {
+    return this.records.length;
   }
-
-  writeU32(view, offset, 0x06054b50);
-  writeU16(view, offset + 4, 0);
-  writeU16(view, offset + 6, 0);
-  writeU16(view, offset + 8, entries.length);
-  writeU16(view, offset + 10, entries.length);
-  writeU32(view, offset + 12, centralDirSize);
-  writeU32(view, offset + 16, centralDirOffset);
-  writeU16(view, offset + 20, 0);
-
-  return buffer;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,145 +255,6 @@ function computeFrameMetrics(
   };
 }
 
-// Parallel metrics using inline blob sub-workers.
-const METRICS_WORKER_SCRIPT = `
-self.onmessage = function(e) {
-  var d = e.data;
-  var results = [];
-  for (var fi = 0; fi < d.frameCount; fi++) {
-    var frame = new Uint8Array(d.buffer, d.offsets[fi], d.frameSize);
-    var total = d.cols * d.rows;
-    var counts = new Array(d.tribeCount).fill(0);
-    for (var i = 0; i < total; i++) counts[frame[i]]++;
-    var population = {};
-    var totalAlive = 0;
-    for (var t = 0; t < d.tribeCount; t++) {
-      population[d.tribeIds[t]] = counts[t];
-      if (t !== d.deadIdx) totalAlive += counts[t];
-    }
-    var shannonEntropy = 0, simpsonSum = 0;
-    if (totalAlive > 0) {
-      for (var t = 0; t < d.tribeCount; t++) {
-        if (t === d.deadIdx) continue;
-        var p = counts[t] / totalAlive;
-        if (p > 0) { shannonEntropy -= p * Math.log2(p); simpsonSum += p * p; }
-      }
-    }
-    var boundaryLength = 0;
-    var frontierCounts = new Array(d.tribeCount).fill(0);
-    for (var y = 0; y < d.rows; y++) {
-      for (var x = 0; x < d.cols; x++) {
-        var selfTribe = frame[y * d.cols + x];
-        var right = frame[y * d.cols + ((x + 1) % d.cols)];
-        if (right !== selfTribe) { boundaryLength++; frontierCounts[selfTribe]++; }
-        var bottom = frame[((y + 1) % d.rows) * d.cols + x];
-        if (bottom !== selfTribe) { boundaryLength++; frontierCounts[selfTribe]++; }
-      }
-    }
-    var frontierLength = {};
-    for (var t = 0; t < d.tribeCount; t++) {
-      if (t !== d.deadIdx) frontierLength[d.tribeIds[t]] = frontierCounts[t];
-    }
-    results.push({
-      type: 'metrics',
-      generation: d.startGen + d.globalOffset + fi,
-      population: population,
-      shannonEntropy: shannonEntropy,
-      simpsonIndex: 1 - simpsonSum,
-      boundaryLength: boundaryLength,
-      frontierLength: frontierLength
-    });
-  }
-  self.postMessage({results: results});
-};
-`;
-
-function computeMetricsParallel(
-  frames: Uint8Array[],
-  frameCols: number,
-  frameRows: number,
-  tribeList: readonly TribeInfo[],
-  deadId: string,
-  startGeneration: number
-): Promise<MetricEntry[]> {
-  const frameCount = frames.length;
-  if (frameCount === 0) {
-    return Promise.resolve([]);
-  }
-
-  const workerCount = Math.min(
-    typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
-    8,
-    frameCount
-  );
-
-  // For small frame counts, compute sequentially.
-  if (workerCount <= 1 || frameCount <= 4) {
-    return Promise.resolve(
-      frames.map((f, i) => computeFrameMetrics(f, frameCols, frameRows, tribeList, deadId, startGeneration + i))
-    );
-  }
-
-  const frameSize = frameCols * frameRows;
-  const deadIdx = tribeList.findIndex(t => t.id === deadId);
-  const tribeIds = tribeList.map(t => t.id);
-
-  // Distribute frames across workers.
-  const chunkSize = Math.ceil(frameCount / workerCount);
-  const blobUrl = URL.createObjectURL(new Blob([METRICS_WORKER_SCRIPT], {type: 'application/javascript'}));
-
-  const promises: Promise<MetricEntry[]>[] = [];
-  for (let w = 0; w < workerCount; w++) {
-    const start = w * chunkSize;
-    const end = Math.min(start + chunkSize, frameCount);
-    if (start >= end) {
-      break;
-    }
-
-    // Pack frames into a single SharedArrayBuffer-like contiguous buffer.
-    const count = end - start;
-    const totalBytes = count * frameSize;
-    const buffer = new ArrayBuffer(totalBytes);
-    const view = new Uint8Array(buffer);
-    const offsets: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const offset = i * frameSize;
-      offsets.push(offset);
-      view.set(frames[start + i]!, offset);
-    }
-
-    promises.push(new Promise<MetricEntry[]>((resolve, reject) => {
-      const worker = new Worker(blobUrl);
-      worker.onmessage = (e: MessageEvent) => {
-        resolve(e.data.results as MetricEntry[]);
-        worker.terminate();
-      };
-      worker.onerror = e => {
-        reject(e);
-        worker.terminate();
-      };
-      worker.postMessage({
-        buffer,
-        offsets,
-        frameSize,
-        frameCount: count,
-        cols: frameCols,
-        rows: frameRows,
-        tribeCount: tribeList.length,
-        tribeIds,
-        deadIdx,
-        startGen: startGeneration,
-        globalOffset: start
-      }, [buffer]);
-    }));
-  }
-
-  return Promise.all(promises).then(chunks => {
-    URL.revokeObjectURL(blobUrl);
-    return chunks.flat();
-  });
-}
-
 // ---------------------------------------------------------------------------
 //  Media helpers
 // ---------------------------------------------------------------------------
@@ -413,17 +291,16 @@ function buildColorMap(tribes: readonly TribeInfo[]): number[][] {
   });
 }
 
-function renderFrameToCanvas(
+function renderFrameToImageData(
   frame: Uint8Array,
   cols: number,
   rows: number,
   colorMap: number[][],
-  ctx: OffscreenCanvasRenderingContext2D,
+  imageData: ImageData,
   targetW: number,
   targetH: number,
   scale: number
 ): void {
-  const imageData = ctx.createImageData(targetW, targetH);
   const pixels = imageData.data;
   for (let oy = 0; oy < targetH; oy++) {
     const sy = Math.min(Math.floor(oy / scale), rows - 1);
@@ -438,7 +315,6 @@ function renderFrameToCanvas(
       pixels[pi + 3] = 255;
     }
   }
-  ctx.putImageData(imageData, 0, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -483,19 +359,18 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
 //  MP4 generation
 // ---------------------------------------------------------------------------
 
-// AVC codec strings from highest to lowest level (High profile).
 const AVC_CODECS = [
-  'avc1.64003D', // High 6.1
-  'avc1.64003C', // High 6.0
-  'avc1.640034', // High 5.2
-  'avc1.640033', // High 5.1
-  'avc1.640032', // High 5.0
-  'avc1.640029', // High 4.1
-  'avc1.640028', // High 4.0
-  'avc1.64001F', // High 3.1
-  'avc1.4D0029', // Main 4.1
-  'avc1.4D0028', // Main 4.0
-  'avc1.42001F' // Baseline 3.1
+  'avc1.64003D',
+  'avc1.64003C',
+  'avc1.640034',
+  'avc1.640033',
+  'avc1.640032',
+  'avc1.640029',
+  'avc1.640028',
+  'avc1.64001F',
+  'avc1.4D0029',
+  'avc1.4D0028',
+  'avc1.42001F'
 ];
 
 async function findVideoConfig(
@@ -503,7 +378,6 @@ async function findVideoConfig(
   targetH: number,
   bitrate: number
 ): Promise<{config: VideoEncoderConfig; width: number; height: number} | null> {
-  // Try each codec at the target resolution.
   for (const codec of AVC_CODECS) {
     try {
       const r = await VideoEncoder.isConfigSupported({
@@ -522,7 +396,6 @@ async function findVideoConfig(
     } catch { /* Unsupported, try next */ }
   }
 
-  // Downscale by integer divisors until a codec works.
   for (let div = 2; div <= 16; div++) {
     let w = Math.floor(targetW / div);
     let h = Math.floor(targetH / div);
@@ -553,22 +426,32 @@ async function findVideoConfig(
   return null;
 }
 
-async function generateMp4(
-  rec: DecodedRecording,
+// ---------------------------------------------------------------------------
+//  Streaming MP4 encoder
+// ---------------------------------------------------------------------------
+
+interface Mp4StreamEncoder {
+  encodeFrame(frame: Uint8Array): void;
+  finalize(): Promise<ArrayBuffer | null>;
+}
+
+async function createMp4StreamEncoder(
+  cols: number,
+  rows: number,
   tribes: TribeInfo[],
-  fps: number
-): Promise<ArrayBuffer | null> {
+  fps: number,
+  sharedImageData: ImageData
+): Promise<Mp4StreamEncoder | null> {
   const {Output, Mp4OutputFormat, BufferTarget, EncodedVideoPacketSource, EncodedPacket} = await import('mediabunny');
 
-  const {width: idealW, height: idealH} = computeMediaDimensions(rec.cols, rec.rows, true);
-
+  const {width: idealW, height: idealH} = computeMediaDimensions(cols, rows, true);
   const found = await findVideoConfig(idealW, idealH, 2_000_000);
   if (!found) {
     return null;
   }
 
   const {config, width: vw, height: vh} = found;
-  const renderScale = vw / rec.cols;
+  const renderScale = vw / cols;
 
   const target = new BufferTarget();
   const output = new Output({
@@ -596,95 +479,41 @@ async function generateMp4(
   const offscreen = new OffscreenCanvas(vw, vh);
   const ctx = offscreen.getContext('2d')!;
 
-  for (let i = 0; i < rec.frames.length; i++) {
-    renderFrameToCanvas(rec.frames[i]!, rec.cols, rec.rows, colorMap, ctx, vw, vh, renderScale);
-
-    const videoFrame = new VideoFrame(offscreen, {
-      timestamp: i * frameDuration,
-      duration: frameDuration
-    });
-    encoder.encode(videoFrame);
-    videoFrame.close();
+  // Reuse shared ImageData if dimensions match, otherwise create one for MP4.
+  let mp4ImageData: ImageData;
+  if (sharedImageData.width === vw && sharedImageData.height === vh) {
+    mp4ImageData = sharedImageData;
+  } else {
+    mp4ImageData = new ImageData(vw, vh);
   }
 
-  await encoder.flush();
-  encoder.close();
-  await Promise.all(addPromises);
-  await output.finalize();
+  let frameIndex = 0;
 
-  return target.buffer!;
-}
-
-// ---------------------------------------------------------------------------
-//  PNG generation (parallelized with concurrent canvases)
-// ---------------------------------------------------------------------------
-
-async function generatePngEntries(
-  rec: DecodedRecording,
-  tribes: TribeInfo[],
-  onProgress?: (done: number, total: number) => void
-): Promise<ZipEntry[]> {
-  const {width, height, scale} = computeMediaDimensions(rec.cols, rec.rows, false);
-  const colorMap = buildColorMap(tribes);
-  const concurrency = Math.min(typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4, 8, rec.frames.length);
-  const digits = String(Math.max(0, rec.frames.length - 1)).length;
-  const entries: ZipEntry[] = new Array(rec.frames.length);
-
-  // Create a pool of canvases to avoid re-creating per batch.
-  const canvases = Array.from({length: concurrency}, () => new OffscreenCanvas(width, height));
-  let completed = 0;
-
-  for (let batch = 0; batch < rec.frames.length; batch += concurrency) {
-    const batchEnd = Math.min(batch + concurrency, rec.frames.length);
-    const promises: Promise<void>[] = [];
-
-    for (let i = batch; i < batchEnd; i++) {
-      const ci = i - batch;
-      const canvas = canvases[ci]!;
-      const ctx = canvas.getContext('2d')!;
-      renderFrameToCanvas(rec.frames[i]!, rec.cols, rec.rows, colorMap, ctx, width, height, scale);
-
-      const frameIdx = i;
-      promises.push(
-        canvas.convertToBlob({type: 'image/png'}).then(async blob => {
-          const data = new Uint8Array(await blob.arrayBuffer());
-          const name = String(frameIdx).padStart(digits, '0');
-          entries[frameIdx] = {path: `frames/${name}.png`,
-            data};
-          completed++;
-          onProgress?.(completed, rec.frames.length);
-        })
-      );
+  return {
+    encodeFrame(frame: Uint8Array): void {
+      renderFrameToImageData(frame, cols, rows, colorMap, mp4ImageData, vw, vh, renderScale);
+      ctx.putImageData(mp4ImageData, 0, 0);
+      const videoFrame = new VideoFrame(offscreen, {
+        timestamp: frameIndex * frameDuration,
+        duration: frameDuration
+      });
+      encoder.encode(videoFrame);
+      videoFrame.close();
+      frameIndex++;
+    },
+    async finalize(): Promise<ArrayBuffer | null> {
+      await encoder.flush();
+      encoder.close();
+      await Promise.all(addPromises);
+      await output.finalize();
+      return target.buffer!;
     }
-
-    await Promise.all(promises);
-  }
-
-  return entries;
+  };
 }
 
 // ---------------------------------------------------------------------------
-//  RLE decode and manifest-to-frames helpers
+//  Frame unpacking
 // ---------------------------------------------------------------------------
-
-function rleDecode(encoded: Uint8Array, length: number): Uint8Array {
-  const out = new Uint8Array(length);
-  let oi = 0;
-  for (let i = 0; i < encoded.length; i += 2) {
-    const run = encoded[i]!;
-    const val = encoded[i + 1]!;
-    out.fill(val, oi, oi + run);
-    oi += run;
-  }
-  return out;
-}
-
-interface DecodedRecording {
-  frames: Uint8Array[];
-  startGeneration: number;
-  cols: number;
-  rows: number;
-}
 
 function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: number): Uint8Array {
   const packedCols = Math.ceil(frameCols / 4);
@@ -704,166 +533,438 @@ function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: num
 
 const OPFS_DIR = 'gol-recording';
 
-async function loadChunksFromOpfs(manifest: RecordingManifest, frameCols: number, frameRows: number): Promise<DecodedRecording> {
-  const root = await navigator.storage.getDirectory();
-  const dir = await root.getDirectoryHandle(OPFS_DIR);
-  const packedCols = Math.ceil(frameCols / 4);
-  const frameByteSz = packedCols * frameRows * 4;
-  const frames: Uint8Array[] = [];
+// ---------------------------------------------------------------------------
+//  Preflight estimation
+// ---------------------------------------------------------------------------
 
-  for (const chunkMeta of manifest.chunks) {
-    const fileHandle = await dir.getFileHandle(chunkMeta.filename);
-    const blob = await fileHandle.getFile();
-    const data = new Uint8Array(await blob.arrayBuffer());
+const PART_SIZE_LIMIT = 2 * 1024 * 1024 * 1024;
 
-    for (let i = 0; i < chunkMeta.blockCount; i++) {
-      const offset = i * frameByteSz;
-      const packed = data.subarray(offset, offset + frameByteSz);
-      frames.push(unpackGridToFrame(packed, frameCols, frameRows));
+interface PartPlan {
+  partIndex: number;
+  chunkIndices: number[];
+  frameCount: number;
+  genStart: number;
+  genEnd: number;
+  estimatedSize: number;
+}
+
+function planParts(
+  manifest: RecordingManifest,
+  cols: number,
+  rows: number,
+  opts: {frames: boolean; png: boolean; mp4: boolean; csv: boolean; json: boolean}
+): {totalFrames: number; partPlan: PartPlan[]} {
+  let totalFrames = 0;
+  for (const c of manifest.chunks) {
+    totalFrames += c.blockCount;
+  }
+
+  const decodedFrameSize = cols * rows;
+  const estimatedRawPerFrame = opts.frames ? decodedFrameSize : 0;
+  const pngDims = computeMediaDimensions(cols, rows, false);
+  const estimatedPngPerFrame = opts.png ? pngDims.width * pngDims.height * 4 : 0;
+  const estimatedPerFrame = estimatedRawPerFrame + estimatedPngPerFrame;
+
+  const partPlan: PartPlan[] = [];
+  if (totalFrames === 0 || estimatedPerFrame === 0) {
+    partPlan.push({
+      partIndex: 0,
+      chunkIndices: manifest.chunks.map((_, i) => i),
+      frameCount: totalFrames,
+      genStart: manifest.generationStart,
+      genEnd: manifest.generationEnd,
+      estimatedSize: 0
+    });
+  } else {
+    let currentChunks: number[] = [];
+    let currentFrames = 0;
+    let currentGenStart = manifest.chunks[0]?.generationStart ?? 0;
+    let currentSize = 0;
+
+    for (let ci = 0; ci < manifest.chunks.length; ci++) {
+      const chunk = manifest.chunks[ci]!;
+      const chunkOutputSize = chunk.blockCount * estimatedPerFrame;
+
+      if (currentFrames > 0 && currentSize + chunkOutputSize > PART_SIZE_LIMIT) {
+        const lastChunk = manifest.chunks[currentChunks[currentChunks.length - 1]!]!;
+        partPlan.push({
+          partIndex: partPlan.length,
+          chunkIndices: [...currentChunks],
+          frameCount: currentFrames,
+          genStart: currentGenStart,
+          genEnd: lastChunk.generationEnd,
+          estimatedSize: currentSize
+        });
+        currentChunks = [];
+        currentFrames = 0;
+        currentGenStart = chunk.generationStart;
+        currentSize = 0;
+      }
+
+      currentChunks.push(ci);
+      currentFrames += chunk.blockCount;
+      currentSize += chunkOutputSize;
+    }
+
+    if (currentChunks.length > 0) {
+      const lastChunk = manifest.chunks[currentChunks[currentChunks.length - 1]!]!;
+      partPlan.push({
+        partIndex: partPlan.length,
+        chunkIndices: [...currentChunks],
+        frameCount: currentFrames,
+        genStart: currentGenStart,
+        genEnd: lastChunk.generationEnd,
+        estimatedSize: currentSize
+      });
     }
   }
 
-  return {
-    frames,
-    startGeneration: manifest.generationStart,
-    cols: frameCols,
-    rows: frameRows
-  };
+  return {totalFrames,
+    partPlan};
 }
 
 // ---------------------------------------------------------------------------
-//  Main handler
+//  State JSON builder — produces version-1 format (grid as JSON number array)
+//  Compatible with the save-snapshot / load-state flow.
+// ---------------------------------------------------------------------------
+
+function buildStateData(
+  generation: number,
+  cols: number,
+  rows: number,
+  grid: Uint32Array | number[],
+  tribes: TribeInfo[],
+  rules: unknown,
+  textEncoder: TextEncoder
+): Uint8Array {
+  return textEncoder.encode(JSON.stringify({
+    version: 1,
+    generation,
+    cols,
+    rows,
+    tribes: [...tribes],
+    rules,
+    grid: Array.from(grid)
+  }, null, 2));
+}
+
+// ---------------------------------------------------------------------------
+//  Main handler -- fully streaming, split-output aware
 // ---------------------------------------------------------------------------
 
 self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   const msg = e.data;
   const {opts, snapshot, recording: rec, tribes, rules, metricsHistory} = msg;
 
-  // Load recording frames from OPFS chunks.
-  const decodedRec: DecodedRecording | null = rec ?
-    await loadChunksFromOpfs(rec.manifest, rec.cols, rec.rows) :
-    null;
+  const textEncoder = new TextEncoder();
 
-  const encoder = new TextEncoder();
-  const entries: ZipEntry[] = [];
+  const mainProgress = (percent: number, status = '') =>
+    self.postMessage({
+      type: 'progress',
+      percent,
+      status
+    });
+  const subProgress = (percent: number, status: string) =>
+    self.postMessage({
+      type: 'sub-progress',
+      percent,
+      status
+    });
 
-  const progress = (percent: number, status = '') => self.postMessage({
-    type: 'progress',
-    percent,
-    status
-  });
+  const hasRecording = rec !== null && rec.manifest.chunks.length > 0;
+  const needMetrics = opts.csv || opts.json;
+  const needFrameOutput = opts.frames || opts.png;
 
-  progress(2, 'Preparing state');
+  // -- Preflight ---------------------------------------------------------
+  mainProgress(0, 'Preflight');
+  subProgress(0, '');
 
-  // State JSON — convert Uint32Array to regular array for JSON serialization.
-  const gridArray = snapshot.grid instanceof Uint32Array ? Array.from(snapshot.grid) : snapshot.grid;
-  const state = {
-    version: 1,
-    generation: snapshot.generation,
-    cols: snapshot.cols,
-    rows: snapshot.rows,
-    tribes: [...tribes],
-    rules,
-    grid: gridArray
-  };
-  entries.push({path: 'state.json',
-    data: encoder.encode(JSON.stringify(state))});
+  let totalFrames = 0;
+  let partPlanList: PartPlan[] = [];
 
-  progress(5, 'Computing metrics');
+  if (hasRecording) {
+    const result = planParts(rec.manifest, rec.cols, rec.rows, opts);
+    totalFrames = result.totalFrames;
+    partPlanList = result.partPlan;
+  }
 
-  // Metrics (parallelized across sub-workers).
-  const hasFrames = decodedRec !== null && decodedRec.frames.length > 0;
-  if (hasFrames && (opts.csv || opts.json)) {
-    const deadId = tribes.find(t => t.id === 'dead')?.id ?? 'dead';
-    const perFrameMetrics = await computeMetricsParallel(decodedRec.frames, decodedRec.cols, decodedRec.rows, tribes, deadId, decodedRec.startGeneration);
+  // When there are multiple frame-data splits we produce an extra summary
+  // Zip containing MP4 + metrics + states.  When there is only one split
+  // (or no frame output) everything goes into a single zip.
+  const multiPart = needFrameOutput && partPlanList.length > 1;
+  const totalParts = partPlanList.length;
 
-    const cleanMetrics = perFrameMetrics.map(({type: _t, fps: _f, ...rest}) => rest);
+  // -- Allocate reusable ImageData for PNG rendering ---------------------
+  let pngCanvas: OffscreenCanvas | null = null;
+  let pngCtx: OffscreenCanvasRenderingContext2D | null = null;
+  let pngImageData: ImageData | null = null;
+  let pngW = 0;
+  let pngH = 0;
+  let pngScale = 1;
+  let pngColorMap: number[][] = [];
+  if (hasRecording && opts.png) {
+    const dims = computeMediaDimensions(rec.cols, rec.rows, false);
+    pngW = dims.width;
+    pngH = dims.height;
+    pngScale = dims.scale;
+    pngColorMap = buildColorMap(tribes);
+    pngCanvas = new OffscreenCanvas(pngW, pngH);
+    pngCtx = pngCanvas.getContext('2d')!;
+    pngImageData = new ImageData(pngW, pngH);
+  }
+
+  // -- MP4 encoder -------------------------------------------------------
+  let mp4Encoder: Mp4StreamEncoder | null = null;
+  if (hasRecording && opts.mp4) {
+    mainProgress(1, 'Initializing MP4 encoder');
+    try {
+      const mp4ImgData = pngImageData ?? new ImageData(1, 1);
+      mp4Encoder = await createMp4StreamEncoder(rec.cols, rec.rows, tribes, opts.fps, mp4ImgData);
+    } catch {
+      // VideoEncoder not supported -- skip MP4.
+    }
+  }
+
+  // -- Metrics accumulator -----------------------------------------------
+  const allMetrics: MetricEntry[] = [];
+  const deadId = hasRecording ? tribes.find(t => t.id === 'dead')?.id ?? 'dead' : 'dead';
+
+  // OPFS dir handle (opened once).
+  let opfsDir: FileSystemDirectoryHandle | null = null;
+  let packedCols = 0;
+  let frameByteSz = 0;
+  if (hasRecording) {
+    packedCols = Math.ceil(rec.cols / 4);
+    frameByteSz = packedCols * rec.rows * 4;
+  }
+
+  // Track first and last frame for state snapshots.
+  let firstFrame: {gen: number; packed: Uint8Array} | null = null;
+  let lastFrame: {gen: number; packed: Uint8Array} | null = null;
+
+  // Progress budget: chunks 2-82%, metrics 85%, MP4 90%, finalize 95%.
+  const PCT_CHUNKS_START = 2;
+  const PCT_CHUNKS_END = 82;
+  const PCT_METRICS = 85;
+  const PCT_MP4 = 90;
+  const PCT_FINALIZE = 95;
+
+  // -- Process frame-data parts ------------------------------------------
+  let chunksProcessed = 0;
+  const totalChunks = hasRecording ? rec.manifest.chunks.length : 0;
+
+  for (let pi = 0; pi < totalParts; pi++) {
+    const part = partPlanList[pi]!;
+    const partLabel = multiPart ? ` (part ${pi + 1}/${totalParts})` : '';
+    const zip = new StreamingZip();
+
+    // Raw-frames metadata.
+    if (hasRecording && opts.frames && part.frameCount > 0) {
+      const meta = JSON.stringify({
+        cols: rec.cols,
+        rows: rec.rows,
+        startGeneration: part.genStart,
+        frameCount: part.frameCount,
+        format: {
+          description: 'Each frame file is a flat binary array of unsigned 8-bit integers (one byte per cell). ' +
+            'Cells are stored in row-major order: the first `cols` bytes represent row 0 (left to right), ' +
+            'the next `cols` bytes represent row 1, and so on. ' +
+            'Each byte is a 0-based index into the `tribes` array below. ' +
+            'File size is always cols * rows bytes.',
+          bytesPerCell: 1,
+          cellOrder: 'row-major, top-to-bottom, left-to-right',
+          valueType: 'uint8 (tribe index)'
+        },
+        tribes: tribes.map((t, i) => ({
+          id: t.id,
+          color: t.color,
+          index: i
+        }))
+      }, null, 2);
+      zip.addEntry('frames/metadata.json', textEncoder.encode(meta));
+    }
+
+    // -- Stream chunks for this part -------------------------------------
+    if (hasRecording && part.chunkIndices.length > 0) {
+      if (!opfsDir) {
+        const root = await navigator.storage.getDirectory();
+        opfsDir = await root.getDirectoryHandle(OPFS_DIR);
+      }
+
+      let partFrameIndex = 0;
+      const partTotalFrames = part.frameCount;
+
+      for (const ci of part.chunkIndices) {
+        const chunkMeta = rec.manifest.chunks[ci]!;
+        chunksProcessed++;
+        const pct = PCT_CHUNKS_START + ((chunksProcessed / totalChunks) * (PCT_CHUNKS_END - PCT_CHUNKS_START));
+        mainProgress(Math.round(pct), `Chunk ${chunksProcessed}/${totalChunks}`);
+
+        subProgress(Math.round((partFrameIndex / partTotalFrames) * 100), `Loading chunk${partLabel}`);
+        const fileHandle = await opfsDir.getFileHandle(chunkMeta.filename);
+        const blob = await fileHandle.getFile();
+        const chunkData = new Uint8Array(await blob.arrayBuffer());
+
+        for (let fi = 0; fi < chunkMeta.blockCount; fi++) {
+          const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);
+          partFrameIndex++;
+
+          if (fi % 50 === 0 || fi === chunkMeta.blockCount - 1) {
+            subProgress(
+              Math.round((partFrameIndex / partTotalFrames) * 100),
+              `Processing frame gen ${frameGen}${partLabel}`
+            );
+          }
+
+          const byteOff = fi * frameByteSz;
+          const packed = chunkData.subarray(byteOff, byteOff + frameByteSz);
+          const frame = unpackGridToFrame(packed, rec.cols, rec.rows);
+
+          // Track first/last for state snapshots.
+          if (!firstFrame || frameGen < firstFrame.gen) {
+            firstFrame = {gen: frameGen,
+              packed: new Uint8Array(packed)};
+          }
+          if (!lastFrame || frameGen > lastFrame.gen) {
+            lastFrame = {gen: frameGen,
+              packed: new Uint8Array(packed)};
+          }
+
+          if (needMetrics) {
+            allMetrics.push(computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen));
+          }
+
+          if (opts.frames) {
+            zip.addEntry(`frames/${frameGen}`, frame);
+          }
+
+          if (mp4Encoder) {
+            mp4Encoder.encodeFrame(frame);
+          }
+
+          if (pngCanvas && pngCtx && pngImageData) {
+            renderFrameToImageData(frame, rec.cols, rec.rows, pngColorMap, pngImageData, pngW, pngH, pngScale);
+            pngCtx.putImageData(pngImageData, 0, 0);
+            const pngBlob = await pngCanvas.convertToBlob({type: 'image/png'});
+            const pngData = new Uint8Array(await pngBlob.arrayBuffer());
+            zip.addEntry(`frames/${frameGen}.png`, pngData);
+          }
+        }
+      }
+    }
+
+    // In single-part mode, append everything into the same zip below.
+    // In multi-part mode, finalize and stream each frame-data zip now.
+    if (multiPart) {
+      subProgress(100, `Building archive part ${pi + 1}/${totalParts}`);
+      const buf = zip.finalize();
+      const filename = `gol-export-part${String(pi + 1).padStart(2, '0')}.zip`;
+      self.postMessage({
+        type: 'done-part',
+        buffer: buf,
+        filename
+      }, [buf] as never);
+      subProgress(100, `Sent part ${pi + 1}/${totalParts}`);
+    } else {
+      // Single-part: we'll add metrics/MP4/states to this zip after the loop.
+      // Store zip reference for use after the loop.
+      (self as any).__singleZip = zip;
+    }
+  }
+
+  // -- Summary zip (MP4 + metrics + states) ------------------------------
+  let summaryZip: StreamingZip;
+  if (multiPart) {
+    summaryZip = new StreamingZip();
+  } else if ((self as any).__singleZip) {
+    summaryZip = (self as any).__singleZip as StreamingZip;
+    delete (self as any).__singleZip;
+  } else {
+    summaryZip = new StreamingZip();
+  }
+
+  // Sub-progress for the summary phase: 0-100% across states/metrics/MP4/finalize.
+  // Use monotonically increasing milestones.
+  const SUB_STATES = 20;
+  const SUB_METRICS = 40;
+  const SUB_MP4 = 80;
+  const SUB_FINALIZE = 95;
+
+  // States: first and last generation frames converted to state JSONs.
+  if (hasRecording && firstFrame) {
+    mainProgress(PCT_METRICS, 'Writing states');
+    subProgress(SUB_STATES, 'Building first-gen state');
+
+    const firstU32 = new Uint32Array(firstFrame.packed.buffer, firstFrame.packed.byteOffset, firstFrame.packed.byteLength / 4);
+    summaryZip.addEntry(
+      'state-first.json',
+      buildStateData(firstFrame.gen, rec.cols, rec.rows, firstU32, tribes, rules, textEncoder)
+    );
+
+    if (lastFrame && lastFrame.gen !== firstFrame.gen) {
+      subProgress(SUB_STATES + 10, 'Building last-gen state');
+      const lastU32 = new Uint32Array(lastFrame.packed.buffer, lastFrame.packed.byteOffset, lastFrame.packed.byteLength / 4);
+      summaryZip.addEntry(
+        'state-last.json',
+        buildStateData(lastFrame.gen, rec.cols, rec.rows, lastU32, tribes, rules, textEncoder)
+      );
+    }
+  } else {
+    // No recording -- save the current snapshot state.
+    mainProgress(PCT_METRICS, 'Writing state');
+    subProgress(SUB_STATES, 'Building snapshot state');
+    summaryZip.addEntry(
+      'state.json',
+      buildStateData(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, tribes, rules, textEncoder)
+    );
+  }
+
+  // Metrics.
+  subProgress(SUB_METRICS, 'Writing metrics');
+  if (needMetrics && allMetrics.length > 0) {
+    const cleanMetrics = allMetrics.map(({type: _t, fps: _f, ...rest}) => rest);
     if (opts.json) {
-      entries.push({path: 'metrics.json',
-        data: encoder.encode(JSON.stringify(cleanMetrics, null, 2))});
+      summaryZip.addEntry('metrics.json', textEncoder.encode(JSON.stringify(cleanMetrics, null, 2)));
     }
     if (opts.csv) {
-      entries.push({path: 'metrics.csv',
-        data: encoder.encode(buildCsvFromMetrics(perFrameMetrics))});
+      summaryZip.addEntry('metrics.csv', textEncoder.encode(buildCsvFromMetrics(allMetrics)));
     }
-  } else if (opts.csv || opts.json) {
+  } else if (needMetrics && metricsHistory.length > 0) {
     const cleanHistory = metricsHistory.map(({type: _t, fps: _f, ...rest}) => rest);
-    if (opts.json && cleanHistory.length > 0) {
-      entries.push({path: 'metrics.json',
-        data: encoder.encode(JSON.stringify(cleanHistory, null, 2))});
+    if (opts.json) {
+      summaryZip.addEntry('metrics.json', textEncoder.encode(JSON.stringify(cleanHistory, null, 2)));
     }
-    if (opts.csv && metricsHistory.length > 0) {
-      entries.push({path: 'metrics.csv',
-        data: encoder.encode(buildCsvFromMetrics(metricsHistory))});
+    if (opts.csv) {
+      summaryZip.addEntry('metrics.csv', textEncoder.encode(buildCsvFromMetrics(metricsHistory)));
     }
   }
-
-  progress(15, 'Packing raw frames');
-
-  // Raw frames.
-  if (hasFrames && opts.frames) {
-    const digits = String(Math.max(0, decodedRec.frames.length - 1)).length;
-    const meta = JSON.stringify({
-      cols: decodedRec.cols,
-      rows: decodedRec.rows,
-      startGeneration: decodedRec.startGeneration,
-      frameCount: decodedRec.frames.length,
-      format: {
-        description: 'Each frame file is a flat binary array of unsigned 8-bit integers (one byte per cell). ' +
-          'Cells are stored in row-major order: the first `cols` bytes represent row 0 (left to right), ' +
-          'the next `cols` bytes represent row 1, and so on. ' +
-          'Each byte is a 0-based index into the `tribes` array below. ' +
-          'File size is always cols * rows bytes.',
-        bytesPerCell: 1,
-        cellOrder: 'row-major, top-to-bottom, left-to-right',
-        valueType: 'uint8 (tribe index)'
-      },
-      tribes: tribes.map((t, i) => ({
-        id: t.id,
-        color: t.color,
-        index: i
-      }))
-    }, null, 2);
-    entries.push({path: 'frames/metadata.json',
-      data: encoder.encode(meta)});
-    for (let i = 0; i < decodedRec.frames.length; i++) {
-      const name = String(i).padStart(digits, '0');
-      entries.push({path: `frames/${name}`,
-        data: decodedRec.frames[i]!});
-    }
-  }
-
-  progress(25, 'Encoding MP4');
 
   // MP4.
-  if (hasFrames && opts.mp4) {
+  if (mp4Encoder) {
+    mainProgress(PCT_MP4, 'Finalizing MP4');
+    subProgress(SUB_MP4, 'Encoding MP4');
     try {
-      progress(30, 'Encoding MP4');
-      const mp4Buffer = await generateMp4(decodedRec, tribes, opts.fps);
+      const mp4Buffer = await mp4Encoder.finalize();
       if (mp4Buffer) {
-        entries.push({path: 'recording.mp4',
-          data: new Uint8Array(mp4Buffer)});
+        summaryZip.addEntry('recording.mp4', new Uint8Array(mp4Buffer));
       }
     } catch {
-      // VideoEncoder not supported — skip MP4.
+      // Encoder finalization failed -- skip MP4.
     }
   }
 
-  progress(65, 'Rendering PNGs');
+  // Finalize summary zip.
+  mainProgress(PCT_FINALIZE, 'Building final archive');
+  subProgress(SUB_FINALIZE, multiPart ? 'Building summary archive' : 'Building archive');
+  const summaryBuf = summaryZip.finalize();
+  const summaryFilename = multiPart ? 'gol-export-summary.zip' : 'gol-export.zip';
+  self.postMessage({
+    type: 'done-part',
+    buffer: summaryBuf,
+    filename: summaryFilename
+  }, [summaryBuf] as never);
 
-  // PNG (parallelized with concurrent canvases).
-  if (hasFrames && opts.png) {
-    const pngEntries = await generatePngEntries(decodedRec, tribes, (done, total) => {
-      const pct = 65 + Math.round((done / total) * 25);
-      progress(pct, `Rendering PNGs (${done}/${total})`);
-    });
-    entries.push(...pngEntries);
-  }
-
-  progress(90, 'Building ZIP');
-
-  const zipBuffer = createZip(entries);
-  progress(100, 'Done');
-  self.postMessage({type: 'done',
-    zip: zipBuffer}, [zipBuffer] as never);
+  mainProgress(100, 'Done');
+  subProgress(100, 'Done');
+  self.postMessage({type: 'done'});
 };

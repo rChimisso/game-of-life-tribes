@@ -17,20 +17,20 @@
     <div class="section">
       <h3 class="section-title">Playback</h3>
       <div class="section-row">
-        <button mat-flat-button (click)="emit('toggleRun')">
+        <button mat-flat-button [disabled]="downloading || stepping" (click)="emit('toggleRun')">
           <mat-icon>{{ running ? "pause" : "play_arrow" }}</mat-icon>
           {{ running ? "Pause" : "Run" }}
         </button>
-        <button mat-flat-button (click)="emit('restart')">
+        <button mat-flat-button [disabled]="downloading || stepping" (click)="emit('restart')">
           <mat-icon>restart_alt</mat-icon>
         </button>
       </div>
       <div class="step-row">
-        <button mat-icon-button [disabled]="running || !metrics?.canStepBack" (click)="onStepBack()">
+        <button mat-icon-button [disabled]="running || downloading || stepping || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
           <mat-icon>skip_previous</mat-icon>
         </button>
-        <input class="skip-input" min="1" type="number" [(ngModel)]="skipAmount" />
-        <button mat-icon-button [disabled]="running" (click)="onStepForward()">
+        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping" [(ngModel)]="skipAmount" />
+        <button mat-icon-button [disabled]="running || downloading || stepping" (click)="onStepForward()">
           <mat-icon>skip_next</mat-icon>
         </button>
       </div>
@@ -48,10 +48,10 @@
     <div class="section">
       <h3 class="section-title">Speed</h3>
       <div class="speed-row">
-        <input class="speed-input" min="1" type="number" [disabled]="maxSpeed" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
+        <input class="speed-input" min="1" type="number" [disabled]="maxSpeed || downloading" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
         <span class="speed-unit">gen/s</span>
-        <mat-checkbox [checked]="maxSpeed" (change)="onMaxSpeedChange($event.checked)"> Max </mat-checkbox>
-        <mat-checkbox [checked]="recording" (change)="onRecordingChange($event.checked)"> Rec </mat-checkbox>
+        <mat-checkbox [checked]="maxSpeed" [disabled]="downloading" (change)="onMaxSpeedChange($event.checked)"> Max </mat-checkbox>
+        <mat-checkbox [checked]="recording" [disabled]="downloading" (change)="onRecordingChange($event.checked)"> Rec </mat-checkbox>
       </div>
     </div>
 
@@ -133,8 +133,8 @@
           <span class="grid-size-error">{{ gridSizeError }}</span>
         }
         <div class="apply-row">
-          <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedGridSize || gridSizeError" (click)="onGridSizeApply()">Apply</button>
-          <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedGridSize" (click)="restoreGridSize()">Restore</button>
+          <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !hasUnappliedGridSize || gridSizeError" (click)="onGridSizeApply()">Apply</button>
+          <button class="restore-btn" mat-stroked-button [disabled]="downloading || !hasUnappliedGridSize" (click)="restoreGridSize()">Restore</button>
         </div>
       </div>
     </div>
@@ -203,8 +203,8 @@
         <button class="full-width" mat-stroked-button (click)="startAddTribe()"><mat-icon>add</mat-icon> Add tribe</button>
       }
       <div class="apply-row">
-        <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedTribes" (click)="applyTribes()">Apply</button>
-        <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedTribes" (click)="restoreTribes()">Restore</button>
+        <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !hasUnappliedTribes" (click)="applyTribes()">Apply</button>
+        <button class="restore-btn" mat-stroked-button [disabled]="downloading || !hasUnappliedTribes" (click)="restoreTribes()">Restore</button>
       </div>
     </div>
 
@@ -245,8 +245,8 @@
 
       <button class="full-width" mat-stroked-button (click)="addRule()"><mat-icon>add</mat-icon> Add rule</button>
       <div class="apply-row">
-        <button class="apply-btn" mat-flat-button [disabled]="running || !hasUnappliedRules" (click)="applyRules()">Apply</button>
-        <button class="restore-btn" mat-stroked-button [disabled]="!hasUnappliedRules" (click)="restoreRules()">Restore</button>
+        <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !hasUnappliedRules" (click)="applyRules()">Apply</button>
+        <button class="restore-btn" mat-stroked-button [disabled]="downloading || !hasUnappliedRules" (click)="restoreRules()">Restore</button>
       </div>
     </div>
 
@@ -325,27 +325,35 @@
 
     <!-- Download -->
     <div class="section">
-      <h3 class="section-title">Download</h3>
+      <h3 class="section-title">
+        Download <span class="section-desc">{{ recordingSize }}</span>
+      </h3>
       <div class="download-checks">
-        <mat-checkbox [(ngModel)]="downloadJson">JSON</mat-checkbox>
-        <mat-checkbox [(ngModel)]="downloadCsv">CSV</mat-checkbox>
-        <mat-checkbox [(ngModel)]="downloadFrames">Frames</mat-checkbox>
-        <mat-checkbox [(ngModel)]="downloadPng">PNG</mat-checkbox>
-        <mat-checkbox [(ngModel)]="downloadMp4">MP4</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadJson">JSON</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadCsv">CSV</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadFrames">Frames</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadPng">PNG</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4">MP4</mat-checkbox>
         <label class="mp4-fps-label">
           <span class="fps-text">FPS</span>
-          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4" [(ngModel)]="mp4Fps" />
+          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4 || downloading" [(ngModel)]="mp4Fps" />
         </label>
       </div>
       @if (downloadProgress >= 0) {
         <div class="download-status">
           <mat-progress-bar mode="determinate" [value]="downloadProgress"></mat-progress-bar>
+          @if (downloadMainStatus) {
+            <span class="download-status-text main-status">{{ downloadMainStatus }}</span>
+          }
+          @if (downloadSubProgress >= 0) {
+            <mat-progress-bar class="sub-progress" mode="determinate" [value]="downloadSubProgress"></mat-progress-bar>
+          }
           @if (downloadStatus) {
             <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
           }
         </div>
       }
-      <button mat-stroked-button [disabled]="downloadProgress >= 0 || (!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng)" (click)="onDownload()">
+      <button mat-stroked-button [disabled]="downloadProgress >= 0 || chunksSaving || (!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng)" (click)="onDownload()">
         <mat-icon>download</mat-icon>
         Download ZIP
       </button>
@@ -353,12 +361,12 @@
 
     <hr class="divider" />
 
-    <!-- Save / Load -->
+    <!-- Snapshot -->
     <div class="section">
-      <h3 class="section-title">Save / Load</h3>
+      <h3 class="section-title">Snapshot</h3>
       <div class="section-row">
-        <button mat-stroked-button (click)="emit('saveState')">Save state</button>
-        <button mat-stroked-button (click)="fileInput.click()">Load state</button>
+        <button mat-stroked-button [disabled]="downloading" (click)="emit('saveState')">Save</button>
+        <button mat-stroked-button [disabled]="downloading" (click)="fileInput.click()">Load</button>
         <input #fileInput accept=".json" hidden type="file" (change)="onFileSelect($event)" />
       </div>
     </div>

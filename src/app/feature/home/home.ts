@@ -6,7 +6,7 @@ import {RouterModule} from '@angular/router';
 import {Engine} from './component/engine/engine';
 import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
 import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage, BrushShape} from './worker/webengine';
+import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage, ChunksSavingMessage, BrushShape} from './worker/webengine';
 
 @Component({
   selector: 'gol-home',
@@ -128,11 +128,17 @@ export class HomePage implements OnDestroy {
 
   downloadProgress = -1;
 
+  downloadSubProgress = -1;
+
   downloadStatus = '';
+
+  downloadMainStatus = '';
 
   maxBytes = Infinity;
 
   stepping = false;
+
+  chunksSaving = false;
 
   private drawTribeIndex = 1;
 
@@ -165,6 +171,9 @@ export class HomePage implements OnDestroy {
   }
 
   private handleKeydown(ev: KeyboardEvent): void {
+    if (this.downloadProgress >= 0 || this.stepping) {
+      return;
+    }
     const active = document.activeElement;
     if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
       return;
@@ -238,6 +247,11 @@ export class HomePage implements OnDestroy {
 
   onStepping(data: SteppingMessage): void {
     this.stepping = data.active;
+    this.cdr.markForCheck();
+  }
+
+  onChunksSaving(data: ChunksSavingMessage): void {
+    this.chunksSaving = data.active;
     this.cdr.markForCheck();
   }
 
@@ -412,12 +426,19 @@ export class HomePage implements OnDestroy {
       worker.onmessage = (e: MessageEvent) => {
         if (e.data.type === 'progress') {
           this.downloadProgress = e.data.percent;
+          this.downloadMainStatus = e.data.status ?? '';
+          this.cdr.markForCheck();
+        } else if (e.data.type === 'sub-progress') {
+          this.downloadSubProgress = e.data.percent;
           this.downloadStatus = e.data.status ?? '';
           this.cdr.markForCheck();
+        } else if (e.data.type === 'done-part') {
+          this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
         } else if (e.data.type === 'done') {
-          this.downloadBlob(new Blob([e.data.zip]), 'gol-export.zip');
           this.downloadProgress = -1;
+          this.downloadSubProgress = -1;
           this.downloadStatus = '';
+          this.downloadMainStatus = '';
           this.cdr.markForCheck();
           worker.terminate();
         }

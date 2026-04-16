@@ -746,6 +746,13 @@ mat-progress-bar {
   margin: 4px 0;
 }
 
+mat-progress-bar.sub-progress {
+  margin: 0 0 2px;
+  transform: scaleY(0.5);
+  transform-origin: top;
+  opacity: 0.7;
+}
+
 // Download status
 .download-status {
   display: flex;

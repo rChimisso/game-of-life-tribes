@@ -119,6 +119,7 @@ export interface MetricMessage {
   extinctionTime: Record<string, number | null>;
   fps: number;
   canStepBack: boolean;
+  recordingBytes: number;
 }
 
 export interface SnapshotMessage {
@@ -143,6 +144,11 @@ export interface LimitsMessage {
 
 export interface SteppingMessage {
   type: 'stepping';
+  active: boolean;
+}
+
+export interface ChunksSavingMessage {
+  type: 'chunksSaving';
   active: boolean;
 }
 
@@ -253,6 +259,16 @@ let stagingAvailable: boolean[] = [];
 const OPFS_DIR = 'gol-recording';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
 let inflightSeals = 0;
+
+function updateInflightSeals(delta: number): void {
+  const wasSaving = inflightSeals > 0;
+  inflightSeals += delta;
+  const isSaving = inflightSeals > 0;
+  if (wasSaving !== isSaving) {
+    self.postMessage({type: 'chunksSaving',
+      active: isSaving} satisfies ChunksSavingMessage);
+  }
+}
 let getRecordingPending = false;
 
 // FPS tracking
@@ -1251,7 +1267,7 @@ function sealCurrentChunk(): void {
     filename
   };
 
-  inflightSeals++;
+  updateInflightSeals(+1);
 
   stagingBuf.mapAsync(GPUMapMode.READ).then(() => {
     const mapped = stagingBuf.getMappedRange();
@@ -1264,7 +1280,7 @@ function sealCurrentChunk(): void {
     updateManifestRange();
 
     writeChunkToOpfs(meta, payload).then(() => {
-      inflightSeals--;
+      updateInflightSeals(-1);
       if (getRecordingPending && inflightSeals === 0) {
         getRecordingPending = false;
         sendRecordingManifest();
@@ -1273,7 +1289,7 @@ function sealCurrentChunk(): void {
   }).catch(() => {
     // MapAsync failed (e.g. device lost) — release staging slot and decrement seal count.
     stagingAvailable[idx] = true;
-    inflightSeals--;
+    updateInflightSeals(-1);
   });
 
   chunkFrameIndex = 0;
@@ -1299,7 +1315,11 @@ function resetRecording(startGen: number): void {
   chunkFrameIndex = 0;
   chunkGenerations = [];
   sealedChunks = [];
-  inflightSeals = 0;
+  if (inflightSeals > 0) {
+    inflightSeals = 0;
+    self.postMessage({type: 'chunksSaving',
+      active: false} satisfies ChunksSavingMessage);
+  }
   getRecordingPending = false;
   manifest = {
     chunks: [],
@@ -1528,7 +1548,8 @@ function readMetricsAndPost(): void {
       boundaryLength,
       extinctionTime,
       fps: currentFps,
-      canStepBack: totalRecordedFrames() > 1
+      canStepBack: totalRecordedFrames() > 1,
+      recordingBytes: sealedChunks.reduce((sum, c) => sum + c.storedBytes, 0)
     } satisfies MetricMessage);
 
     // Re-run if a step-back (or similar) requested metrics while we were in-flight.
@@ -1635,6 +1656,8 @@ function mainLoop(now: number): void {
         runMetricsGpu(encoder);
         device.queue.submit([encoder.finish()]);
         readMetricsAndPost();
+      } else {
+        pendingMetricsRetry = true;
       }
       renderFrame();
       self.postMessage({type: 'stepping',
@@ -1891,6 +1914,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         runMetricsGpu(resetEncoder);
         device.queue.submit([resetEncoder.finish()]);
         readMetricsAndPost();
+      } else {
+        pendingMetricsRetry = true;
       }
       break;
     }
@@ -1908,6 +1933,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           runMetricsGpu(stopEncoder);
           device.queue.submit([stopEncoder.finish()]);
           readMetricsAndPost();
+        } else {
+          pendingMetricsRetry = true;
         }
       }
       break;
@@ -2128,6 +2155,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           runMetricsGpu(fEncoder);
           device.queue.submit([fEncoder.finish()]);
           readMetricsAndPost();
+        } else {
+          pendingMetricsRetry = true;
         }
         renderFrame();
       } else {

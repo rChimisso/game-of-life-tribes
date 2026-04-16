@@ -2,7 +2,7 @@
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {Ruleset, Tribe} from '../../model/rule';
-import {BrushShape, CameraMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
+import {BrushShape, CameraMessage, ChunksSavingMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -58,10 +58,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @Output()
   public readonly stepping = new EventEmitter<SteppingMessage>();
 
-  // Â”€â”€ Worker â”€â”€
+  @Output()
+  public readonly chunksSaving = new EventEmitter<ChunksSavingMessage>();
+
   private worker!: Worker;
 
-  // Â”€â”€ Camera â”€â”€
   private scale = 1;
 
   private offsetX = 0;
@@ -83,7 +84,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private lastPinchDist = 0;
 
-  // Â”€â”€ Zoom (wheel) â”€â”€
   @HostListener('wheel', ['$event'])
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
@@ -105,7 +105,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.sendCamera();
   }
 
-  // Â”€â”€ Pan & Draw (mouse) â”€â”€
   // ── Pointer events (unified mouse + touch) ──
   @HostListener('pointerdown', ['$event'])
   public onPointerDown(ev: PointerEvent): void {
@@ -214,7 +213,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     ev.preventDefault();
   }
 
-  // Â”€â”€ Resize â”€â”€
   @HostListener('window:resize')
   public onResize(): void {
     if (!this.ruleset) {
@@ -238,7 +236,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.sendCamera();
   }
 
-  // Â”€â”€ Lifecycle â”€â”€
   public ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
@@ -273,6 +270,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         this.limits.emit(ev.data as LimitsMessage);
       } else if (ev.data?.type === 'stepping') {
         this.stepping.emit(ev.data as SteppingMessage);
+      } else if (ev.data?.type === 'chunksSaving') {
+        this.chunksSaving.emit(ev.data as ChunksSavingMessage);
       }
     };
   }
@@ -341,7 +340,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.worker?.terminate();
   }
 
-  // Â”€â”€ Camera helpers â”€â”€
   private computeMinScale(): void {
     const el = this.canvasRef.nativeElement;
     const rect = el.getBoundingClientRect();
@@ -370,9 +368,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     } satisfies CameraMessage);
   }
 
-  // Â”€â”€ Drawing â”€â”€
-  // ── Drawing ──
-  // ── Pinch helpers ──
   private currentPinchDist(): number {
     const pts = [...this.pointers.values()];
     if (pts.length < 2) {

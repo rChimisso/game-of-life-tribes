@@ -75,6 +75,9 @@ export class Sidebar implements OnChanges {
   public running = false;
 
   @Input()
+  public stepping = false;
+
+  @Input()
   public gridCols = 100;
 
   @Input()
@@ -82,6 +85,9 @@ export class Sidebar implements OnChanges {
 
   @Input()
   public metrics: MetricMessage | null = null;
+
+  @Input()
+  public chunksSaving = false;
 
   @Input()
   public deleteMode = false;
@@ -108,13 +114,43 @@ export class Sidebar implements OnChanges {
   public downloadProgress = -1;
 
   @Input()
+  public downloadSubProgress = -1;
+
+  @Input()
   public downloadStatus = '';
+
+  @Input()
+  public downloadMainStatus = '';
 
   @Input()
   public maxBytes = Infinity;
 
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
+
+  public get downloading(): boolean {
+    return this.downloadProgress >= 0;
+  }
+
+  public get recordingSize(): string {
+    const bytes = this.metrics?.recordingBytes ?? 0;
+    if (bytes <= 0) {
+      return '0 B';
+    }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+    if (bytes < 1024 * 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
+  }
 
   public collapsed = true;
 
@@ -135,7 +171,7 @@ export class Sidebar implements OnChanges {
   public mp4Fps = 12;
 
   // Sidebar resize
-  public sidebarWidth = 280;
+  public sidebarWidth = 300;
 
   // Bottom sheet (mobile)
   public sheetTranslate = 'calc(100% - 0px)';

@@ -260,6 +260,10 @@ const OPFS_DIR = 'gol-recording';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
 let inflightSeals = 0;
 
+// Chunk compression constants
+const COMPRESS_MIN_BYTES = 4096; // Only attempt compression above this size
+const COMPRESS_SAVINGS_RATIO = 0.90; // Keep compressed only if <= 90% of original
+
 function updateInflightSeals(delta: number): void {
   const wasSaving = inflightSeals > 0;
   inflightSeals += delta;
@@ -270,6 +274,74 @@ function updateInflightSeals(delta: number): void {
   }
 }
 let getRecordingPending = false;
+
+// ---------------------------------------------------------------------------
+//  Chunk compression helpers (deflate-raw via CompressionStream API)
+// ---------------------------------------------------------------------------
+
+async function compressPayload(raw: ArrayBuffer): Promise<{data: ArrayBuffer; codec: string}> {
+  if (raw.byteLength < COMPRESS_MIN_BYTES) {
+    return {data: raw,
+      codec: 'raw-packed'};
+  }
+  const cs = new CompressionStream('deflate-raw');
+  const writer = cs.writable.getWriter();
+  writer.write(new Uint8Array(raw));
+  writer.close();
+  const chunks: Uint8Array[] = [];
+  const reader = cs.readable.getReader();
+  for (;;) {
+    const {done, value} = await reader.read();
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+  }
+  let totalLen = 0;
+  for (const c of chunks) {
+    totalLen += c.byteLength;
+  }
+  if (totalLen > raw.byteLength * COMPRESS_SAVINGS_RATIO) {
+    // Compression didn't help enough — keep raw.
+    return {data: raw,
+      codec: 'raw-packed'};
+  }
+  const compressed = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) {
+    compressed.set(c, off);
+    off += c.byteLength;
+  }
+  return {data: compressed.buffer,
+    codec: 'deflate-raw'};
+}
+
+async function decompressPayload(compressed: ArrayBuffer): Promise<ArrayBuffer> {
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  writer.write(new Uint8Array(compressed));
+  writer.close();
+  const chunks: Uint8Array[] = [];
+  const reader = ds.readable.getReader();
+  for (;;) {
+    const {done, value} = await reader.read();
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+  }
+  let totalLen = 0;
+  for (const c of chunks) {
+    totalLen += c.byteLength;
+  }
+  const result = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) {
+    result.set(c, off);
+    off += c.byteLength;
+  }
+  return result.buffer;
+}
 
 // FPS tracking
 let stepCount = 0;
@@ -1207,12 +1279,8 @@ function rleDecodeFrame(stored: Uint8Array): Uint8Array {
 
 function computeChunkCapacity(): void {
   frameByteSize = gridBufferSize();
-  const maxBufSize = device.limits.maxBufferSize;
   const MAX_CHUNK_BYTES = 32 * 1024 * 1024;
-  chunkFrameCapacity = Math.min(
-    256,
-    Math.max(1, Math.floor(Math.min(MAX_CHUNK_BYTES, maxBufSize) / frameByteSize))
-  );
+  chunkFrameCapacity = Math.min(256, Math.max(1, Math.floor(Math.min(MAX_CHUNK_BYTES, device.limits.maxBufferSize) / frameByteSize)));
 }
 
 function canRecord(): boolean {
@@ -1269,12 +1337,17 @@ function sealCurrentChunk(): void {
 
   updateInflightSeals(+1);
 
-  stagingBuf.mapAsync(GPUMapMode.READ).then(() => {
+  stagingBuf.mapAsync(GPUMapMode.READ).then(async() => {
     const mapped = stagingBuf.getMappedRange();
-    const payload = new ArrayBuffer(byteLen);
-    new Uint8Array(payload).set(new Uint8Array(mapped, 0, byteLen));
+    const rawPayload = new ArrayBuffer(byteLen);
+    new Uint8Array(rawPayload).set(new Uint8Array(mapped, 0, byteLen));
     stagingBuf.unmap();
     stagingAvailable[idx] = true;
+
+    // Compress adaptively.
+    const {data: payload, codec} = await compressPayload(rawPayload);
+    meta.codec = codec;
+    meta.storedBytes = payload.byteLength;
 
     sealedChunks.push(meta);
     updateManifestRange();
@@ -1416,15 +1489,20 @@ function applyPendingBrush(): void {
 }
 
 /**
- * Read a single frame from an OPFS chunk file.
+ * Read a chunk from OPFS and decompress if needed.
  *
  * @param filename
+ * @param codec
  */
-async function readChunkFromOpfs(filename: string): Promise<ArrayBuffer> {
+async function readChunkFromOpfs(filename: string, codec: string = 'raw-packed'): Promise<ArrayBuffer> {
   const dir = await ensureOpfsDir();
   const fileHandle = await dir.getFileHandle(filename);
   const file = await fileHandle.getFile();
-  return file.arrayBuffer();
+  const stored = await file.arrayBuffer();
+  if (codec === 'deflate-raw') {
+    return decompressPayload(stored);
+  }
+  return stored;
 }
 
 /**
@@ -2096,7 +2174,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         }
 
         const chunk = sealedChunks[targetSealedIdx]!;
-        const chunkData = await readChunkFromOpfs(chunk.filename);
+        const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
 
         // Load frames 0..frameInChunk into the GPU chunk buffer.
         const prefixBytes = (frameInChunk + 1) * frameByteSize;

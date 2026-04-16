@@ -534,6 +534,37 @@ function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: num
 const OPFS_DIR = 'gol-recording';
 
 // ---------------------------------------------------------------------------
+//  Chunk decompression (deflate-raw via DecompressionStream API)
+// ---------------------------------------------------------------------------
+
+async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  writer.write(new Uint8Array(compressed));
+  writer.close();
+  const chunks: Uint8Array[] = [];
+  const reader = ds.readable.getReader();
+  for (;;) {
+    const {done, value} = await reader.read();
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+  }
+  let totalLen = 0;
+  for (const c of chunks) {
+    totalLen += c.byteLength;
+  }
+  const result = new Uint8Array(totalLen);
+  let off = 0;
+  for (const c of chunks) {
+    result.set(c, off);
+    off += c.byteLength;
+  }
+  return result.buffer;
+}
+
+// ---------------------------------------------------------------------------
 //  Preflight estimation
 // ---------------------------------------------------------------------------
 
@@ -803,7 +834,10 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         subProgress(Math.round((partFrameIndex / partTotalFrames) * 100), `Loading chunk${partLabel}`);
         const fileHandle = await opfsDir.getFileHandle(chunkMeta.filename);
         const blob = await fileHandle.getFile();
-        const chunkData = new Uint8Array(await blob.arrayBuffer());
+        const storedData = await blob.arrayBuffer();
+        const chunkData = new Uint8Array(
+          chunkMeta.codec === 'deflate-raw' ? await decompressChunk(storedData) : storedData
+        );
 
         for (let fi = 0; fi < chunkMeta.blockCount; fi++) {
           const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);

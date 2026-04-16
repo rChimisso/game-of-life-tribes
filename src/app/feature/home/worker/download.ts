@@ -1,5 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 
+import {RecordingManifest} from '../model/recording';
+
 // ---------------------------------------------------------------------------
 //  Types
 // ---------------------------------------------------------------------------
@@ -13,7 +15,7 @@ interface DownloadRequest {
   type: 'download';
   opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number};
   snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]};
-  recording: {frames: Uint8Array[]; startGeneration: number; cols: number; rows: number} | null;
+  recording: {manifest: RecordingManifest; cols: number; rows: number} | null;
   tribes: TribeInfo[];
   rules: unknown;
   metricsHistory: MetricEntry[];
@@ -552,7 +554,7 @@ async function findVideoConfig(
 }
 
 async function generateMp4(
-  rec: DownloadRequest['recording'] & object,
+  rec: DecodedRecording,
   tribes: TribeInfo[],
   fps: number
 ): Promise<ArrayBuffer | null> {
@@ -618,7 +620,7 @@ async function generateMp4(
 // ---------------------------------------------------------------------------
 
 async function generatePngEntries(
-  rec: DownloadRequest['recording'] & object,
+  rec: DecodedRecording,
   tribes: TribeInfo[],
   onProgress?: (done: number, total: number) => void
 ): Promise<ZipEntry[]> {
@@ -662,12 +664,85 @@ async function generatePngEntries(
 }
 
 // ---------------------------------------------------------------------------
+//  RLE decode and manifest-to-frames helpers
+// ---------------------------------------------------------------------------
+
+function rleDecode(encoded: Uint8Array, length: number): Uint8Array {
+  const out = new Uint8Array(length);
+  let oi = 0;
+  for (let i = 0; i < encoded.length; i += 2) {
+    const run = encoded[i]!;
+    const val = encoded[i + 1]!;
+    out.fill(val, oi, oi + run);
+    oi += run;
+  }
+  return out;
+}
+
+interface DecodedRecording {
+  frames: Uint8Array[];
+  startGeneration: number;
+  cols: number;
+  rows: number;
+}
+
+function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: number): Uint8Array {
+  const packedCols = Math.ceil(frameCols / 4);
+  const words = new Uint32Array(packed.buffer, packed.byteOffset, packed.byteLength / 4);
+  const frame = new Uint8Array(frameCols * frameRows);
+  for (let y = 0; y < frameRows; y++) {
+    for (let px = 0; px < packedCols; px++) {
+      const word = words[y * packedCols + px]!;
+      const baseX = px * 4;
+      for (let b = 0; b < 4 && baseX + b < frameCols; b++) {
+        frame[y * frameCols + baseX + b] = (word >> (b * 8)) & 0xFF;
+      }
+    }
+  }
+  return frame;
+}
+
+const OPFS_DIR = 'gol-recording';
+
+async function loadChunksFromOpfs(manifest: RecordingManifest, frameCols: number, frameRows: number): Promise<DecodedRecording> {
+  const root = await navigator.storage.getDirectory();
+  const dir = await root.getDirectoryHandle(OPFS_DIR);
+  const packedCols = Math.ceil(frameCols / 4);
+  const frameByteSz = packedCols * frameRows * 4;
+  const frames: Uint8Array[] = [];
+
+  for (const chunkMeta of manifest.chunks) {
+    const fileHandle = await dir.getFileHandle(chunkMeta.filename);
+    const blob = await fileHandle.getFile();
+    const data = new Uint8Array(await blob.arrayBuffer());
+
+    for (let i = 0; i < chunkMeta.blockCount; i++) {
+      const offset = i * frameByteSz;
+      const packed = data.subarray(offset, offset + frameByteSz);
+      frames.push(unpackGridToFrame(packed, frameCols, frameRows));
+    }
+  }
+
+  return {
+    frames,
+    startGeneration: manifest.generationStart,
+    cols: frameCols,
+    rows: frameRows
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  Main handler
 // ---------------------------------------------------------------------------
 
 self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   const msg = e.data;
   const {opts, snapshot, recording: rec, tribes, rules, metricsHistory} = msg;
+
+  // Load recording frames from OPFS chunks.
+  const decodedRec: DecodedRecording | null = rec ?
+    await loadChunksFromOpfs(rec.manifest, rec.cols, rec.rows) :
+    null;
 
   const encoder = new TextEncoder();
   const entries: ZipEntry[] = [];
@@ -697,10 +772,10 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   progress(5, 'Computing metrics');
 
   // Metrics (parallelized across sub-workers).
-  const hasFrames = rec !== null && rec.frames.length > 0;
+  const hasFrames = decodedRec !== null && decodedRec.frames.length > 0;
   if (hasFrames && (opts.csv || opts.json)) {
     const deadId = tribes.find(t => t.id === 'dead')?.id ?? 'dead';
-    const perFrameMetrics = await computeMetricsParallel(rec.frames, rec.cols, rec.rows, tribes, deadId, rec.startGeneration);
+    const perFrameMetrics = await computeMetricsParallel(decodedRec.frames, decodedRec.cols, decodedRec.rows, tribes, deadId, decodedRec.startGeneration);
 
     const cleanMetrics = perFrameMetrics.map(({type: _t, fps: _f, ...rest}) => rest);
     if (opts.json) {
@@ -727,12 +802,12 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
   // Raw frames.
   if (hasFrames && opts.frames) {
-    const digits = String(Math.max(0, rec.frames.length - 1)).length;
+    const digits = String(Math.max(0, decodedRec.frames.length - 1)).length;
     const meta = JSON.stringify({
-      cols: rec.cols,
-      rows: rec.rows,
-      startGeneration: rec.startGeneration,
-      frameCount: rec.frames.length,
+      cols: decodedRec.cols,
+      rows: decodedRec.rows,
+      startGeneration: decodedRec.startGeneration,
+      frameCount: decodedRec.frames.length,
       format: {
         description: 'Each frame file is a flat binary array of unsigned 8-bit integers (one byte per cell). ' +
           'Cells are stored in row-major order: the first `cols` bytes represent row 0 (left to right), ' +
@@ -751,10 +826,10 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }, null, 2);
     entries.push({path: 'frames/metadata.json',
       data: encoder.encode(meta)});
-    for (let i = 0; i < rec.frames.length; i++) {
+    for (let i = 0; i < decodedRec.frames.length; i++) {
       const name = String(i).padStart(digits, '0');
       entries.push({path: `frames/${name}`,
-        data: rec.frames[i]!});
+        data: decodedRec.frames[i]!});
     }
   }
 
@@ -764,7 +839,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
   if (hasFrames && opts.mp4) {
     try {
       progress(30, 'Encoding MP4');
-      const mp4Buffer = await generateMp4(rec, tribes, opts.fps);
+      const mp4Buffer = await generateMp4(decodedRec, tribes, opts.fps);
       if (mp4Buffer) {
         entries.push({path: 'recording.mp4',
           data: new Uint8Array(mp4Buffer)});
@@ -778,7 +853,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
   // PNG (parallelized with concurrent canvases).
   if (hasFrames && opts.png) {
-    const pngEntries = await generatePngEntries(rec, tribes, (done, total) => {
+    const pngEntries = await generatePngEntries(decodedRec, tribes, (done, total) => {
       const pct = 65 + Math.round((done / total) * 25);
       progress(pct, `Rendering PNGs (${done}/${total})`);
     });

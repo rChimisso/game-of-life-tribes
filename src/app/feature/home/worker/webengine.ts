@@ -10,6 +10,7 @@
  */
 
 import renderWgsl from './render.wgsl';
+import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ export interface MetricMessage {
   boundaryLength: number;
   extinctionTime: Record<string, number | null>;
   fps: number;
+  canStepBack: boolean;
 }
 
 export interface SnapshotMessage {
@@ -129,8 +131,7 @@ export interface SnapshotMessage {
 
 export interface RecordingMessage {
   type: 'recording';
-  frames: Uint8Array[];
-  startGeneration: number;
+  manifest: RecordingManifest;
   cols: number;
   rows: number;
 }
@@ -214,6 +215,7 @@ let boundaryBuffer: GPUBuffer; // Single atomic<u32>
 let boundaryReadBuffer: GPUBuffer;
 let lastMetricsGen = -1;
 let metricsInFlight = false;
+let pendingMetricsRetry = false;
 let lastMetricsTime = 0;
 
 // Extinction tracking: per-tribe last generation seen alive
@@ -222,21 +224,36 @@ let tribeEverAlive: Set<number> = new Set();
 
 // Recording state
 let isRecording = true;
-let recordedFrames: Uint8Array[] = [];
-let recordingStartGen = 0;
-let needPreStepCapture = false;
+let manifest: RecordingManifest = {
+  chunks: [],
+  generationStart: 0,
+  generationEnd: 0
+};
+let nextChunkId = 0;
+let sealedChunks: ChunkMeta[] = [];
 
 // Skip-forward state
 let skipTarget = -1;
 let preSkipRunning = false;
 let preSkipStepDuration = 100;
 
-// Optimized recording: persistent double-buffered readback
-let recordBufA: GPUBuffer;
-let recordBufB: GPUBuffer;
-let recordBufToggle = false;
-let recordBufAReady = true;
-let recordBufBReady = true;
+// GPU chunk accumulation
+let chunkGpuBuffer: GPUBuffer;
+let chunkFrameIndex = 0;
+let chunkGenerations: number[] = [];
+let chunkFrameCapacity = 64;
+let frameByteSize = 0;
+
+// Staging ring for async readback of sealed chunks
+const STAGING_RING_SIZE = 2;
+let stagingRing: GPUBuffer[] = [];
+let stagingAvailable: boolean[] = [];
+
+// OPFS persistence state
+const OPFS_DIR = 'gol-recording';
+let opfsDirHandle: FileSystemDirectoryHandle | null = null;
+let inflightSeals = 0;
+let getRecordingPending = false;
 
 // FPS tracking
 let stepCount = 0;
@@ -1168,6 +1185,239 @@ function rleDecodeFrame(stored: Uint8Array): Uint8Array {
   return stored.length < expectedLen ? rleDecode(stored, expectedLen) : stored;
 }
 
+// ---------------------------------------------------------------------------
+//  GPU chunk recording + staging + OPFS persistence
+// ---------------------------------------------------------------------------
+
+function computeChunkCapacity(): void {
+  frameByteSize = gridBufferSize();
+  const maxBufSize = device.limits.maxBufferSize;
+  const MAX_CHUNK_BYTES = 32 * 1024 * 1024;
+  chunkFrameCapacity = Math.min(
+    256,
+    Math.max(1, Math.floor(Math.min(MAX_CHUNK_BYTES, maxBufSize) / frameByteSize))
+  );
+}
+
+function canRecord(): boolean {
+  if (chunkFrameIndex < chunkFrameCapacity) {
+    return true;
+  }
+  return stagingAvailable.some(v => v);
+}
+
+function recordGeneration(gen: number): void {
+  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  const offset = chunkFrameIndex * frameByteSize;
+  const enc = device.createCommandEncoder();
+  enc.copyBufferToBuffer(currentGrid, 0, chunkGpuBuffer, offset, frameByteSize);
+  device.queue.submit([enc.finish()]);
+  chunkGenerations.push(gen);
+  chunkFrameIndex++;
+}
+
+function sealCurrentChunk(): void {
+  if (chunkFrameIndex === 0) {
+    return;
+  }
+  const idx = stagingAvailable.indexOf(true);
+  if (idx < 0) {
+    return;
+  }
+  stagingAvailable[idx] = false;
+  const stagingBuf = stagingRing[idx]!;
+  const byteLen = chunkFrameIndex * frameByteSize;
+
+  const chunkId = nextChunkId++;
+  const generations = [...chunkGenerations];
+  const genStart = generations[0]!;
+  const genEnd = generations[generations.length - 1]!;
+  const filename = `chunk-${String(chunkId).padStart(6, '0')}.bin`;
+  const blockCount = chunkFrameIndex;
+
+  const enc = device.createCommandEncoder();
+  enc.copyBufferToBuffer(chunkGpuBuffer, 0, stagingBuf, 0, byteLen);
+  device.queue.submit([enc.finish()]);
+
+  const meta: ChunkMeta = {
+    chunkId,
+    generationStart: genStart,
+    generationEnd: genEnd,
+    blockCount,
+    codec: 'raw-packed',
+    uncompressedBytes: byteLen,
+    storedBytes: byteLen,
+    generations,
+    filename
+  };
+
+  inflightSeals++;
+
+  stagingBuf.mapAsync(GPUMapMode.READ).then(() => {
+    const mapped = stagingBuf.getMappedRange();
+    const payload = new ArrayBuffer(byteLen);
+    new Uint8Array(payload).set(new Uint8Array(mapped, 0, byteLen));
+    stagingBuf.unmap();
+    stagingAvailable[idx] = true;
+
+    sealedChunks.push(meta);
+    updateManifestRange();
+
+    writeChunkToOpfs(meta, payload).then(() => {
+      inflightSeals--;
+      if (getRecordingPending && inflightSeals === 0) {
+        getRecordingPending = false;
+        sendRecordingManifest();
+      }
+    });
+  }).catch(() => {
+    // MapAsync failed (e.g. device lost) — release staging slot and decrement seal count.
+    stagingAvailable[idx] = true;
+    inflightSeals--;
+  });
+
+  chunkFrameIndex = 0;
+  chunkGenerations = [];
+}
+
+function updateManifestRange(): void {
+  if (sealedChunks.length > 0) {
+    manifest.generationStart = sealedChunks[0]!.generationStart;
+    manifest.generationEnd = sealedChunks[sealedChunks.length - 1]!.generationEnd;
+  }
+  if (chunkGenerations.length > 0) {
+    if (sealedChunks.length === 0) {
+      manifest.generationStart = chunkGenerations[0]!;
+    }
+    manifest.generationEnd = chunkGenerations[chunkGenerations.length - 1]!;
+  }
+  manifest.chunks = [...sealedChunks];
+}
+
+function resetRecording(startGen: number): void {
+  nextChunkId = 0;
+  chunkFrameIndex = 0;
+  chunkGenerations = [];
+  sealedChunks = [];
+  inflightSeals = 0;
+  getRecordingPending = false;
+  manifest = {
+    chunks: [],
+    generationStart: startGen,
+    generationEnd: startGen
+  };
+  resetOpfsDir();
+}
+
+async function ensureOpfsDir(): Promise<FileSystemDirectoryHandle> {
+  if (!opfsDirHandle) {
+    const root = await navigator.storage.getDirectory();
+    opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
+  }
+  return opfsDirHandle;
+}
+
+async function writeChunkToOpfs(meta: ChunkMeta, payload: ArrayBuffer): Promise<void> {
+  const dir = await ensureOpfsDir();
+  const file = await dir.getFileHandle(meta.filename, {create: true});
+  const writable = await file.createWritable();
+  await writable.write(payload);
+  await writable.close();
+}
+
+async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
+  const dir = await ensureOpfsDir();
+  for (const name of filenames) {
+    try {
+      await dir.removeEntry(name);
+    } catch {
+      // File may already be gone.
+    }
+  }
+}
+
+async function resetOpfsDir(): Promise<void> {
+  const root = await navigator.storage.getDirectory();
+  try {
+    await root.removeEntry(OPFS_DIR, {recursive: true});
+  } catch {
+    // Directory may not exist yet.
+  }
+  opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
+}
+
+function sendRecordingManifest(): void {
+  updateManifestRange();
+  self.postMessage({
+    type: 'recording',
+    manifest: {
+      chunks: sealedChunks.map(c => ({...c,
+        generations: [...c.generations]})),
+      generationStart: manifest.generationStart,
+      generationEnd: manifest.generationEnd
+    },
+    cols,
+    rows
+  } satisfies RecordingMessage);
+}
+
+/**
+ * True when the current generation has not yet been recorded.
+ */
+function needsInitialCapture(): boolean {
+  if (chunkFrameIndex > 0) {
+    return chunkGenerations[chunkFrameIndex - 1] !== genCounter;
+  }
+  if (sealedChunks.length > 0) {
+    return sealedChunks[sealedChunks.length - 1]!.generationEnd !== genCounter;
+  }
+  return true;
+}
+
+/**
+ * Apply any pending brush draw and re-record the current gen if it was already captured.
+ */
+function applyPendingBrush(): void {
+  if (!pendingBrush) {
+    return;
+  }
+  const b = pendingBrush;
+  pendingBrush = null;
+  const encoder = device.createCommandEncoder();
+  dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
+  device.queue.submit([encoder.finish()]);
+
+  // If the current generation was already recorded, overwrite the last frame to reflect the draw.
+  if (isRecording && chunkFrameIndex > 0 && chunkGenerations[chunkFrameIndex - 1] === genCounter) {
+    chunkFrameIndex--;
+    chunkGenerations.pop();
+    recordGeneration(genCounter);
+  }
+}
+
+/**
+ * Read a single frame from an OPFS chunk file.
+ *
+ * @param filename
+ */
+async function readChunkFromOpfs(filename: string): Promise<ArrayBuffer> {
+  const dir = await ensureOpfsDir();
+  const fileHandle = await dir.getFileHandle(filename);
+  const file = await fileHandle.getFile();
+  return file.arrayBuffer();
+}
+
+/**
+ * Helper: compute total recorded frames across sealed chunks and current buffer.
+ */
+function totalRecordedFrames(): number {
+  let count = chunkFrameIndex;
+  for (const c of sealedChunks) {
+    count += c.blockCount;
+  }
+  return count;
+}
+
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
   const wgX = Math.ceil(cols / 16);
   const wgY = Math.ceil(rows / 16);
@@ -1277,8 +1527,19 @@ function readMetricsAndPost(): void {
       simpsonIndex: 1 - simpsonSum,
       boundaryLength,
       extinctionTime,
-      fps: currentFps
+      fps: currentFps,
+      canStepBack: totalRecordedFrames() > 1
     } satisfies MetricMessage);
+
+    // Re-run if a step-back (or similar) requested metrics while we were in-flight.
+    if (pendingMetricsRetry) {
+      pendingMetricsRetry = false;
+      lastMetricsGen = -1;
+      const retryEncoder = device.createCommandEncoder();
+      runMetricsGpu(retryEncoder);
+      device.queue.submit([retryEncoder.finish()]);
+      readMetricsAndPost();
+    }
   });
 }
 
@@ -1342,12 +1603,23 @@ function renderFrame(): void {
 // ---------------------------------------------------------------------------
 
 function mainLoop(now: number): void {
-  // Skip-forward mode: run at max speed without rendering or recording.
+  // Skip-forward mode: run at max speed without rendering.
   if (skipTarget >= 0) {
     const deadline = performance.now() + 14;
     while (genCounter < skipTarget && performance.now() < deadline) {
+      if (isRecording) {
+        if (!canRecord()) {
+          break;
+        }
+        if (chunkFrameIndex >= chunkFrameCapacity) {
+          sealCurrentChunk();
+        }
+      }
       stepSimulation();
       stepCount++;
+      if (isRecording) {
+        recordGeneration(genCounter);
+      }
     }
     if (genCounter >= skipTarget) {
       skipTarget = -1;
@@ -1355,13 +1627,6 @@ function mainLoop(now: number): void {
       targetStepDuration = preSkipStepDuration;
       lastFrameTime = 0;
       stepAccumulator = 0;
-
-      // Record final frame if recording.
-      if (isRecording) {
-        readbackGrid().then(grid => {
-          recordedFrames.push(rleEncodeFrame(unpackGridToFrame(grid)));
-        });
-      }
 
       // Update metrics and render.
       lastMetricsGen = -1;
@@ -1380,28 +1645,7 @@ function mainLoop(now: number): void {
   }
 
   // Apply coalesced brush draw (one per frame max).
-  if (pendingBrush) {
-    const b = pendingBrush;
-    pendingBrush = null;
-    const encoder = device.createCommandEncoder();
-    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
-    device.queue.submit([encoder.finish()]);
-  }
-
-  // Capture current state before the first step when recording.
-  if (isRecording && needPreStepCapture) {
-    needPreStepCapture = false;
-    readbackGrid().then(grid => {
-      const encoded = rleEncodeFrame(unpackGridToFrame(grid));
-      const idx = genCounter - recordingStartGen;
-      if (idx >= 0 && idx < recordedFrames.length) {
-        recordedFrames[idx] = encoded;
-      } else {
-        recordedFrames.push(encoded);
-      }
-      recordedFrames.length = idx + 1;
-    });
-  }
+  applyPendingBrush();
 
   // FPS tracking.
   if (lastFpsTime === 0) {
@@ -1415,6 +1659,14 @@ function mainLoop(now: number): void {
   }
 
   if (simulationRunning) {
+    // Capture current state before the first step (only when not yet recorded).
+    if (isRecording && needsInitialCapture() && canRecord()) {
+      if (chunkFrameIndex >= chunkFrameCapacity) {
+        sealCurrentChunk();
+      }
+      recordGeneration(genCounter);
+    }
+
     let didStep = false;
     if (lastFrameTime === 0) {
       lastFrameTime = now;
@@ -1428,57 +1680,44 @@ function mainLoop(now: number): void {
       // Max speed: run as many steps as fit in a ~14 ms budget per frame.
       const deadline = performance.now() + 14;
       while (performance.now() < deadline) {
+        if (isRecording) {
+          if (!canRecord()) {
+            break;
+          }
+          if (chunkFrameIndex >= chunkFrameCapacity) {
+            sealCurrentChunk();
+          }
+        }
         stepSimulation();
         stepCount++;
+        didStep = true;
+        if (isRecording) {
+          recordGeneration(genCounter);
+        }
       }
-      didStep = true;
     } else {
       // Accumulate elapsed time and step as many times as needed.
       stepAccumulator += delta;
       while (stepAccumulator >= targetStepDuration) {
+        if (isRecording) {
+          if (!canRecord()) {
+            break;
+          }
+          if (chunkFrameIndex >= chunkFrameCapacity) {
+            sealCurrentChunk();
+          }
+        }
         stepSimulation();
         stepCount++;
         stepAccumulator -= targetStepDuration;
         didStep = true;
+        if (isRecording) {
+          recordGeneration(genCounter);
+        }
       }
     }
 
     if (didStep) {
-    // Record frame using persistent double-buffered readback.
-      if (isRecording) {
-        const useBufA = !recordBufToggle;
-        const buf = useBufA ? recordBufA : recordBufB;
-        const ready = useBufA ? recordBufAReady : recordBufBReady;
-
-        if (ready) {
-          const currentGrid = pingPong ? gridBufferB : gridBufferA;
-          const byteSize = gridBufferSize();
-          const copyEncoder = device.createCommandEncoder();
-          copyEncoder.copyBufferToBuffer(currentGrid, 0, buf, 0, byteSize);
-          device.queue.submit([copyEncoder.finish()]);
-
-          if (useBufA) {
-            recordBufAReady = false;
-          } else {
-            recordBufBReady = false;
-          }
-
-          buf.mapAsync(GPUMapMode.READ).then(() => {
-            const data = new Uint32Array(buf.getMappedRange());
-            const frame = unpackGridToFrame(data);
-            buf.unmap();
-            if (useBufA) {
-              recordBufAReady = true;
-            } else {
-              recordBufBReady = true;
-            }
-            recordedFrames.push(rleEncodeFrame(frame));
-          });
-
-          recordBufToggle = !recordBufToggle;
-        }
-      }
-
       if (genCounter % mi === 0 || genCounter - lastMetricsGen >= mi * 2) {
         // Only update metrics ~once per second.
         const metricsElapsed = now - lastMetricsTime;
@@ -1548,19 +1787,31 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   });
 }
 
-function createRecordBuffers(): void {
-  const byteSize = gridBufferSize();
-  recordBufA = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+function createChunkBuffer(): void {
+  computeChunkCapacity();
+  chunkGpuBuffer = device.createBuffer({
+    size: chunkFrameCapacity * frameByteSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
-  recordBufB = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
-  recordBufToggle = false;
-  recordBufAReady = true;
-  recordBufBReady = true;
+  chunkFrameIndex = 0;
+  chunkGenerations = [];
+}
+
+function createStagingRing(): void {
+  const size = chunkFrameCapacity * frameByteSize;
+  stagingRing = [];
+  stagingAvailable = [];
+  for (let i = 0; i < STAGING_RING_SIZE; i++) {
+    stagingRing.push(device.createBuffer({
+      size,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    }));
+    stagingAvailable.push(true);
+  }
+}
+
+function initOpfs(): void {
+  resetOpfsDir();
 }
 
 function buildPipelines(): void {
@@ -1577,7 +1828,9 @@ function buildPipelines(): void {
   createComputePipeline();
   createBrushPipeline();
   createMetricsPipelines();
-  createRecordBuffers();
+  initOpfs();
+  createChunkBuffer();
+  createStagingRing();
 }
 
 function rebuildForNewRuleset(): void {
@@ -1587,8 +1840,10 @@ function rebuildForNewRuleset(): void {
   histogramReadBuffer?.destroy();
   boundaryBuffer?.destroy();
   boundaryReadBuffer?.destroy();
-  recordBufA?.destroy();
-  recordBufB?.destroy();
+  chunkGpuBuffer?.destroy();
+  for (const buf of stagingRing) {
+    buf?.destroy();
+  }
 
   createGridBuffers();
   createTribeColorBuffer();
@@ -1596,9 +1851,9 @@ function rebuildForNewRuleset(): void {
   createBrushPipeline();
   createRenderBindGroups();
   createMetricsPipelines();
-  createRecordBuffers();
-  recordedFrames = [];
-  recordingStartGen = genCounter;
+  createChunkBuffer();
+  createStagingRing();
+  resetRecording(genCounter);
 }
 
 // ---------------------------------------------------------------------------
@@ -1627,9 +1882,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       rebuildForNewRuleset();
       genCounter = 0;
       lastMetricsGen = -1;
-      recordedFrames = [];
-      recordingStartGen = 0;
-      needPreStepCapture = false;
+      resetRecording(0);
       tribeLastAliveGen = new Map();
       tribeEverAlive = new Set();
       // Post initial metrics for the fresh (empty) grid.
@@ -1647,8 +1900,14 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.running) {
         lastFrameTime = 0;
         stepAccumulator = 0;
-        if (isRecording) {
-          needPreStepCapture = true;
+      } else {
+        // Post updated metrics so the UI shows the actual genCounter.
+        lastMetricsGen = -1;
+        if (!metricsInFlight) {
+          const stopEncoder = device.createCommandEncoder();
+          runMetricsGpu(stopEncoder);
+          device.queue.submit([stopEncoder.finish()]);
+          readMetricsAndPost();
         }
       }
       break;
@@ -1723,15 +1982,13 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
       device.queue.writeBuffer(currentGrid, 0, m.grid);
       genCounter = m.generation;
+      resetRecording(m.generation);
       break;
     }
 
     case 'setRecording': {
       if (m.recording && !isRecording) {
         isRecording = true;
-        recordedFrames = [];
-        recordingStartGen = genCounter;
-        needPreStepCapture = true;
       } else if (!m.recording) {
         isRecording = false;
       }
@@ -1739,114 +1996,156 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'getRecording': {
-      // Decode RLE-compressed frames and send copies (keep originals).
-      const decodedFrames = recordedFrames.map(f => rleDecodeFrame(f));
-      const frameCopies = decodedFrames.map(f => new Uint8Array(f));
-      const buffers = frameCopies.map(f => f.buffer).filter(b => b.byteLength > 0);
-      self.postMessage({
-        type: 'recording',
-        frames: frameCopies,
-        startGeneration: recordingStartGen,
-        cols,
-        rows
-      } satisfies RecordingMessage, buffers as never);
+      // Seal current chunk if it has frames, then wait for all writes.
+      if (getRecordingPending) {
+        break;
+      }
+      if (chunkFrameIndex > 0) {
+        sealCurrentChunk();
+      }
+      if (inflightSeals > 0) {
+        getRecordingPending = true;
+      } else {
+        sendRecordingManifest();
+      }
       break;
     }
 
     case 'stepBack': {
-      const k = Math.min(m.count, recordedFrames.length - 1);
+      // Build global index of all recorded frames.
+      let sealedFrameCount = 0;
+      for (const c of sealedChunks) {
+        sealedFrameCount += c.blockCount;
+      }
+      const totalFrames = sealedFrameCount + chunkFrameIndex;
+      const k = Math.min(m.count, totalFrames - 1);
       if (k <= 0) {
         break;
       }
-      recordedFrames.splice(recordedFrames.length - k, k);
-      const lastFrame = rleDecodeFrame(recordedFrames[recordedFrames.length - 1]!);
-      const gridData = packFrameToGrid(lastFrame);
+      const targetFrameGlobal = totalFrames - 1 - k;
+
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
-      device.queue.writeBuffer(currentGrid, 0, gridData);
-      genCounter = recordingStartGen + recordedFrames.length - 1;
+
+      if (targetFrameGlobal >= sealedFrameCount) {
+        // Target is in the current GPU chunk buffer — fast GPU path.
+        const frameInChunk = targetFrameGlobal - sealedFrameCount;
+        chunkFrameIndex = frameInChunk + 1;
+        chunkGenerations.length = chunkFrameIndex;
+        genCounter = chunkGenerations[frameInChunk]!;
+
+        const bEnc = device.createCommandEncoder();
+        bEnc.copyBufferToBuffer(chunkGpuBuffer, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
+        device.queue.submit([bEnc.finish()]);
+      } else {
+        // Target is in a sealed chunk — wait for in-flight seals to ensure OPFS is up-to-date.
+        if (inflightSeals > 0) {
+          await new Promise<void>(resolve => {
+            const interval = setInterval(() => {
+              if (inflightSeals === 0) {
+                clearInterval(interval);
+                resolve();
+              }
+            }, 10);
+          });
+          // Recalculate after await — sealedChunks may have been updated.
+          sealedFrameCount = 0;
+          for (const c of sealedChunks) {
+            sealedFrameCount += c.blockCount;
+          }
+        }
+
+        // Read from OPFS.
+        let accumulated = 0;
+        let targetSealedIdx = 0;
+        let frameInChunk = 0;
+        for (let si = 0; si < sealedChunks.length; si++) {
+          const c = sealedChunks[si]!;
+          if (targetFrameGlobal < accumulated + c.blockCount) {
+            targetSealedIdx = si;
+            frameInChunk = targetFrameGlobal - accumulated;
+            break;
+          }
+          accumulated += c.blockCount;
+        }
+
+        const chunk = sealedChunks[targetSealedIdx]!;
+        const chunkData = await readChunkFromOpfs(chunk.filename);
+
+        // Load frames 0..frameInChunk into the GPU chunk buffer.
+        const prefixBytes = (frameInChunk + 1) * frameByteSize;
+        device.queue.writeBuffer(chunkGpuBuffer, 0, new Uint8Array(chunkData, 0, prefixBytes));
+        chunkFrameIndex = frameInChunk + 1;
+        chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
+        genCounter = chunkGenerations[frameInChunk]!;
+
+        // Copy target frame to the grid.
+        const bEnc = device.createCommandEncoder();
+        bEnc.copyBufferToBuffer(chunkGpuBuffer, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
+        device.queue.submit([bEnc.finish()]);
+
+        // Delete the target chunk and all subsequent sealed chunks from OPFS.
+        const removed = sealedChunks.splice(targetSealedIdx);
+        const filenames = removed.map(c => c.filename);
+        deleteChunksFromOpfs(filenames);
+      }
+
+      updateManifestRange();
+
       lastMetricsGen = -1;
       if (!metricsInFlight) {
         const bEncoder = device.createCommandEncoder();
         runMetricsGpu(bEncoder);
         device.queue.submit([bEncoder.finish()]);
         readMetricsAndPost();
+      } else {
+        pendingMetricsRetry = true;
       }
       renderFrame();
       break;
     }
 
     case 'stepForward': {
+      applyPendingBrush();
       if (m.count === 1) {
         // Single step: immediate, with recording.
-        if (isRecording) {
-          readbackGrid().then(grid => {
-            const encodedPre = rleEncodeFrame(unpackGridToFrame(grid));
-            const idx = genCounter - recordingStartGen;
-            if (idx >= 0 && idx < recordedFrames.length) {
-              recordedFrames[idx] = encodedPre;
-            } else {
-              recordedFrames.push(encodedPre);
-            }
-            recordedFrames.length = idx + 1;
-
-            stepSimulation();
-            stepCount++;
-
-            readbackGrid().then(postGrid => {
-              recordedFrames.push(rleEncodeFrame(unpackGridToFrame(postGrid)));
-
-              lastMetricsGen = -1;
-              if (!metricsInFlight) {
-                const fEncoder = device.createCommandEncoder();
-                runMetricsGpu(fEncoder);
-                device.queue.submit([fEncoder.finish()]);
-                readMetricsAndPost();
-              }
-              renderFrame();
-            });
-          });
-        } else {
-          stepSimulation();
-          stepCount++;
-          lastMetricsGen = -1;
-          if (!metricsInFlight) {
-            const fEncoder = device.createCommandEncoder();
-            runMetricsGpu(fEncoder);
-            device.queue.submit([fEncoder.finish()]);
-            readMetricsAndPost();
+        if (isRecording && needsInitialCapture() && canRecord()) {
+          if (chunkFrameIndex >= chunkFrameCapacity) {
+            sealCurrentChunk();
           }
-          renderFrame();
+          recordGeneration(genCounter);
         }
+        stepSimulation();
+        stepCount++;
+        if (isRecording && canRecord()) {
+          if (chunkFrameIndex >= chunkFrameCapacity) {
+            sealCurrentChunk();
+          }
+          recordGeneration(genCounter);
+        }
+        lastMetricsGen = -1;
+        if (!metricsInFlight) {
+          const fEncoder = device.createCommandEncoder();
+          runMetricsGpu(fEncoder);
+          device.queue.submit([fEncoder.finish()]);
+          readMetricsAndPost();
+        }
+        renderFrame();
       } else {
         // Multi-step: enter skip-forward mode (max speed, no rendering).
         self.postMessage({type: 'stepping',
           active: true} satisfies SteppingMessage);
 
-        // Save pre-step frame if recording.
-        if (isRecording) {
-          readbackGrid().then(grid => {
-            const encodedSkipPre = rleEncodeFrame(unpackGridToFrame(grid));
-            const idx = genCounter - recordingStartGen;
-            if (idx >= 0 && idx < recordedFrames.length) {
-              recordedFrames[idx] = encodedSkipPre;
-            } else {
-              recordedFrames.push(encodedSkipPre);
-            }
-            recordedFrames.length = idx + 1;
-
-            preSkipRunning = simulationRunning;
-            preSkipStepDuration = targetStepDuration;
-            skipTarget = genCounter + m.count;
-            simulationRunning = true;
-            targetStepDuration = 0;
-          });
-        } else {
-          preSkipRunning = simulationRunning;
-          preSkipStepDuration = targetStepDuration;
-          skipTarget = genCounter + m.count;
-          simulationRunning = true;
-          targetStepDuration = 0;
+        if (isRecording && needsInitialCapture() && canRecord()) {
+          if (chunkFrameIndex >= chunkFrameCapacity) {
+            sealCurrentChunk();
+          }
+          recordGeneration(genCounter);
         }
+        preSkipRunning = simulationRunning;
+        preSkipStepDuration = targetStepDuration;
+        skipTarget = genCounter + m.count;
+        simulationRunning = true;
+        targetStepDuration = 0;
       }
       break;
     }

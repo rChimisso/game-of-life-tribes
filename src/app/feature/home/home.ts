@@ -423,17 +423,10 @@ export class HomePage implements OnDestroy {
         }
       };
       const gridBuf = snap.grid;
-      const recFrames = rec && rec.frames.length > 0 ? rec.frames : null;
+      const hasChunks = rec && rec.manifest.chunks.length > 0;
       const transferables: ArrayBuffer[] = [];
       if (gridBuf?.buffer?.byteLength > 0) {
         transferables.push(gridBuf.buffer);
-      }
-      if (recFrames) {
-        for (const f of recFrames) {
-          if (f.buffer.byteLength > 0) {
-            transferables.push(f.buffer);
-          }
-        }
       }
       worker.postMessage({
         type: 'download',
@@ -444,11 +437,10 @@ export class HomePage implements OnDestroy {
           rows: snap.rows,
           grid: gridBuf
         },
-        recording: recFrames ? {
-          frames: recFrames,
-          startGeneration: rec!.startGeneration,
-          cols: rec!.cols,
-          rows: rec!.rows
+        recording: hasChunks ? {
+          manifest: rec.manifest,
+          cols: rec.cols,
+          rows: rec.rows
         } : null,
         tribes: this.tribes.map(t => ({id: t.id,
           color: t.color})),

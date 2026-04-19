@@ -17,20 +17,20 @@
     <div class="section">
       <h3 class="section-title">Playback</h3>
       <div class="section-row">
-        <button mat-flat-button [disabled]="downloading || stepping" (click)="emit('toggleRun')">
-          <mat-icon>{{ running ? "pause" : "play_arrow" }}</mat-icon>
-          {{ running ? "Pause" : "Run" }}
+        <button mat-flat-button [disabled]="downloading || rebuilding || (backpressure && !running && !stepping)" (click)="emit('toggleRun')">
+          <mat-icon>{{ running || stepping ? "pause" : "play_arrow" }}</mat-icon>
+          {{ running || stepping ? "Pause" : "Run" }}
         </button>
-        <button mat-flat-button [disabled]="downloading || stepping" (click)="emit('restart')">
+        <button mat-flat-button [disabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')">
           <mat-icon>restart_alt</mat-icon>
         </button>
       </div>
       <div class="step-row">
-        <button mat-icon-button [disabled]="running || downloading || stepping || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
+        <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
           <mat-icon>skip_previous</mat-icon>
         </button>
-        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping" [(ngModel)]="skipAmount" />
-        <button mat-icon-button [disabled]="running || downloading || stepping" (click)="onStepForward()">
+        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" />
+        <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()">
           <mat-icon>skip_next</mat-icon>
         </button>
       </div>
@@ -51,8 +51,11 @@
         <input class="speed-input" min="1" type="number" [disabled]="maxSpeed || downloading" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
         <span class="speed-unit">gen/s</span>
         <mat-checkbox [checked]="maxSpeed" [disabled]="downloading" (change)="onMaxSpeedChange($event.checked)"> Max </mat-checkbox>
-        <mat-checkbox [checked]="recording" [disabled]="downloading" (change)="onRecordingChange($event.checked)"> Rec </mat-checkbox>
+        <mat-checkbox [checked]="recording" [disabled]="downloading || !recordingAvailable" (change)="onRecordingChange($event.checked)"> Rec </mat-checkbox>
       </div>
+      @if (recordingGateMessage) {
+        <span class="recording-gate-warning">{{ recordingGateMessage }}</span>
+      }
     </div>
 
     <hr class="divider" />
@@ -141,6 +144,25 @@
 
     <hr class="divider" />
 
+    <!-- Presets -->
+    <div class="section">
+      <h3 class="section-title">Presets</h3>
+      <div class="presets-row">
+        @for (preset of presets; track preset.name) {
+          <button class="preset-btn" mat-stroked-button [class.selected]="selectedPreset === preset" (click)="selectedPreset = preset">
+            <span class="preset-name">{{ preset.name }}</span>
+            <span class="preset-desc">{{ preset.description }}</span>
+          </button>
+        }
+      </div>
+      <div class="apply-row">
+        <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !selectedPreset" (click)="applyPreset()">Apply</button>
+        <button class="restore-btn" mat-stroked-button [disabled]="downloading || !selectedPreset" (click)="restorePreset()">Restore</button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
     <!-- Tribes editor -->
     <div class="section">
       <h3 class="section-title">Tribes</h3>
@@ -218,9 +240,14 @@
         <div class="rule-card">
           <div class="rule-header" (click)="toggleRuleExpand(i)">
             <mat-icon class="expand-icon">{{ expandedRuleIndex === i ? "expand_more" : "chevron_right" }}</mat-icon>
+            <span class="rule-summary-dots">
+              @for (tId of clauseTribes(rule.clause); track tId) {
+                <span class="summary-dot" [style.background-color]="'#' + getTribeColor(tId)"></span>
+              }
+            </span>
             <span class="rule-summary">{{ clauseSummary(rule.clause) }}</span>
             <span class="rule-arrow">→</span>
-            <span class="rule-output" [style.background-color]="'#' + getTribeColor(rule.tribe)">{{ rule.tribe }}</span>
+            <span class="rule-output" [style.background-color]="'#' + getTribeColor(rule.tribe)" [style.color]="getContrastColor(getTribeColor(rule.tribe))">{{ rule.tribe }}</span>
             <button class="small-btn" mat-icon-button (click)="removeRule(i); $event.stopPropagation()">
               <mat-icon>close</mat-icon>
             </button>
@@ -326,12 +353,19 @@
     <!-- Download -->
     <div class="section">
       <h3 class="section-title">
-        Download <span class="section-desc">{{ recordingSize }}</span>
+        Download <span class="section-desc">{{ storageTitleSize }} / {{ storageQuotaFormatted }}</span>
       </h3>
+      <div class="storage-bar" [title]="storageBarTooltip">
+        <div class="storage-bar-pending" [style.width.%]="storagePendingPct"></div>
+        <div class="storage-bar-compressed" [style.width.%]="storageCompressedPct"></div>
+      </div>
+      <div class="storage-legend">
+        <span class="storage-legend-item"><span class="legend-dot legend-dot-pending"></span>{{ storagePendingFormatted }} pending</span>
+        <span class="storage-legend-item"><span class="legend-dot legend-dot-compressed"></span>{{ storageCompressedFormatted }} compressed</span>
+      </div>
       <div class="download-checks">
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadJson">JSON</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadSaves">Saves</mat-checkbox>
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadCsv">CSV</mat-checkbox>
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadFrames">Frames</mat-checkbox>
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadPng">PNG</mat-checkbox>
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4">MP4</mat-checkbox>
         <label class="mp4-fps-label">
@@ -351,9 +385,13 @@
           @if (downloadStatus) {
             <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
           }
+          <button class="cancel-download-btn" mat-stroked-button (click)="emit('cancelDownload')">
+            <mat-icon>close</mat-icon>
+            Cancel
+          </button>
         </div>
       }
-      <button mat-stroked-button [disabled]="downloadProgress >= 0 || chunksSaving || (!downloadCsv && !downloadJson && !downloadFrames && !downloadMp4 && !downloadPng)" (click)="onDownload()">
+      <button mat-stroked-button [disabled]="downloadProgress >= 0 || chunksSaving || (!downloadCsv && !downloadSaves && !downloadMp4 && !downloadPng)" (click)="onDownload()">
         <mat-icon>download</mat-icon>
         Download ZIP
       </button>
@@ -364,11 +402,19 @@
     <!-- Snapshot -->
     <div class="section">
       <h3 class="section-title">Snapshot</h3>
-      <div class="section-row">
-        <button mat-stroked-button [disabled]="downloading" (click)="emit('saveState')">Save</button>
-        <button mat-stroked-button [disabled]="downloading" (click)="fileInput.click()">Load</button>
-        <input #fileInput accept=".json" hidden type="file" (change)="onFileSelect($event)" />
-      </div>
+      @if (savingState || loadingState) {
+        <div class="snapshot-progress">
+          <mat-icon>{{ savingState ? "save" : "upload_file" }}</mat-icon>
+          <span>{{ savingState ? "Saving…" : "Loading…" }}</span>
+          <mat-progress-bar mode="indeterminate" />
+        </div>
+      } @else {
+        <div class="section-row">
+          <button mat-stroked-button [disabled]="downloading" (click)="emit('saveState')">Save</button>
+          <button mat-stroked-button [disabled]="downloading" (click)="fileInput.click()">Load</button>
+          <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
+        </div>
+      }
     </div>
 
     <hr class="divider shortcuts-divider" />
@@ -381,9 +427,26 @@
       </h3>
       <div class="collapsible" [class.open]="shortcutsExpanded">
         <div class="collapsible-inner">
-          <div class="shortcuts-grid"><kbd>Space</kbd><span>Play / Pause</span> <kbd>R</kbd><span>Restart</span> <kbd>D</kbd><span>Delete mode</span> <kbd>&uarr; / &darr;</kbd><span>Speed</span> <kbd>&larr; / &rarr;</kbd><span>Cycle tribe</span> <kbd>LMB</kbd><span>Draw</span> <kbd>RMB</kbd><span>Pan</span> <kbd>Scroll</kbd><span>Zoom</span></div>
+          <h4 class="shortcuts-subheading">Playback</h4>
+          <div class="shortcuts-grid"><kbd>Space</kbd><span>Play / Pause</span> <kbd>R</kbd><span>Restart</span> <kbd>&uarr; / &darr;</kbd><span>Speed</span> <kbd>M</kbd><span>Max speed</span> <kbd>E</kbd><span>Toggle recording</span></div>
+          <h4 class="shortcuts-subheading">Drawing</h4>
+          <div class="shortcuts-grid"><kbd>LMB</kbd><span>Draw</span> <kbd>D</kbd><span>Delete mode</span> <kbd>&larr; / &rarr;</kbd><span>Cycle tribe</span> <kbd>+ / &minus;</kbd><span>Brush size</span> <kbd>B</kbd><span>Brush shape</span> <kbd>F</kbd><span>Brush fill</span></div>
+          <h4 class="shortcuts-subheading">Navigation</h4>
+          <div class="shortcuts-grid"><kbd>RMB</kbd><span>Pan</span> <kbd>Scroll</kbd><span>Zoom</span></div>
         </div>
       </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- About -->
+    <div class="section about-section">
+      <span class="about-desc">
+        <svg class="github-icon" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
+        <a class="repo-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl">Game of Life: Tribes</a>
+        — <a class="about-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl">README</a> &amp; <a class="about-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl + '/wiki'">Wiki</a>
+      </span>
+      <span class="about-version">v{{ appVersion }} · Open source</span>
     </div>
   </div>
   <div class="resize-handle" (mousedown)="onResizeStart($event)"></div>

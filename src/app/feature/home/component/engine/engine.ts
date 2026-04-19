@@ -2,7 +2,7 @@
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {Ruleset, Tribe} from '../../model/rule';
-import {BrushShape, CameraMessage, ChunksSavingMessage, DrawMessage, LimitsMessage, MetricMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../../worker/webengine';
+import {BrushShape, CameraMessage, ChunkSealedMessage, ChunksSavingMessage, BackpressureMessage, DeviceLostMessage, DrawMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage, WorkerMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -60,6 +60,30 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   @Output()
   public readonly chunksSaving = new EventEmitter<ChunksSavingMessage>();
+
+  @Output()
+  public readonly backpressure = new EventEmitter<BackpressureMessage>();
+
+  @Output()
+  public readonly storageQuota = new EventEmitter<StorageQuotaMessage>();
+
+  @Output()
+  public readonly chunkSealed = new EventEmitter<ChunkSealedMessage>();
+
+  @Output()
+  public readonly uncompressedChunks = new EventEmitter<UncompressedChunksMessage>();
+
+  @Output()
+  public readonly generation = new EventEmitter<GenerationMessage>();
+
+  @Output()
+  public readonly rebuilding = new EventEmitter<RebuildingMessage>();
+
+  @Output()
+  public readonly deviceLost = new EventEmitter<DeviceLostMessage>();
+
+  @Output()
+  public readonly gpuError = new EventEmitter<GpuErrorMessage>();
 
   private worker!: Worker;
 
@@ -272,7 +296,28 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         this.stepping.emit(ev.data as SteppingMessage);
       } else if (ev.data?.type === 'chunksSaving') {
         this.chunksSaving.emit(ev.data as ChunksSavingMessage);
+      } else if (ev.data?.type === 'backpressure') {
+        this.backpressure.emit(ev.data as BackpressureMessage);
+      } else if (ev.data?.type === 'storageQuota') {
+        this.storageQuota.emit(ev.data as StorageQuotaMessage);
+      } else if (ev.data?.type === 'chunkSealed') {
+        this.chunkSealed.emit(ev.data as ChunkSealedMessage);
+      } else if (ev.data?.type === 'uncompressedChunks') {
+        this.uncompressedChunks.emit(ev.data as UncompressedChunksMessage);
+      } else if (ev.data?.type === 'generation') {
+        this.generation.emit(ev.data as GenerationMessage);
+      } else if (ev.data?.type === 'rebuilding') {
+        this.rebuilding.emit(ev.data as RebuildingMessage);
+      } else if (ev.data?.type === 'deviceLost') {
+        this.deviceLost.emit(ev.data as DeviceLostMessage);
+      } else if (ev.data?.type === 'gpuError') {
+        this.gpuError.emit(ev.data as GpuErrorMessage);
       }
+    };
+
+    this.worker.onerror = (err: ErrorEvent) => {
+      this.gpuError.emit({type: 'gpuError',
+        reason: err.message || 'Worker crashed unexpectedly'});
     };
   }
 
@@ -305,6 +350,23 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public stepForward(count: number): void {
     this.worker?.postMessage({type: 'stepForward',
       count});
+  }
+
+  public cancelStepping(): void {
+    this.worker?.postMessage({type: 'cancelStepping'});
+  }
+
+  public updateChunkCodec(filename: string, codec: string, storedBytes: number): void {
+    this.worker?.postMessage({
+      type: 'updateChunkCodec',
+      filename,
+      codec,
+      storedBytes
+    });
+  }
+
+  public requestUncompressedChunks(): void {
+    this.worker?.postMessage({type: 'getUncompressedChunks'});
   }
 
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {

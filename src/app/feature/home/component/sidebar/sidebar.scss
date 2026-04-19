@@ -131,6 +131,24 @@
   flex-wrap: wrap;
 }
 
+.snapshot-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #ccc;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  mat-progress-bar {
+    flex: 1;
+  }
+}
+
 // Speed
 .speed-row {
   display: flex;
@@ -221,6 +239,47 @@
   font-size: 0.75rem;
   color: #ff6b6b;
   line-height: 1.3;
+}
+
+.recording-gate-warning {
+  font-size: 0.75rem;
+  color: #ffa726;
+  line-height: 1.3;
+  display: block;
+  margin-top: 4px;
+}
+
+// ── Presets ──
+
+.presets-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 6px 10px;
+  line-height: 1.3;
+
+  &.selected {
+    border-color: #8ab4f8;
+    background: rgba(138, 180, 248, 0.12);
+  }
+}
+
+.preset-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.preset-desc {
+  font-size: 0.65rem;
+  color: #888;
+  font-weight: 400;
 }
 
 // ── Tribe editor ──
@@ -428,8 +487,23 @@
   padding: 1px 6px;
   border-radius: 3px;
   font-size: 0.75rem;
-  color: #111;
   font-weight: 500;
+}
+
+.rule-summary-dots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  margin-right: 4px;
+}
+
+.summary-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
 }
 
 .rule-body {
@@ -599,6 +673,56 @@
 }
 
 // Download
+.storage-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.storage-bar-compressed {
+  height: 100%;
+  background: #e91e8a;
+  flex-shrink: 0;
+}
+
+.storage-bar-pending {
+  height: 100%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.storage-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+.storage-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.legend-dot-pending {
+  background: #f59e0b;
+}
+
+.legend-dot-compressed {
+  background: #e91e8a;
+}
+
 .download-checks {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -760,6 +884,11 @@ mat-progress-bar.sub-progress {
   gap: 2px;
 }
 
+.cancel-download-btn {
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
 .download-status-text {
   font-size: 0.75rem;
   color: #888;
@@ -809,6 +938,19 @@ mat-progress-bar.sub-progress {
   align-items: center;
 }
 
+.shortcuts-subheading {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 8px 0 4px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
 kbd {
   background: #222;
   border: 1px solid #444;
@@ -817,6 +959,49 @@ kbd {
   font-family: monospace;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+// ── About section ──
+
+.about-section {
+  text-align: center;
+  gap: 4px;
+}
+
+.repo-link {
+  color: #8ab4f8;
+  text-decoration: none;
+  font-weight: 500;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.about-link {
+  color: #8ab4f8;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.github-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  margin-right: 2px;
+}
+
+.about-desc {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.about-version {
+  font-size: 0.7rem;
+  color: #666;
 }
 
 // Angular Material overrides

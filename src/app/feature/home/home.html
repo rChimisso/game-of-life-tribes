@@ -1,7 +1,26 @@
-<gol-sidebar [brushFill]="brushFill" [brushShape]="brushShape" [brushSize]="brushSize" [chunksSaving]="chunksSaving" [deleteMode]="deleteMode" [downloadMainStatus]="downloadMainStatus" [downloadProgress]="downloadProgress" [downloadSubProgress]="downloadSubProgress" [downloadStatus]="downloadStatus" [drawTribes]="drawTribes" [gridCols]="ruleset.cols" [gridRows]="ruleset.rows" [maxBytes]="maxBytes" [maxSpeed]="maxSpeed" [metrics]="latestMetrics" [panMode]="panMode" [recording]="recording" [ruleset]="ruleset" [running]="state === 'running'" [skipAmount]="skipAmount" [speed]="speed" [stepping]="stepping" [tribes]="tribes" (sidebarEvent)="onSidebarEvent($event)" />
+<gol-sidebar [backpressure]="backpressure" [brushFill]="brushFill" [brushShape]="brushShape" [brushSize]="brushSize" [chunksSaving]="chunksSaving" [deleteMode]="deleteMode" [downloadMainStatus]="downloadMainStatus" [downloadProgress]="downloadProgress" [downloadStatus]="downloadStatus" [downloadSubProgress]="downloadSubProgress" [drawTribes]="drawTribes" [frameByteSize]="frameByteSize" [gridCols]="ruleset.cols" [gridRows]="ruleset.rows" [loadingState]="loadingState" [maxBytes]="maxBytes" [maxSpeed]="maxSpeed" [metrics]="latestMetrics" [panMode]="panMode" [rebuilding]="rebuilding" [recording]="recording" [recordingAvailable]="recordingAvailable" [ruleset]="ruleset" [running]="state === 'running'" [savingState]="savingState" [skipAmount]="skipAmount" [speed]="speed" [stepping]="stepping" [storageCompressedBytes]="storageCompressedBytes" [storagePendingRawBytes]="storagePendingRawBytes" [storageQuotaBytes]="storageQuotaBytes" [tribes]="tribes" (sidebarEvent)="onSidebarEvent($event)" />
 <section class="canvas-section">
-  <gol-engine [brushFill]="brushFill" [brushShape]="brushShape" [brushSize]="brushSize" [drawTribes]="drawTribes" [isRecording]="recording" [panMode]="panMode" [ruleset]="ruleset" [speed]="effectiveSpeed" [state]="state" (chunksSaving)="onChunksSaving($event)" (limits)="onLimits($event)" (metrics)="onMetrics($event)" (recording)="onRecording($event)" (snapshot)="onSnapshot($event)" (stepping)="onStepping($event)" />
-  @if (maxSpeed) {
+  <gol-engine [brushFill]="brushFill" [brushShape]="brushShape" [brushSize]="brushSize" [drawTribes]="drawTribes" [isRecording]="recording" [panMode]="panMode" [ruleset]="ruleset" [speed]="effectiveSpeed" [state]="state" (backpressure)="onBackpressure($event)" (chunkSealed)="onChunkSealed($event)" (chunksSaving)="onChunksSaving($event)" (deviceLost)="onDeviceLost($event)" (gpuError)="onGpuError($event)" (limits)="onLimits($event)" (metrics)="onMetrics($event)" (recording)="onRecording($event)" (rebuilding)="onRebuilding($event)" (snapshot)="onSnapshot($event)" (stepping)="onStepping($event)" (storageQuota)="onStorageQuota($event)" (uncompressedChunks)="onUncompressedChunks($event)" (generation)="onGeneration($event)" />
+  @if (gpuErrorMessage) {
+    <div class="max-speed-overlay gpu-error-overlay">
+      <mat-icon>error</mat-icon>
+      <span>{{ gpuErrorMessage }}</span>
+      <span class="max-speed-hint">Try reducing the grid size or reloading the page</span>
+    </div>
+  } @else if (rebuilding) {
+    <div class="max-speed-overlay">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Initializing grid…</span>
+    </div>
+  } @else if (backpressure) {
+    <div class="max-speed-overlay">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Waiting for recording data to be saved…</span>
+      @if (state === "running") {
+        <span class="max-speed-hint">Simulation will resume automatically</span>
+      }
+    </div>
+  } @else if (maxSpeed) {
     <div class="max-speed-overlay">
       <mat-icon>speed</mat-icon>
       <span>Max speed enabled — rendering paused</span>

@@ -48,3 +48,34 @@ a {
     text-decoration: none;
   }
 }
+
+// ---------------------------------------------------------------------------
+//  MatSnackBar panel classes (rendered in overlay, must be global)
+// ---------------------------------------------------------------------------
+
+.snackbar-info .mdc-snackbar__surface {
+  background-color: #1b5e20 !important;
+  color: #fff !important;
+}
+
+.snackbar-info .mdc-snackbar__surface .mat-mdc-button {
+  color: #a5d6a7 !important;
+}
+
+.snackbar-warning .mdc-snackbar__surface {
+  background-color: #e65100 !important;
+  color: #fff !important;
+}
+
+.snackbar-warning .mdc-snackbar__surface .mat-mdc-button {
+  color: #ffcc80 !important;
+}
+
+.snackbar-error .mdc-snackbar__surface {
+  background-color: #b71c1c !important;
+  color: #fff !important;
+}
+
+.snackbar-error .mdc-snackbar__surface .mat-mdc-button {
+  color: #ef9a9a !important;
+}

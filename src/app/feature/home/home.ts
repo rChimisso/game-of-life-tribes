@@ -1,12 +1,14 @@
 import {ChangeDetectorRef, Component, HostListener, OnDestroy, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
+import {Preset} from './model/preset';
 import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, SteppingMessage, ChunksSavingMessage, BrushShape} from './worker/webengine';
+import {MetricMessage, GenerationMessage, LimitsMessage, RecordingMessage, RebuildingMessage, DeviceLostMessage, GpuErrorMessage, SnapshotMessage, SteppingMessage, ChunksSavingMessage, ChunkSealedMessage, BackpressureMessage, StorageQuotaMessage, UncompressedChunksMessage, BrushShape} from './worker/webengine';
 
 @Component({
   selector: 'gol-home',
@@ -16,7 +18,8 @@ import {MetricMessage, LimitsMessage, RecordingMessage, SnapshotMessage, Steppin
     Engine,
     Sidebar,
     MatIconModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatSnackBarModule
   ],
   templateUrl: './home.html',
   styleUrl: './home.scss'
@@ -136,9 +139,41 @@ export class HomePage implements OnDestroy {
 
   maxBytes = Infinity;
 
+  frameByteSize = 0;
+
+  recordingAvailable = true;
+
   stepping = false;
 
   chunksSaving = false;
+
+  backpressure = false;
+
+  rebuilding = false;
+
+  gpuErrorMessage: string | null = null;
+
+  storageUsedBytes = 0;
+
+  storageQuotaBytes = 0;
+
+  storagePendingRawBytes = 0;
+
+  storageCompressedBytes = 0;
+
+  savingState = false;
+
+  loadingState = false;
+
+  private quotaWarningLevel: 0 | 25 | 50 | 75 | 100 = 0;
+
+  private pendingStateLoad: {grid: Uint32Array; generation: number} | null = null;
+
+  private compressPool: Worker[] = [];
+
+  private compressPoolIndex = 0;
+
+  private downloadWorker: Worker | null = null;
 
   private drawTribeIndex = 1;
 
@@ -152,7 +187,7 @@ export class HomePage implements OnDestroy {
     return this.maxSpeed ? -1 : this.speed;
   }
 
-  public constructor(private readonly cdr: ChangeDetectorRef) {
+  public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
     document.addEventListener('keydown', this.boundKeydown, true);
   }
 
@@ -168,10 +203,22 @@ export class HomePage implements OnDestroy {
 
   public ngOnDestroy(): void {
     document.removeEventListener('keydown', this.boundKeydown, true);
+    this.terminateCompressWorker();
   }
 
   private handleKeydown(ev: KeyboardEvent): void {
-    if (this.downloadProgress >= 0 || this.stepping) {
+    if (this.downloadProgress >= 0) {
+      return;
+    }
+    // While stepping, only allow spacebar (to cancel the step).
+    if (this.stepping) {
+      if (ev.key === ' ') {
+        this.cancelStepping();
+        ev.preventDefault();
+        ev.stopPropagation();
+        (document.activeElement as HTMLElement)?.blur?.();
+        this.cdr.markForCheck();
+      }
       return;
     }
     const active = document.activeElement;
@@ -223,6 +270,42 @@ export class HomePage implements OnDestroy {
           this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
         break;
+      case 'e':
+        if (this.recordingAvailable) {
+          this.recording = !this.recording;
+        }
+        break;
+      case 'm':
+        this.maxSpeed = !this.maxSpeed;
+        break;
+      case '+':
+      case '=': {
+        const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
+        this.brushSize = Math.min(max, this.brushSize + 1);
+        break;
+      }
+      case '-': {
+        this.brushSize = Math.max(1, this.brushSize - 1);
+        break;
+      }
+      case 'b': {
+        const shapes: BrushShape[] = [
+          'square',
+          'round',
+          'diamond',
+          'vline',
+          'hline'
+        ];
+        const idx = shapes.indexOf(this.brushShape);
+        this.brushShape = shapes[(idx + 1) % shapes.length]!;
+        break;
+      }
+      case 'f': {
+        const fills: ('full' | 'spray' | 'outline')[] = ['full', 'spray', 'outline'];
+        const idx = fills.indexOf(this.brushFill);
+        this.brushFill = fills[(idx + 1) % fills.length]!;
+        break;
+      }
       default:
         handled = false;
     }
@@ -240,8 +323,24 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onGeneration(data: GenerationMessage): void {
+    if (this.latestMetrics) {
+      this.latestMetrics = {
+        ...this.latestMetrics,
+        generation: data.generation,
+        fps: data.fps
+      };
+    }
+    this.cdr.markForCheck();
+  }
+
   onLimits(data: LimitsMessage): void {
     this.maxBytes = data.maxBytes;
+    this.frameByteSize = data.frameByteSize;
+    this.recordingAvailable = data.recordingAvailable;
+    if (!data.recordingAvailable && this.recording) {
+      this.recording = false;
+    }
     this.cdr.markForCheck();
   }
 
@@ -255,21 +354,120 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onBackpressure(data: BackpressureMessage): void {
+    this.backpressure = data.active;
+    this.cdr.markForCheck();
+  }
+
+  onRebuilding(data: RebuildingMessage): void {
+    this.rebuilding = data.active;
+    if (!data.active) {
+      this.gpuErrorMessage = null;
+      if (this.pendingStateLoad) {
+        const {grid, generation} = this.pendingStateLoad;
+        this.pendingStateLoad = null;
+        this.engine.loadSnapshot(grid, generation);
+        this.metricsHistory = [];
+        this.latestMetrics = null;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  onDeviceLost(data: DeviceLostMessage): void {
+    this.state = 'paused';
+    this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
+    this.snackBar.open('GPU device lost — simulation stopped. Try reloading the page.', 'Dismiss', {duration: 10_000});
+    this.cdr.markForCheck();
+  }
+
+  onGpuError(data: GpuErrorMessage): void {
+    this.gpuErrorMessage = data.reason;
+    this.snackBar.open(`GPU error: ${data.reason}`, 'Dismiss', {duration: 8_000});
+    this.cdr.markForCheck();
+  }
+
+  onStorageQuota(data: StorageQuotaMessage): void {
+    this.storageUsedBytes = data.usedBytes;
+    this.storageQuotaBytes = data.quotaBytes;
+    this.storagePendingRawBytes = data.pendingRawBytes;
+    this.storageCompressedBytes = data.compressedBytes;
+    if (data.quotaBytes <= 0) {
+      return;
+    }
+    // Mixed byte formats: used in decimal GB, quota in binary GiB.
+    // Include GPU buffer margin (worst-case data in flight not yet on disk).
+    const effectiveUsed = data.usedBytes + data.gpuBufferMarginBytes;
+    const usedDecimalGiga = effectiveUsed / 1e9;
+    const quotaBinaryGiga = data.quotaBytes / (1024 ** 3);
+    const pct = quotaBinaryGiga > 0 ? (usedDecimalGiga / quotaBinaryGiga) * 100 : 0;
+    const level: 0 | 25 | 50 | 75 | 100 = pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
+    if (level > this.quotaWarningLevel) {
+      this.quotaWarningLevel = level;
+      const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress — size may decrease)' : '';
+      const alreadyPaused = this.state === 'paused' && !this.stepping;
+      if (level === 25) {
+        this.snackBar.open(`Recording storage at 25% capacity${compHint}`, 'Dismiss', {duration: 0,
+          panelClass: 'snackbar-info'});
+      } else if (level === 50) {
+        this.snackBar.open(`Recording storage at 50% capacity${compHint}`, 'Dismiss', {duration: 0,
+          panelClass: 'snackbar-warning'});
+      } else if (level === 75) {
+        const pauseHint = alreadyPaused ? '' : ' — simulation paused to preserve data';
+        this.snackBar.open(`Recording storage at 75%${pauseHint}${compHint}`, 'Dismiss', {duration: 0,
+          panelClass: 'snackbar-warning'});
+        if (this.stepping) {
+          this.cancelStepping();
+        }
+        this.state = 'paused';
+      } else if (level === 100) {
+        this.snackBar.open(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'Dismiss', {duration: 0,
+          panelClass: 'snackbar-error'});
+        if (this.stepping) {
+          this.cancelStepping();
+        }
+        this.state = 'paused';
+        this.recording = false;
+      }
+    } else if (level < this.quotaWarningLevel) {
+      this.quotaWarningLevel = level;
+      this.snackBar.dismiss();
+    }
+    this.cdr.markForCheck();
+  }
+
+  onChunkSealed(data: ChunkSealedMessage): void {
+    if (this.compressPool.length === 0) {
+      this.initCompressPool();
+    }
+    const worker = this.compressPool[this.compressPoolIndex % this.compressPool.length]!;
+    this.compressPoolIndex++;
+    worker.postMessage({
+      type: 'compress',
+      filename: data.filename,
+      rawBytes: data.rawBytes
+    });
+  }
+
+  onUncompressedChunks(data: UncompressedChunksMessage): void {
+    for (const chunk of data.chunks) {
+      this.onChunkSealed({
+        type: 'chunkSealed',
+        filename: chunk.filename,
+        rawBytes: chunk.rawBytes
+      });
+    }
+  }
+
   onSnapshot(snap: SnapshotMessage): void {
     if (this.pendingSnapshotResolve) {
       this.pendingSnapshotResolve(snap);
       this.pendingSnapshotResolve = null;
     } else {
-      const state = {
-        version: 1,
-        generation: snap.generation,
-        cols: snap.cols,
-        rows: snap.rows,
-        tribes: [...this.tribes],
-        rules: this.ruleset.rules,
-        grid: Array.from(snap.grid)
-      };
-      this.downloadFile(`gol-state-gen${snap.generation}.json`, JSON.stringify(state), 'application/json');
+      this.saveGoltState(snap).finally(() => {
+        this.savingState = false;
+        this.cdr.markForCheck();
+      });
     }
   }
 
@@ -320,6 +518,7 @@ export class HomePage implements OnDestroy {
         break;
       case 'setGridSize': {
         const {cols, rows} = ev.value as {cols: number; rows: number};
+        this.rebuilding = true;
         this.ruleset = {
           ...this.ruleset,
           cols,
@@ -331,13 +530,18 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'download':
-        this.downloadZip(ev.value as {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number});
+        this.downloadZip(ev.value as {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number});
+        break;
+      case 'cancelDownload':
+        this.cancelDownload();
         break;
       case 'saveState':
+        this.savingState = true;
+        this.cdr.markForCheck();
         this.engine.requestSnapshot();
         break;
       case 'loadState':
-        this.loadState(ev.value as string);
+        this.loadState(ev.value as ArrayBuffer);
         break;
       case 'deleteMode':
         this.deleteMode = !this.deleteMode;
@@ -349,6 +553,7 @@ export class HomePage implements OnDestroy {
         break;
       case 'updateRuleset': {
         const newRuleset = ev.value as Ruleset;
+        this.rebuilding = true;
         this.ruleset = newRuleset;
         if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
           this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
@@ -377,15 +582,82 @@ export class HomePage implements OnDestroy {
       case 'setBrushFill':
         this.brushFill = ev.value as 'full' | 'spray' | 'outline';
         break;
+      case 'applyPreset': {
+        const preset = ev.value as Preset;
+        const newRuleset = structuredClone(preset.ruleset);
+        newRuleset.cols = this.ruleset.cols;
+        newRuleset.rows = this.ruleset.rows;
+        this.rebuilding = true;
+        this.ruleset = newRuleset;
+        if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
+        }
+        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
+        this.metricsHistory = [];
+        this.latestMetrics = null;
+        this.clampBrushSize();
+        break;
+      }
     }
   }
 
   private toggleRun(): void {
+    if (this.stepping) {
+      this.cancelStepping();
+      return;
+    }
     this.state = this.state === 'paused' ? 'running' : 'paused';
   }
 
+  private cancelStepping(): void {
+    this.engine.cancelStepping();
+  }
+
+  private terminateCompressWorker(): void {
+    for (const w of this.compressPool) {
+      w.terminate();
+    }
+    this.compressPool = [];
+    this.compressPoolIndex = 0;
+  }
+
+  private initCompressPool(): void {
+    const poolSize = Math.max(1, (navigator.hardwareConcurrency ?? 4) - 2);
+    for (let i = 0; i < poolSize; i++) {
+      const w = new Worker(new URL('./worker/compress.ts', import.meta.url), {type: 'module'});
+      w.onmessage = (ev: MessageEvent) => {
+        if (ev.data?.type === 'compressed') {
+          this.engine.updateChunkCodec(ev.data.filename, ev.data.codec, ev.data.storedBytes);
+        }
+      };
+      this.compressPool.push(w);
+    }
+  }
+
+  private cancelDownload(): void {
+    if (this.downloadWorker) {
+      this.downloadWorker.terminate();
+      this.downloadWorker = null;
+    }
+    this.downloadProgress = -1;
+    this.downloadSubProgress = -1;
+    this.downloadStatus = '';
+    this.downloadMainStatus = '';
+    this.cdr.markForCheck();
+
+    // Resume background compression for any remaining raw-packed chunks.
+    this.engine.requestUncompressedChunks();
+  }
+
   private restart(): void {
+    this.snackBar.dismiss();
     this.state = 'paused';
+    this.terminateCompressWorker();
+    this.storagePendingRawBytes = 0;
+    this.storageCompressedBytes = 0;
+    this.storageUsedBytes = 0;
+    this.quotaWarningLevel = 0;
+    this.rebuilding = true;
     this.ruleset = {...this.ruleset};
     this.metricsHistory = [];
     this.latestMetrics = null;
@@ -398,13 +670,17 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  private downloadZip(opts: {csv: boolean; json: boolean; frames: boolean; mp4: boolean; png: boolean; fps: number}): void {
-    const needFrames = opts.frames || opts.mp4 || opts.png || opts.csv || opts.json;
+  private downloadZip(opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number}): void {
+    const needFrames = opts.mp4 || opts.png || opts.csv || opts.saves;
 
     // Pause the simulation so the download captures a consistent state.
     if (this.state === 'running') {
       this.state = 'paused';
     }
+
+    // Terminate background compression to prevent file rewrites during download.
+    // The download worker handles both raw and compressed codecs.
+    this.terminateCompressWorker();
 
     this.downloadProgress = 0;
     this.cdr.markForCheck();
@@ -423,6 +699,24 @@ export class HomePage implements OnDestroy {
 
     Promise.all([snapshotP, framesP]).then(([snap, rec]) => {
       const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
+      this.downloadWorker = worker;
+
+      const cleanupDownload = () => {
+        this.downloadProgress = -1;
+        this.downloadSubProgress = -1;
+        this.downloadStatus = '';
+        this.downloadMainStatus = '';
+        this.downloadWorker = null;
+        this.cdr.markForCheck();
+        worker.terminate();
+        this.engine.requestUncompressedChunks();
+      };
+
+      worker.onerror = () => {
+        this.snackBar.open('Download failed unexpectedly. Try again.', 'Dismiss', {duration: 8_000});
+        cleanupDownload();
+      };
+
       worker.onmessage = (e: MessageEvent) => {
         if (e.data.type === 'progress') {
           this.downloadProgress = e.data.percent;
@@ -434,13 +728,11 @@ export class HomePage implements OnDestroy {
           this.cdr.markForCheck();
         } else if (e.data.type === 'done-part') {
           this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
+        } else if (e.data.type === 'error') {
+          this.snackBar.open(`Download error: ${e.data.reason}`, 'Dismiss', {duration: 8_000});
+          cleanupDownload();
         } else if (e.data.type === 'done') {
-          this.downloadProgress = -1;
-          this.downloadSubProgress = -1;
-          this.downloadStatus = '';
-          this.downloadMainStatus = '';
-          this.cdr.markForCheck();
-          worker.terminate();
+          cleanupDownload();
         }
       };
       const gridBuf = snap.grid;
@@ -471,36 +763,141 @@ export class HomePage implements OnDestroy {
     });
   }
 
-  private loadState(jsonString: string): void {
+  private async loadState(buffer: ArrayBuffer): Promise<void> {
+    this.loadingState = true;
+    this.cdr.markForCheck();
     try {
-      const data = JSON.parse(jsonString);
-      if (data.version !== 1 || !data.grid || !data.cols || !data.rows) {
+      const parsed = await this.parseGoltFile(buffer) ?? this.parseLegacyJsonState(buffer);
+      if (!parsed) {
         return;
       }
-      // Update ruleset if grid size changed.
-      if (data.cols !== this.ruleset.cols || data.rows !== this.ruleset.rows) {
+      const {cols, rows, generation, grid} = parsed;
+      if (cols !== this.ruleset.cols || rows !== this.ruleset.rows) {
+        this.rebuilding = true;
+        this.pendingStateLoad = {grid,
+          generation};
         this.ruleset = {
           ...this.ruleset,
-          cols: data.cols,
-          rows: data.rows
+          cols,
+          rows
         };
-      }
-      // Wait a tick for the engine to rebuild, then load the grid.
-      setTimeout(() => {
-        const grid = new Uint32Array(data.grid);
-        this.engine.loadSnapshot(grid, data.generation ?? 0);
+        this.clampBrushSize();
+      } else {
+        this.engine.loadSnapshot(grid, generation);
         this.metricsHistory = [];
         this.latestMetrics = null;
-        this.cdr.markForCheck();
-      }, 100);
-    } catch {
-      // Invalid JSON — ignore.
+      }
+    } finally {
+      this.loadingState = false;
+      this.cdr.markForCheck();
     }
   }
 
-  private downloadFile(filename: string, content: string, mimeType: string): void {
-    const blob = new Blob([content], {type: mimeType});
-    this.downloadBlob(blob, filename);
+  private async saveGoltState(snap: SnapshotMessage): Promise<void> {
+    const blob = await this.buildGoltFile(snap);
+    this.downloadBlob(blob, `gol-state-gen${snap.generation}.golt`);
+  }
+
+  private async buildGoltFile(snap: SnapshotMessage): Promise<Blob> {
+    const MAGIC = new Uint8Array([
+      0x47,
+      0x6F,
+      0x4C,
+      0x54
+    ]); // "GoLT"
+    const header = JSON.stringify({
+      generation: snap.generation,
+      cols: snap.cols,
+      rows: snap.rows,
+      tribes: this.tribes.map(t => ({id: t.id,
+        color: t.color})),
+      rules: this.ruleset.rules
+    });
+    const headerBytes = new TextEncoder().encode(header);
+    const gridBytes = new Uint8Array(snap.grid.buffer, snap.grid.byteOffset, snap.grid.byteLength);
+
+    // Compress grid with deflate-raw
+    const cs = new CompressionStream('deflate-raw');
+    const writer = cs.writable.getWriter();
+    writer.write(gridBytes);
+    writer.close();
+    const compressedGrid = await new Response(cs.readable).arrayBuffer();
+
+    // Build: magic(4) + version(4) + headerLen(4) + header + compressed grid
+    const preambleSize = 4 + 4 + 4 + headerBytes.byteLength;
+    const preamble = new ArrayBuffer(preambleSize);
+    const view = new DataView(preamble);
+    const bytes = new Uint8Array(preamble);
+
+    bytes.set(MAGIC, 0);
+    view.setUint32(4, 1, true); // Version 1
+    view.setUint32(8, headerBytes.byteLength, true);
+    bytes.set(headerBytes, 12);
+
+    return new Blob([preamble, compressedGrid], {type: 'application/octet-stream'});
+  }
+
+  private async parseGoltFile(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array} | null> {
+    if (buffer.byteLength < 12) {
+      return null;
+    }
+    const view = new DataView(buffer);
+    // Check magic "GoLT"
+    if (view.getUint8(0) !== 0x47 || view.getUint8(1) !== 0x6F ||
+        view.getUint8(2) !== 0x4C || view.getUint8(3) !== 0x54) {
+      return null;
+    }
+    const version = view.getUint32(4, true);
+    if (version !== 1) {
+      return null;
+    }
+    const headerLen = view.getUint32(8, true);
+    if (12 + headerLen > buffer.byteLength) {
+      return null;
+    }
+    const headerJson = new TextDecoder().decode(new Uint8Array(buffer, 12, headerLen));
+    const header = JSON.parse(headerJson);
+    if (!header.cols || !header.rows) {
+      return null;
+    }
+    // Decompress grid with deflate-raw
+    const compressedGrid = buffer.slice(12 + headerLen);
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    writer.write(new Uint8Array(compressedGrid));
+    writer.close();
+    const rawGrid = await new Response(ds.readable).arrayBuffer();
+
+    const expectedGridBytes = Math.ceil(header.cols / 4) * header.rows * 4;
+    if (rawGrid.byteLength < expectedGridBytes) {
+      return null;
+    }
+    const grid = new Uint32Array(rawGrid.slice(0, expectedGridBytes));
+
+    return {
+      cols: header.cols,
+      rows: header.rows,
+      generation: header.generation ?? 0,
+      grid
+    };
+  }
+
+  private parseLegacyJsonState(buffer: ArrayBuffer): {cols: number; rows: number; generation: number; grid: Uint32Array} | null {
+    try {
+      const text = new TextDecoder().decode(buffer);
+      const data = JSON.parse(text);
+      if (data.version !== 1 || !data.grid || !data.cols || !data.rows) {
+        return null;
+      }
+      return {
+        cols: data.cols,
+        rows: data.rows,
+        generation: data.generation ?? 0,
+        grid: new Uint32Array(data.grid)
+      };
+    } catch {
+      return null;
+    }
   }
 
   private downloadBlob(blob: Blob, filename: string): void {

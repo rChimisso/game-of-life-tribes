@@ -8,6 +8,8 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
+import packageJson from '../../../../../../package.json';
+import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, MetricMessage} from '../../worker/webengine';
 
@@ -31,7 +33,9 @@ export interface SidebarEvent {
     | 'setBrushSize'
     | 'setBrushShape'
     | 'setBrushFill'
-    | 'togglePanMode';
+    | 'togglePanMode'
+    | 'cancelDownload'
+    | 'applyPreset';
   value?: unknown;
 }
 
@@ -78,6 +82,12 @@ export class Sidebar implements OnChanges {
   public stepping = false;
 
   @Input()
+  public backpressure = false;
+
+  @Input()
+  public rebuilding = false;
+
+  @Input()
   public gridCols = 100;
 
   @Input()
@@ -88,6 +98,12 @@ export class Sidebar implements OnChanges {
 
   @Input()
   public chunksSaving = false;
+
+  @Input()
+  public recordingAvailable = true;
+
+  @Input()
+  public frameByteSize = 0;
 
   @Input()
   public deleteMode = false;
@@ -125,6 +141,21 @@ export class Sidebar implements OnChanges {
   @Input()
   public maxBytes = Infinity;
 
+  @Input()
+  public storagePendingRawBytes = 0;
+
+  @Input()
+  public storageCompressedBytes = 0;
+
+  @Input()
+  public storageQuotaBytes = 0;
+
+  @Input()
+  public savingState = false;
+
+  @Input()
+  public loadingState = false;
+
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
@@ -133,10 +164,58 @@ export class Sidebar implements OnChanges {
   }
 
   public get recordingSize(): string {
-    const bytes = this.metrics?.recordingBytes ?? 0;
-    if (bytes <= 0) {
+    const total = this.storagePendingRawBytes + this.storageCompressedBytes;
+    if (total <= 0) {
       return '0 B';
     }
+    const parts: string[] = [];
+    if (this.storagePendingRawBytes > 0) {
+      parts.push(`${this.formatBytesDecimal(this.storagePendingRawBytes)} pending`);
+    }
+    if (this.storageCompressedBytes > 0) {
+      parts.push(`${this.formatBytesDecimal(this.storageCompressedBytes)} compressed`);
+    }
+    return `${this.formatBytesDecimal(total)} (${parts.join(', ')})`;
+  }
+
+  public get storageTitleSize(): string {
+    const total = this.storagePendingRawBytes + this.storageCompressedBytes;
+    return this.formatBytesDecimal(total);
+  }
+
+  public get storageQuotaFormatted(): string {
+    return this.formatBytes(this.storageQuotaBytes);
+  }
+
+  public get storagePendingFormatted(): string {
+    return this.formatBytesDecimal(this.storagePendingRawBytes);
+  }
+
+  public get storageCompressedFormatted(): string {
+    return this.formatBytesDecimal(this.storageCompressedBytes);
+  }
+
+  public get storageCompressedPct(): number {
+    return this.storageQuotaBytes > 0 ? (this.storageCompressedBytes / this.storageQuotaBytes) * 100 : 0;
+  }
+
+  public get storagePendingPct(): number {
+    return this.storageQuotaBytes > 0 ? (this.storagePendingRawBytes / this.storageQuotaBytes) * 100 : 0;
+  }
+
+  public get storageBarTooltip(): string {
+    const pending = this.formatBytesDecimal(this.storagePendingRawBytes);
+    const compressed = this.formatBytesDecimal(this.storageCompressedBytes);
+    const quota = this.formatBytes(this.storageQuotaBytes);
+    return `${pending} pending / ${compressed} compressed / ${quota} quota`;
+  }
+
+  /**
+   * Powers of 2 (1024) — used for available/quota storage (conservative).
+   *
+   * @param bytes
+   */
+  private formatBytes(bytes: number): string {
     if (bytes < 1024) {
       return `${bytes} B`;
     }
@@ -152,6 +231,27 @@ export class Sidebar implements OnChanges {
     return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
   }
 
+  /**
+   * Powers of 10 (1000) — used for occupied storage (conservative).
+   *
+   * @param bytes
+   */
+  private formatBytesDecimal(bytes: number): string {
+    if (bytes < 1000) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1_000_000) {
+      return `${(bytes / 1000).toFixed(2)} KB`;
+    }
+    if (bytes < 1_000_000_000) {
+      return `${(bytes / 1_000_000).toFixed(2)} MB`;
+    }
+    if (bytes < 1_000_000_000_000) {
+      return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+    }
+    return `${(bytes / 1_000_000_000_000).toFixed(2)} TB`;
+  }
+
   public collapsed = true;
 
   public pendingCols = 100;
@@ -160,9 +260,7 @@ export class Sidebar implements OnChanges {
 
   public downloadCsv = true;
 
-  public downloadJson = true;
-
-  public downloadFrames = true;
+  public downloadSaves = true;
 
   public downloadMp4 = false;
 
@@ -178,6 +276,16 @@ export class Sidebar implements OnChanges {
 
   // Shortcuts
   public shortcutsExpanded = false;
+
+  // App info
+  public readonly appVersion = packageJson.version;
+
+  public readonly repoUrl = 'https://github.com/rChimisso/game-of-life-tribes';
+
+  // Presets
+  public readonly presets = PRESETS;
+
+  public selectedPreset: Preset | null = null;
 
   // Tribe editing
   public editTribes: Tribe[] = [];
@@ -232,6 +340,13 @@ export class Sidebar implements OnChanges {
       return 'Minimum grid size is 10×10';
     }
     return null;
+  }
+
+  public get recordingGateMessage(): string | null {
+    if (this.recordingAvailable) {
+      return null;
+    }
+    return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${(1024 * 1024 * 1024).toLocaleString()})`;
   }
 
   public get brushMaxSize(): number {
@@ -291,10 +406,9 @@ export class Sidebar implements OnChanges {
   public onDownload(): void {
     this.emit('download', {
       csv: this.downloadCsv,
-      json: this.downloadJson,
-      frames: this.downloadFrames,
       mp4: this.downloadMp4,
       png: this.downloadPng,
+      saves: this.downloadSaves,
       fps: this.mp4Fps
     });
   }
@@ -330,10 +444,10 @@ export class Sidebar implements OnChanges {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      this.emit('loadState', reader.result as string);
+      this.emit('loadState', reader.result as ArrayBuffer);
       input.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   public startAddTribe(): void {
@@ -579,6 +693,17 @@ export class Sidebar implements OnChanges {
     this.hasUnappliedTribes = false;
   }
 
+  public applyPreset(): void {
+    if (this.selectedPreset) {
+      this.emit('applyPreset', this.selectedPreset);
+      this.selectedPreset = null;
+    }
+  }
+
+  public restorePreset(): void {
+    this.selectedPreset = null;
+  }
+
   public applyRules(): void {
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => ({...t})),
@@ -607,6 +732,15 @@ export class Sidebar implements OnChanges {
 
   public getTribeColor(tribeId: string): string {
     return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
+  }
+
+  public getContrastColor(hex: string): string {
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    // Relative luminance (sRGB)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#111' : '#fff';
   }
 
   public onSheetDragStart(event: TouchEvent): void {
@@ -784,6 +918,34 @@ export class Sidebar implements OnChanges {
       case 'and': return clause.clauses.map(c => this.clauseStr(c)).join(' ∧ ');
       case 'or': return clause.clauses.map(c => this.clauseStr(c)).join(' ∨ ');
       default: return '';
+    }
+  }
+
+  public clauseTribes(clause: Clause<Tribe[]>): string[] {
+    const ids = new Set<string>();
+    this.collectClauseTribes(clause, ids);
+    return [...ids];
+  }
+
+  private collectClauseTribes(clause: Clause<Tribe[]>, ids: Set<string>): void {
+    switch (clause.kind) {
+      case 'is':
+        clause.tribes.forEach(t => ids.add(t));
+        break;
+      case 'count':
+        clause.tribes.forEach(t => ids.add(t));
+        break;
+      case 'equality':
+        clause.tribe1.forEach(t => ids.add(t));
+        clause.tribe2.forEach(t => ids.add(t));
+        break;
+      case 'not':
+        this.collectClauseTribes(clause.clause, ids);
+        break;
+      case 'and':
+      case 'or':
+        clause.clauses.forEach(c => this.collectClauseTribes(c, ids));
+        break;
     }
   }
 }

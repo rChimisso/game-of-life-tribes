@@ -2543,7 +2543,6 @@ async function rebuildForNewRuleset(): Promise<void> {
     }
     await waitForTrackedBufferAllocations();
     postRecordingLimits();
-    resetRecording(genCounter);
   } catch (err) {
     // GPU buffer allocation failed — post error, stay in rebuilding state
     // So mainLoop does not attempt GPU work, then attempt recovery without
@@ -2567,7 +2566,6 @@ async function rebuildForNewRuleset(): Promise<void> {
       destroyRecordingBuffers();
       await waitForTrackedBufferAllocations();
       postRecordingLimits();
-      resetRecording(genCounter);
     } catch (e) {
       console.warn('GPU recovery also failed, device may be lost:', e);
       return;

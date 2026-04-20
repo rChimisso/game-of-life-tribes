@@ -1364,7 +1364,8 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
 
   // Pick a random tribe from the list.
-  let h = pcg(params.seed ^ idx);
+  let spatialHash = (u32(cx) * 73856093u) ^ (u32(cy) * 19349663u);
+  let h = pcg(params.seed ^ idx ^ spatialHash);
   let selectedTribe = params.tribeIds[h % params.tribeCount];
 
   // Spray fill: 50% chance to skip/set-dead (use high bits to avoid

@@ -331,6 +331,21 @@ export class HomePage implements OnDestroy {
         generation: data.generation,
         fps: data.fps
       };
+    } else {
+      this.latestMetrics = {
+        type: 'metrics',
+        generation: data.generation,
+        population: {},
+        shannonEntropy: 0,
+        simpsonIndex: 0,
+        boundaryLength: 0,
+        extinctionTime: {},
+        totalFrames: 0,
+        fps: data.fps,
+        canStepBack: false,
+        recordingBytes: 0,
+        recordingRawBytes: 0
+      };
     }
     this.cdr.markForCheck();
   }

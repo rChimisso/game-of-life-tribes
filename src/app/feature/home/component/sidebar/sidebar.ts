@@ -290,8 +290,6 @@ export class Sidebar implements OnChanges {
 
   public mp4SettingsExpanded = false;
 
-  public mp4SettingsExpanded = false;
-
   // App info
   public readonly appVersion = packageJson.version;
 

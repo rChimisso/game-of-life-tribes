@@ -2142,9 +2142,13 @@ function mainLoop(now: number): void {
             active: false} satisfies BackpressureMessage);
         }
       } else {
-        // Non-recording: one batched submit per frame.
-        batchStep(skipBatchSize());
-        didStep = true;
+        // Non-recording: time-budgeted batched submits per frame.
+        const deadline = performance.now() + 14;
+        const batch = skipBatchSize();
+        while (performance.now() < deadline) {
+          batchStep(batch);
+          didStep = true;
+        }
       }
 
       // Periodic lightweight generation + fps update during max speed.

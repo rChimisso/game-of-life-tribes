@@ -87,8 +87,8 @@ async function processJob(job: CompressRequest): Promise<void> {
     if (result && !cancelAll && !cancelledSet.has(job.filename)) {
       self.postMessage(result);
     }
-  } catch {
-    // Silently skip failed compressions (e.g. file missing)
+  } catch (e) {
+    console.warn('Compression failed for', job.filename, e);
   }
   cancelledSet.delete(job.filename);
   activeCount--;
@@ -100,13 +100,15 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
   let dir: FileSystemDirectoryHandle;
   try {
     dir = await root.getDirectoryHandle(OPFS_DIR);
-  } catch {
+  } catch (e) {
+    console.warn('OPFS directory not found:', e);
     return null;
   }
   let fileHandle: FileSystemFileHandle;
   try {
     fileHandle = await dir.getFileHandle(job.filename);
-  } catch {
+  } catch (e) {
+    console.warn('OPFS file not found:', job.filename, e);
     return null;
   }
   const file = await fileHandle.getFile();

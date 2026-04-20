@@ -10,7 +10,8 @@ import {Router, Routes, UrlTree} from '@angular/router';
 async function hasWebGpu(): Promise<boolean> {
   try {
     return !!await navigator?.gpu?.requestAdapter?.();
-  } catch {
+  } catch (e) {
+    console.warn('WebGPU check failed:', e);
     return false;
   }
 }

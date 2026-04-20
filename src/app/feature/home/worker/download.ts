@@ -323,41 +323,164 @@ function renderFrameToImageData(
 //  One palette entry per tribe color.  Each cell maps 1:1 to one pixel.
 //  Uses CompressionStream('deflate') for zlib-format IDAT compression.
 //  Header (signature + IHDR + PLTE) and IEND are pre-computed once and
-//  Reused across every frame.  A single `filtered` buffer is allocated
-//  Once and refilled per frame to avoid per-frame allocation.
+//  Reused across every frame.  Bit depth is chosen adaptively (1/2/4/8)
+//  Based on palette size, and each row is filtered with the PNG filter
+//  That yields the smallest sum-of-absolute-values heuristic.
 // ---------------------------------------------------------------------------
+
+function paethPredictor(a: number, b: number, c: number): number {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) {
+    return a;
+  }
+  if (pb <= pc) {
+    return b;
+  }
+  return c;
+}
+
+/**
+ * Apply one of the 5 PNG row filters and return the minimum-sum heuristic.
+ *
+ * @param type
+ * @param raw
+ * @param prev
+ * @param len
+ * @param out
+ * @param bestSoFar
+ */
+function applyRowFilter(type: number, raw: Uint8Array, prev: Uint8Array, len: number, out: Uint8Array, bestSoFar: number): number {
+  let sum = 0;
+  for (let i = 0; i < len; i++) {
+    const r = raw[i]!;
+    let v: number;
+    switch (type) {
+      case 1: // Sub
+        v = (r - (i > 0 ? raw[i - 1]! : 0)) & 0xFF;
+        break;
+      case 2: // Up
+        v = (r - prev[i]!) & 0xFF;
+        break;
+      case 3: // Average
+        v = (r - (((i > 0 ? raw[i - 1]! : 0) + prev[i]!) >>> 1)) & 0xFF;
+        break;
+      case 4: // Paeth
+        v = (r - paethPredictor(i > 0 ? raw[i - 1]! : 0, prev[i]!, i > 0 ? prev[i - 1]! : 0)) & 0xFF;
+        break;
+      default: // None
+        v = r;
+    }
+    out[i] = v;
+    sum += v < 128 ? v : 256 - v;
+    if (sum >= bestSoFar) {
+      return sum;
+    }
+  }
+  return sum;
+}
+
+/**
+ * Pack one row of 8-bit palette indices into the target bit depth (MSB-first).
+ *
+ * @param src
+ * @param srcOffset
+ * @param cols
+ * @param bitDepth
+ * @param out
+ */
+function packRow(src: Uint8Array, srcOffset: number, cols: number, bitDepth: number, out: Uint8Array): void {
+  if (bitDepth === 8) {
+    out.set(src.subarray(srcOffset, srcOffset + cols));
+    return;
+  }
+  out.fill(0);
+  const ppb = 8 / bitDepth;
+  const mask = (1 << bitDepth) - 1;
+  for (let x = 0; x < cols; x++) {
+    const byteIdx = (x / ppb) | 0;
+    const shift = 8 - bitDepth - (x % ppb) * bitDepth;
+    out[byteIdx] |= (src[srcOffset + x]! & mask) << shift;
+  }
+}
 
 class IndexedPngEncoder {
   private readonly header: Uint8Array;
 
   private readonly iend: Uint8Array;
 
-  private readonly filtered: Uint8Array;
-
   private readonly cols: number;
 
   private readonly rows: number;
 
+  private readonly rowBytes: number;
+
   private readonly rowStride: number;
+
+  private readonly bitDepth: number;
 
   constructor(cols: number, rows: number, palette: number[][]) {
     this.cols = cols;
     this.rows = rows;
-    this.rowStride = 1 + cols;
-    this.filtered = new Uint8Array(rows * this.rowStride);
-    // Pre-fill filter bytes (type 0 = None) — they never change.
-    for (let y = 0; y < rows; y++) {
-      this.filtered[y * this.rowStride] = 0;
-    }
-    this.header = IndexedPngEncoder.buildHeader(cols, rows, palette);
+
+    const n = palette.length;
+    this.bitDepth = n <= 2 ? 1 : n <= 4 ? 2 : n <= 16 ? 4 : 8;
+
+    this.rowBytes = Math.ceil((cols * this.bitDepth) / 8);
+    this.rowStride = 1 + this.rowBytes;
+
+    this.header = IndexedPngEncoder.buildHeader(cols, rows, palette, this.bitDepth);
     this.iend = IndexedPngEncoder.wrapChunk('IEND', new Uint8Array(0));
   }
 
+  /**
+   * Safe for concurrent calls — all working buffers are allocated per call.
+   *
+   * @param frame
+   */
+  /**
+   * Approximate memory used per concurrent encodeFrame call.
+   */
+  get frameMemoryBytes(): number {
+    return this.rows * this.rowStride;
+  }
+
   async encodeFrame(frame: Uint8Array): Promise<Uint8Array> {
-    const {cols, rows, rowStride, filtered} = this;
-    // Copy pixel data into the filtered buffer (filter bytes already set).
+    const {cols, rows, rowBytes, rowStride, bitDepth} = this;
+    const filtered = new Uint8Array(rows * rowStride);
+    const needsPack = bitDepth !== 8;
+    const packedRow = needsPack ? new Uint8Array(rowBytes) : null;
+    const prevRow = new Uint8Array(rowBytes);
+    const candidates = Array.from({length: 5}, () => new Uint8Array(rowBytes));
+
     for (let y = 0; y < rows; y++) {
-      filtered.set(frame.subarray(y * cols, y * cols + cols), y * rowStride + 1);
+      let rawRow: Uint8Array;
+      if (needsPack) {
+        packRow(frame, y * cols, cols, bitDepth, packedRow!);
+        rawRow = packedRow!;
+      } else {
+        rawRow = frame.subarray(y * cols, y * cols + cols);
+      }
+
+      // Try all 5 PNG filters, pick the one with the smallest heuristic sum.
+      // Early-termination: once a filter's running sum exceeds the current
+      // Best it cannot win, so applyRowFilter bails out immediately.
+      let bestFilter = 0;
+      let bestSum = Infinity;
+      for (let f = 0; f < 5; f++) {
+        const sum = applyRowFilter(f, rawRow, prevRow, rowBytes, candidates[f]!, bestSum);
+        if (sum < bestSum) {
+          bestSum = sum;
+          bestFilter = f;
+        }
+      }
+
+      const offset = y * rowStride;
+      filtered[offset] = bestFilter;
+      filtered.set(candidates[bestFilter]!, offset + 1);
+      prevRow.set(rawRow);
     }
 
     // Compress with zlib via CompressionStream('deflate').
@@ -377,7 +500,7 @@ class IndexedPngEncoder {
     return png;
   }
 
-  private static buildHeader(cols: number, rows: number, palette: number[][]): Uint8Array {
+  private static buildHeader(cols: number, rows: number, palette: number[][], bitDepth: number): Uint8Array {
     const sig = new Uint8Array([
       137,
       80,
@@ -389,12 +512,11 @@ class IndexedPngEncoder {
       10
     ]);
 
-    // IHDR: width, height, bit depth 8, color type 3 (indexed)
     const ihdrData = new Uint8Array(13);
     const ihdrView = new DataView(ihdrData.buffer);
     ihdrView.setUint32(0, cols);
     ihdrView.setUint32(4, rows);
-    ihdrData[8] = 8; // Bit depth
+    ihdrData[8] = bitDepth; // Bit depth (1, 2, 4, or 8)
     ihdrData[9] = 3; // Color type: indexed
     ihdrData[10] = 0; // Compression: deflate
     ihdrData[11] = 0; // Filter: adaptive
@@ -508,7 +630,9 @@ async function findVideoConfig(
           height: targetH
         };
       }
-    } catch { /* Unsupported, try next */ }
+    } catch (e) {
+      console.warn('Codec not supported:', codec, e);
+    }
   }
 
   for (let div = 2; div <= 16; div++) {
@@ -534,7 +658,9 @@ async function findVideoConfig(
             height: h
           };
         }
-      } catch { /* Continue */ }
+      } catch (e) {
+        console.warn('Codec not supported at resolution:', codec, w, h, e);
+      }
     }
   }
 
@@ -663,29 +789,8 @@ const OPFS_DIR = 'gol-recording';
 
 async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
   const ds = new DecompressionStream('deflate-raw');
-  const writer = ds.writable.getWriter();
-  writer.write(new Uint8Array(compressed));
-  writer.close();
-  const chunks: Uint8Array[] = [];
-  const reader = ds.readable.getReader();
-  for (;;) {
-    const {done, value} = await reader.read();
-    if (done) {
-      break;
-    }
-    chunks.push(value);
-  }
-  let totalLen = 0;
-  for (const c of chunks) {
-    totalLen += c.byteLength;
-  }
-  const result = new Uint8Array(totalLen);
-  let off = 0;
-  for (const c of chunks) {
-    result.set(c, off);
-    off += c.byteLength;
-  }
-  return result.buffer;
+  const decompressed = new Blob([compressed]).stream().pipeThrough(ds);
+  return new Response(decompressed).arrayBuffer();
 }
 
 // ---------------------------------------------------------------------------
@@ -808,8 +913,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         try {
           const mp4ImgData = new ImageData(1, 1);
           mp4Encoder = await createMp4StreamEncoder(rec.cols, rec.rows, tribes, opts.fps, mp4ImgData);
-        } catch {
-        // VideoEncoder not supported -- skip MP4.
+        } catch (e) {
+          console.warn('VideoEncoder not supported, skipping MP4:', e);
         }
       }
     }
@@ -888,8 +993,9 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
           const fileHandle = await opfsDir.getFileHandle(chunkMeta.filename);
           const blob = await fileHandle.getFile();
           storedData = await blob.arrayBuffer();
-        } catch {
-        // Re-acquire OPFS directory handle and retry.
+        } catch (e) {
+          console.warn('OPFS read failed, re-acquiring handle:', e);
+          // Re-acquire OPFS directory handle and retry.
           const root = await navigator.storage.getDirectory();
           opfsDir = await root.getDirectoryHandle(OPFS_DIR);
           const fileHandle = await opfsDir.getFileHandle(chunkMeta.filename);
@@ -907,54 +1013,74 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         } else {
           try {
             chunkData = new Uint8Array(await decompressChunk(storedData));
-          } catch {
+          } catch (e) {
+            console.warn(`Decompression failed for raw-packed chunk "${chunkMeta.filename}", using raw data:`, e);
             chunkData = new Uint8Array(storedData);
           }
         }
 
-        for (let fi = 0; fi < chunkMeta.blockCount; fi++) {
-          const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);
-          globalFrameIndex++;
+        // Process frames in batches: sequential work (unpack, metrics, MP4)
+        // Runs per-frame, then PNG encoding runs in parallel across the batch.
+        // Batch size scales down for large grids to cap parallel memory usage.
+        const MAX_PARALLEL_MEM = 512 * 1024 * 1024; // 512 MB
+        const PNG_BATCH = pngEncoder ?
+          Math.max(1, Math.min(64, Math.floor(MAX_PARALLEL_MEM / pngEncoder.frameMemoryBytes))) :
+          64;
+        for (let batchStart = 0; batchStart < chunkMeta.blockCount; batchStart += PNG_BATCH) {
+          const batchEnd = Math.min(batchStart + PNG_BATCH, chunkMeta.blockCount);
+          const pngBatch: {gen: number; frame: Uint8Array}[] = [];
 
-          if (fi % 50 === 0 || fi === chunkMeta.blockCount - 1) {
-            subProgress(
-              Math.round((globalFrameIndex / totalFrames) * 100),
-              `Processing frame gen ${frameGen}`
-            );
-          }
+          const batchFirstGen = chunkMeta.generations[batchStart] ?? (chunkMeta.generationStart + batchStart);
+          const batchLastGen = chunkMeta.generations[batchEnd - 1] ?? (chunkMeta.generationStart + batchEnd - 1);
+          subProgress(
+            Math.round(((globalFrameIndex + 1) / totalFrames) * 100),
+            `Processing frames gen ${batchFirstGen}–${batchLastGen}`
+          );
 
-          const byteOff = fi * frameByteSz;
-          const packed = chunkData.subarray(byteOff, byteOff + frameByteSz);
-          const frame = unpackGridToFrame(packed, rec.cols, rec.rows);
+          for (let fi = batchStart; fi < batchEnd; fi++) {
+            const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);
+            globalFrameIndex++;
 
-          // Track first/last for state snapshots.
-          if (!firstFrame || frameGen < firstFrame.gen) {
-            firstFrame = {gen: frameGen,
-              packed: new Uint8Array(packed)};
-          }
-          if (!lastFrame || frameGen > lastFrame.gen) {
-            lastFrame = {gen: frameGen,
-              packed: new Uint8Array(packed)};
-          }
+            const byteOff = fi * frameByteSz;
+            const packed = chunkData.subarray(byteOff, byteOff + frameByteSz);
+            const frame = unpackGridToFrame(packed, rec.cols, rec.rows);
 
-          if (needMetrics) {
-            allMetrics.push(computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen));
-          }
+            // Track first/last for state snapshots.
+            if (!firstFrame || frameGen < firstFrame.gen) {
+              firstFrame = {gen: frameGen,
+                packed: new Uint8Array(packed)};
+            }
+            if (!lastFrame || frameGen > lastFrame.gen) {
+              lastFrame = {gen: frameGen,
+                packed: new Uint8Array(packed)};
+            }
 
-          if (mp4Encoder) {
-            try {
-              mp4Encoder.encodeFrame(frame);
-            } catch {
-            // Frame encoding failed — discard MP4 for the rest of the export.
-              mp4Encoder = null;
+            if (needMetrics) {
+              allMetrics.push(computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen));
+            }
+
+            if (mp4Encoder) {
+              try {
+                mp4Encoder.encodeFrame(frame);
+              } catch (e) {
+              // Frame encoding failed — discard MP4 for the rest of the export.
+                console.warn('MP4 frame encoding failed, disabling MP4:', e);
+                mp4Encoder = null;
+              }
+            }
+
+            if (pngEncoder && pngZip) {
+              pngBatch.push({gen: frameGen,
+                frame});
             }
           }
 
-          if (pngEncoder && pngZip) {
-            const pngData = await pngEncoder.encodeFrame(frame);
-            pngZip.addEntry(`frames/${frameGen}.png`, pngData);
-
-            // Dynamic split: flush when approaching size limit.
+          // Encode PNG frames in parallel within this batch.
+          if (pngEncoder && pngZip && pngBatch.length > 0) {
+            const pngResults = await Promise.all(pngBatch.map(w => pngEncoder.encodeFrame(w.frame)));
+            for (let j = 0; j < pngResults.length; j++) {
+              pngZip.addEntry(`frames/${pngBatch[j]!.gen}.png`, pngResults[j]!);
+            }
             if (pngZip.currentSize >= PART_SIZE_LIMIT) {
               flushPngZip();
             }
@@ -1040,8 +1166,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         if (mp4Buffer) {
           summaryZip.addEntry('recording.mp4', new Uint8Array(mp4Buffer));
         }
-      } catch {
-      // Encoder finalization failed -- skip MP4.
+      } catch (e) {
+        console.warn('MP4 encoder finalization failed:', e);
       }
     }
 

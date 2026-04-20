@@ -1323,7 +1323,8 @@ function readbackGrid(): Promise<Uint32Array> {
       size: byteSize,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
     });
-  } catch {
+  } catch (e) {
+    console.warn('GPU readback buffer allocation failed:', e);
     return Promise.reject(new Error(`Failed to allocate ${byteSize} byte readback buffer`));
   }
 
@@ -1622,8 +1623,8 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
   for (const name of filenames) {
     try {
       await dir.removeEntry(name);
-    } catch {
-      // File may already be gone.
+    } catch (e) {
+      console.warn('Failed to remove OPFS entry:', name, e);
     }
   }
 }
@@ -1632,8 +1633,8 @@ async function resetOpfsDir(): Promise<void> {
   const root = await navigator.storage.getDirectory();
   try {
     await root.removeEntry(OPFS_DIR, {recursive: true});
-  } catch {
-    // Directory may not exist yet.
+  } catch (e) {
+    console.warn('Failed to remove OPFS directory:', e);
   }
   opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
 }
@@ -2354,8 +2355,8 @@ async function rebuildForNewRuleset(): Promise<void> {
       frameByteSize = gridBufferSize();
       postRecordingLimits();
       resetRecording(genCounter);
-    } catch {
-      // Total failure — device may be lost. Stay in rebuilding state.
+    } catch (e) {
+      console.warn('GPU recovery also failed, device may be lost:', e);
       return;
     }
   }

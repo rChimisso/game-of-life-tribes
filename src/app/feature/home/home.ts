@@ -889,7 +889,8 @@ export class HomePage implements OnDestroy {
         generation: data.generation ?? 0,
         grid: new Uint32Array(data.grid)
       };
-    } catch {
+    } catch (e) {
+      console.warn('Failed to parse state file:', e);
       return null;
     }
   }

@@ -277,6 +277,15 @@ export class Sidebar implements OnChanges {
   // Shortcuts
   public shortcutsExpanded = false;
 
+  // Section collapse state
+  public presetsExpanded = true;
+
+  public tribesExpanded = true;
+
+  public rulesExpanded = true;
+
+  public metricsExpanded = true;
+
   // App info
   public readonly appVersion = packageJson.version;
 

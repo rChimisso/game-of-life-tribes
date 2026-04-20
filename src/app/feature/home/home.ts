@@ -177,8 +177,6 @@ export class HomePage implements OnDestroy {
 
   private drawTribeIndex = 1;
 
-  private metricsHistory: MetricMessage[] = [];
-
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
@@ -319,7 +317,6 @@ export class HomePage implements OnDestroy {
 
   onMetrics(data: MetricMessage): void {
     this.latestMetrics = data;
-    this.metricsHistory.push(data);
     this.cdr.markForCheck();
   }
 
@@ -367,7 +364,6 @@ export class HomePage implements OnDestroy {
         const {grid, generation} = this.pendingStateLoad;
         this.pendingStateLoad = null;
         this.engine.loadSnapshot(grid, generation);
-        this.metricsHistory = [];
         this.latestMetrics = null;
       }
     }
@@ -515,6 +511,9 @@ export class HomePage implements OnDestroy {
         break;
       case 'setRecording':
         this.recording = ev.value as boolean;
+        if (this.recording && this.compressPool.length === 0) {
+          this.initCompressPool();
+        }
         break;
       case 'setGridSize': {
         const {cols, rows} = ev.value as {cols: number; rows: number};
@@ -524,7 +523,6 @@ export class HomePage implements OnDestroy {
           cols,
           rows
         };
-        this.metricsHistory = [];
         this.latestMetrics = null;
         this.clampBrushSize();
         break;
@@ -559,7 +557,6 @@ export class HomePage implements OnDestroy {
           this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
-        this.metricsHistory = [];
         this.latestMetrics = null;
         this.clampBrushSize();
         break;
@@ -593,7 +590,6 @@ export class HomePage implements OnDestroy {
           this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
-        this.metricsHistory = [];
         this.latestMetrics = null;
         this.clampBrushSize();
         break;
@@ -659,7 +655,6 @@ export class HomePage implements OnDestroy {
     this.quotaWarningLevel = 0;
     this.rebuilding = true;
     this.ruleset = {...this.ruleset};
-    this.metricsHistory = [];
     this.latestMetrics = null;
   }
 
@@ -758,7 +753,7 @@ export class HomePage implements OnDestroy {
         tribes: this.tribes.map(t => ({id: t.id,
           color: t.color})),
         rules: this.ruleset.rules,
-        metricsHistory: this.metricsHistory
+        metricsHistory: []
       }, transferables);
     });
   }
@@ -784,7 +779,6 @@ export class HomePage implements OnDestroy {
         this.clampBrushSize();
       } else {
         this.engine.loadSnapshot(grid, generation);
-        this.metricsHistory = [];
         this.latestMetrics = null;
       }
     } finally {

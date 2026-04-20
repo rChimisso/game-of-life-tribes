@@ -1,0 +1,1 @@
+export const RECORDING_MAX_FRAME_BYTES = 1024 * 1024 * 1024; // 1 GB

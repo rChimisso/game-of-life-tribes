@@ -122,8 +122,16 @@
     <!-- Grid size -->
     <div class="section">
       <h3 class="section-title">
-        Grid size<span class="section-desc">{{ gridCols }}&times;{{ gridRows }}</span>
+        Grid size <span class="section-desc">{{ vramTitleSize }} / {{ vramQuotaFormatted }}</span>
       </h3>
+      <div class="vram-bar" [title]="vramBarTooltip">
+        <div class="vram-bar-simulation" [style.width.%]="vramSimulationPct"></div>
+        <div class="vram-bar-recording" [style.width.%]="vramRecordingPct"></div>
+      </div>
+      <div class="vram-legend">
+        <span class="vram-legend-item"><span class="legend-dot legend-dot-simulation"></span>{{ vramSimulationFormatted }} simulation</span>
+        <span class="vram-legend-item"><span class="legend-dot legend-dot-recording"></span>{{ vramRecordingFormatted }} recording</span>
+      </div>
       <div class="grid-size-inputs">
         <label>
           Cols

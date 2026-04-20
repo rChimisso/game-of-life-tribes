@@ -2,7 +2,7 @@
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {Ruleset, Tribe} from '../../model/rule';
-import {BrushShape, CameraMessage, ChunkSealedMessage, ChunksSavingMessage, BackpressureMessage, DeviceLostMessage, DrawMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage, WorkerMessage} from '../../worker/webengine';
+import {BrushShape, ChunkSealedMessage, ChunksSavingMessage, BackpressureMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../worker/webengine';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -276,48 +276,40 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       ruleset: this.ruleset,
       speed: this.speed,
       running: this.state === 'running'
-    } satisfies WorkerMessage, [offscreen]);
+    }, [offscreen]);
 
-    this.worker.postMessage({type: 'setRecording',
-      recording: this.isRecording});
+    this.worker.postMessage({
+      type: 'setRecording',
+      recording: this.isRecording
+    });
 
     this.resetCamera();
 
     this.worker.onmessage = (ev: MessageEvent) => {
-      if (ev.data?.type === 'metrics') {
-        this.metrics.emit(ev.data as MetricMessage);
-      } else if (ev.data?.type === 'snapshot') {
-        this.snapshot.emit(ev.data as SnapshotMessage);
-      } else if (ev.data?.type === 'recording') {
-        this.recording.emit(ev.data as RecordingMessage);
-      } else if (ev.data?.type === 'limits') {
-        this.limits.emit(ev.data as LimitsMessage);
-      } else if (ev.data?.type === 'stepping') {
-        this.stepping.emit(ev.data as SteppingMessage);
-      } else if (ev.data?.type === 'chunksSaving') {
-        this.chunksSaving.emit(ev.data as ChunksSavingMessage);
-      } else if (ev.data?.type === 'backpressure') {
-        this.backpressure.emit(ev.data as BackpressureMessage);
-      } else if (ev.data?.type === 'storageQuota') {
-        this.storageQuota.emit(ev.data as StorageQuotaMessage);
-      } else if (ev.data?.type === 'chunkSealed') {
-        this.chunkSealed.emit(ev.data as ChunkSealedMessage);
-      } else if (ev.data?.type === 'uncompressedChunks') {
-        this.uncompressedChunks.emit(ev.data as UncompressedChunksMessage);
-      } else if (ev.data?.type === 'generation') {
-        this.generation.emit(ev.data as GenerationMessage);
-      } else if (ev.data?.type === 'rebuilding') {
-        this.rebuilding.emit(ev.data as RebuildingMessage);
-      } else if (ev.data?.type === 'deviceLost') {
-        this.deviceLost.emit(ev.data as DeviceLostMessage);
-      } else if (ev.data?.type === 'gpuError') {
-        this.gpuError.emit(ev.data as GpuErrorMessage);
+      switch (ev.data?.type) {
+        case 'metrics': this.metrics.emit(ev.data); break;
+        case 'snapshot': this.snapshot.emit(ev.data); break;
+        case 'recording': this.recording.emit(ev.data); break;
+        case 'limits': this.limits.emit(ev.data); break;
+        case 'stepping': this.stepping.emit(ev.data); break;
+        case 'chunksSaving': this.chunksSaving.emit(ev.data); break;
+        case 'backpressure': this.backpressure.emit(ev.data); break;
+        case 'storageQuota': this.storageQuota.emit(ev.data); break;
+        case 'chunkSealed': this.chunkSealed.emit(ev.data); break;
+        case 'uncompressedChunks': this.uncompressedChunks.emit(ev.data); break;
+        case 'generation': this.generation.emit(ev.data); break;
+        case 'rebuilding': this.rebuilding.emit(ev.data); break;
+        case 'deviceLost': this.deviceLost.emit(ev.data); break;
+        case 'gpuError': this.gpuError.emit(ev.data); break;
+        default: console.warn('Unknown message from worker:', ev.data); break;
       }
     };
 
     this.worker.onerror = (err: ErrorEvent) => {
-      this.gpuError.emit({type: 'gpuError',
-        reason: err.message || 'Worker crashed unexpectedly'});
+      this.gpuError.emit({
+        type: 'gpuError',
+        reason: err.message || 'Worker crashed unexpectedly'
+      });
     };
   }
 
@@ -334,8 +326,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public setRecording(recording: boolean): void {
-    this.worker?.postMessage({type: 'setRecording',
-      recording});
+    this.worker?.postMessage({
+      type: 'setRecording',
+      recording
+    });
   }
 
   public requestRecording(): void {
@@ -343,13 +337,17 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public stepBack(count: number): void {
-    this.worker?.postMessage({type: 'stepBack',
-      count});
+    this.worker?.postMessage({
+      type: 'stepBack',
+      count
+    });
   }
 
   public stepForward(count: number): void {
-    this.worker?.postMessage({type: 'stepForward',
-      count});
+    this.worker?.postMessage({
+      type: 'stepForward',
+      count
+    });
   }
 
   public cancelStepping(): void {
@@ -373,7 +371,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     if (!this.worker) {
       return;
     }
-
     if (changes.state) {
       this.worker.postMessage({type: 'setRunning',
         running: this.state === 'running'});
@@ -406,10 +403,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     const el = this.canvasRef.nativeElement;
     const rect = el.getBoundingClientRect();
     // Min scale (CSS px/cell): entire grid visible, no duplicates.
-    this.minScale = Math.max(
-      rect.width / this.ruleset.cols,
-      rect.height / this.ruleset.rows,
-    );
+    this.minScale = Math.max(rect.width / this.ruleset.cols, rect.height / this.ruleset.rows);
   }
 
   private resetCamera(): void {
@@ -427,7 +421,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       scale: this.scale * dpr,
       offsetX: this.offsetX,
       offsetY: this.offsetY
-    } satisfies CameraMessage);
+    });
   }
 
   private currentPinchDist(): number {
@@ -462,6 +456,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       shape: this.brushShape,
       fill: this.brushFill,
       tribes: this.drawTribes
-    } satisfies DrawMessage);
+    });
   }
 }

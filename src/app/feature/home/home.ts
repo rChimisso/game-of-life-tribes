@@ -139,7 +139,13 @@ export class HomePage implements OnDestroy {
 
   maxBytes = Infinity;
 
+  vramBudgetBytes = Infinity;
+
   frameByteSize = 0;
+
+  vramSimulationBytes = 0;
+
+  vramRecordingBytes = 0;
 
   recordingAvailable = true;
 
@@ -352,7 +358,10 @@ export class HomePage implements OnDestroy {
 
   onLimits(data: LimitsMessage): void {
     this.maxBytes = data.maxBytes;
+    this.vramBudgetBytes = data.vramBudgetBytes;
     this.frameByteSize = data.frameByteSize;
+    this.vramSimulationBytes = data.vramSimulationBytes;
+    this.vramRecordingBytes = data.vramRecordingBytes;
     this.recordingAvailable = data.recordingAvailable;
     if (!data.recordingAvailable && this.recording) {
       this.recording = false;
@@ -682,7 +691,7 @@ export class HomePage implements OnDestroy {
   }
 
   private clampBrushSize(): void {
-    const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
+    const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
     if (this.brushSize > max) {
       this.brushSize = max;
     }

@@ -11,6 +11,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import packageJson from '../../../../../../package.json';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
+import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
 import {BrushShape, MetricMessage} from '../../worker/webengine';
 
 export interface SidebarEvent {
@@ -142,6 +143,15 @@ export class Sidebar implements OnChanges {
   public maxBytes = Infinity;
 
   @Input()
+  public vramBudgetBytes = Infinity;
+
+  @Input()
+  public vramSimulationBytes = 0;
+
+  @Input()
+  public vramRecordingBytes = 0;
+
+  @Input()
   public storagePendingRawBytes = 0;
 
   @Input()
@@ -208,6 +218,37 @@ export class Sidebar implements OnChanges {
     const compressed = this.formatBytesDecimal(this.storageCompressedBytes);
     const quota = this.formatBytes(this.storageQuotaBytes);
     return `${pending} pending / ${compressed} compressed / ${quota} quota`;
+  }
+
+  public get vramTitleSize(): string {
+    return this.formatBytes(this.vramSimulationBytes + this.vramRecordingBytes);
+  }
+
+  public get vramQuotaFormatted(): string {
+    return Number.isFinite(this.vramBudgetBytes) ? this.formatBytes(this.vramBudgetBytes) : 'Detecting…';
+  }
+
+  public get vramSimulationFormatted(): string {
+    return this.formatBytes(this.vramSimulationBytes);
+  }
+
+  public get vramRecordingFormatted(): string {
+    return this.formatBytes(this.vramRecordingBytes);
+  }
+
+  public get vramSimulationPct(): number {
+    return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramSimulationBytes / this.vramBudgetBytes) * 100 : 0;
+  }
+
+  public get vramRecordingPct(): number {
+    return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramRecordingBytes / this.vramBudgetBytes) * 100 : 0;
+  }
+
+  public get vramBarTooltip(): string {
+    const simulation = this.vramSimulationFormatted;
+    const recording = this.vramRecordingFormatted;
+    const quota = this.vramQuotaFormatted;
+    return `${simulation} simulation / ${recording} recording / ${quota} budget`;
   }
 
   /**
@@ -337,8 +378,6 @@ export class Sidebar implements OnChanges {
     'ffffff'
   ];
 
-  private resizing = false;
-
   public get hasUnappliedGridSize(): boolean {
     return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
   }
@@ -359,7 +398,7 @@ export class Sidebar implements OnChanges {
     if (this.recordingAvailable) {
       return null;
     }
-    return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${(1024 * 1024 * 1024).toLocaleString()})`;
+    return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${RECORDING_MAX_FRAME_BYTES.toLocaleString()})`;
   }
 
   public get mp4GateMessage(): string | null {
@@ -816,7 +855,6 @@ export class Sidebar implements OnChanges {
   public onResizeStart(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.resizing = true;
     document.body.style.userSelect = 'none';
     const startX = event.clientX;
     const startWidth = this.sidebarWidth;
@@ -831,7 +869,6 @@ export class Sidebar implements OnChanges {
     const onUp = (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      this.resizing = false;
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMove, true);
       document.removeEventListener('mouseup', onUp, true);

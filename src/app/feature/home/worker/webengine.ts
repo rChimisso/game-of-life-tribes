@@ -9,9 +9,12 @@
  * - Toroidal: world wraps in both axes.
  */
 
+import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import renderWgsl from './render.wgsl';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
+
+export {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 
 // ---------------------------------------------------------------------------
 //  Public message contracts
@@ -158,8 +161,11 @@ export interface RecordingMessage {
 export interface LimitsMessage {
   type: 'limits';
   maxBytes: number;
+  vramBudgetBytes: number;
   frameByteSize: number;
   recordingAvailable: boolean;
+  vramSimulationBytes: number;
+  vramRecordingBytes: number;
 }
 
 export interface SteppingMessage {
@@ -316,7 +322,7 @@ let lastProgressTime = 0; // For periodic generation updates during skip & max s
 let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max speed
 
 // GPU chunk accumulation
-let chunkGpuBuffer: GPUBuffer;
+let chunkGpuBuffer: GPUBuffer | null = null;
 let chunkFrameIndex = 0;
 let chunkGenerations: number[] = [];
 let chunkFrameCapacity = 64;
@@ -340,14 +346,124 @@ let sealEpoch = 0; // Incremented on rebuild; stale callbacks silently bail.
 const COMPRESS_MIN_BYTES = 4096; // Only attempt compression above this size
 const COMPRESS_SAVINGS_RATIO = 0.90; // Keep compressed only if <= 90% of original
 
-// Recording gate: frames larger than 1 GB cannot be recorded
-const RECORDING_MAX_FRAME_BYTES = 1024 * 1024 * 1024; // 1 GB
+const MAX_TRIBES = 256;
+const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
+const HISTOGRAM_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
+const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 
-// Chunk + staging buffer cap (each buffer)
+// Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
+// Oversized frames fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
 const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
+
+// Yield between major rebuild allocations so the browser can catch up.
+const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024; // 512 MB
 
 // Storage cap for OPFS
 const STORAGE_CAP = 128 * 1024 * 1024 * 1024; // 128 GB
+
+let rebuildAllocatedBytesSinceYield = 0;
+let rebuildMajorAllocationsRemaining = 0;
+let rebuildPendingAllocationBuffers: GPUBuffer[] = [];
+
+async function waitForGpuQueueIdle(): Promise<void> {
+  await device.queue.onSubmittedWorkDone();
+}
+
+function resetRebuildAllocationTracking(includeRecordingBuffers: boolean): void {
+  rebuildAllocatedBytesSinceYield = 0;
+  rebuildMajorAllocationsRemaining = 2 + (includeRecordingBuffers ? 1 + STAGING_RING_SIZE : 0);
+  rebuildPendingAllocationBuffers = [];
+}
+
+async function waitForTrackedBufferAllocations(): Promise<void> {
+  if (rebuildPendingAllocationBuffers.length === 0) {
+    return;
+  }
+  const encoder = device.createCommandEncoder();
+  for (const buffer of rebuildPendingAllocationBuffers) {
+    encoder.clearBuffer(buffer);
+  }
+  device.queue.submit([encoder.finish()]);
+  await waitForGpuQueueIdle();
+  rebuildPendingAllocationBuffers = [];
+}
+
+async function trackMajorBufferAllocation(byteSize: number, buffer: GPUBuffer): Promise<void> {
+  if (!rebuilding || rebuildMajorAllocationsRemaining <= 0) {
+    return;
+  }
+  rebuildAllocatedBytesSinceYield += byteSize;
+  rebuildMajorAllocationsRemaining--;
+  rebuildPendingAllocationBuffers.push(buffer);
+  if (rebuildAllocatedBytesSinceYield >= majorBufferAllocationYieldBytes() && rebuildMajorAllocationsRemaining > 0) {
+    await waitForTrackedBufferAllocations();
+    rebuildAllocatedBytesSinceYield = 0;
+  }
+}
+
+function majorBufferAllocationYieldBytes(): number {
+  return Math.min(maxSimulationBufferBytes(), MAJOR_BUFFER_ALLOCATION_YIELD_BYTES);
+}
+
+function maxSimulationBufferBytes(): number {
+  return Math.min(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
+}
+
+function maxRecordingBufferBytes(): number {
+  return Math.min(maxSimulationBufferBytes(), RECORDING_MAX_FRAME_BYTES);
+}
+
+function vramBudgetBytes(): number {
+  return Math.max(maxSimulationBufferBytes() * 2, maxRecordingBufferBytes() * 6);
+}
+
+function recordingAvailableForCurrentFrame(): boolean {
+  return frameByteSize > 0 && frameByteSize <= maxRecordingBufferBytes();
+}
+
+function simulationBufferBytes(): number {
+  if (frameByteSize <= 0) {
+    return 0;
+  }
+  return frameByteSize * 2 +
+    UNIFORM_SIZE +
+    TRIBE_COLOR_BUFFER_SIZE +
+    BRUSH_UNIFORM_SIZE +
+    HISTOGRAM_BUFFER_SIZE * 2 +
+    BOUNDARY_BUFFER_SIZE * 2;
+}
+
+function recordingBufferBytes(): number {
+  if (chunkFrameCapacity < 1 || frameByteSize <= 0) {
+    return 0;
+  }
+  const chunkBytes = chunkFrameCapacity * frameByteSize;
+  return chunkBytes * (1 + STAGING_RING_SIZE);
+}
+
+function destroyRecordingBuffers(): void {
+  chunkGpuBuffer?.destroy();
+  chunkGpuBuffer = null;
+  for (const buf of stagingRing) {
+    buf?.destroy();
+  }
+  stagingRing = [];
+  stagingAvailable = [];
+  chunkFrameCapacity = 0;
+  chunkFrameIndex = 0;
+  chunkGenerations = [];
+}
+
+function destroyRebuildableBuffers(): void {
+  gridBufferA?.destroy();
+  gridBufferB?.destroy();
+  histogramBuffer?.destroy();
+  histogramReadBuffer?.destroy();
+  boundaryBuffer?.destroy();
+  boundaryReadBuffer?.destroy();
+  brushUniformBuffer?.destroy();
+  destroyRecordingBuffers();
+}
 
 function updateInflightSeals(delta: number): void {
   const wasSaving = inflightSeals > 0;
@@ -362,6 +478,16 @@ function updateInflightSeals(delta: number): void {
 }
 
 function checkBackpressure(): void {
+  if (chunkFrameCapacity < 1 || stagingRing.length === 0) {
+    if (backpressureActive) {
+      backpressureActive = false;
+      self.postMessage({
+        type: 'backpressure',
+        active: false
+      });
+    }
+    return;
+  }
   const stagingFull = !stagingAvailable.some(v => v) && chunkFrameIndex >= chunkFrameCapacity;
   const opfsFull = pendingOpfsWrites >= MAX_PENDING_OPFS_WRITES;
   let pressure: boolean;
@@ -821,18 +947,20 @@ function gridBufferSize(): number {
   return packedCols * rows * 4; // 4 cells packed per u32, row-packed layout
 }
 
-function createGridBuffers(): void {
+async function createGridBuffers(): Promise<void> {
   const byteSize = gridBufferSize();
 
   gridBufferA = device.createBuffer({
     size: byteSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
+  await trackMajorBufferAllocation(byteSize, gridBufferA);
 
   gridBufferB = device.createBuffer({
     size: byteSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
+  await trackMajorBufferAllocation(byteSize, gridBufferB);
 
   // Dead tribe always maps to index 0 → packed representation is all-zero.
   // GPU clearBuffer zeroes the buffers with no JS heap allocation.
@@ -845,7 +973,7 @@ function createGridBuffers(): void {
 }
 
 function createTribeColorBuffer(): void {
-  const data = new Uint32Array(256);
+  const data = new Uint32Array(MAX_TRIBES);
   for (let i = 0; i < tribes.length; i++) {
     const hex = tribes[i]!.color;
     const r = parseInt(hex.substring(0, 2), 16);
@@ -1065,11 +1193,11 @@ function createMetricsPipelines(): void {
   });
 
   histogramBuffer = device.createBuffer({
-    size: 256 * 4, // 256 tribes max
+    size: HISTOGRAM_BUFFER_SIZE, // 256 tribes max
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
   histogramReadBuffer = device.createBuffer({
-    size: 256 * 4,
+    size: HISTOGRAM_BUFFER_SIZE,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
   });
 
@@ -1101,11 +1229,11 @@ function createMetricsPipelines(): void {
   });
 
   boundaryBuffer = device.createBuffer({
-    size: 4,
+    size: BOUNDARY_BUFFER_SIZE,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
   boundaryReadBuffer = device.createBuffer({
-    size: 4,
+    size: BOUNDARY_BUFFER_SIZE,
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
   });
 
@@ -1263,6 +1391,7 @@ function createBrushPipeline(): void {
       entryPoint: 'main'}
   });
 
+  brushUniformBuffer?.destroy();
   brushUniformBuffer = device.createBuffer({
     size: BRUSH_UNIFORM_SIZE,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -1456,23 +1585,32 @@ function rleDecodeFrame(stored: Uint8Array): Uint8Array {
 
 function computeChunkCapacity(): void {
   frameByteSize = gridBufferSize();
-  const maxChunkBytes = Math.min(CHUNK_BUFFER_CAP, device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
+  if (!recordingAvailableForCurrentFrame()) {
+    chunkFrameCapacity = 0;
+    return;
+  }
+  const maxChunkBytes = Math.min(Math.max(CHUNK_BUFFER_CAP, frameByteSize), maxRecordingBufferBytes());
   chunkFrameCapacity = Math.max(1, Math.floor(maxChunkBytes / frameByteSize));
 }
 
 function postRecordingLimits(): void {
-  const maxBufferBytes = Math.min(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
-  const recordingAvailable = frameByteSize <= RECORDING_MAX_FRAME_BYTES;
+  const recordingAvailable = recordingAvailableForCurrentFrame();
   self.postMessage({
     type: 'limits',
-    maxBytes: maxBufferBytes,
+    maxBytes: maxSimulationBufferBytes(),
+    vramBudgetBytes: vramBudgetBytes(),
     frameByteSize,
-    recordingAvailable
+    recordingAvailable,
+    vramSimulationBytes: simulationBufferBytes(),
+    vramRecordingBytes: recordingBufferBytes()
   } satisfies LimitsMessage);
 }
 
 function canRecord(): boolean {
-  if (frameByteSize > RECORDING_MAX_FRAME_BYTES) {
+  if (!recordingAvailableForCurrentFrame()) {
+    return false;
+  }
+  if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || stagingRing.length === 0) {
     return false;
   }
   if (pendingOpfsWrites >= MAX_PENDING_OPFS_WRITES) {
@@ -1486,7 +1624,7 @@ function canRecord(): boolean {
 }
 
 function recordGeneration(gen: number): void {
-  if (chunkFrameIndex >= chunkFrameCapacity) {
+  if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || chunkFrameIndex >= chunkFrameCapacity) {
     return; // Safety: prevent out-of-bounds GPU copy
   }
   const currentGrid = pingPong ? gridBufferB : gridBufferA;
@@ -1499,7 +1637,7 @@ function recordGeneration(gen: number): void {
 }
 
 function sealCurrentChunk(): void {
-  if (chunkFrameIndex === 0) {
+  if (chunkGpuBuffer === null || chunkFrameIndex === 0 || stagingRing.length === 0) {
     return;
   }
   const idx = stagingAvailable.indexOf(true);
@@ -1663,6 +1801,7 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
   const dir = await ensureOpfsDir();
   for (const name of filenames) {
     try {
+      console.log(`Trying to remove OPFS entry ${name}...`);
       await dir.removeEntry(name);
     } catch (e) {
       console.warn(`Failed to remove OPFS entry ${name}:`, e);
@@ -1673,6 +1812,7 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
 async function resetOpfsDir(): Promise<void> {
   const root = await navigator.storage.getDirectory();
   try {
+    console.log(`Trying to remove OPFS directory ${OPFS_DIR}...`);
     await root.removeEntry(OPFS_DIR, {recursive: true});
   } catch (e) {
     console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
@@ -2289,12 +2429,14 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
       reason} satisfies DeviceLostMessage);
   });
 
-  const maxBufferBytes = Math.min(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
   self.postMessage({
     type: 'limits',
-    maxBytes: maxBufferBytes,
+    maxBytes: maxSimulationBufferBytes(),
+    vramBudgetBytes: vramBudgetBytes(),
     frameByteSize: 0,
-    recordingAvailable: true
+    recordingAvailable: true,
+    vramSimulationBytes: 0,
+    vramRecordingBytes: 0
   } satisfies LimitsMessage);
 
   context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -2307,26 +2449,28 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   });
 }
 
-function createChunkBuffer(): void {
-  computeChunkCapacity();
+async function createChunkBuffer(): Promise<void> {
   chunkGpuBuffer = device.createBuffer({
     size: chunkFrameCapacity * frameByteSize,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
+  await trackMajorBufferAllocation(chunkFrameCapacity * frameByteSize, chunkGpuBuffer);
   chunkFrameIndex = 0;
   chunkGenerations = [];
 }
 
-function createStagingRing(): void {
+async function createStagingRing(): Promise<void> {
   const size = chunkFrameCapacity * frameByteSize;
   stagingRing = [];
   stagingAvailable = [];
   for (let i = 0; i < STAGING_RING_SIZE; i++) {
-    stagingRing.push(device.createBuffer({
+    const stagingBuffer = device.createBuffer({
       size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-    }));
+    });
+    stagingRing.push(stagingBuffer);
     stagingAvailable.push(true);
+    await trackMajorBufferAllocation(size, stagingBuffer);
   }
 }
 
@@ -2334,13 +2478,15 @@ function initOpfs(): void {
   resetOpfsDir();
 }
 
-function buildPipelines(): void {
+async function buildPipelines(): Promise<void> {
   uniformBuffer = device.createBuffer({
     size: UNIFORM_SIZE,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
   });
 
-  createGridBuffers();
+  computeChunkCapacity();
+
+  await createGridBuffers();
   createTribeColorBuffer();
 
   createRenderPipeline();
@@ -2349,8 +2495,14 @@ function buildPipelines(): void {
   createBrushPipeline();
   createMetricsPipelines();
   initOpfs();
-  createChunkBuffer();
-  createStagingRing();
+  if (recordingAvailableForCurrentFrame()) {
+    await createChunkBuffer();
+    await createStagingRing();
+  } else {
+    destroyRecordingBuffers();
+    isRecording = false;
+  }
+  await waitForTrackedBufferAllocations();
   postRecordingLimits();
 }
 
@@ -2362,33 +2514,33 @@ async function rebuildForNewRuleset(): Promise<void> {
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
   // `rebuilding` flag and bails out before touching GPU state.
-  await new Promise<void>(r => setTimeout(r, 0));
+  await waitForGpuQueueIdle();
 
   if (deviceLost) {
     // Device was lost during yield — nothing we can rebuild.
     return;
   }
 
-  gridBufferA?.destroy();
-  gridBufferB?.destroy();
-  histogramBuffer?.destroy();
-  histogramReadBuffer?.destroy();
-  boundaryBuffer?.destroy();
-  boundaryReadBuffer?.destroy();
-  chunkGpuBuffer?.destroy();
-  for (const buf of stagingRing) {
-    buf?.destroy();
-  }
+  destroyRebuildableBuffers();
+
+  computeChunkCapacity();
+  resetRebuildAllocationTracking(recordingAvailableForCurrentFrame());
 
   try {
-    createGridBuffers();
+    await createGridBuffers();
     createTribeColorBuffer();
     createComputePipeline();
     createBrushPipeline();
     createRenderBindGroups();
     createMetricsPipelines();
-    createChunkBuffer();
-    createStagingRing();
+    if (recordingAvailableForCurrentFrame()) {
+      await createChunkBuffer();
+      await createStagingRing();
+    } else {
+      destroyRecordingBuffers();
+      isRecording = false;
+    }
+    await waitForTrackedBufferAllocations();
     postRecordingLimits();
     resetRecording(genCounter);
   } catch (err) {
@@ -2399,8 +2551,10 @@ async function rebuildForNewRuleset(): Promise<void> {
     self.postMessage({type: 'gpuError',
       reason} satisfies GpuErrorMessage);
     try {
+      destroyRebuildableBuffers();
+      resetRebuildAllocationTracking(false);
       // Retry core-only: grid + render + compute, no recording.
-      createGridBuffers();
+      await createGridBuffers();
       createTribeColorBuffer();
       createComputePipeline();
       createBrushPipeline();
@@ -2408,8 +2562,9 @@ async function rebuildForNewRuleset(): Promise<void> {
       createMetricsPipelines();
       // Disable recording since chunk/staging buffers failed.
       isRecording = false;
-      chunkFrameCapacity = 0;
       frameByteSize = gridBufferSize();
+      destroyRecordingBuffers();
+      await waitForTrackedBufferAllocations();
       postRecordingLimits();
       resetRecording(genCounter);
     } catch (e) {
@@ -2432,7 +2587,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     case 'init': {
       initRuleset(m.ruleset);
       await initWebGPU(m.canvas);
-      buildPipelines();
+      await buildPipelines();
 
       simulationRunning = m.running;
       targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
@@ -2602,10 +2757,10 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'setRecording': {
-      if (m.recording && !isRecording) {
+      if (m.recording && recordingAvailableForCurrentFrame() && !isRecording) {
         isRecording = true;
         postStorageQuota();
-      } else if (!m.recording) {
+      } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
         isRecording = false;
       }
       break;
@@ -2650,7 +2805,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         genCounter = chunkGenerations[frameInChunk]!;
 
         const bEnc = device.createCommandEncoder();
-        bEnc.copyBufferToBuffer(chunkGpuBuffer, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
+        bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
         device.queue.submit([bEnc.finish()]);
       } else {
         // Target is in a sealed chunk — wait for in-flight seals to ensure OPFS is up-to-date.
@@ -2689,14 +2844,14 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
         // Load frames 0..frameInChunk into the GPU chunk buffer.
         const prefixBytes = (frameInChunk + 1) * frameByteSize;
-        device.queue.writeBuffer(chunkGpuBuffer, 0, new Uint8Array(chunkData, 0, prefixBytes));
+        device.queue.writeBuffer(chunkGpuBuffer!, 0, new Uint8Array(chunkData, 0, prefixBytes));
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
         genCounter = chunkGenerations[frameInChunk]!;
 
         // Copy target frame to the grid.
         const bEnc = device.createCommandEncoder();
-        bEnc.copyBufferToBuffer(chunkGpuBuffer, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
+        bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
         device.queue.submit([bEnc.finish()]);
 
         // Delete the target chunk and all subsequent sealed chunks from OPFS.

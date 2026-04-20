@@ -824,7 +824,7 @@ export class Sidebar implements OnChanges {
     const onMove = (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      this.sidebarWidth = Math.max(220, Math.min(600, startWidth + e.clientX - startX));
+      this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
       this.cdr.detectChanges();
     };
 

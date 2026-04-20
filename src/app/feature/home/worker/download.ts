@@ -732,7 +732,7 @@ async function findVideoConfig(
 // ---------------------------------------------------------------------------
 
 interface Mp4StreamEncoder {
-  encodeFrame(frame: Uint8Array): void;
+  encodeFrame(frame: Uint8Array): Promise<void>;
   finalize(): Promise<ArrayBuffer | null>;
 }
 
@@ -792,7 +792,7 @@ async function createMp4StreamEncoder(
   let frameIndex = 0;
 
   return {
-    encodeFrame(frame: Uint8Array): void {
+    async encodeFrame(frame: Uint8Array): Promise<void> {
       renderFrameToImageData(frame, cols, rows, colorMap, mp4ImageData, vw, vh, renderScale);
       ctx.putImageData(mp4ImageData, 0, 0);
       const videoFrame = new VideoFrame(offscreen, {
@@ -802,6 +802,14 @@ async function createMp4StreamEncoder(
       encoder.encode(videoFrame);
       videoFrame.close();
       frameIndex++;
+      // Backpressure: wait for the encoder to drain when the queue is too deep.
+      if (encoder.encodeQueueSize > 10) {
+        await new Promise<void>(resolve => {
+          encoder.ondequeue = () => {
+            resolve();
+          };
+        });
+      }
     },
     async finalize(): Promise<ArrayBuffer | null> {
       await encoder.flush();
@@ -1113,7 +1121,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
             if (mp4Encoder) {
               try {
-                mp4Encoder.encodeFrame(frame);
+                await mp4Encoder.encodeFrame(frame);
               } catch (e) {
               // Frame encoding failed — discard MP4 for the rest of the export.
                 console.warn('MP4 frame encoding failed, disabling MP4:', e);

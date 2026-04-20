@@ -30,7 +30,7 @@
         <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
           <mat-icon>skip_previous</mat-icon>
         </button>
-        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" />
+        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()" />
         <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()">
           <mat-icon>skip_next</mat-icon>
         </button>
@@ -147,7 +147,7 @@
 
     <!-- Presets -->
     <div class="section">
-      <h3 class="section-title shortcuts-toggle" (click)="presetsExpanded = !presetsExpanded">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('presets')">
         <mat-icon class="expand-icon">{{ presetsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Presets
       </h3>
@@ -173,7 +173,7 @@
 
     <!-- Tribes editor -->
     <div class="section">
-      <h3 class="section-title shortcuts-toggle" (click)="tribesExpanded = !tribesExpanded">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('tribes')">
         <mat-icon class="expand-icon">{{ tribesExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Tribes
       </h3>
@@ -248,7 +248,7 @@
 
     <!-- Rules editor -->
     <div class="section">
-      <h3 class="section-title shortcuts-toggle" (click)="rulesExpanded = !rulesExpanded">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('rules')">
         <mat-icon class="expand-icon">{{ rulesExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Rules
       </h3>
@@ -301,7 +301,7 @@
 
     <!-- Metrics -->
     <div class="section">
-      <h3 class="section-title shortcuts-toggle" (click)="metricsExpanded = !metricsExpanded">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('metrics')">
         <mat-icon class="expand-icon">{{ metricsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Metrics
       </h3>
@@ -390,13 +390,13 @@
         <span class="storage-legend-item"><span class="legend-dot legend-dot-compressed"></span>{{ storageCompressedFormatted }} compressed</span>
       </div>
       <div class="download-checks">
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadSaves">Saves</mat-checkbox>
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadCsv">CSV</mat-checkbox>
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadPng">PNG</mat-checkbox>
-        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4">MP4</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadSaves" (ngModelChange)="savePrefs()">Saves</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadCsv" (ngModelChange)="savePrefs()">CSV</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadPng" (ngModelChange)="savePrefs()">PNG</mat-checkbox>
+        <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()">MP4</mat-checkbox>
         <label class="mp4-fps-label">
           <span class="fps-text">FPS</span>
-          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4 || downloading" [(ngModel)]="mp4Fps" />
+          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4 || downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
         </label>
       </div>
       @if (downloadProgress >= 0) {
@@ -447,7 +447,7 @@
 
     <!-- Shortcuts -->
     <div class="section shortcuts-section">
-      <h3 class="section-title shortcuts-toggle" (click)="shortcutsExpanded = !shortcutsExpanded">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('shortcuts')">
         <mat-icon class="expand-icon">{{ shortcutsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
         Shortcuts
       </h3>

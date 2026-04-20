@@ -362,7 +362,11 @@ export class Sidebar implements OnChanges {
     return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
   }
 
-  public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {}
+  private static readonly PREFS_KEY = 'golt-simfs';
+
+  public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
+    this.loadPrefs();
+  }
 
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['ruleset'] && this.ruleset) {
@@ -955,6 +959,84 @@ export class Sidebar implements OnChanges {
       case 'or':
         clause.clauses.forEach(c => this.collectClauseTribes(c, ids));
         break;
+    }
+  }
+
+  public toggleSection(section: 'presets' | 'tribes' | 'rules' | 'metrics' | 'shortcuts'): void {
+    switch (section) {
+      case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
+      case 'tribes': this.tribesExpanded = !this.tribesExpanded; break;
+      case 'rules': this.rulesExpanded = !this.rulesExpanded; break;
+      case 'metrics': this.metricsExpanded = !this.metricsExpanded; break;
+      case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
+    }
+    this.savePrefs();
+  }
+
+  public savePrefs(): void {
+    try {
+      const existing = JSON.parse(localStorage.getItem(Sidebar.PREFS_KEY) ?? '{}');
+      localStorage.setItem(Sidebar.PREFS_KEY, JSON.stringify({
+        ...existing,
+        shortcutsExpanded: this.shortcutsExpanded,
+        presetsExpanded: this.presetsExpanded,
+        tribesExpanded: this.tribesExpanded,
+        rulesExpanded: this.rulesExpanded,
+        metricsExpanded: this.metricsExpanded,
+        downloadCsv: this.downloadCsv,
+        downloadSaves: this.downloadSaves,
+        downloadMp4: this.downloadMp4,
+        downloadPng: this.downloadPng,
+        mp4Fps: this.mp4Fps,
+        skipAmount: this.skipAmount
+      }));
+    } catch (e) {
+      console.warn('Failed to save sidebar preferences:', e);
+    }
+  }
+
+  private loadPrefs(): void {
+    try {
+      const raw = localStorage.getItem(Sidebar.PREFS_KEY);
+      if (!raw) {
+        return;
+      }
+      const p = JSON.parse(raw);
+      if (typeof p.shortcutsExpanded === 'boolean') {
+        this.shortcutsExpanded = p.shortcutsExpanded;
+      }
+      if (typeof p.presetsExpanded === 'boolean') {
+        this.presetsExpanded = p.presetsExpanded;
+      }
+      if (typeof p.tribesExpanded === 'boolean') {
+        this.tribesExpanded = p.tribesExpanded;
+      }
+      if (typeof p.rulesExpanded === 'boolean') {
+        this.rulesExpanded = p.rulesExpanded;
+      }
+      if (typeof p.metricsExpanded === 'boolean') {
+        this.metricsExpanded = p.metricsExpanded;
+      }
+      if (typeof p.downloadCsv === 'boolean') {
+        this.downloadCsv = p.downloadCsv;
+      }
+      if (typeof p.downloadSaves === 'boolean') {
+        this.downloadSaves = p.downloadSaves;
+      }
+      if (typeof p.downloadMp4 === 'boolean') {
+        this.downloadMp4 = p.downloadMp4;
+      }
+      if (typeof p.downloadPng === 'boolean') {
+        this.downloadPng = p.downloadPng;
+      }
+      if (typeof p.mp4Fps === 'number' && p.mp4Fps >= 1 && p.mp4Fps <= 60) {
+        this.mp4Fps = p.mp4Fps;
+      }
+      if (typeof p.skipAmount === 'number' && p.skipAmount >= 1) {
+        this.skipAmount = p.skipAmount;
+      }
+    } catch (e) {
+      console.warn('Failed to load sidebar preferences:', e);
     }
   }
 }

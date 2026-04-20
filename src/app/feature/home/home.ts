@@ -185,7 +185,10 @@ export class HomePage implements OnDestroy {
     return this.maxSpeed ? -1 : this.speed;
   }
 
+  private static readonly PREFS_KEY = 'golt-sim-prefs';
+
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
+    this.loadPrefs();
     document.addEventListener('keydown', this.boundKeydown, true);
   }
 
@@ -311,6 +314,7 @@ export class HomePage implements OnDestroy {
       ev.preventDefault();
       ev.stopPropagation();
       (document.activeElement as HTMLElement)?.blur?.();
+      this.savePrefs();
       this.cdr.markForCheck();
     }
   }
@@ -505,12 +509,14 @@ export class HomePage implements OnDestroy {
       case 'setSpeed':
         this.speed = ev.value as number;
         this.maxSpeed = false;
+        this.savePrefs();
         break;
       case 'setMaxSpeed':
         this.maxSpeed = ev.value as boolean;
         break;
       case 'setRecording':
         this.recording = ev.value as boolean;
+        this.savePrefs();
         if (this.recording && this.compressPool.length === 0) {
           this.initCompressPool();
         }
@@ -575,9 +581,11 @@ export class HomePage implements OnDestroy {
         break;
       case 'setBrushShape':
         this.brushShape = ev.value as BrushShape;
+        this.savePrefs();
         break;
       case 'setBrushFill':
         this.brushFill = ev.value as 'full' | 'spray' | 'outline';
+        this.savePrefs();
         break;
       case 'applyPreset': {
         const preset = ev.value as Preset;
@@ -902,6 +910,51 @@ export class HomePage implements OnDestroy {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  private loadPrefs(): void {
+    try {
+      const raw = localStorage.getItem(HomePage.PREFS_KEY);
+      if (!raw) {
+        return;
+      }
+      const p = JSON.parse(raw);
+      if (typeof p.speed === 'number' && p.speed >= 1) {
+        this.speed = p.speed;
+      }
+      if (typeof p.recording === 'boolean') {
+        this.recording = p.recording;
+      }
+      if ([
+        'square',
+        'round',
+        'diamond',
+        'vline',
+        'hline'
+      ].includes(p.brushShape)) {
+        this.brushShape = p.brushShape;
+      }
+      if (['full', 'spray', 'outline'].includes(p.brushFill)) {
+        this.brushFill = p.brushFill;
+      }
+    } catch (e) {
+      console.warn('Failed to load home preferences:', e);
+    }
+  }
+
+  private savePrefs(): void {
+    try {
+      const existing = JSON.parse(localStorage.getItem(HomePage.PREFS_KEY) ?? '{}');
+      localStorage.setItem(HomePage.PREFS_KEY, JSON.stringify({
+        ...existing,
+        speed: this.speed,
+        recording: this.recording,
+        brushShape: this.brushShape,
+        brushFill: this.brushFill
+      }));
+    } catch (e) {
+      console.warn('Failed to save home preferences:', e);
+    }
   }
 
   private readonly boundKeydown = (ev: KeyboardEvent) => this.handleKeydown(ev);

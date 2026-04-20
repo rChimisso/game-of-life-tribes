@@ -958,6 +958,8 @@ const HISTOGRAM_WGSL = `
 const COLS: u32 = ${0}u; // placeholder, replaced at creation time
 const ROWS: u32 = ${0}u; // placeholder, replaced at creation time
 
+var<workgroup> localHist: array<atomic<u32>, 256>;
+
 fn readCell(x: u32, y: u32) -> u32 {
   let packed_cols = (COLS + 3u) / 4u;
   let wordIdx = y * packed_cols + (x >> 2u);
@@ -966,12 +968,27 @@ fn readCell(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(16, 16)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
+fn main(
+  @builtin(global_invocation_id) gid: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {
+  // Cooperatively zero the workgroup-local histogram (256 bins, 256 threads).
+  atomicStore(&localHist[lid], 0u);
+  workgroupBarrier();
+
   let x = gid.x;
   let y = gid.y;
-  if (x >= COLS || y >= ROWS) { return; }
-  let tribe = readCell(x, y);
-  atomicAdd(&hist[tribe], 1u);
+  if (x < COLS && y < ROWS) {
+    let tribe = readCell(x, y);
+    atomicAdd(&localHist[tribe], 1u);
+  }
+  workgroupBarrier();
+
+  // Flush nonzero local bins to the global histogram.
+  let count = atomicLoad(&localHist[lid]);
+  if (count > 0u) {
+    atomicAdd(&hist[lid], count);
+  }
 }
 `;
 
@@ -983,6 +1000,8 @@ function generateBoundaryWgsl(): string {
 const COLS: u32 = ${cols}u;
 const ROWS: u32 = ${rows}u;
 
+var<workgroup> localCount: atomic<u32>;
+
 fn readCell(x: u32, y: u32) -> u32 {
   let packed_cols = (COLS + 3u) / 4u;
   let wordIdx = y * packed_cols + (x >> 2u);
@@ -991,22 +1010,43 @@ fn readCell(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(16, 16)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
+fn main(
+  @builtin(global_invocation_id) gid: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {
+  if (lid == 0u) {
+    atomicStore(&localCount, 0u);
+  }
+  workgroupBarrier();
+
   let x = gid.x;
   let y = gid.y;
-  if (x >= COLS || y >= ROWS) { return; }
-  let self_tribe = readCell(x, y);
+  if (x < COLS && y < ROWS) {
+    var edges = 0u;
+    let self_tribe = readCell(x, y);
 
-  // Check right neighbor.
-  let rx = (x + 1u) % COLS;
-  if (readCell(rx, y) != self_tribe) {
-    atomicAdd(&boundary, 1u);
+    // Check right neighbor.
+    if (readCell((x + 1u) % COLS, y) != self_tribe) {
+      edges += 1u;
+    }
+
+    // Check bottom neighbor.
+    if (readCell(x, (y + 1u) % ROWS) != self_tribe) {
+      edges += 1u;
+    }
+
+    if (edges > 0u) {
+      atomicAdd(&localCount, edges);
+    }
   }
+  workgroupBarrier();
 
-  // Check bottom neighbor.
-  let by = (y + 1u) % ROWS;
-  if (readCell(x, by) != self_tribe) {
-    atomicAdd(&boundary, 1u);
+  // One thread flushes the workgroup sum to the global counter.
+  if (lid == 0u) {
+    let sum = atomicLoad(&localCount);
+    if (sum > 0u) {
+      atomicAdd(&boundary, sum);
+    }
   }
 }
 `;
@@ -1625,7 +1665,7 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
     try {
       await dir.removeEntry(name);
     } catch (e) {
-      console.warn('Failed to remove OPFS entry:', name, e);
+      console.warn(`Failed to remove OPFS entry ${name}:`, e);
     }
   }
 }
@@ -1635,7 +1675,7 @@ async function resetOpfsDir(): Promise<void> {
   try {
     await root.removeEntry(OPFS_DIR, {recursive: true});
   } catch (e) {
-    console.warn('Failed to remove OPFS directory:', e);
+    console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
   }
   opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
 }
@@ -1999,8 +2039,10 @@ function mainLoop(now: number): void {
       if (stuck) {
         if (!backpressureActive) {
           backpressureActive = true;
-          self.postMessage({type: 'backpressure',
-            active: true} satisfies BackpressureMessage);
+          self.postMessage({
+            type: 'backpressure',
+            active: true
+          });
         }
         if (now - lastProgressTime >= 1000) {
           lastProgressTime = now;
@@ -2014,8 +2056,10 @@ function mainLoop(now: number): void {
       // No longer stuck — clear backpressure if it was set.
       if (backpressureActive) {
         backpressureActive = false;
-        self.postMessage({type: 'backpressure',
-          active: false} satisfies BackpressureMessage);
+        self.postMessage({
+          type: 'backpressure',
+          active: false
+        });
       }
     } else {
       // Non-recording: batch steps into a single GPU submit.
@@ -2038,8 +2082,10 @@ function mainLoop(now: number): void {
       lastProgressTime = 0;
       if (backpressureActive) {
         backpressureActive = false;
-        self.postMessage({type: 'backpressure',
-          active: false} satisfies BackpressureMessage);
+        self.postMessage({
+          type: 'backpressure',
+          active: false
+        });
       }
 
       // Update metrics and render.
@@ -2053,8 +2099,10 @@ function mainLoop(now: number): void {
         pendingMetricsRetry = true;
       }
       renderFrame();
-      self.postMessage({type: 'stepping',
-        active: false} satisfies SteppingMessage);
+      self.postMessage({
+        type: 'stepping',
+        active: false
+      });
       self.requestAnimationFrame(mainLoop);
     } else if (isRecording) {
       // Recording skip: next frame via rAF (already yielded above when stuck).
@@ -2075,6 +2123,7 @@ function mainLoop(now: number): void {
   // Apply coalesced brush draw (one per frame max).
   applyPendingBrush();
 
+  let shouldRunMetrics = false;
   if (simulationRunning) {
     // Capture current state before the first step (only when not yet recorded).
     if (isRecording && needsInitialCapture() && canRecord()) {
@@ -2181,19 +2230,21 @@ function mainLoop(now: number): void {
     if (didStep) {
       // Full GPU metrics at most once per second.
       const metricsElapsed = now - lastMetricsTime;
-      if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
-        lastMetricsTime = now;
-        const encoder = device.createCommandEncoder();
-        runMetricsGpu(encoder);
-        device.queue.submit([encoder.finish()]);
-        readMetricsAndPost();
-      }
+      shouldRunMetrics = (metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight;
     }
   }
 
-  // Skip rendering in max speed mode and while GPU is catching up.
+  // Render first so the visible frame is never behind the metrics pass.
   if (targetStepDuration > 0 && !gpuCatchUpPending) {
     renderFrame();
+  }
+
+  if (shouldRunMetrics) {
+    lastMetricsTime = now;
+    const encoder = device.createCommandEncoder();
+    runMetricsGpu(encoder);
+    device.queue.submit([encoder.finish()]);
+    readMetricsAndPost();
   }
   self.requestAnimationFrame(mainLoop);
 }

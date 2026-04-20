@@ -37,9 +37,9 @@ export class HomePage implements OnDestroy {
       {id: 'red',
         color: 'ff0000'},
       {id: 'blue',
-        color: '00ff00'},
+        color: '0000ff'},
       {id: 'green',
-        color: '0000ff'}
+        color: '00ff00'}
     ],
     rules: [
       {

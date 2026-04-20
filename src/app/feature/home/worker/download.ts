@@ -13,7 +13,7 @@ interface TribeInfo {
 
 interface DownloadRequest {
   type: 'download';
-  opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number};
+  opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number};
   snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]};
   recording: {manifest: RecordingManifest; cols: number; rows: number} | null;
   tribes: TribeInfo[];
@@ -115,13 +115,19 @@ class StreamingZip {
   finalize(): ArrayBuffer {
     const centralDirOffset = this.offset;
     let centralDirSize = 0;
+    const entryCount = this.records.length;
+
+    // Determine whether ZIP64 extensions are needed.
+    const needZip64Eocd = entryCount > 0xFFFF || centralDirOffset > 0xFFFFFFFF;
 
     for (const rec of this.records) {
-      const entry = new Uint8Array(46 + rec.nameBytes.length);
+      const zip64Entry = rec.localOffset > 0xFFFFFFFF;
+      const extraLen = zip64Entry ? 12 : 0; // Header(2) + size(2) + offset(8)
+      const entry = new Uint8Array(46 + rec.nameBytes.length + extraLen);
       const ev = new DataView(entry.buffer);
       ev.setUint32(0, 0x02014b50, true);
-      ev.setUint16(4, 20, true);
-      ev.setUint16(6, 20, true);
+      ev.setUint16(4, zip64Entry ? 45 : 20, true); // Version made by
+      ev.setUint16(6, zip64Entry ? 45 : 20, true); // Version needed
       ev.setUint16(8, 0, true);
       ev.setUint16(10, 0, true);
       ev.setUint16(12, 0, true);
@@ -130,32 +136,86 @@ class StreamingZip {
       ev.setUint32(20, rec.size, true);
       ev.setUint32(24, rec.size, true);
       ev.setUint16(28, rec.nameBytes.length, true);
-      ev.setUint16(30, 0, true);
+      ev.setUint16(30, extraLen, true); // Extra field length
       ev.setUint16(32, 0, true);
       ev.setUint16(34, 0, true);
       ev.setUint16(36, 0, true);
       ev.setUint32(38, 0, true);
-      ev.setUint32(42, rec.localOffset, true);
-      entry.set(rec.nameBytes, 46);
+      if (zip64Entry) {
+        ev.setUint32(42, 0xFFFFFFFF, true); // Sentinel
+        entry.set(rec.nameBytes, 46);
+        // ZIP64 extra field: 0x0001 tag + 8-byte relative header offset
+        const xOff = 46 + rec.nameBytes.length;
+        ev.setUint16(xOff, 0x0001, true);
+        ev.setUint16(xOff + 2, 8, true);
+        ev.setUint32(xOff + 4, rec.localOffset % 0x100000000, true);
+        ev.setUint32(xOff + 8, Math.floor(rec.localOffset / 0x100000000), true);
+      } else {
+        ev.setUint32(42, rec.localOffset, true);
+        entry.set(rec.nameBytes, 46);
+      }
 
       this.chunks.push(entry);
       centralDirSize += entry.length;
     }
 
-    // End of central directory
+    if (needZip64Eocd) {
+      // ZIP64 End of Central Directory Record (56 bytes)
+      const z64Eocd = new Uint8Array(56);
+      const zv = new DataView(z64Eocd.buffer);
+      zv.setUint32(0, 0x06064b50, true); // Signature
+      zv.setUint32(4, 44, true); // Size of remaining record
+      zv.setUint32(8, 0, true);
+      zv.setUint16(12, 45, true); // Version made by
+      zv.setUint16(14, 45, true); // Version needed
+      zv.setUint32(16, 0, true); // Disk number
+      zv.setUint32(20, 0, true); // Disk with central dir
+      zv.setUint32(24, entryCount % 0x100000000, true); // Entries on disk (lo)
+      zv.setUint32(28, Math.floor(entryCount / 0x100000000), true);
+      zv.setUint32(32, entryCount % 0x100000000, true); // Total entries (lo)
+      zv.setUint32(36, Math.floor(entryCount / 0x100000000), true);
+      zv.setUint32(40, centralDirSize % 0x100000000, true); // Central dir size (lo)
+      zv.setUint32(44, Math.floor(centralDirSize / 0x100000000), true);
+      zv.setUint32(48, centralDirOffset % 0x100000000, true); // Central dir offset (lo)
+      zv.setUint32(52, Math.floor(centralDirOffset / 0x100000000), true);
+      this.chunks.push(z64Eocd);
+
+      // ZIP64 End of Central Directory Locator (20 bytes)
+      const z64Loc = new Uint8Array(20);
+      const lv = new DataView(z64Loc.buffer);
+      lv.setUint32(0, 0x07064b50, true); // Signature
+      lv.setUint32(4, 0, true); // Disk with ZIP64 EOCD
+      const z64EocdOffset = centralDirOffset + centralDirSize;
+      lv.setUint32(8, z64EocdOffset % 0x100000000, true);
+      lv.setUint32(12, Math.floor(z64EocdOffset / 0x100000000), true);
+      lv.setUint32(16, 1, true); // Total disks
+      this.chunks.push(z64Loc);
+    }
+
+    // End of central directory (standard EOCD — sentinels when ZIP64)
     const eocd = new Uint8Array(22);
     const ev = new DataView(eocd.buffer);
     ev.setUint32(0, 0x06054b50, true);
     ev.setUint16(4, 0, true);
     ev.setUint16(6, 0, true);
-    ev.setUint16(8, this.records.length, true);
-    ev.setUint16(10, this.records.length, true);
-    ev.setUint32(12, centralDirSize, true);
-    ev.setUint32(16, centralDirOffset, true);
+    if (needZip64Eocd) {
+      ev.setUint16(8, 0xFFFF, true);
+      ev.setUint16(10, 0xFFFF, true);
+      ev.setUint32(12, 0xFFFFFFFF, true);
+      ev.setUint32(16, 0xFFFFFFFF, true);
+    } else {
+      ev.setUint16(8, entryCount, true);
+      ev.setUint16(10, entryCount, true);
+      ev.setUint32(12, centralDirSize, true);
+      ev.setUint32(16, centralDirOffset, true);
+    }
     ev.setUint16(20, 0, true);
     this.chunks.push(eocd);
 
-    const totalSize = this.offset + centralDirSize + 22;
+    let totalSize = this.offset + centralDirSize + 22;
+    if (needZip64Eocd) {
+      totalSize += 56 + 20; // ZIP64 EOCD + Locator
+    }
     const out = new Uint8Array(totalSize);
     let pos = 0;
     for (const chunk of this.chunks) {
@@ -681,12 +741,13 @@ async function createMp4StreamEncoder(
   rows: number,
   tribes: TribeInfo[],
   fps: number,
+  bitrate: number,
   sharedImageData: ImageData
 ): Promise<Mp4StreamEncoder | null> {
   const {Output, Mp4OutputFormat, BufferTarget, EncodedVideoPacketSource, EncodedPacket} = await import('mediabunny');
 
   const {width: idealW, height: idealH} = computeMediaDimensions(cols, rows, true);
-  const found = await findVideoConfig(idealW, idealH, 2_000_000);
+  const found = await findVideoConfig(idealW, idealH, bitrate);
   if (!found) {
     return null;
   }
@@ -898,24 +959,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
 
     // -- MP4 encoder -------------------------------------------------------
-    // VideoEncoder becomes unstable / memory-hungry beyond ~100 000 frames,
-    // And the resulting MP4 can exceed browser memory.  Skip MP4 early when
-    // The recording is too large.
-    const MP4_MAX_FRAMES = 100_000;
     let mp4Encoder: Mp4StreamEncoder | null = null;
-    let mp4Skipped = false;
+    const mp4Skipped = false;
     if (hasRecording && opts.mp4) {
-      if (totalFrames > MP4_MAX_FRAMES) {
-        mp4Skipped = true;
-        subProgress(0, `MP4 skipped: ${totalFrames.toLocaleString()} frames exceeds the ${MP4_MAX_FRAMES.toLocaleString()}-frame limit`);
-      } else {
-        mainProgress(1, 'Initializing MP4 encoder');
-        try {
-          const mp4ImgData = new ImageData(1, 1);
-          mp4Encoder = await createMp4StreamEncoder(rec.cols, rec.rows, tribes, opts.fps, mp4ImgData);
-        } catch (e) {
-          console.warn('VideoEncoder not supported, skipping MP4:', e);
-        }
+      mainProgress(1, 'Initializing MP4 encoder');
+      try {
+        const mp4ImgData = new ImageData(1, 1);
+        mp4Encoder = await createMp4StreamEncoder(rec.cols, rec.rows, tribes, opts.fps, opts.bitrate, mp4ImgData);
+      } catch (e) {
+        console.warn('VideoEncoder not supported, skipping MP4:', e);
       }
     }
 

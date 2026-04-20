@@ -767,7 +767,7 @@
 }
 
 .skip-input {
-  width: 52px;
+  width: 80px;
   padding: 4px 6px;
   background: #111;
   border: 1px solid #444;
@@ -860,6 +860,37 @@
 }
 
 .fps-text {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+// MP4 settings subsection
+.mp4-settings-section {
+  margin-top: 6px;
+}
+
+.mp4-settings-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0;
+  color: #bbb;
+}
+
+.mp4-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mp4-setting-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mp4-setting-text {
   font-size: 0.8rem;
   color: #888;
   white-space: nowrap;

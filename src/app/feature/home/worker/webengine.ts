@@ -133,6 +133,7 @@ export interface MetricMessage {
   simpsonIndex: number;
   boundaryLength: number;
   extinctionTime: Record<string, number | null>;
+  totalFrames: number;
   fps: number;
   canStepBack: boolean;
   recordingBytes: number;
@@ -1825,6 +1826,7 @@ function readMetricsAndPost(): void {
       simpsonIndex: 1 - simpsonSum,
       boundaryLength,
       extinctionTime,
+      totalFrames: totalRecordedFrames(),
       fps: currentFps,
       canStepBack: totalRecordedFrames() > 1,
       recordingBytes: sealedChunks.reduce((sum, c) => sum + c.storedBytes, 0),

@@ -394,11 +394,30 @@
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadCsv" (ngModelChange)="savePrefs()">CSV</mat-checkbox>
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadPng" (ngModelChange)="savePrefs()">PNG</mat-checkbox>
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()">MP4</mat-checkbox>
-        <label class="mp4-fps-label">
-          <span class="fps-text">FPS</span>
-          <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="!downloadMp4 || downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
-        </label>
       </div>
+      <div class="mp4-settings-section">
+        <h4 class="mp4-settings-title shortcuts-toggle" (click)="toggleSection('mp4Settings')">
+          <mat-icon class="expand-icon">{{ mp4SettingsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
+          MP4 Settings
+        </h4>
+        <div class="collapsible" [class.open]="mp4SettingsExpanded">
+          <div class="collapsible-inner">
+            <div class="mp4-settings-grid">
+              <label class="mp4-setting-label">
+                <span class="mp4-setting-text">FPS</span>
+                <input class="mp4-fps-input" max="60" min="1" type="number" [disabled]="downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
+              </label>
+              <label class="mp4-setting-label">
+                <span class="mp4-setting-text">Bitrate (Mbps)</span>
+                <input class="mp4-fps-input" max="50" min="0.5" step="0.5" type="number" [disabled]="downloading" [(ngModel)]="mp4BitrateMbps" (ngModelChange)="savePrefs()" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      @if (downloadMp4 && mp4GateMessage) {
+        <span class="recording-gate-warning">{{ mp4GateMessage }}</span>
+      }
       @if (downloadProgress >= 0) {
         <div class="download-status">
           <mat-progress-bar mode="determinate" [value]="downloadProgress"></mat-progress-bar>

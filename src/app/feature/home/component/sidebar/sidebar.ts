@@ -268,6 +268,8 @@ export class Sidebar implements OnChanges {
 
   public mp4Fps = 12;
 
+  public mp4BitrateMbps = 2;
+
   // Sidebar resize
   public sidebarWidth = 300;
 
@@ -285,6 +287,10 @@ export class Sidebar implements OnChanges {
   public rulesExpanded = true;
 
   public metricsExpanded = true;
+
+  public mp4SettingsExpanded = false;
+
+  public mp4SettingsExpanded = false;
 
   // App info
   public readonly appVersion = packageJson.version;
@@ -358,6 +364,21 @@ export class Sidebar implements OnChanges {
     return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${(1024 * 1024 * 1024).toLocaleString()})`;
   }
 
+  public get mp4GateMessage(): string | null {
+    const frames = this.metrics?.totalFrames || 0;
+    if (frames === 0) {
+      return null;
+    }
+    const bitrateBps = this.mp4BitrateMbps * 1_000_000;
+    const overheadMultiplier = 1.1; // 10% safety margin for muxer overhead
+    const estimatedBytes = (frames / this.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
+    const TWO_GB = 2 * 1024 * 1024 * 1024;
+    if (estimatedBytes > TWO_GB) {
+      return `Estimated MP4 size (${this.formatBytes(estimatedBytes)}) exceeds the 2 GB memory limit — MP4 will be skipped. Increase FPS, lower bitrate, or record fewer frames`;
+    }
+    return null;
+  }
+
   public get brushMaxSize(): number {
     return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
   }
@@ -419,10 +440,11 @@ export class Sidebar implements OnChanges {
   public onDownload(): void {
     this.emit('download', {
       csv: this.downloadCsv,
-      mp4: this.downloadMp4,
+      mp4: this.downloadMp4 && !this.mp4GateMessage,
       png: this.downloadPng,
       saves: this.downloadSaves,
-      fps: this.mp4Fps
+      fps: this.mp4Fps,
+      bitrate: this.mp4BitrateMbps * 1_000_000
     });
   }
 
@@ -962,13 +984,14 @@ export class Sidebar implements OnChanges {
     }
   }
 
-  public toggleSection(section: 'presets' | 'tribes' | 'rules' | 'metrics' | 'shortcuts'): void {
+  public toggleSection(section: 'presets' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings'): void {
     switch (section) {
       case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
       case 'tribes': this.tribesExpanded = !this.tribesExpanded; break;
       case 'rules': this.rulesExpanded = !this.rulesExpanded; break;
       case 'metrics': this.metricsExpanded = !this.metricsExpanded; break;
       case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
+      case 'mp4Settings': this.mp4SettingsExpanded = !this.mp4SettingsExpanded; break;
     }
     this.savePrefs();
   }
@@ -988,6 +1011,8 @@ export class Sidebar implements OnChanges {
         downloadMp4: this.downloadMp4,
         downloadPng: this.downloadPng,
         mp4Fps: this.mp4Fps,
+        mp4BitrateMbps: this.mp4BitrateMbps,
+        mp4SettingsExpanded: this.mp4SettingsExpanded,
         skipAmount: this.skipAmount
       }));
     } catch (e) {
@@ -1031,6 +1056,18 @@ export class Sidebar implements OnChanges {
       }
       if (typeof p.mp4Fps === 'number' && p.mp4Fps >= 1 && p.mp4Fps <= 60) {
         this.mp4Fps = p.mp4Fps;
+      }
+      if (typeof p.mp4BitrateMbps === 'number' && p.mp4BitrateMbps >= 0.5 && p.mp4BitrateMbps <= 50) {
+        this.mp4BitrateMbps = p.mp4BitrateMbps;
+      }
+      if (typeof p.mp4SettingsExpanded === 'boolean') {
+        this.mp4SettingsExpanded = p.mp4SettingsExpanded;
+      }
+      if (typeof p.mp4BitrateMbps === 'number' && p.mp4BitrateMbps >= 0.5 && p.mp4BitrateMbps <= 50) {
+        this.mp4BitrateMbps = p.mp4BitrateMbps;
+      }
+      if (typeof p.mp4SettingsExpanded === 'boolean') {
+        this.mp4SettingsExpanded = p.mp4SettingsExpanded;
       }
       if (typeof p.skipAmount === 'number' && p.skipAmount >= 1) {
         this.skipAmount = p.skipAmount;

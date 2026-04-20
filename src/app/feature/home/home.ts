@@ -534,7 +534,7 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'download':
-        this.downloadZip(ev.value as {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number});
+        this.downloadZip(ev.value as {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number});
         break;
       case 'cancelDownload':
         this.cancelDownload();
@@ -673,7 +673,7 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  private downloadZip(opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number}): void {
+  private downloadZip(opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number}): void {
     const needFrames = opts.mp4 || opts.png || opts.csv || opts.saves;
 
     // Pause the simulation so the download captures a consistent state.

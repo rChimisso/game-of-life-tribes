@@ -30,7 +30,7 @@
 // Expanded panel
 .sidebar-panel {
   pointer-events: auto;
-  max-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: rgba(26, 26, 46, 0.6);
@@ -963,6 +963,16 @@ kbd {
 
 // ── About section ──
 
+.sidebar-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 0 16px 12px;
+
+  > .divider {
+    margin-bottom: 12px;
+  }
+}
+
 .about-section {
   text-align: center;
   gap: 4px;
@@ -1059,6 +1069,7 @@ mat-expansion-panel {
 
   .sidebar-panel {
     width: 100% !important;
+    height: auto;
     max-height: 80vh;
     border-right: none;
     border-top: 1px solid #2a2a4a;

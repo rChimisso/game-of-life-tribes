@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import {DecimalPipe, NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, SimpleChanges, ElementRef, NgZone} from '@angular/core';
+import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -60,7 +60,7 @@ export interface SidebarEvent {
     '(contextmenu)': '$event.preventDefault()'
   }
 })
-export class Sidebar implements OnChanges {
+export class Sidebar implements OnChanges, OnDestroy {
   @Input()
   public tribes: readonly Tribe[] = [];
 
@@ -317,6 +317,8 @@ export class Sidebar implements OnChanges {
   // Bottom sheet (mobile)
   public sheetTranslate = 'calc(100% - 0px)';
 
+  public suppressClosedTransition = false;
+
   // Shortcuts
   public shortcutsExpanded = false;
 
@@ -422,8 +424,29 @@ export class Sidebar implements OnChanges {
 
   private static readonly PREFS_KEY = 'golt-simfs';
 
+  private readonly mobileLayoutQuery: MediaQueryList | null = null;
+
+  private transitionResetFrame: number | null = null;
+
+  private transitionResetCleanupFrame: number | null = null;
+
+  private readonly boundMobileLayoutChange = (): void => {
+    this.zone.run(() => {
+      this.handleMobileLayoutChange();
+    });
+  };
+
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
     this.loadPrefs();
+    if (typeof window !== 'undefined' && 'matchMedia' in window) {
+      this.mobileLayoutQuery = window.matchMedia('(max-width: 640px)');
+      this.mobileLayoutQuery.addEventListener('change', this.boundMobileLayoutChange);
+    }
+  }
+
+  public ngOnDestroy(): void {
+    this.mobileLayoutQuery?.removeEventListener('change', this.boundMobileLayoutChange);
+    this.clearPendingTransitionReset();
   }
 
   public ngOnChanges(changes: SimpleChanges): void {
@@ -439,6 +462,8 @@ export class Sidebar implements OnChanges {
   }
 
   public toggle(): void {
+    this.clearPendingTransitionReset();
+    this.suppressClosedTransition = false;
     this.collapsed = !this.collapsed;
     if (!this.collapsed) {
       this.sheetTranslate = '0px';
@@ -815,25 +840,51 @@ export class Sidebar implements OnChanges {
     return luminance > 0.5 ? '#111' : '#fff';
   }
 
-  public onSheetDragStart(event: TouchEvent): void {
-    const startY = event.touches[0]!.clientY;
+  public onSheetDragStart(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const startY = event.clientY;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement;
+    const handle = event.currentTarget as HTMLElement | null;
     const panelHeight = panel.offsetHeight;
-    const currentTranslateY = panel.getBoundingClientRect().bottom - window.innerHeight;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const currentTranslateY = panel.getBoundingClientRect().bottom - viewportHeight;
 
     panel.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    handle?.setPointerCapture?.(event.pointerId);
 
-    const onMove = (e: TouchEvent) => {
+    const cleanup = () => {
+      panel.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      handle?.releasePointerCapture?.(event.pointerId);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.removeEventListener('pointercancel', onEnd);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) {
+        return;
+      }
+
       e.preventDefault();
-      const dy = e.touches[0]!.clientY - startY;
+      const dy = e.clientY - startY;
       const newTranslate = Math.max(0, currentTranslateY + dy);
       this.sheetTranslate = `${newTranslate}px`;
       this.cdr.detectChanges();
     };
 
-    const onEnd = (e: TouchEvent) => {
-      panel.classList.remove('dragging');
-      const dy = e.changedTouches[0]!.clientY - startY;
+    const onEnd = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const dy = e.clientY - startY;
       const finalTranslate = Math.max(0, currentTranslateY + dy);
       // If dragged down more than 50% of the panel height, close.
       if (finalTranslate > panelHeight * 0.5) {
@@ -844,12 +895,12 @@ export class Sidebar implements OnChanges {
         this.sheetTranslate = `${finalTranslate}px`;
       }
       this.cdr.detectChanges();
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
+      cleanup();
     };
 
-    document.addEventListener('touchmove', onMove, {passive: false});
-    document.addEventListener('touchend', onEnd);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
   }
 
   public onResizeStart(event: MouseEvent): void {
@@ -876,6 +927,34 @@ export class Sidebar implements OnChanges {
 
     document.addEventListener('mousemove', onMove, true);
     document.addEventListener('mouseup', onUp, true);
+  }
+
+  private handleMobileLayoutChange(): void {
+    if (!this.collapsed) {
+      return;
+    }
+    this.suppressClosedTransition = true;
+    this.cdr.markForCheck();
+    this.clearPendingTransitionReset();
+    this.transitionResetFrame = requestAnimationFrame(() => {
+      this.transitionResetFrame = null;
+      this.transitionResetCleanupFrame = requestAnimationFrame(() => {
+        this.transitionResetCleanupFrame = null;
+        this.suppressClosedTransition = false;
+        this.cdr.markForCheck();
+      });
+    });
+  }
+
+  private clearPendingTransitionReset(): void {
+    if (this.transitionResetFrame !== null) {
+      cancelAnimationFrame(this.transitionResetFrame);
+      this.transitionResetFrame = null;
+    }
+    if (this.transitionResetCleanupFrame !== null) {
+      cancelAnimationFrame(this.transitionResetCleanupFrame);
+      this.transitionResetCleanupFrame = null;
+    }
   }
 
   private toggleTribeSelection(id: string): string[] {

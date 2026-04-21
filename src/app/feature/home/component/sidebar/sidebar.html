@@ -2,8 +2,8 @@
 <button class="toggle-btn floating" mat-icon-button [class.hidden]="!collapsed" (click)="toggle()">
   <mat-icon>menu</mat-icon>
 </button>
-<div class="sidebar-panel" [class.open]="!collapsed" [style.--sheet-translate]="sheetTranslate" [style.width.px]="sidebarWidth">
-  <div class="sheet-handle" (touchstart)="onSheetDragStart($event)">
+<div class="sidebar-panel" [class.layout-transition-disabled]="suppressClosedTransition" [class.open]="!collapsed" [style.--sheet-translate]="sheetTranslate" [style.width.px]="sidebarWidth">
+  <div class="sheet-handle" (pointerdown)="onSheetDragStart($event)">
     <div class="sheet-handle-bar"></div>
   </div>
   <div class="sidebar-header">

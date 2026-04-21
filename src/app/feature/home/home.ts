@@ -1,7 +1,7 @@
 import {ChangeDetectorRef, Component, HostListener, OnDestroy, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
+import {MatSnackBar, MatSnackBarConfig, MatSnackBarModule} from '@angular/material/snack-bar';
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
@@ -401,13 +401,13 @@ export class HomePage implements OnDestroy {
   onDeviceLost(data: DeviceLostMessage): void {
     this.state = 'paused';
     this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
-    this.snackBar.open('GPU device lost — simulation stopped. Try reloading the page.', 'Dismiss', {duration: 10_000});
+    this.openSnack('GPU device lost — simulation stopped. Try reloading the page.', 'error', 10_000);
     this.cdr.markForCheck();
   }
 
   onGpuError(data: GpuErrorMessage): void {
     this.gpuErrorMessage = data.reason;
-    this.snackBar.open(`GPU error: ${data.reason}`, 'Dismiss', {duration: 8_000});
+    this.openSnack(`GPU error: ${data.reason}`, 'error', 8_000);
     this.cdr.markForCheck();
   }
 
@@ -431,22 +431,18 @@ export class HomePage implements OnDestroy {
       const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress — size may decrease)' : '';
       const alreadyPaused = this.state === 'paused' && !this.stepping;
       if (level === 25) {
-        this.snackBar.open(`Recording storage at 25% capacity${compHint}`, 'Dismiss', {duration: 0,
-          panelClass: 'snackbar-info'});
+        this.openSnack(`Recording storage at 25% capacity${compHint}`, 'info', 0);
       } else if (level === 50) {
-        this.snackBar.open(`Recording storage at 50% capacity${compHint}`, 'Dismiss', {duration: 0,
-          panelClass: 'snackbar-warning'});
+        this.openSnack(`Recording storage at 50% capacity${compHint}`, 'warning', 0);
       } else if (level === 75) {
         const pauseHint = alreadyPaused ? '' : ' — simulation paused to preserve data';
-        this.snackBar.open(`Recording storage at 75%${pauseHint}${compHint}`, 'Dismiss', {duration: 0,
-          panelClass: 'snackbar-warning'});
+        this.openSnack(`Recording storage at 75%${pauseHint}${compHint}`, 'warning', 0);
         if (this.stepping) {
           this.cancelStepping();
         }
         this.state = 'paused';
       } else if (level === 100) {
-        this.snackBar.open(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'Dismiss', {duration: 0,
-          panelClass: 'snackbar-error'});
+        this.openSnack(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'error', 0);
         if (this.stepping) {
           this.cancelStepping();
         }
@@ -690,6 +686,14 @@ export class HomePage implements OnDestroy {
     this.latestMetrics = null;
   }
 
+  private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number): void {
+    const config: MatSnackBarConfig = {
+      duration,
+      panelClass: `snackbar-${tone}`
+    };
+    this.snackBar.open(message, 'Dismiss', config);
+  }
+
   private clampBrushSize(): void {
     const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
     if (this.brushSize > max) {
@@ -740,7 +744,7 @@ export class HomePage implements OnDestroy {
       };
 
       worker.onerror = () => {
-        this.snackBar.open('Download failed unexpectedly. Try again.', 'Dismiss', {duration: 8_000});
+        this.openSnack('Download failed unexpectedly. Try again.', 'error', 8_000);
         cleanupDownload();
       };
 
@@ -756,7 +760,7 @@ export class HomePage implements OnDestroy {
         } else if (e.data.type === 'done-part') {
           this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
         } else if (e.data.type === 'error') {
-          this.snackBar.open(`Download error: ${e.data.reason}`, 'Dismiss', {duration: 8_000});
+          this.openSnack(`Download error: ${e.data.reason}`, 'error', 8_000);
           cleanupDownload();
         } else if (e.data.type === 'done') {
           cleanupDownload();

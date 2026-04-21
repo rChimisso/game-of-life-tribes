@@ -54,25 +54,28 @@ a {
 // ---------------------------------------------------------------------------
 
 .snackbar-info .mdc-snackbar__surface {
-  background-color: #1b5e20 !important;
-  color: #fff !important;
+  background: #b9dcff !important;
+  background-color: #b9dcff !important;
+  color: #08233f !important;
 }
 
 .snackbar-info .mdc-snackbar__surface .mat-mdc-button {
-  color: #a5d6a7 !important;
+  color: #0d4f8b !important;
 }
 
 .snackbar-warning .mdc-snackbar__surface {
-  background-color: #e65100 !important;
-  color: #fff !important;
+  background: #f6d365 !important;
+  background-color: #f6d365 !important;
+  color: #3b2a00 !important;
 }
 
 .snackbar-warning .mdc-snackbar__surface .mat-mdc-button {
-  color: #ffcc80 !important;
+  color: #7a5b00 !important;
 }
 
 .snackbar-error .mdc-snackbar__surface {
-  background-color: #b71c1c !important;
+  background: #c62828 !important;
+  background-color: #c62828 !important;
   color: #fff !important;
 }
 

@@ -320,6 +320,25 @@ let preSkipRunning = false;
 let preSkipStepDuration = 100;
 let lastProgressTime = 0; // For periodic generation updates during skip & max speed
 let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max speed
+let maxSpeedGpuWorkPending = false; // Prevents queueing multiple max-speed batches at once
+
+function inNonRecordingMaxSpeedMode(): boolean {
+  return simulationRunning && targetStepDuration <= 0 && skipTarget < 0 && !isRecording;
+}
+
+function resumeNonRecordingMaxSpeedLoop(): void {
+  if (rebuilding || deviceLost || maxSpeedGpuWorkPending || !inNonRecordingMaxSpeedMode()) {
+    return;
+  }
+  mainLoop(performance.now());
+}
+
+function wakeRenderLoop(): void {
+  if (rebuilding || deviceLost) {
+    return;
+  }
+  self.requestAnimationFrame(mainLoop);
+}
 
 // GPU chunk accumulation
 let chunkGpuBuffer: GPUBuffer | null = null;
@@ -354,6 +373,8 @@ const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 // Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
 // Oversized frames fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
 const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
+const SINGLE_FRAME_CHUNK_THRESHOLD = 64 * 1024 * 1024; // 64 MB
+const OPFS_PENDING_WRITE_BYTE_BUDGET = 512 * 1024 * 1024; // 512 MB
 
 // Yield between major rebuild allocations so the browser can catch up.
 const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024; // 512 MB
@@ -488,13 +509,14 @@ function checkBackpressure(): void {
     }
     return;
   }
+  const maxPendingWrites = maxPendingOpfsWritesForCurrentChunk();
   const stagingFull = !stagingAvailable.some(v => v) && chunkFrameIndex >= chunkFrameCapacity;
-  const opfsFull = pendingOpfsWrites >= MAX_PENDING_OPFS_WRITES;
+  const opfsFull = pendingOpfsWrites >= maxPendingWrites;
   let pressure: boolean;
   if (backpressureActive) {
     // Hysteresis: deactivate only when well below thresholds.
     const stagingOk = stagingAvailable.some(v => v);
-    const opfsOk = pendingOpfsWrites <= Math.floor(MAX_PENDING_OPFS_WRITES / 2);
+    const opfsOk = pendingOpfsWrites <= Math.floor(maxPendingWrites / 2);
     pressure = !(stagingOk && opfsOk);
   } else {
     pressure = stagingFull || opfsFull;
@@ -1590,8 +1612,24 @@ function computeChunkCapacity(): void {
     chunkFrameCapacity = 0;
     return;
   }
-  const maxChunkBytes = Math.min(Math.max(CHUNK_BUFFER_CAP, frameByteSize), maxRecordingBufferBytes());
+  const maxChunkBytes = targetChunkBytes();
   chunkFrameCapacity = Math.max(1, Math.floor(maxChunkBytes / frameByteSize));
+}
+
+function targetChunkBytes(): number {
+  if (frameByteSize >= SINGLE_FRAME_CHUNK_THRESHOLD) {
+    return frameByteSize;
+  }
+  return Math.min(Math.max(CHUNK_BUFFER_CAP, frameByteSize), maxRecordingBufferBytes());
+}
+
+function maxPendingOpfsWritesForCurrentChunk(): number {
+  if (chunkFrameCapacity < 1 || frameByteSize <= 0) {
+    return MAX_PENDING_OPFS_WRITES;
+  }
+  const estimatedChunkBytes = Math.max(frameByteSize, chunkFrameCapacity * frameByteSize);
+  const budgetLimited = Math.floor(OPFS_PENDING_WRITE_BYTE_BUDGET / estimatedChunkBytes);
+  return Math.max(1, Math.min(MAX_PENDING_OPFS_WRITES, budgetLimited || 1));
 }
 
 function postRecordingLimits(): void {
@@ -1614,7 +1652,7 @@ function canRecord(): boolean {
   if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || stagingRing.length === 0) {
     return false;
   }
-  if (pendingOpfsWrites >= MAX_PENDING_OPFS_WRITES) {
+  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
     return false;
   }
   if (chunkFrameIndex < chunkFrameCapacity) {
@@ -2051,6 +2089,20 @@ function skipBatchSize(): number {
   return 1000;
 }
 
+function nonRecordingMaxSpeedBatchesPerDrain(): number {
+  const cells = cols * rows;
+  if (cells > 10_000_000) {
+    return 2;
+  }
+  if (cells > 1_000_000) {
+    return 4;
+  }
+  if (cells > 100_000) {
+    return 8;
+  }
+  return 16;
+}
+
 function batchStep(count: number): void {
   if (count <= 0) {
     return;
@@ -2332,12 +2384,25 @@ function mainLoop(now: number): void {
             active: false} satisfies BackpressureMessage);
         }
       } else {
-        // Non-recording: time-budgeted batched submits per frame.
-        const deadline = performance.now() + 14;
-        const batch = skipBatchSize();
-        while (performance.now() < deadline) {
-          batchStep(batch);
-          didStep = true;
+        // Non-recording: keep only one GPU batch in flight at a time.
+        // Large grids can make a single batch expensive enough that piling up
+        // Submits here keeps the GPU saturated long after pause.
+        if (!maxSpeedGpuWorkPending) {
+          const batchSize = skipBatchSize();
+          const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain();
+          for (let i = 0; i < batchesPerDrain; i++) {
+            batchStep(batchSize);
+            didStep = true;
+          }
+          maxSpeedGpuWorkPending = true;
+          device.queue.onSubmittedWorkDone().then(() => {
+            maxSpeedGpuWorkPending = false;
+            if (inNonRecordingMaxSpeedMode()) {
+              resumeNonRecordingMaxSpeedLoop();
+            } else {
+              wakeRenderLoop();
+            }
+          });
         }
       }
 
@@ -2386,6 +2451,10 @@ function mainLoop(now: number): void {
     runMetricsGpu(encoder);
     device.queue.submit([encoder.finish()]);
     readMetricsAndPost();
+  }
+
+  if (targetStepDuration <= 0 && !isRecording && simulationRunning) {
+    return;
   }
   self.requestAnimationFrame(mainLoop);
 }
@@ -2648,6 +2717,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.running) {
         lastFrameTime = 0;
         stepAccumulator = 0;
+        resumeNonRecordingMaxSpeedLoop();
       } else {
         // Let backpressure drain naturally; just check if it can clear now.
         if (backpressureActive) {
@@ -2663,22 +2733,32 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         } else {
           pendingMetricsRetry = true;
         }
+        if (targetStepDuration <= 0 && !isRecording && skipTarget < 0 && !maxSpeedGpuWorkPending) {
+          wakeRenderLoop();
+        }
       }
       break;
 
     case 'setSpeed': {
+      const wasMaxSpeed = targetStepDuration <= 0;
       const newDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      if (targetStepDuration <= 0 && newDuration > 0) {
+      if (wasMaxSpeed && newDuration > 0) {
         // Transitioning from max speed → normal: let GPU drain before rendering.
         gpuCatchUpPending = true;
         device.queue.onSubmittedWorkDone().then(() => {
           gpuCatchUpPending = false;
           renderFrame();
+          wakeRenderLoop();
         });
       }
       targetStepDuration = newDuration;
       stepAccumulator = 0;
       lastProgressTime = 0;
+      if (!wasMaxSpeed && newDuration <= 0) {
+        resumeNonRecordingMaxSpeedLoop();
+      } else if (wasMaxSpeed && newDuration > 0 && !maxSpeedGpuWorkPending) {
+        wakeRenderLoop();
+      }
       break;
     }
 

@@ -775,9 +775,9 @@ export class HomePage implements OnDestroy {
     }
 
     this.downloadProgress = 0;
-    this.downloadSubProgress = 0;
-    this.downloadMainStatus = 'Preparing export';
-    this.downloadStatus = 'Waiting for compression jobs to finish';
+    this.downloadSubProgress = -1;
+    this.downloadMainStatus = 'Waiting for compression jobs to finish';
+    this.downloadStatus = '';
     this.cdr.markForCheck();
 
     this.pauseCompressionPool().then(() => {

@@ -445,7 +445,7 @@
         </h4>
         <div class="collapsible" [class.open]="downloadSelectionExpanded">
           <div class="collapsible-inner">
-            <mat-checkbox [disabled]="downloading || !hasRecordedFrames" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)">All recorded frames</mat-checkbox>
+            <mat-checkbox [disabled]="downloading" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)">All recorded frames</mat-checkbox>
             <div class="mp4-settings-grid">
               <label class="mp4-setting-label">
                 <span class="mp4-setting-text">Start frame</span>

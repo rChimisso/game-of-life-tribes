@@ -943,6 +943,14 @@ function generateClauseExpr(
 // ---------------------------------------------------------------------------
 const UNIFORM_SIZE = 48;
 
+function createUniformBuffer(): void {
+  uniformBuffer?.destroy();
+  uniformBuffer = device.createBuffer({
+    size: UNIFORM_SIZE,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+}
+
 function writeUniforms(): void {
   const data = new ArrayBuffer(UNIFORM_SIZE);
   const f32 = new Float32Array(data);
@@ -2491,10 +2499,10 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   deviceLost = false;
 
   device.lost.then(info => {
+    const reason = info.message || info.reason || 'unknown';
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
-    const reason = info.message || info.reason || 'unknown';
     self.postMessage({type: 'deviceLost',
       reason} satisfies DeviceLostMessage);
   });
@@ -2517,6 +2525,21 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     format: canvasFormat,
     alphaMode: 'opaque'
   });
+}
+
+async function restoreWebGPUDevice(): Promise<boolean> {
+  try {
+    await initWebGPU(canvas);
+    return true;
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    deviceLost = true;
+    simulationRunning = false;
+    rebuilding = true;
+    self.postMessage({type: 'deviceLost',
+      reason} satisfies DeviceLostMessage);
+    return false;
+  }
 }
 
 async function createChunkBuffer(): Promise<void> {
@@ -2549,10 +2572,7 @@ function initOpfs(): void {
 }
 
 async function buildPipelines(): Promise<void> {
-  uniformBuffer = device.createBuffer({
-    size: UNIFORM_SIZE,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  });
+  createUniformBuffer();
 
   computeChunkCapacity();
 
@@ -2576,7 +2596,7 @@ async function buildPipelines(): Promise<void> {
   postRecordingLimits();
 }
 
-async function rebuildForNewRuleset(): Promise<void> {
+async function rebuildForNewRuleset(): Promise<boolean> {
   rebuilding = true;
   self.postMessage({type: 'rebuilding',
     active: true} satisfies RebuildingMessage);
@@ -2584,14 +2604,18 @@ async function rebuildForNewRuleset(): Promise<void> {
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
   // `rebuilding` flag and bails out before touching GPU state.
-  await waitForGpuQueueIdle();
+  try {
+    await waitForGpuQueueIdle();
+  } catch {
+    // Queue waits can reject after device loss. Rebuild handles that below.
+  }
 
-  if (deviceLost) {
-    // Device was lost during yield — nothing we can rebuild.
-    return;
+  if (deviceLost && !await restoreWebGPUDevice()) {
+    return false;
   }
 
   destroyRebuildableBuffers();
+  createUniformBuffer();
 
   computeChunkCapacity();
   resetRebuildAllocationTracking(recordingAvailableForCurrentFrame());
@@ -2599,6 +2623,7 @@ async function rebuildForNewRuleset(): Promise<void> {
   try {
     await createGridBuffers();
     createTribeColorBuffer();
+    createRenderPipeline();
     createComputePipeline();
     createBrushPipeline();
     createRenderBindGroups();
@@ -2621,10 +2646,12 @@ async function rebuildForNewRuleset(): Promise<void> {
       reason} satisfies GpuErrorMessage);
     try {
       destroyRebuildableBuffers();
+      createUniformBuffer();
       resetRebuildAllocationTracking(false);
       // Retry core-only: grid + render + compute, no recording.
       await createGridBuffers();
       createTribeColorBuffer();
+      createRenderPipeline();
       createComputePipeline();
       createBrushPipeline();
       createRenderBindGroups();
@@ -2637,12 +2664,13 @@ async function rebuildForNewRuleset(): Promise<void> {
       postRecordingLimits();
     } catch (e) {
       console.warn('GPU recovery also failed, device may be lost:', e);
-      return;
+      return false;
     }
   }
   rebuilding = false;
   self.postMessage({type: 'rebuilding',
     active: false} satisfies RebuildingMessage);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -2668,7 +2696,10 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
     case 'setRuleset': {
       initRuleset(m.ruleset);
-      await rebuildForNewRuleset();
+      const rebuilt = await rebuildForNewRuleset();
+      if (!rebuilt) {
+        break;
+      }
       genCounter = 0;
       lastMetricsGen = -1;
       resetRecording(0);

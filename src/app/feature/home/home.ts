@@ -401,7 +401,7 @@ export class HomePage implements OnDestroy {
   onDeviceLost(data: DeviceLostMessage): void {
     this.state = 'paused';
     this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
-    this.openSnack('GPU device lost — simulation stopped. Try reloading the page.', 'error', 10_000);
+    this.openSnack('GPU device lost — simulation stopped. Try resetting to a smaller grid or reloading the page.', 'error', 10_000);
     this.cdr.markForCheck();
   }
 

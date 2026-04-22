@@ -1,6 +1,7 @@
 ﻿/* eslint-disable jsdoc/require-jsdoc */
 import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
+import {GridFormatMetadata} from '../../model/grid-format';
 import {Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, ChunkSealedMessage, ChunksSavingMessage, BackpressureMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../worker/webengine';
 
@@ -13,11 +14,16 @@ import {TypedChanges} from '~gol/core/model/typed-change';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChanges, OnDestroy {
+  private static readonly BASE_MAX_SCALE = 128;
+
   @ViewChild('engineCanvas', {static: true})
   public canvasRef!: ElementRef<HTMLCanvasElement>;
 
   @Input()
   public ruleset!: Ruleset<T>;
+
+  @Input()
+  public simulationGridFormat: GridFormatMetadata = {bitsPerCell: 8};
 
   @Input()
   public speed = 1;
@@ -95,7 +101,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private minScale = 1;
 
-  private readonly maxScale = 128;
+  private maxScale = Engine.BASE_MAX_SCALE;
 
   // ── Pointer state (unified mouse + touch) ──
   private readonly pointers = new Map<number, {x: number; y: number}>();
@@ -254,9 +260,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
     // Recompute min-scale and clamp.
     this.computeMinScale();
-    if (this.scale < this.minScale) {
-      this.scale = this.minScale;
-    }
+    this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale));
     this.sendCamera();
   }
 
@@ -274,14 +278,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       type: 'init',
       canvas: offscreen,
       ruleset: this.ruleset,
+      simulationGridFormat: this.simulationGridFormat,
+      recording: this.isRecording,
       speed: this.speed,
       running: this.state === 'running'
     }, [offscreen]);
-
-    this.worker.postMessage({
-      type: 'setRecording',
-      recording: this.isRecording
-    });
 
     this.resetCamera();
 
@@ -317,11 +318,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.worker?.postMessage({type: 'getSnapshot'});
   }
 
-  public loadSnapshot(grid: Uint32Array, generation: number): void {
+  public loadSnapshot(grid: Uint32Array, generation: number, gridFormat: GridFormatMetadata): void {
     this.worker?.postMessage({
       type: 'loadSnapshot',
       grid,
-      generation
+      generation,
+      gridFormat
     });
   }
 
@@ -354,12 +356,13 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.worker?.postMessage({type: 'cancelStepping'});
   }
 
-  public updateChunkCodec(filename: string, codec: string, storedBytes: number): void {
+  public updateChunkCodec(filename: string, codec: string, storedBytes: number, gridFormat: GridFormatMetadata): void {
     this.worker?.postMessage({
       type: 'updateChunkCodec',
       filename,
       codec,
-      storedBytes
+      storedBytes,
+      gridFormat
     });
   }
 
@@ -383,12 +386,16 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       this.worker.postMessage({type: 'setSpeed',
         speed: this.speed});
     }
-    if (changes.ruleset) {
-      const needReset = !changes.ruleset.previousValue ||
-        changes.ruleset.previousValue.rows !== this.ruleset.rows ||
-        changes.ruleset.previousValue.cols !== this.ruleset.cols;
-      this.worker.postMessage({type: 'setRuleset',
-        ruleset: this.ruleset});
+    if (changes.ruleset || changes.simulationGridFormat) {
+      const prevRuleset = changes.ruleset?.previousValue;
+      const needReset = !prevRuleset ||
+        prevRuleset.rows !== this.ruleset.rows ||
+        prevRuleset.cols !== this.ruleset.cols;
+      this.worker.postMessage({
+        type: 'setRuleset',
+        ruleset: this.ruleset,
+        simulationGridFormat: this.simulationGridFormat
+      });
       if (needReset) {
         this.resetCamera();
       }
@@ -404,6 +411,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     const rect = el.getBoundingClientRect();
     // Min scale (CSS px/cell): entire grid visible, no duplicates.
     this.minScale = Math.max(rect.width / this.ruleset.cols, rect.height / this.ruleset.rows);
+    // If fitting the whole grid already requires going beyond the base limit,
+    // Raise the zoom cap so tiny grids can avoid repeated tiled cells.
+    this.maxScale = Math.max(Engine.BASE_MAX_SCALE, this.minScale);
   }
 
   private resetCamera(): void {

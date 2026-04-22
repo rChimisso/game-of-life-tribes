@@ -19,6 +19,12 @@ struct VertexOutput {
 @group(0) @binding(1) var<storage, read> grid: array<u32>;
 @group(0) @binding(2) var<storage, read> tribe_colors: array<u32>;
 
+const CELLS_PER_WORD: u32 = __CELLS_PER_WORD__;
+const WORD_SHIFT: u32 = __WORD_SHIFT__;
+const CELL_SHIFT: u32 = __CELL_SHIFT__;
+const CELL_INDEX_MASK: u32 = __CELL_INDEX_MASK__;
+const CELL_MASK: u32 = __CELL_MASK__;
+
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
   // Full-screen triangle trick: 3 vertices cover the entire clip space.
@@ -50,11 +56,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let ix = u32(cx);
   let iy = u32(cy);
 
-  // Read tribe ID from packed grid buffer (4 cells per u32, row-packed).
-  let packed_cols = (u32(cols) + 3u) / 4u;
-  let word_idx = iy * packed_cols + (ix >> 2u);
-  let shift = (ix & 3u) * 8u;
-  let tribe_id = (grid[word_idx] >> shift) & 0xFFu;
+  // Read tribe ID from the active packed grid buffer.
+  let packed_cols = (u32(cols) + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+  let word_idx = iy * packed_cols + (ix >> WORD_SHIFT);
+  let shift = (ix & CELL_INDEX_MASK) << CELL_SHIFT;
+  let tribe_id = (grid[word_idx] >> shift) & CELL_MASK;
 
   // Look up tribe color (packed as 0x00BBGGRR).
   let color_packed = tribe_colors[tribe_id];

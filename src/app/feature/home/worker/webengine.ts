@@ -11,6 +11,7 @@
 
 import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import renderWgsl from './render.wgsl';
+import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormat, GridFormatMetadata, GRID_FORMAT_8, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../model/grid-format';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
 
@@ -24,6 +25,8 @@ export interface InitMessage {
   type: 'init';
   canvas: OffscreenCanvas;
   ruleset: Ruleset<readonly Tribe[]>;
+  simulationGridFormat: GridFormatMetadata;
+  recording: boolean;
   speed: number;
   running: boolean;
 }
@@ -31,6 +34,7 @@ export interface InitMessage {
 export interface SetRulesetMessage {
   type: 'setRuleset';
   ruleset: Ruleset<readonly Tribe[]>;
+  simulationGridFormat: GridFormatMetadata;
 }
 
 export interface SetRunningMessage {
@@ -76,6 +80,7 @@ export interface LoadSnapshotMessage {
   type: 'loadSnapshot';
   grid: Uint32Array;
   generation: number;
+  gridFormat: GridFormatMetadata;
 }
 
 export interface SetRecordingMessage {
@@ -107,7 +112,15 @@ export interface GetUncompressedChunksMessage {
 
 export interface UncompressedChunksMessage {
   type: 'uncompressedChunks';
-  chunks: {filename: string; rawBytes: number}[];
+  chunks: {
+    filename: string;
+    rawBytes: number;
+    blockCount: number;
+    cols: number;
+    rows: number;
+    rawGridFormat: GridFormatMetadata;
+    storageGridFormat: GridFormatMetadata;
+  }[];
 }
 
 export type WorkerMessage =
@@ -149,6 +162,7 @@ export interface SnapshotMessage {
   generation: number;
   cols: number;
   rows: number;
+  gridFormat: GridFormatMetadata;
 }
 
 export interface RecordingMessage {
@@ -166,6 +180,7 @@ export interface LimitsMessage {
   recordingAvailable: boolean;
   vramSimulationBytes: number;
   vramRecordingBytes: number;
+  gridFormat: GridFormatMetadata;
 }
 
 export interface SteppingMessage {
@@ -196,6 +211,11 @@ export interface ChunkSealedMessage {
   type: 'chunkSealed';
   filename: string;
   rawBytes: number;
+  blockCount: number;
+  cols: number;
+  rows: number;
+  rawGridFormat: GridFormatMetadata;
+  storageGridFormat: GridFormatMetadata;
 }
 
 export interface UpdateChunkCodecMessage {
@@ -203,6 +223,7 @@ export interface UpdateChunkCodecMessage {
   filename: string;
   codec: string;
   storedBytes: number;
+  gridFormat: GridFormatMetadata;
 }
 
 export interface GenerationMessage {
@@ -240,7 +261,8 @@ let canvas: OffscreenCanvas;
 let ruleset: Ruleset<readonly Tribe[]>;
 let cols = 0;
 let rows = 0;
-let packedCols = 0; // Ceil(cols / 4) — u32 words per row in packed grid
+let packedCols = 0; // Ceil(cols / cellsPerWord) — u32 words per row in packed grid
+let gridFormat: GridFormat = GRID_FORMAT_8;
 let tribes: Tribe[] = [];
 const tribeIndex = new Map<string, number>();
 
@@ -305,11 +327,12 @@ let tribeLastAliveGen: Map<number, number> = new Map();
 let tribeEverAlive: Set<number> = new Set();
 
 // Recording state
-let isRecording = true;
+let isRecording = false;
 let manifest: RecordingManifest = {
   chunks: [],
   generationStart: 0,
-  generationEnd: 0
+  generationEnd: 0,
+  gridFormat: gridFormatMetadata(GRID_FORMAT_8)
 };
 let nextChunkId = 0;
 let sealedChunks: ChunkMeta[] = [];
@@ -355,6 +378,7 @@ let stagingAvailable: boolean[] = [];
 // OPFS persistence state
 const OPFS_DIR = 'gol-recording';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
+let opfsResetPromise: Promise<void> | null = null;
 let inflightSeals = 0;
 let pendingOpfsWrites = 0;
 const MAX_PENDING_OPFS_WRITES = 12;
@@ -371,9 +395,8 @@ const HISTOGRAM_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
 const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 
 // Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
-// Oversized frames fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
+// Frames at or above this size fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
 const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
-const SINGLE_FRAME_CHUNK_THRESHOLD = 64 * 1024 * 1024; // 64 MB
 const OPFS_PENDING_WRITE_BYTE_BUDGET = 512 * 1024 * 1024; // 512 MB
 
 // Yield between major rebuild allocations so the browser can catch up.
@@ -636,6 +659,22 @@ let currentFps = 0;
 //  Compute shader codegen
 // ---------------------------------------------------------------------------
 
+function pushGridFormatWgslConstants(lines: string[]): void {
+  lines.push(`const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;`);
+  lines.push(`const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;`);
+  lines.push(`const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;`);
+  lines.push(`const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;`);
+  lines.push(`const CELL_MASK: u32 = ${gridFormat.cellMask}u;`);
+}
+
+function pushReadCellWgsl(lines: string[], storageVar: string, packedColsExpr: string): void {
+  lines.push('fn readCell(x: u32, y: u32) -> u32 {');
+  lines.push(`  let wordIdx = y * ${packedColsExpr} + (x >> WORD_SHIFT);`);
+  lines.push('  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;');
+  lines.push(`  return (${storageVar}[wordIdx] >> shift) & CELL_MASK;`);
+  lines.push('}');
+}
+
 function generateComputeWgsl(): string {
   const lines: string[] = [];
   const pc = packedCols;
@@ -650,14 +689,11 @@ function generateComputeWgsl(): string {
   lines.push(`const COLS: u32 = ${ cols }u;`);
   lines.push(`const ROWS: u32 = ${ rows }u;`);
   lines.push(`const PACKED_COLS: u32 = ${ pc }u;`);
+  pushGridFormatWgslConstants(lines);
   lines.push('');
 
   // Helper: read a cell's tribe ID from packed grid.
-  lines.push('fn readCell(x: u32, y: u32) -> u32 {');
-  lines.push('  let wordIdx = y * PACKED_COLS + (x >> 2u);');
-  lines.push('  let shift = (x & 3u) * 8u;');
-  lines.push('  return (gridIn[wordIdx] >> shift) & 0xFFu;');
-  lines.push('}');
+  pushReadCellWgsl(lines, 'gridIn', 'PACKED_COLS');
   lines.push('');
 
   // Generate applyRules function containing all rule logic.
@@ -738,17 +774,17 @@ function generateComputeWgsl(): string {
   lines.push('}');
   lines.push('');
 
-  // Main compute function: each thread processes 4 cells (one packed u32).
+  // Main compute function: each thread processes one packed u32 word.
   lines.push('@compute @workgroup_size(16, 16)');
   lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
   lines.push('  let px = gid.x;');
   lines.push('  let y = gid.y;');
   lines.push('  if (px >= PACKED_COLS || y >= ROWS) { return; }');
   lines.push('');
-  lines.push('  let baseX = px * 4u;');
+  lines.push('  let baseX = px << WORD_SHIFT;');
   lines.push('  var packed: u32 = 0u;');
   lines.push('');
-  lines.push('  for (var i: u32 = 0u; i < 4u; i = i + 1u) {');
+  lines.push('  for (var i: u32 = 0u; i < CELLS_PER_WORD; i = i + 1u) {');
   lines.push('    let x = baseX + i;');
   lines.push('    if (x >= COLS) { break; }');
   lines.push('');
@@ -767,7 +803,7 @@ function generateComputeWgsl(): string {
     }
   }
   lines.push('');
-  lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & 0xFFu) << (i * 8u));');
+  lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & CELL_MASK) << (i << CELL_SHIFT));');
   lines.push('  }');
   lines.push('');
   lines.push('  gridOut[y * PACKED_COLS + px] = packed;');
@@ -974,7 +1010,11 @@ function writeUniforms(): void {
 // ---------------------------------------------------------------------------
 
 function gridBufferSize(): number {
-  return packedCols * rows * 4; // 4 cells packed per u32, row-packed layout
+  return gridByteSize(cols, rows, gridFormat);
+}
+
+function currentGridFormatMetadata(): GridFormatMetadata {
+  return gridFormatMetadata(gridFormat);
 }
 
 async function createGridBuffers(): Promise<void> {
@@ -1022,12 +1062,21 @@ function createTribeColorBuffer(): void {
   device.queue.writeBuffer(tribeColorBuffer, 0, data);
 }
 
+function generateRenderWgsl(): string {
+  return renderWgsl
+    .replace('__CELLS_PER_WORD__', `${gridFormat.cellsPerWord}u`)
+    .replace('__WORD_SHIFT__', `${gridFormat.wordShift}u`)
+    .replace('__CELL_SHIFT__', `${gridFormat.cellShift}u`)
+    .replace('__CELL_INDEX_MASK__', `${gridFormat.cellIndexMask}u`)
+    .replace('__CELL_MASK__', `${gridFormat.cellMask}u`);
+}
+
 // ---------------------------------------------------------------------------
 //  Pipeline creation
 // ---------------------------------------------------------------------------
 
 function createRenderPipeline(): void {
-  const module = device.createShaderModule({code: renderWgsl});
+  const module = device.createShaderModule({code: generateRenderWgsl()});
 
   renderPipeline = device.createRenderPipeline({
     layout: 'auto',
@@ -1109,20 +1158,26 @@ function createComputePipeline(): void {
 //  Metrics compute pipelines (histogram + boundary)
 // ---------------------------------------------------------------------------
 
-const HISTOGRAM_WGSL = `
+function generateHistogramWgsl(): string {
+  return `
 @group(0) @binding(0) var<storage, read> grid: array<u32>;
 @group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;
 
-const COLS: u32 = ${0}u; // placeholder, replaced at creation time
-const ROWS: u32 = ${0}u; // placeholder, replaced at creation time
+const COLS: u32 = ${cols}u;
+const ROWS: u32 = ${rows}u;
+const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
+const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
+const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
+const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
+const CELL_MASK: u32 = ${gridFormat.cellMask}u;
+const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
 
 var<workgroup> localHist: array<atomic<u32>, 256>;
 
 fn readCell(x: u32, y: u32) -> u32 {
-  let packed_cols = (COLS + 3u) / 4u;
-  let wordIdx = y * packed_cols + (x >> 2u);
-  let shift = (x & 3u) * 8u;
-  return (grid[wordIdx] >> shift) & 0xFFu;
+  let wordIdx = y * PACKED_COLS + (x >> WORD_SHIFT);
+  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;
+  return (grid[wordIdx] >> shift) & CELL_MASK;
 }
 
 @compute @workgroup_size(16, 16)
@@ -1130,7 +1185,6 @@ fn main(
   @builtin(global_invocation_id) gid: vec3u,
   @builtin(local_invocation_index) lid: u32
 ) {
-  // Cooperatively zero the workgroup-local histogram (256 bins, 256 threads).
   atomicStore(&localHist[lid], 0u);
   workgroupBarrier();
 
@@ -1142,13 +1196,13 @@ fn main(
   }
   workgroupBarrier();
 
-  // Flush nonzero local bins to the global histogram.
   let count = atomicLoad(&localHist[lid]);
   if (count > 0u) {
     atomicAdd(&hist[lid], count);
   }
 }
 `;
+}
 
 function generateBoundaryWgsl(): string {
   return `
@@ -1157,14 +1211,19 @@ function generateBoundaryWgsl(): string {
 
 const COLS: u32 = ${cols}u;
 const ROWS: u32 = ${rows}u;
+const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
+const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
+const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
+const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
+const CELL_MASK: u32 = ${gridFormat.cellMask}u;
+const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
 
 var<workgroup> localCount: atomic<u32>;
 
 fn readCell(x: u32, y: u32) -> u32 {
-  let packed_cols = (COLS + 3u) / 4u;
-  let wordIdx = y * packed_cols + (x >> 2u);
-  let shift = (x & 3u) * 8u;
-  return (grid[wordIdx] >> shift) & 0xFFu;
+  let wordIdx = y * PACKED_COLS + (x >> WORD_SHIFT);
+  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;
+  return (grid[wordIdx] >> shift) & CELL_MASK;
 }
 
 @compute @workgroup_size(16, 16)
@@ -1212,10 +1271,7 @@ fn main(
 
 function createMetricsPipelines(): void {
   // Histogram
-  const histWgsl = HISTOGRAM_WGSL
-    .replace('const COLS: u32 = 0u;', `const COLS: u32 = ${cols}u;`)
-    .replace('const ROWS: u32 = 0u;', `const ROWS: u32 = ${rows}u;`);
-  const histModule = device.createShaderModule({code: histWgsl});
+  const histModule = device.createShaderModule({code: generateHistogramWgsl()});
   histogramPipeline = device.createComputePipeline({
     layout: 'auto',
     compute: {module: histModule,
@@ -1299,7 +1355,8 @@ function createMetricsPipelines(): void {
 //   32: deadId  (u32)   36: seed    (u32)
 const BRUSH_UNIFORM_SIZE = 176; // 44 bytes header + 32*4 = 128 bytes tribe array = 172, rounded to 176
 
-const BRUSH_WGSL = `
+function generateBrushWgsl(): string {
+  return `
 struct BrushParams {
   centerX: i32,
   centerY: i32,
@@ -1318,6 +1375,12 @@ struct BrushParams {
 @group(0) @binding(0) var<storage, read_write> grid: array<atomic<u32>>;
 @group(0) @binding(1) var<uniform> params: BrushParams;
 
+const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
+const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
+const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
+const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
+const CELL_MASK: u32 = ${gridFormat.cellMask}u;
+
 fn pcg(inp: u32) -> u32 {
   var state = inp * 747796405u + 2891336453u;
   var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
@@ -1325,11 +1388,11 @@ fn pcg(inp: u32) -> u32 {
 }
 
 fn writePackedCell(cx: u32, cy: u32, value: u32) {
-  let packed_cols = (params.cols + 3u) / 4u;
-  let wordIdx = cy * packed_cols + (cx >> 2u);
-  let shift = (cx & 3u) * 8u;
-  let mask = 0xFFu << shift;
-  let newBits = (value & 0xFFu) << shift;
+  let packed_cols = (params.cols + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+  let wordIdx = cy * packed_cols + (cx >> WORD_SHIFT);
+  let shift = (cx & CELL_INDEX_MASK) << CELL_SHIFT;
+  let mask = CELL_MASK << shift;
+  let newBits = (value & CELL_MASK) << shift;
   var old = atomicLoad(&grid[wordIdx]);
   loop {
     let updated = (old & ~mask) | newBits;
@@ -1412,9 +1475,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   writePackedCell(u32(cx), u32(cy), selectedTribe);
 }
 `;
+}
 
 function createBrushPipeline(): void {
-  const module = device.createShaderModule({code: BRUSH_WGSL});
+  const module = device.createShaderModule({code: generateBrushWgsl()});
 
   brushPipeline = device.createComputePipeline({
     layout: 'auto',
@@ -1486,32 +1550,11 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
 // ---------------------------------------------------------------------------
 
 function unpackGridToFrame(packed: Uint32Array): Uint8Array {
-  const frame = new Uint8Array(cols * rows);
-  for (let y = 0; y < rows; y++) {
-    for (let px = 0; px < packedCols; px++) {
-      const word = packed[y * packedCols + px]!;
-      const baseX = px * 4;
-      for (let b = 0; b < 4 && baseX + b < cols; b++) {
-        frame[y * cols + baseX + b] = (word >> (b * 8)) & 0xFF;
-      }
-    }
-  }
-  return frame;
+  return unpackWordsToFrame(packed, cols, rows, gridFormat);
 }
 
 function packFrameToGrid(frame: Uint8Array): Uint32Array {
-  const gridData = new Uint32Array(packedCols * rows);
-  for (let y = 0; y < rows; y++) {
-    for (let px = 0; px < packedCols; px++) {
-      const baseX = px * 4;
-      let word = 0;
-      for (let b = 0; b < 4 && baseX + b < cols; b++) {
-        word |= (frame[y * cols + baseX + b]! & 0xFF) << (b * 8);
-      }
-      gridData[y * packedCols + px] = word;
-    }
-  }
-  return gridData;
+  return packFrameToWords(frame, cols, rows, gridFormat);
 }
 
 function readbackGrid(): Promise<Uint32Array> {
@@ -1625,7 +1668,7 @@ function computeChunkCapacity(): void {
 }
 
 function targetChunkBytes(): number {
-  if (frameByteSize >= SINGLE_FRAME_CHUNK_THRESHOLD) {
+  if (frameByteSize >= CHUNK_BUFFER_CAP) {
     return frameByteSize;
   }
   return Math.min(Math.max(CHUNK_BUFFER_CAP, frameByteSize), maxRecordingBufferBytes());
@@ -1649,7 +1692,8 @@ function postRecordingLimits(): void {
     frameByteSize,
     recordingAvailable,
     vramSimulationBytes: simulationBufferBytes(),
-    vramRecordingBytes: recordingBufferBytes()
+    vramRecordingBytes: recordingBufferBytes(),
+    gridFormat: currentGridFormatMetadata()
   } satisfies LimitsMessage);
 }
 
@@ -1721,6 +1765,7 @@ function sealCurrentChunk(): void {
     codec: 'raw-packed',
     uncompressedBytes: byteLen,
     storedBytes: byteLen,
+    gridFormat: currentGridFormatMetadata(),
     generations,
     filename
   };
@@ -1763,7 +1808,12 @@ function sealCurrentChunk(): void {
       self.postMessage({
         type: 'chunkSealed',
         filename: meta.filename,
-        rawBytes: byteLen
+        rawBytes: byteLen,
+        blockCount: meta.blockCount,
+        cols,
+        rows,
+        rawGridFormat: meta.gridFormat,
+        storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
       } satisfies ChunkSealedMessage);
 
       if (getRecordingPending && inflightSeals === 0) {
@@ -1801,7 +1851,7 @@ function updateManifestRange(): void {
   manifest.chunks = [...sealedChunks];
 }
 
-function resetRecording(startGen: number): void {
+async function resetRecording(startGen: number): Promise<void> {
   sealEpoch++;
   nextChunkId = 0;
   chunkFrameIndex = 0;
@@ -1822,13 +1872,17 @@ function resetRecording(startGen: number): void {
   manifest = {
     chunks: [],
     generationStart: startGen,
-    generationEnd: startGen
+    generationEnd: startGen,
+    gridFormat: currentGridFormatMetadata()
   };
-  resetOpfsDir();
+  await resetOpfsDir();
   postStorageQuota();
 }
 
 async function ensureOpfsDir(): Promise<FileSystemDirectoryHandle> {
+  if (opfsResetPromise) {
+    await opfsResetPromise;
+  }
   if (!opfsDirHandle) {
     const root = await navigator.storage.getDirectory();
     opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
@@ -1848,7 +1902,6 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
   const dir = await ensureOpfsDir();
   for (const name of filenames) {
     try {
-      console.log(`Trying to remove OPFS entry ${name}...`);
       await dir.removeEntry(name);
     } catch (e) {
       console.warn(`Failed to remove OPFS entry ${name}:`, e);
@@ -1857,14 +1910,29 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
 }
 
 async function resetOpfsDir(): Promise<void> {
-  const root = await navigator.storage.getDirectory();
-  try {
-    console.log(`Trying to remove OPFS directory ${OPFS_DIR}...`);
-    await root.removeEntry(OPFS_DIR, {recursive: true});
-  } catch (e) {
-    console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
+  if (opfsResetPromise) {
+    await opfsResetPromise;
+    return;
   }
-  opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
+
+  opfsResetPromise = (async() => {
+    const root = await navigator.storage.getDirectory();
+    opfsDirHandle = null;
+    try {
+      await root.removeEntry(OPFS_DIR, {recursive: true});
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'NotFoundError')) {
+        console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
+      }
+    }
+    opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
+  })();
+
+  try {
+    await opfsResetPromise;
+  } finally {
+    opfsResetPromise = null;
+  }
 }
 
 function sendRecordingManifest(): void {
@@ -1875,7 +1943,8 @@ function sendRecordingManifest(): void {
       chunks: sealedChunks.map(c => ({...c,
         generations: [...c.generations]})),
       generationStart: manifest.generationStart,
-      generationEnd: manifest.generationEnd
+      generationEnd: manifest.generationEnd,
+      gridFormat: currentGridFormatMetadata()
     },
     cols,
     rows
@@ -1893,6 +1962,16 @@ function needsInitialCapture(): boolean {
     return sealedChunks[sealedChunks.length - 1]!.generationEnd !== genCounter;
   }
   return true;
+}
+
+function captureCurrentGenerationIfNeeded(): void {
+  if (!isRecording || !needsInitialCapture() || !canRecord()) {
+    return;
+  }
+  if (chunkFrameIndex >= chunkFrameCapacity) {
+    sealCurrentChunk();
+  }
+  recordGeneration(genCounter);
 }
 
 /**
@@ -2471,12 +2550,24 @@ function mainLoop(now: number): void {
 //  Initialization
 // ---------------------------------------------------------------------------
 
-function initRuleset(rs: Ruleset<readonly Tribe[]>): void {
+function selectSimulationGridFormat(rs: Ruleset<readonly Tribe[]>, requested: GridFormatMetadata): GridFormat {
+  const maxBytes = device ? maxSimulationBufferBytes() : Number.POSITIVE_INFINITY;
+  if (isSupportedBitsPerCell(requested.bitsPerCell) &&
+      validatePackingAgainstStateCount(requested.bitsPerCell, rs.tribes.length) &&
+      fitsGridFormatInMaxBytes(rs.cols, rs.rows, gridFormatFromBits(requested.bitsPerCell), maxBytes)) {
+    return gridFormatFromBits(requested.bitsPerCell);
+  }
+  return smallestValidSimulationGridFormat(rs.tribes.length, rs.cols, rs.rows, maxBytes);
+}
+
+function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFormatMetadata): void {
   ruleset = rs;
   cols = rs.cols;
   rows = rs.rows;
-  packedCols = Math.ceil(cols / 4);
+  gridFormat = selectSimulationGridFormat(rs, simulationGridFormat);
+  packedCols = packedColsForFormat(cols, gridFormat);
   tribes = [...rs.tribes];
+  manifest.gridFormat = currentGridFormatMetadata();
 
   tribeIndex.clear();
   tribes.forEach((t, i) => tribeIndex.set(t.id, i));
@@ -2514,7 +2605,8 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     frameByteSize: 0,
     recordingAvailable: true,
     vramSimulationBytes: 0,
-    vramRecordingBytes: 0
+    vramRecordingBytes: 0,
+    gridFormat: currentGridFormatMetadata()
   } satisfies LimitsMessage);
 
   context = canvas.getContext('webgpu') as GPUCanvasContext;
@@ -2567,8 +2659,8 @@ async function createStagingRing(): Promise<void> {
   }
 }
 
-function initOpfs(): void {
-  resetOpfsDir();
+async function initOpfs(): Promise<void> {
+  await resetOpfsDir();
 }
 
 async function buildPipelines(): Promise<void> {
@@ -2584,7 +2676,7 @@ async function buildPipelines(): Promise<void> {
   createComputePipeline();
   createBrushPipeline();
   createMetricsPipelines();
-  initOpfs();
+  await initOpfs();
   if (recordingAvailableForCurrentFrame()) {
     await createChunkBuffer();
     await createStagingRing();
@@ -2681,7 +2773,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
   const m = ev.data;
   switch (m.type) {
     case 'init': {
-      initRuleset(m.ruleset);
+      isRecording = m.recording;
+      initRuleset(m.ruleset, m.simulationGridFormat);
       await initWebGPU(m.canvas);
       await buildPipelines();
 
@@ -2695,14 +2788,14 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'setRuleset': {
-      initRuleset(m.ruleset);
+      initRuleset(m.ruleset, m.simulationGridFormat);
       const rebuilt = await rebuildForNewRuleset();
       if (!rebuilt) {
         break;
       }
       genCounter = 0;
       lastMetricsGen = -1;
-      resetRecording(0);
+      await resetRecording(0);
       tribeLastAliveGen = new Map();
       tribeEverAlive = new Set();
       // Post initial metrics for the fresh (empty) grid.
@@ -2838,7 +2931,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           grid,
           generation: genCounter,
           cols,
-          rows
+          rows,
+          gridFormat: currentGridFormatMetadata()
         } satisfies SnapshotMessage, [grid.buffer] as never);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
@@ -2848,7 +2942,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           grid: empty,
           generation: genCounter,
           cols,
-          rows
+          rows,
+          gridFormat: currentGridFormatMetadata()
         } satisfies SnapshotMessage);
       });
       break;
@@ -2856,19 +2951,33 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
     case 'loadSnapshot': {
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
-      const expectedSize = gridBufferSize();
-      if (m.grid.byteLength !== expectedSize) {
+      const incomingGridFormat = gridFormatFromMetadata(m.gridFormat);
+      const incomingSize = gridByteSize(cols, rows, incomingGridFormat);
+      if (m.grid.byteLength !== incomingSize) {
         break;
       }
-      device.queue.writeBuffer(currentGrid, 0, m.grid);
+      const gridData = incomingGridFormat.bitsPerCell === gridFormat.bitsPerCell ?
+        m.grid :
+        packFrameToWords(unpackWordsToFrame(m.grid, cols, rows, incomingGridFormat), cols, rows, gridFormat);
+      device.queue.writeBuffer(currentGrid, 0, gridData);
       genCounter = m.generation;
-      resetRecording(m.generation);
+      await resetRecording(m.generation);
       break;
     }
 
     case 'setRecording': {
       if (m.recording && recordingAvailableForCurrentFrame() && !isRecording) {
         isRecording = true;
+        captureCurrentGenerationIfNeeded();
+        lastMetricsGen = -1;
+        if (!metricsInFlight) {
+          const encoder = device.createCommandEncoder();
+          runMetricsGpu(encoder);
+          device.queue.submit([encoder.finish()]);
+          readMetricsAndPost();
+        } else {
+          pendingMetricsRetry = true;
+        }
         postStorageQuota();
       } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
         isRecording = false;
@@ -2877,10 +2986,13 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'getRecording': {
-      // Seal current chunk if it has frames, then wait for all writes.
+      // Flush queued GPU work, capture the current generation if needed,
+      // Then seal the current chunk and wait for all writes.
       if (getRecordingPending) {
         break;
       }
+      await waitForGpuQueueIdle();
+      captureCurrentGenerationIfNeeded();
       if (chunkFrameIndex > 0) {
         sealCurrentChunk();
       }
@@ -2951,18 +3063,35 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
         const chunk = sealedChunks[targetSealedIdx]!;
         const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
+        const storedChunkFormat = gridFormatFromMetadata(chunk.gridFormat);
+        const storedFrameByteSize = gridByteSize(cols, rows, storedChunkFormat);
 
         // Load frames 0..frameInChunk into the GPU chunk buffer.
-        const prefixBytes = (frameInChunk + 1) * frameByteSize;
-        device.queue.writeBuffer(chunkGpuBuffer!, 0, new Uint8Array(chunkData, 0, prefixBytes));
+        if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
+          const prefixBytes = (frameInChunk + 1) * frameByteSize;
+          device.queue.writeBuffer(chunkGpuBuffer!, 0, new Uint8Array(chunkData, 0, prefixBytes));
+        } else {
+          const repackedPrefix = new Uint8Array((frameInChunk + 1) * frameByteSize);
+          for (let frameIndex = 0; frameIndex <= frameInChunk; frameIndex++) {
+            const storedOffset = frameIndex * storedFrameByteSize;
+            const packedFrame = new Uint8Array(chunkData, storedOffset, storedFrameByteSize);
+            const unpackedFrame = unpackPackedBytesToFrame(packedFrame, cols, rows, storedChunkFormat);
+            const repackedFrame = packFrameToWords(unpackedFrame, cols, rows, gridFormat);
+            repackedPrefix.set(new Uint8Array(repackedFrame.buffer, repackedFrame.byteOffset, repackedFrame.byteLength), frameIndex * frameByteSize);
+          }
+          device.queue.writeBuffer(chunkGpuBuffer!, 0, repackedPrefix);
+          device.queue.writeBuffer(currentGrid, 0, repackedPrefix.subarray(frameInChunk * frameByteSize, (frameInChunk + 1) * frameByteSize));
+        }
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
         genCounter = chunkGenerations[frameInChunk]!;
 
-        // Copy target frame to the grid.
-        const bEnc = device.createCommandEncoder();
-        bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
-        device.queue.submit([bEnc.finish()]);
+        if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
+          // Copy target frame to the grid.
+          const bEnc = device.createCommandEncoder();
+          bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
+          device.queue.submit([bEnc.finish()]);
+        }
 
         // Delete the target chunk and all subsequent sealed chunks from OPFS.
         const removed = sealedChunks.splice(targetSealedIdx);
@@ -3063,6 +3192,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (chunk) {
         chunk.codec = m.codec;
         chunk.storedBytes = m.storedBytes;
+        chunk.gridFormat = m.gridFormat;
         manifest.chunks = [...sealedChunks];
         // Always post updated quota so the pending/compressed breakdown refreshes.
         postStorageQuota();
@@ -3072,8 +3202,15 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     case 'getUncompressedChunks': {
       const rawChunks = sealedChunks
         .filter(c => c.codec === 'raw-packed')
-        .map(c => ({filename: c.filename,
-          rawBytes: c.uncompressedBytes}));
+        .map(c => ({
+          filename: c.filename,
+          rawBytes: c.uncompressedBytes,
+          blockCount: c.blockCount,
+          cols,
+          rows,
+          rawGridFormat: c.gridFormat,
+          storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
+        }));
       self.postMessage({type: 'uncompressedChunks',
         chunks: rawChunks});
       break;

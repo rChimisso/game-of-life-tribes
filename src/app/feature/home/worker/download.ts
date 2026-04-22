@@ -1,5 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 
+import {chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
 import {RecordingManifest} from '../model/recording';
 
 // ---------------------------------------------------------------------------
@@ -13,8 +14,16 @@ interface TribeInfo {
 
 interface DownloadRequest {
   type: 'download';
-  opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number};
-  snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]};
+  opts: {
+    csv: boolean;
+    mp4: boolean;
+    png: boolean;
+    saves: boolean;
+    fps: number;
+    bitrate: number;
+    frameRange: {startFrame: number; endFrame: number} | null;
+  };
+  snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]; gridFormat: GridFormatMetadata};
   recording: {manifest: RecordingManifest; cols: number; rows: number} | null;
   tribes: TribeInfo[];
   rules: unknown;
@@ -825,29 +834,8 @@ async function createMp4StreamEncoder(
 //  Frame unpacking
 // ---------------------------------------------------------------------------
 
-function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: number): Uint8Array {
-  const packedCols = Math.ceil(frameCols / 4);
-  // Ensure 4-byte alignment for Uint32Array view.  Decompressed chunk data
-  // May have an arbitrary byteOffset.
-  let words: Uint32Array;
-  if (packed.byteOffset % 4 === 0) {
-    words = new Uint32Array(packed.buffer, packed.byteOffset, packed.byteLength / 4);
-  } else {
-    const aligned = new ArrayBuffer(packed.byteLength);
-    new Uint8Array(aligned).set(packed);
-    words = new Uint32Array(aligned);
-  }
-  const frame = new Uint8Array(frameCols * frameRows);
-  for (let y = 0; y < frameRows; y++) {
-    for (let px = 0; px < packedCols; px++) {
-      const word = words[y * packedCols + px]!;
-      const baseX = px * 4;
-      for (let b = 0; b < 4 && baseX + b < frameCols; b++) {
-        frame[y * frameCols + baseX + b] = (word >> (b * 8)) & 0xFF;
-      }
-    }
-  }
-  return frame;
+function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: number, gridFormat: GridFormatMetadata): Uint8Array {
+  return unpackPackedBytesToFrame(packed, frameCols, frameRows, gridFormatFromMetadata(gridFormat));
 }
 
 const OPFS_DIR = 'gol-recording';
@@ -878,6 +866,7 @@ async function buildGoltState(
   cols: number,
   rows: number,
   grid: Uint32Array | number[],
+  gridFormat: GridFormatMetadata,
   tribes: TribeInfo[],
   rules: unknown
 ): Promise<Uint8Array> {
@@ -892,13 +881,24 @@ async function buildGoltState(
     generation,
     cols,
     rows,
+    gridFormat: gridFormatMetadata(chooseTightStorageGridFormat(tribes.length)),
     tribes: tribes.map(t => ({id: t.id,
       color: t.color})),
     rules
   });
   const headerBytes = textEncoder.encode(header);
-  const gridU32 = grid instanceof Uint32Array ? grid : new Uint32Array(grid);
-  const gridBytes = new Uint8Array(gridU32.buffer, gridU32.byteOffset, gridU32.byteLength);
+  const sourceGridU32 = grid instanceof Uint32Array ? grid : new Uint32Array(grid);
+  const sourceFormat = gridFormatFromMetadata(gridFormat);
+  const targetFormat = chooseTightStorageGridFormat(tribes.length);
+  const targetGridU32 = sourceFormat.bitsPerCell === targetFormat.bitsPerCell ?
+    sourceGridU32 :
+    packFrameToWords(
+      unpackPackedBytesToFrame(new Uint8Array(sourceGridU32.buffer, sourceGridU32.byteOffset, sourceGridU32.byteLength), cols, rows, sourceFormat),
+      cols,
+      rows,
+      targetFormat
+    );
+  const gridBytes = new Uint8Array(targetGridU32.buffer, targetGridU32.byteOffset, targetGridU32.byteLength);
 
   // Compress grid with deflate-raw
   const cs = new CompressionStream('deflate-raw');
@@ -959,6 +959,31 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         totalFrames += c.blockCount;
       }
     }
+    const selectedStartIndex = opts.frameRange && totalFrames > 0 ?
+      Math.max(0, Math.min(totalFrames - 1, opts.frameRange.startFrame - 1)) :
+      0;
+    const selectedEndIndex = opts.frameRange && totalFrames > 0 ?
+      Math.max(selectedStartIndex, Math.min(totalFrames - 1, opts.frameRange.endFrame - 1)) :
+      Math.max(0, totalFrames - 1);
+    const selectedFrameCount = totalFrames > 0 ? selectedEndIndex - selectedStartIndex + 1 : 0;
+
+    interface ChunkGlobalRange {chunkMeta: RecordingManifest['chunks'][number]; startIndex: number; endIndex: number}
+    const chunkGlobalRanges: ChunkGlobalRange[] = [];
+    if (hasRecording) {
+      let nextStart = 0;
+      for (const chunkMeta of rec.manifest.chunks) {
+        const startIndex = nextStart;
+        const endIndex = startIndex + chunkMeta.blockCount - 1;
+        chunkGlobalRanges.push({
+          chunkMeta,
+          startIndex,
+          endIndex
+        });
+        nextStart = endIndex + 1;
+      }
+    }
+    const chunksToProcess = chunkGlobalRanges.filter(range =>
+      selectedFrameCount > 0 && range.endIndex >= selectedStartIndex && range.startIndex <= selectedEndIndex).length;
 
     // -- Indexed PNG encoder ------------------------------------------------
     let pngEncoder: IndexedPngEncoder | null = null;
@@ -985,16 +1010,9 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // OPFS dir handle (opened once).
     let opfsDir: FileSystemDirectoryHandle | null = null;
-    let packedCols = 0;
-    let frameByteSz = 0;
-    if (hasRecording) {
-      packedCols = Math.ceil(rec.cols / 4);
-      frameByteSz = packedCols * rec.rows * 4;
-    }
-
     // Track first and last frame for state snapshots.
-    let firstFrame: {gen: number; packed: Uint8Array} | null = null;
-    let lastFrame: {gen: number; packed: Uint8Array} | null = null;
+    let firstFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
+    let lastFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
 
     // Progress budget: chunks 2-82%, metrics 85%, MP4 90%, finalize 95%.
     const PCT_CHUNKS_START = 2;
@@ -1028,8 +1046,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
 
     let chunksProcessed = 0;
-    const totalChunks = hasRecording ? rec.manifest.chunks.length : 0;
-    let globalFrameIndex = 0;
+    let selectedFramesProcessed = 0;
 
     if (hasRecording) {
       if (!opfsDir) {
@@ -1037,13 +1054,19 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         opfsDir = await root.getDirectoryHandle(OPFS_DIR);
       }
 
-      for (let ci = 0; ci < totalChunks; ci++) {
-        const chunkMeta = rec.manifest.chunks[ci]!;
+      for (const chunkRange of chunkGlobalRanges) {
+        const {chunkMeta, startIndex: chunkStartIndex, endIndex: chunkEndIndex} = chunkRange;
+        const chunkInSelection = selectedFrameCount > 0 && chunkEndIndex >= selectedStartIndex && chunkStartIndex <= selectedEndIndex;
+        if (!chunkInSelection) {
+          continue;
+        }
+        const chunkGridFormat = gridFormatFromMetadata(chunkMeta.gridFormat);
+        const chunkFrameByteSz = gridByteSize(rec.cols, rec.rows, chunkGridFormat);
         chunksProcessed++;
-        const pct = PCT_CHUNKS_START + ((chunksProcessed / totalChunks) * (PCT_CHUNKS_END - PCT_CHUNKS_START));
-        mainProgress(Math.round(pct), `Chunk ${chunksProcessed}/${totalChunks}`);
+        const pct = PCT_CHUNKS_START + ((chunksProcessed / Math.max(1, chunksToProcess)) * (PCT_CHUNKS_END - PCT_CHUNKS_START));
+        mainProgress(Math.round(pct), `Chunk ${chunksProcessed}/${Math.max(1, chunksToProcess)}`);
 
-        subProgress(Math.round((globalFrameIndex / totalFrames) * 100), 'Loading chunk');
+        subProgress(selectedFrameCount > 0 ? Math.round((selectedFramesProcessed / selectedFrameCount) * 100) : 0, 'Loading chunk');
 
         // OPFS handles can become stale during very long exports (browser GC,
         // Storage pressure).  If reading fails, re-acquire the directory
@@ -1063,20 +1086,12 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
           storedData = await blob.arrayBuffer();
         }
 
-        // The manifest codec may be stale if the compress worker raced ahead
-        // And compressed the OPFS file before being terminated.  Instead of
-        // Trusting the codec field, always try decompression when the manifest
-        // Says raw-packed — deflate-raw will fail fast on genuinely raw data.
+        // Use the recorded codec to decide whether OPFS data needs decompression.
         let chunkData: Uint8Array;
         if (chunkMeta.codec === 'deflate-raw') {
           chunkData = new Uint8Array(await decompressChunk(storedData));
         } else {
-          try {
-            chunkData = new Uint8Array(await decompressChunk(storedData));
-          } catch (e) {
-            console.warn(`Decompression failed for raw-packed chunk "${chunkMeta.filename}", using raw data:`, e);
-            chunkData = new Uint8Array(storedData);
-          }
+          chunkData = new Uint8Array(storedData);
         }
 
         // Process frames in batches: sequential work (unpack, metrics, MP4)
@@ -1088,31 +1103,43 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
           64;
         for (let batchStart = 0; batchStart < chunkMeta.blockCount; batchStart += PNG_BATCH) {
           const batchEnd = Math.min(batchStart + PNG_BATCH, chunkMeta.blockCount);
+          const selectedBatchStart = Math.max(batchStart, selectedStartIndex - chunkStartIndex);
+          const selectedBatchEnd = Math.min(batchEnd - 1, selectedEndIndex - chunkStartIndex);
+          if (selectedBatchStart > selectedBatchEnd) {
+            continue;
+          }
+
           const pngBatch: {gen: number; frame: Uint8Array}[] = [];
 
-          const batchFirstGen = chunkMeta.generations[batchStart] ?? (chunkMeta.generationStart + batchStart);
-          const batchLastGen = chunkMeta.generations[batchEnd - 1] ?? (chunkMeta.generationStart + batchEnd - 1);
+          const batchFirstGen = chunkMeta.generations[selectedBatchStart] ?? (chunkMeta.generationStart + selectedBatchStart);
+          const batchLastGen = chunkMeta.generations[selectedBatchEnd] ?? (chunkMeta.generationStart + selectedBatchEnd);
           subProgress(
-            Math.round(((globalFrameIndex + 1) / totalFrames) * 100),
+            selectedFrameCount > 0 ? Math.round((selectedFramesProcessed / selectedFrameCount) * 100) : 0,
             `Processing frames gen ${batchFirstGen}–${batchLastGen}`
           );
 
-          for (let fi = batchStart; fi < batchEnd; fi++) {
+          for (let fi = selectedBatchStart; fi <= selectedBatchEnd; fi++) {
             const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);
-            globalFrameIndex++;
+            selectedFramesProcessed++;
 
-            const byteOff = fi * frameByteSz;
-            const packed = chunkData.subarray(byteOff, byteOff + frameByteSz);
-            const frame = unpackGridToFrame(packed, rec.cols, rec.rows);
+            const byteOff = fi * chunkFrameByteSz;
+            const packed = chunkData.subarray(byteOff, byteOff + chunkFrameByteSz);
+            const frame = unpackGridToFrame(packed, rec.cols, rec.rows, chunkMeta.gridFormat);
 
             // Track first/last for state snapshots.
             if (!firstFrame || frameGen < firstFrame.gen) {
-              firstFrame = {gen: frameGen,
-                packed: new Uint8Array(packed)};
+              firstFrame = {
+                gen: frameGen,
+                packed: new Uint8Array(packed),
+                gridFormat: chunkMeta.gridFormat
+              };
             }
             if (!lastFrame || frameGen > lastFrame.gen) {
-              lastFrame = {gen: frameGen,
-                packed: new Uint8Array(packed)};
+              lastFrame = {
+                gen: frameGen,
+                packed: new Uint8Array(packed),
+                gridFormat: chunkMeta.gridFormat
+              };
             }
 
             if (needMetrics) {
@@ -1178,8 +1205,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       mainProgress(PCT_METRICS, 'Writing states');
       subProgress(SUB_STATES, 'Building first-gen state');
 
-      // FirstFrame.packed is already in packed format (4 cells per u32) which
-      // Matches what parseGoltFile expects on load.
+      // FirstFrame.packed is already in the recording's native packed format,
+      // Which matches what parseGoltFile expects on load.
       const firstU32 = new Uint32Array(
         firstFrame.packed.buffer.slice(
           firstFrame.packed.byteOffset,
@@ -1188,7 +1215,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       );
       summaryZip.addEntry(
         `state-first-gen${firstFrame.gen}.golt`,
-        await buildGoltState(firstFrame.gen, rec.cols, rec.rows, firstU32, tribes, rules)
+        await buildGoltState(firstFrame.gen, rec.cols, rec.rows, firstU32, firstFrame.gridFormat, tribes, rules)
       );
 
       // Use snapshot grid for the last-gen state — it's the current GPU state in native format.
@@ -1196,7 +1223,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         subProgress(SUB_STATES + 10, 'Building last-gen state');
         summaryZip.addEntry(
           `state-last-gen${snapshot.generation}.golt`,
-          await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, tribes, rules)
+          await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
         );
       }
     } else if (opts.saves) {
@@ -1205,7 +1232,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       subProgress(SUB_STATES, 'Building snapshot state');
       summaryZip.addEntry(
         `state-gen${snapshot.generation}.golt`,
-        await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, tribes, rules)
+        await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
       );
     }
 

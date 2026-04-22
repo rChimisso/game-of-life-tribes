@@ -9,6 +9,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import packageJson from '../../../../../../package.json';
+import {BitsPerCell, chooseGridFormat, gridByteSize, gridFormatFromBits, GridFormatMetadata, maxStateCountForBits, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
@@ -36,8 +37,14 @@ export interface SidebarEvent {
     | 'setBrushFill'
     | 'togglePanMode'
     | 'cancelDownload'
+    | 'setPacking'
     | 'applyPreset';
   value?: unknown;
+}
+
+interface DownloadFrameRange {
+  startFrame: number;
+  endFrame: number;
 }
 
 @Component({
@@ -93,6 +100,9 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   @Input()
   public gridRows = 100;
+
+  @Input()
+  public simulationGridFormat: GridFormatMetadata = {bitsPerCell: 8};
 
   @Input()
   public metrics: MetricMessage | null = null;
@@ -299,6 +309,8 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public pendingRows = 100;
 
+  public pendingSimulationBitsPerCell: BitsPerCell = 8;
+
   public downloadCsv = true;
 
   public downloadSaves = true;
@@ -306,6 +318,12 @@ export class Sidebar implements OnChanges, OnDestroy {
   public downloadMp4 = false;
 
   public downloadPng = false;
+
+  public downloadAllFrames = true;
+
+  public downloadStartFrame = 1;
+
+  public downloadEndFrame = 1;
 
   public mp4Fps = 12;
 
@@ -331,7 +349,13 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public metricsExpanded = true;
 
+  public packingExpanded = true;
+
   public mp4SettingsExpanded = false;
+
+  public downloadSelectionExpanded = true;
+
+  private downloadFrameRangeTouched = false;
 
   // App info
   public readonly appVersion = packageJson.version;
@@ -340,6 +364,8 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   // Presets
   public readonly presets = PRESETS;
+
+  public readonly simulationPackingOptions = SUPPORTED_SIMULATION_BITS_PER_CELL;
 
   public selectedPreset: Preset | null = null;
 
@@ -384,14 +410,22 @@ export class Sidebar implements OnChanges, OnDestroy {
     return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
   }
 
+  public get hasUnappliedPacking(): boolean {
+    return this.pendingSimulationBitsPerCell !== this.simulationGridFormat.bitsPerCell;
+  }
+
+  public get totalStateCount(): number {
+    return this.editTribes.length > 0 ? this.editTribes.length : this.ruleset.tribes.length;
+  }
+
   public get gridSizeError(): string | null {
-    const packedGridByteSize = Math.ceil(this.pendingCols / 4) * this.pendingRows * 4;
+    const packedGridByteSize = gridByteSize(this.pendingCols, this.pendingRows, chooseGridFormat(this.totalStateCount));
 
     if (packedGridByteSize > this.maxBytes) {
       return `Grid requires ${packedGridByteSize.toLocaleString()} bytes but GPU supports at most ${this.maxBytes.toLocaleString()}`;
     }
-    if (this.pendingCols < 10 || this.pendingRows < 10) {
-      return 'Minimum grid size is 10×10';
+    if (this.pendingCols < 3 || this.pendingRows < 3) {
+      return 'Minimum grid size is 3×3';
     }
     return null;
   }
@@ -420,6 +454,70 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public get brushMaxSize(): number {
     return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
+  }
+
+  public get totalRecordedFrames(): number {
+    return Math.max(0, this.metrics?.totalFrames ?? 0);
+  }
+
+  public get hasRecordedFrames(): boolean {
+    return this.totalRecordedFrames > 0;
+  }
+
+  public get normalizedDownloadFrameRange(): DownloadFrameRange | null {
+    if (this.downloadAllFrames || !this.hasRecordedFrames) {
+      return null;
+    }
+    const startFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), this.totalRecordedFrames);
+    const endFrame = Math.min(Math.max(startFrame, Math.floor(this.downloadEndFrame || startFrame)), this.totalRecordedFrames);
+    return {
+      startFrame,
+      endFrame
+    };
+  }
+
+  public get downloadFrameRangeError(): string | null {
+    if (this.downloadAllFrames || !this.hasRecordedFrames) {
+      return null;
+    }
+    if (!Number.isFinite(this.downloadStartFrame) || !Number.isFinite(this.downloadEndFrame)) {
+      return 'Frame range must use whole numbers.';
+    }
+    if (this.downloadStartFrame < 1 || this.downloadEndFrame < 1) {
+      return 'Frame range must start at frame 1 or later.';
+    }
+    if (this.downloadStartFrame > this.totalRecordedFrames || this.downloadEndFrame > this.totalRecordedFrames) {
+      return `Recorded frames currently range from 1 to ${this.totalRecordedFrames.toLocaleString()}.`;
+    }
+    if (this.downloadStartFrame > this.downloadEndFrame) {
+      return 'Start frame must be less than or equal to end frame.';
+    }
+    return null;
+  }
+
+  public get pendingPackingFrameByteSize(): number {
+    return gridByteSize(this.pendingCols, this.pendingRows, gridFormatFromBits(this.pendingSimulationBitsPerCell));
+  }
+
+  public get pendingPackingFrameSizeFormatted(): string {
+    return this.formatBytes(this.pendingPackingFrameByteSize);
+  }
+
+  public get pendingPackingError(): string | null {
+    if (this.pendingCols < 3 || this.pendingRows < 3) {
+      return 'Minimum grid size is 3×3';
+    }
+
+    if (!validatePackingAgainstStateCount(this.pendingSimulationBitsPerCell, this.totalStateCount)) {
+      return `${this.totalStateCount.toLocaleString()} states (including dead) require more than ${this.pendingSimulationBitsPerCell} bits per cell; that format supports at most ${maxStateCountForBits(this.pendingSimulationBitsPerCell).toLocaleString()} states.`;
+    }
+
+    const requiredBytes = this.pendingPackingFrameByteSize;
+    if (requiredBytes > this.maxBytes) {
+      return `Grid would require ${requiredBytes.toLocaleString()} bytes at ${this.pendingSimulationBitsPerCell} bits per cell, but GPU supports at most ${this.maxBytes.toLocaleString()} bytes.`;
+    }
+
+    return null;
   }
 
   private static readonly PREFS_KEY = 'golt-simfs';
@@ -458,6 +556,12 @@ export class Sidebar implements OnChanges, OnDestroy {
     if (changes['gridCols'] || changes['gridRows']) {
       this.pendingCols = this.gridCols;
       this.pendingRows = this.gridRows;
+    }
+    if (changes['simulationGridFormat']) {
+      this.pendingSimulationBitsPerCell = this.simulationGridFormat.bitsPerCell;
+    }
+    if (changes['metrics']) {
+      this.syncDownloadFrameRange();
     }
   }
 
@@ -499,6 +603,10 @@ export class Sidebar implements OnChanges, OnDestroy {
       rows: this.pendingRows});
   }
 
+  public onPackingApply(): void {
+    this.emit('setPacking', {bitsPerCell: this.pendingSimulationBitsPerCell} satisfies GridFormatMetadata);
+  }
+
   public onDownload(): void {
     this.emit('download', {
       csv: this.downloadCsv,
@@ -506,8 +614,26 @@ export class Sidebar implements OnChanges, OnDestroy {
       png: this.downloadPng,
       saves: this.downloadSaves,
       fps: this.mp4Fps,
-      bitrate: this.mp4BitrateMbps * 1_000_000
+      bitrate: this.mp4BitrateMbps * 1_000_000,
+      frameRange: this.normalizedDownloadFrameRange
     });
+  }
+
+  public onDownloadAllFramesChange(checked: boolean): void {
+    this.downloadAllFrames = checked;
+    this.downloadFrameRangeTouched = false;
+    this.syncDownloadFrameRange();
+    this.savePrefs();
+  }
+
+  public onDownloadStartFrameChange(value: number): void {
+    this.downloadStartFrame = value;
+    this.downloadFrameRangeTouched = true;
+  }
+
+  public onDownloadEndFrameChange(value: number): void {
+    this.downloadEndFrame = value;
+    this.downloadFrameRangeTouched = true;
   }
 
   public onStepBack(): void {
@@ -822,9 +948,21 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.pendingRows = this.gridRows;
   }
 
+  public restorePacking(): void {
+    this.pendingSimulationBitsPerCell = this.simulationGridFormat.bitsPerCell;
+  }
+
   public clauseSummary(clause: Clause<Tribe[]>): string {
     const s = this.clauseStr(clause);
     return s.length > 50 ? `${s.substring(0, 47) }…` : s;
+  }
+
+  public ruleTrackKey(rule: Rule<Tribe[]>, index: number): string {
+    return `${index}:${rule.tribe}:${this.clauseStr(rule.clause)}`;
+  }
+
+  public clauseTrackKey(clause: Clause<Tribe[]>, index: number): string {
+    return `${index}:${this.clauseStr(clause)}`;
   }
 
   public getTribeColor(tribeId: string): string {
@@ -984,6 +1122,30 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.pendingRows = this.ruleset.rows;
   }
 
+  private syncDownloadFrameRange(): void {
+    const totalFrames = this.totalRecordedFrames;
+    if (totalFrames <= 0) {
+      this.downloadStartFrame = 1;
+      this.downloadEndFrame = 1;
+      return;
+    }
+
+    if (this.downloadAllFrames) {
+      this.downloadStartFrame = 1;
+      this.downloadEndFrame = totalFrames;
+      return;
+    }
+
+    if (!this.downloadFrameRangeTouched) {
+      this.downloadStartFrame = 1;
+      this.downloadEndFrame = totalFrames;
+      return;
+    }
+
+    this.downloadStartFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), totalFrames);
+    this.downloadEndFrame = Math.min(Math.max(this.downloadStartFrame, Math.floor(this.downloadEndFrame || this.downloadStartFrame)), totalFrames);
+  }
+
   private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
     if (clause.kind === 'is' || clause.kind === 'count') {
       const idx = clause.tribes.indexOf(tribeId);
@@ -1098,14 +1260,16 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
   }
 
-  public toggleSection(section: 'presets' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings'): void {
+  public toggleSection(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection'): void {
     switch (section) {
       case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
+      case 'packing': this.packingExpanded = !this.packingExpanded; break;
       case 'tribes': this.tribesExpanded = !this.tribesExpanded; break;
       case 'rules': this.rulesExpanded = !this.rulesExpanded; break;
       case 'metrics': this.metricsExpanded = !this.metricsExpanded; break;
       case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
       case 'mp4Settings': this.mp4SettingsExpanded = !this.mp4SettingsExpanded; break;
+      case 'downloadSelection': this.downloadSelectionExpanded = !this.downloadSelectionExpanded; break;
     }
     this.savePrefs();
   }
@@ -1117,6 +1281,7 @@ export class Sidebar implements OnChanges, OnDestroy {
         ...existing,
         shortcutsExpanded: this.shortcutsExpanded,
         presetsExpanded: this.presetsExpanded,
+        packingExpanded: this.packingExpanded,
         tribesExpanded: this.tribesExpanded,
         rulesExpanded: this.rulesExpanded,
         metricsExpanded: this.metricsExpanded,
@@ -1124,9 +1289,11 @@ export class Sidebar implements OnChanges, OnDestroy {
         downloadSaves: this.downloadSaves,
         downloadMp4: this.downloadMp4,
         downloadPng: this.downloadPng,
+        downloadAllFrames: this.downloadAllFrames,
         mp4Fps: this.mp4Fps,
         mp4BitrateMbps: this.mp4BitrateMbps,
         mp4SettingsExpanded: this.mp4SettingsExpanded,
+        downloadSelectionExpanded: this.downloadSelectionExpanded,
         skipAmount: this.skipAmount
       }));
     } catch (e) {
@@ -1146,6 +1313,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       }
       if (typeof p.presetsExpanded === 'boolean') {
         this.presetsExpanded = p.presetsExpanded;
+      }
+      if (typeof p.packingExpanded === 'boolean') {
+        this.packingExpanded = p.packingExpanded;
       }
       if (typeof p.tribesExpanded === 'boolean') {
         this.tribesExpanded = p.tribesExpanded;
@@ -1168,6 +1338,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       if (typeof p.downloadPng === 'boolean') {
         this.downloadPng = p.downloadPng;
       }
+      if (typeof p.downloadAllFrames === 'boolean') {
+        this.downloadAllFrames = p.downloadAllFrames;
+      }
       if (typeof p.mp4Fps === 'number' && p.mp4Fps >= 1 && p.mp4Fps <= 60) {
         this.mp4Fps = p.mp4Fps;
       }
@@ -1182,6 +1355,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       }
       if (typeof p.mp4SettingsExpanded === 'boolean') {
         this.mp4SettingsExpanded = p.mp4SettingsExpanded;
+      }
+      if (typeof p.downloadSelectionExpanded === 'boolean') {
+        this.downloadSelectionExpanded = p.downloadSelectionExpanded;
       }
       if (typeof p.skipAmount === 'number' && p.skipAmount >= 1) {
         this.skipAmount = p.skipAmount;

@@ -135,11 +135,11 @@
       <div class="grid-size-inputs">
         <label>
           Cols
-          <input min="10" type="number" [(ngModel)]="pendingCols" />
+          <input min="3" type="number" [(ngModel)]="pendingCols" />
         </label>
         <label>
           Rows
-          <input min="10" type="number" [(ngModel)]="pendingRows" />
+          <input min="3" type="number" [(ngModel)]="pendingRows" />
         </label>
         @if (gridSizeError) {
           <span class="grid-size-error">{{ gridSizeError }}</span>
@@ -147,6 +147,41 @@
         <div class="apply-row">
           <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !hasUnappliedGridSize || gridSizeError" (click)="onGridSizeApply()">Apply</button>
           <button class="restore-btn" mat-stroked-button [disabled]="downloading || !hasUnappliedGridSize" (click)="restoreGridSize()">Restore</button>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Packing -->
+    <div class="section">
+      <h3 class="section-title shortcuts-toggle" (click)="toggleSection('packing')">
+        <mat-icon class="expand-icon">{{ packingExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
+        Packing <span class="section-desc">{{ simulationGridFormat.bitsPerCell }} bit active</span>
+      </h3>
+      <div class="collapsible" [class.open]="packingExpanded">
+        <div class="collapsible-inner">
+          <div class="brush-row">
+            <span class="brush-label">Bits/cell</span>
+            <div class="brush-toggle-group">
+              @for (bitsPerCell of simulationPackingOptions; track bitsPerCell) {
+                <button class="brush-toggle" [class.active]="pendingSimulationBitsPerCell === bitsPerCell" (click)="pendingSimulationBitsPerCell = bitsPerCell">{{ bitsPerCell }}</button>
+              }
+            </div>
+          </div>
+          <div class="generation-display">
+            <span class="gen-label">Frame size</span>
+            <span class="gen-value">{{ pendingPackingFrameSizeFormatted }}</span>
+            <span class="gen-label">Bytes</span>
+            <span class="gen-value">{{ pendingPackingFrameByteSize | number }}</span>
+          </div>
+          @if (pendingPackingError) {
+            <span class="grid-size-error">{{ pendingPackingError }}</span>
+          }
+          <div class="apply-row">
+            <button class="apply-btn" mat-flat-button [disabled]="running || downloading || !hasUnappliedPacking || pendingPackingError" (click)="onPackingApply()">Apply</button>
+            <button class="restore-btn" mat-stroked-button [disabled]="downloading || !hasUnappliedPacking" (click)="restorePacking()">Restore</button>
+          </div>
         </div>
       </div>
     </div>
@@ -187,7 +222,7 @@
       </h3>
       <div class="collapsible" [class.open]="tribesExpanded">
         <div class="collapsible-inner">
-          @for (tribe of editTribes; track $index; let i = $index) {
+          @for (tribe of editTribes; track tribe.id; let i = $index) {
             @if (tribe.id !== "dead") {
               <div class="tribe-edit-row">
                 <span class="tribe-color-dot" [style.background-color]="'#' + tribe.color"></span>
@@ -262,7 +297,7 @@
       </h3>
       <div class="collapsible" [class.open]="rulesExpanded">
         <div class="collapsible-inner">
-          @for (rule of editRules; track $index; let i = $index) {
+          @for (rule of editRules; track ruleTrackKey(rule, $index); let i = $index) {
             <div class="rule-card">
               <div class="rule-header" (click)="toggleRuleExpand(i)">
                 <mat-icon class="expand-icon">{{ expandedRuleIndex === i ? "expand_more" : "chevron_right" }}</mat-icon>
@@ -404,6 +439,38 @@
         <mat-checkbox [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()">MP4</mat-checkbox>
       </div>
       <div class="mp4-settings-section">
+        <h4 class="mp4-settings-title shortcuts-toggle" (click)="toggleSection('downloadSelection')">
+          <mat-icon class="expand-icon">{{ downloadSelectionExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
+          Selection
+        </h4>
+        <div class="collapsible" [class.open]="downloadSelectionExpanded">
+          <div class="collapsible-inner">
+            <mat-checkbox [disabled]="downloading || !hasRecordedFrames" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)">All recorded frames</mat-checkbox>
+            <div class="mp4-settings-grid">
+              <label class="mp4-setting-label">
+                <span class="mp4-setting-text">Start frame</span>
+                <input class="mp4-fps-input" min="1" type="number" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)" />
+              </label>
+              <label class="mp4-setting-label">
+                <span class="mp4-setting-text">End frame</span>
+                <input class="mp4-fps-input" min="1" type="number" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)" />
+              </label>
+            </div>
+            <div class="generation-display">
+              <span class="gen-label">Recorded</span>
+              <span class="gen-value">{{ totalRecordedFrames | number }}</span>
+              <span class="gen-label">Selected</span>
+              <span class="gen-value">{{ normalizedDownloadFrameRange ? (normalizedDownloadFrameRange.endFrame - normalizedDownloadFrameRange.startFrame + 1 | number) : (totalRecordedFrames | number) }}</span>
+            </div>
+            @if (!hasRecordedFrames) {
+              <span class="recording-gate-warning">No recorded frames are available yet.</span>
+            } @else if (downloadFrameRangeError) {
+              <span class="recording-gate-warning">{{ downloadFrameRangeError }}</span>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="mp4-settings-section">
         <h4 class="mp4-settings-title shortcuts-toggle" (click)="toggleSection('mp4Settings')">
           <mat-icon class="expand-icon">{{ mp4SettingsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
           MP4 Settings
@@ -444,7 +511,7 @@
           </button>
         </div>
       }
-      <button mat-stroked-button [disabled]="downloadProgress >= 0 || chunksSaving || (!downloadCsv && !downloadSaves && !downloadMp4 && !downloadPng)" (click)="onDownload()">
+      <button mat-stroked-button [disabled]="downloadProgress >= 0 || chunksSaving || !!downloadFrameRangeError || (!downloadCsv && !downloadSaves && !downloadMp4 && !downloadPng)" (click)="onDownload()">
         <mat-icon>download</mat-icon>
         Download ZIP
       </button>
@@ -564,7 +631,7 @@
     }
 
     @if (clause.kind === "and" || clause.kind === "or") {
-      @for (child of clause.clauses; track $index; let ci = $index) {
+      @for (child of clause.clauses; track clauseTrackKey(child, $index); let ci = $index) {
         <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1, ruleIndex: ruleIndex, path: path.concat(ci) }"></ng-container>
       }
       <div class="clause-add" [style.padding-left.px]="(depth + 1) * 16">

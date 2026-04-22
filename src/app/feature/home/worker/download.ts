@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 
-import {chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
+import {alignPackedBytesToWords, chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
 import {RecordingManifest} from '../model/recording';
 
 // ---------------------------------------------------------------------------
@@ -1012,7 +1012,6 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     let opfsDir: FileSystemDirectoryHandle | null = null;
     // Track first and last frame for state snapshots.
     let firstFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
-    let lastFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
 
     // Progress budget: chunks 2-82%, metrics 85%, MP4 90%, finalize 95%.
     const PCT_CHUNKS_START = 2;
@@ -1120,22 +1119,16 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
           for (let fi = selectedBatchStart; fi <= selectedBatchEnd; fi++) {
             const frameGen = chunkMeta.generations[fi] ?? (chunkMeta.generationStart + fi);
+            const frameGlobalIndex = chunkStartIndex + fi;
             selectedFramesProcessed++;
 
             const byteOff = fi * chunkFrameByteSz;
             const packed = chunkData.subarray(byteOff, byteOff + chunkFrameByteSz);
             const frame = unpackGridToFrame(packed, rec.cols, rec.rows, chunkMeta.gridFormat);
 
-            // Track first/last for state snapshots.
-            if (!firstFrame || frameGen < firstFrame.gen) {
+            // Capture the first selected frame exactly once.
+            if (!firstFrame && frameGlobalIndex === selectedStartIndex) {
               firstFrame = {
-                gen: frameGen,
-                packed: new Uint8Array(packed),
-                gridFormat: chunkMeta.gridFormat
-              };
-            }
-            if (!lastFrame || frameGen > lastFrame.gen) {
-              lastFrame = {
                 gen: frameGen,
                 packed: new Uint8Array(packed),
                 gridFormat: chunkMeta.gridFormat
@@ -1205,14 +1198,9 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       mainProgress(PCT_METRICS, 'Writing states');
       subProgress(SUB_STATES, 'Building first-gen state');
 
-      // FirstFrame.packed is already in the recording's native packed format,
-      // Which matches what parseGoltFile expects on load.
-      const firstU32 = new Uint32Array(
-        firstFrame.packed.buffer.slice(
-          firstFrame.packed.byteOffset,
-          firstFrame.packed.byteOffset + firstFrame.packed.byteLength
-        )
-      );
+      // FirstFrame.packed is in the recording's native packed format.
+      // Reuse the underlying bytes without an extra copy when alignment allows.
+      const firstU32 = alignPackedBytesToWords(firstFrame.packed);
       summaryZip.addEntry(
         `state-first-gen${firstFrame.gen}.golt`,
         await buildGoltState(firstFrame.gen, rec.cols, rec.rows, firstU32, firstFrame.gridFormat, tribes, rules)

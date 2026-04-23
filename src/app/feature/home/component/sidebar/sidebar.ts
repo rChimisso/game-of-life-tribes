@@ -12,10 +12,10 @@ import packageJson from '../../../../../../package.json';
 import {BitsPerCell, chooseGridFormat, gridByteSize, gridFormatFromBits, GridFormatMetadata, maxStateCountForBits, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
+import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
-import {BrushShape, MetricMessage} from '../../worker/webengine';
 
-export interface SidebarEvent {
+interface SidebarEvent {
   action:
     | 'toggleRun'
     | 'restart'
@@ -179,6 +179,119 @@ export class Sidebar implements OnChanges, OnDestroy {
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
+  public collapsed = true;
+
+  public pendingCols = 100;
+
+  public pendingRows = 100;
+
+  public pendingSimulationBitsPerCell: BitsPerCell = 8;
+
+  public downloadCsv = true;
+
+  public downloadSaves = true;
+
+  public downloadMp4 = false;
+
+  public downloadPng = false;
+
+  public downloadAllFrames = true;
+
+  public downloadStartFrame = 1;
+
+  public downloadEndFrame = 1;
+
+  public mp4Fps = 12;
+
+  public mp4BitrateMbps = 2;
+
+  // Sidebar resize
+  public sidebarWidth = 300;
+
+  // Bottom sheet (mobile)
+  public sheetTranslate = 'calc(100% - 0px)';
+
+  public suppressClosedTransition = false;
+
+  // Shortcuts
+  public shortcutsExpanded = false;
+
+  // Section collapse state
+  public presetsExpanded = true;
+
+  public tribesExpanded = true;
+
+  public rulesExpanded = true;
+
+  public metricsExpanded = true;
+
+  public packingExpanded = true;
+
+  public mp4SettingsExpanded = false;
+
+  public downloadSelectionExpanded = true;
+
+  // App info
+  public readonly appVersion = packageJson.version;
+
+  public readonly repoUrl = 'https://github.com/rChimisso/game-of-life-tribes';
+
+  // Presets
+  public readonly presets = PRESETS;
+
+  public readonly simulationPackingOptions = SUPPORTED_SIMULATION_BITS_PER_CELL;
+
+  public selectedPreset: Preset | null = null;
+
+  // Tribe editing
+  public editTribes: Tribe[] = [];
+
+  public showTribeAdder = false;
+
+  public newTribeId = '';
+
+  public newTribeColor = '';
+
+  public editingTribeIndex: number | null = null;
+
+  public editingTribeName: string | null = null;
+
+  // Rule editing
+  public editRules: Rule<Tribe[]>[] = [];
+
+  public expandedRuleIndex: number | null = null;
+
+  public hasUnappliedTribes = false;
+
+  public hasUnappliedRules = false;
+
+  public readonly basicColors = [
+    'ff0000',
+    '00ff00',
+    '0000ff',
+    'ffff00',
+    'ff00ff',
+    '00ffff',
+    'ff8800',
+    '8800ff',
+    '88ff00',
+    'ff0088',
+    '0088ff',
+    'ffffff'
+  ];
+
+  private static readonly prefsKey = 'golt-simfs';
+
+  private downloadFrameRangeTouched = false;
+
+  private readonly mobileLayoutQuery: MediaQueryList | null = null;
+
+  private transitionResetFrame: number | null = null;
+
+  private transitionResetCleanupFrame: number | null = null;
+
+  private readonly mobileLayoutListenerController = new AbortController();
+
   public get downloading(): boolean {
     return this.downloadProgress >= 0;
   }
@@ -261,151 +374,6 @@ export class Sidebar implements OnChanges, OnDestroy {
     return `${simulation} simulation / ${recording} recording / ${quota} budget`;
   }
 
-  /**
-   * Powers of 2 (1024) — used for available/quota storage (conservative).
-   *
-   * @param bytes
-   */
-  private formatBytes(bytes: number): string {
-    if (bytes < 1024) {
-      return `${bytes} B`;
-    }
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(2)} KB`;
-    }
-    if (bytes < 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    }
-    if (bytes < 1024 * 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-    }
-    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
-  }
-
-  /**
-   * Powers of 10 (1000) — used for occupied storage (conservative).
-   *
-   * @param bytes
-   */
-  private formatBytesDecimal(bytes: number): string {
-    if (bytes < 1000) {
-      return `${bytes} B`;
-    }
-    if (bytes < 1_000_000) {
-      return `${(bytes / 1000).toFixed(2)} KB`;
-    }
-    if (bytes < 1_000_000_000) {
-      return `${(bytes / 1_000_000).toFixed(2)} MB`;
-    }
-    if (bytes < 1_000_000_000_000) {
-      return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-    }
-    return `${(bytes / 1_000_000_000_000).toFixed(2)} TB`;
-  }
-
-  public collapsed = true;
-
-  public pendingCols = 100;
-
-  public pendingRows = 100;
-
-  public pendingSimulationBitsPerCell: BitsPerCell = 8;
-
-  public downloadCsv = true;
-
-  public downloadSaves = true;
-
-  public downloadMp4 = false;
-
-  public downloadPng = false;
-
-  public downloadAllFrames = true;
-
-  public downloadStartFrame = 1;
-
-  public downloadEndFrame = 1;
-
-  public mp4Fps = 12;
-
-  public mp4BitrateMbps = 2;
-
-  // Sidebar resize
-  public sidebarWidth = 300;
-
-  // Bottom sheet (mobile)
-  public sheetTranslate = 'calc(100% - 0px)';
-
-  public suppressClosedTransition = false;
-
-  // Shortcuts
-  public shortcutsExpanded = false;
-
-  // Section collapse state
-  public presetsExpanded = true;
-
-  public tribesExpanded = true;
-
-  public rulesExpanded = true;
-
-  public metricsExpanded = true;
-
-  public packingExpanded = true;
-
-  public mp4SettingsExpanded = false;
-
-  public downloadSelectionExpanded = true;
-
-  private downloadFrameRangeTouched = false;
-
-  // App info
-  public readonly appVersion = packageJson.version;
-
-  public readonly repoUrl = 'https://github.com/rChimisso/game-of-life-tribes';
-
-  // Presets
-  public readonly presets = PRESETS;
-
-  public readonly simulationPackingOptions = SUPPORTED_SIMULATION_BITS_PER_CELL;
-
-  public selectedPreset: Preset | null = null;
-
-  // Tribe editing
-  public editTribes: Tribe[] = [];
-
-  public showTribeAdder = false;
-
-  public newTribeId = '';
-
-  public newTribeColor = '';
-
-  public editingTribeIndex: number | null = null;
-
-  public editingTribeName: string | null = null;
-
-  // Rule editing
-  public editRules: Rule<Tribe[]>[] = [];
-
-  public expandedRuleIndex: number | null = null;
-
-  public hasUnappliedTribes = false;
-
-  public hasUnappliedRules = false;
-
-  public readonly basicColors = [
-    'ff0000',
-    '00ff00',
-    '0000ff',
-    'ffff00',
-    'ff00ff',
-    '00ffff',
-    'ff8800',
-    '8800ff',
-    '88ff00',
-    'ff0088',
-    '0088ff',
-    'ffffff'
-  ];
-
   public get hasUnappliedGridSize(): boolean {
     return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
   }
@@ -445,8 +413,8 @@ export class Sidebar implements OnChanges, OnDestroy {
     const bitrateBps = this.mp4BitrateMbps * 1_000_000;
     const overheadMultiplier = 1.1; // 10% safety margin for muxer overhead
     const estimatedBytes = (frames / this.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
-    const TWO_GB = 2 * 1024 * 1024 * 1024;
-    if (estimatedBytes > TWO_GB) {
+    const twoGb = 2 * 1024 * 1024 * 1024;
+    if (estimatedBytes > twoGb) {
       return `Estimated MP4 size (${this.formatBytes(estimatedBytes)}) exceeds the 2 GB memory limit — MP4 will be skipped. Increase FPS, lower bitrate, or record fewer frames`;
     }
     return null;
@@ -520,30 +488,22 @@ export class Sidebar implements OnChanges, OnDestroy {
     return null;
   }
 
-  private static readonly PREFS_KEY = 'golt-simfs';
-
-  private readonly mobileLayoutQuery: MediaQueryList | null = null;
-
-  private transitionResetFrame: number | null = null;
-
-  private transitionResetCleanupFrame: number | null = null;
-
-  private readonly boundMobileLayoutChange = (): void => {
-    this.zone.run(() => {
-      this.handleMobileLayoutChange();
-    });
-  };
-
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
     this.loadPrefs();
     if (typeof window !== 'undefined' && 'matchMedia' in window) {
       this.mobileLayoutQuery = window.matchMedia('(max-width: 640px)');
-      this.mobileLayoutQuery.addEventListener('change', this.boundMobileLayoutChange);
+      this.mobileLayoutQuery.addEventListener('change', () => {
+        this.zone.run(() => {
+          this.handleMobileLayoutChange();
+        });
+      }, {
+        signal: this.mobileLayoutListenerController.signal
+      });
     }
   }
 
   public ngOnDestroy(): void {
-    this.mobileLayoutQuery?.removeEventListener('change', this.boundMobileLayoutChange);
+    this.mobileLayoutListenerController.abort();
     this.clearPendingTransitionReset();
   }
 
@@ -575,8 +535,10 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public emit(action: SidebarEvent['action'], value?: unknown): void {
-    this.sidebarEvent.emit({action,
-      value});
+    this.sidebarEvent.emit({
+      action,
+      value
+    });
   }
 
   public onTribeChange(id: string): void {
@@ -599,12 +561,16 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public onGridSizeApply(): void {
-    this.emit('setGridSize', {cols: this.pendingCols,
-      rows: this.pendingRows});
+    this.emit('setGridSize', {
+      cols: this.pendingCols,
+      rows: this.pendingRows
+    });
   }
 
   public onPackingApply(): void {
-    this.emit('setPacking', {bitsPerCell: this.pendingSimulationBitsPerCell} satisfies GridFormatMetadata);
+    this.emit('setPacking', {
+      bitsPerCell: this.pendingSimulationBitsPerCell
+    });
   }
 
   public onDownload(): void {
@@ -667,7 +633,9 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      this.emit('loadState', reader.result as ArrayBuffer);
+      if (reader.result instanceof ArrayBuffer) {
+        this.emit('loadState', reader.result);
+      }
       input.value = '';
     };
     reader.readAsArrayBuffer(file);
@@ -693,8 +661,10 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public confirmAddTribe(): void {
     const id = this.newTribeId.toLowerCase().replace(/[^a-z0-9]/g, '');
-    this.editTribes.push({id,
-      color: this.newTribeColor});
+    this.editTribes.push({
+      id,
+      color: this.newTribeColor
+    });
     this.showTribeAdder = false;
     this.hasUnappliedTribes = true;
   }
@@ -729,8 +699,10 @@ export class Sidebar implements OnChanges, OnDestroy {
       return;
     }
     const oldId = this.editTribes[index]!.id;
-    this.editTribes[index] = {...this.editTribes[index]!,
-      id: clean};
+    this.editTribes[index] = {
+      ...this.editTribes[index]!,
+      id: clean
+    };
     for (const rule of this.editRules) {
       if (rule.tribe === oldId) {
         rule.tribe = clean;
@@ -744,8 +716,10 @@ export class Sidebar implements OnChanges, OnDestroy {
   public updateTribeColor(index: number, color: string): void {
     const c = color.toLowerCase().replace(/[^0-9a-f]/g, '');
     if (c.length === 6) {
-      this.editTribes[index] = {...this.editTribes[index]!,
-        color: c};
+      this.editTribes[index] = {
+        ...this.editTribes[index]!,
+        color: c
+      };
       this.hasUnappliedTribes = true;
     }
   }
@@ -780,8 +754,10 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public setRuleOutput(index: number, tribe: string): void {
-    this.editRules[index] = {...this.editRules[index]!,
-      tribe};
+    this.editRules[index] = {
+      ...this.editRules[index]!,
+      tribe
+    };
     this.hasUnappliedRules = true;
   }
 
@@ -1067,6 +1043,53 @@ export class Sidebar implements OnChanges, OnDestroy {
     document.addEventListener('mouseup', onUp, true);
   }
 
+  public clauseTribes(clause: Clause<Tribe[]>): string[] {
+    const ids = new Set<string>();
+    this.collectClauseTribes(clause, ids);
+    return [...ids];
+  }
+
+  public toggleSection(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection'): void {
+    switch (section) {
+      case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
+      case 'packing': this.packingExpanded = !this.packingExpanded; break;
+      case 'tribes': this.tribesExpanded = !this.tribesExpanded; break;
+      case 'rules': this.rulesExpanded = !this.rulesExpanded; break;
+      case 'metrics': this.metricsExpanded = !this.metricsExpanded; break;
+      case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
+      case 'mp4Settings': this.mp4SettingsExpanded = !this.mp4SettingsExpanded; break;
+      case 'downloadSelection': this.downloadSelectionExpanded = !this.downloadSelectionExpanded; break;
+    }
+    this.savePrefs();
+  }
+
+  public savePrefs(): void {
+    try {
+      const existing = JSON.parse(localStorage.getItem(Sidebar.prefsKey) ?? '{}');
+      localStorage.setItem(Sidebar.prefsKey, JSON.stringify({
+        ...existing,
+        shortcutsExpanded: this.shortcutsExpanded,
+        presetsExpanded: this.presetsExpanded,
+        packingExpanded: this.packingExpanded,
+        tribesExpanded: this.tribesExpanded,
+        rulesExpanded: this.rulesExpanded,
+        metricsExpanded: this.metricsExpanded,
+        downloadCsv: this.downloadCsv,
+        downloadSaves: this.downloadSaves,
+        downloadMp4: this.downloadMp4,
+        downloadPng: this.downloadPng,
+        downloadAllFrames: this.downloadAllFrames,
+        mp4Fps: this.mp4Fps,
+        mp4BitrateMbps: this.mp4BitrateMbps,
+        mp4SettingsExpanded: this.mp4SettingsExpanded,
+        downloadSelectionExpanded: this.downloadSelectionExpanded,
+        skipAmount: this.skipAmount
+      }));
+    } catch (e) {
+      console.warn('Failed to save sidebar preferences:', e);
+    }
+  }
+
   private handleMobileLayoutChange(): void {
     if (!this.collapsed) {
       return;
@@ -1232,12 +1255,6 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
   }
 
-  public clauseTribes(clause: Clause<Tribe[]>): string[] {
-    const ids = new Set<string>();
-    this.collectClauseTribes(clause, ids);
-    return [...ids];
-  }
-
   private collectClauseTribes(clause: Clause<Tribe[]>, ids: Set<string>): void {
     switch (clause.kind) {
       case 'is':
@@ -1260,50 +1277,9 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
   }
 
-  public toggleSection(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection'): void {
-    switch (section) {
-      case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
-      case 'packing': this.packingExpanded = !this.packingExpanded; break;
-      case 'tribes': this.tribesExpanded = !this.tribesExpanded; break;
-      case 'rules': this.rulesExpanded = !this.rulesExpanded; break;
-      case 'metrics': this.metricsExpanded = !this.metricsExpanded; break;
-      case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
-      case 'mp4Settings': this.mp4SettingsExpanded = !this.mp4SettingsExpanded; break;
-      case 'downloadSelection': this.downloadSelectionExpanded = !this.downloadSelectionExpanded; break;
-    }
-    this.savePrefs();
-  }
-
-  public savePrefs(): void {
-    try {
-      const existing = JSON.parse(localStorage.getItem(Sidebar.PREFS_KEY) ?? '{}');
-      localStorage.setItem(Sidebar.PREFS_KEY, JSON.stringify({
-        ...existing,
-        shortcutsExpanded: this.shortcutsExpanded,
-        presetsExpanded: this.presetsExpanded,
-        packingExpanded: this.packingExpanded,
-        tribesExpanded: this.tribesExpanded,
-        rulesExpanded: this.rulesExpanded,
-        metricsExpanded: this.metricsExpanded,
-        downloadCsv: this.downloadCsv,
-        downloadSaves: this.downloadSaves,
-        downloadMp4: this.downloadMp4,
-        downloadPng: this.downloadPng,
-        downloadAllFrames: this.downloadAllFrames,
-        mp4Fps: this.mp4Fps,
-        mp4BitrateMbps: this.mp4BitrateMbps,
-        mp4SettingsExpanded: this.mp4SettingsExpanded,
-        downloadSelectionExpanded: this.downloadSelectionExpanded,
-        skipAmount: this.skipAmount
-      }));
-    } catch (e) {
-      console.warn('Failed to save sidebar preferences:', e);
-    }
-  }
-
   private loadPrefs(): void {
     try {
-      const raw = localStorage.getItem(Sidebar.PREFS_KEY);
+      const raw = localStorage.getItem(Sidebar.prefsKey);
       if (!raw) {
         return;
       }
@@ -1366,4 +1342,48 @@ export class Sidebar implements OnChanges, OnDestroy {
       console.warn('Failed to load sidebar preferences:', e);
     }
   }
+
+  /**
+   * Powers of 2 (1024) — used for available/quota storage (conservative).
+   *
+   * @param bytes
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+    if (bytes < 1024 * 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
+  }
+
+  /**
+   * Powers of 10 (1000) — used for occupied storage (conservative).
+   *
+   * @param bytes
+   */
+  private formatBytesDecimal(bytes: number): string {
+    if (bytes < 1000) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1_000_000) {
+      return `${(bytes / 1000).toFixed(2)} KB`;
+    }
+    if (bytes < 1_000_000_000) {
+      return `${(bytes / 1_000_000).toFixed(2)} MB`;
+    }
+    if (bytes < 1_000_000_000_000) {
+      return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+    }
+    return `${(bytes / 1_000_000_000_000).toFixed(2)} TB`;
+  }
 }
+
+export type {SidebarEvent};

@@ -14,238 +14,7 @@ import renderWgsl from './render.wgsl';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormat, GridFormatMetadata, GRID_FORMAT_8, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../model/grid-format';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
-
-export {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
-
-// ---------------------------------------------------------------------------
-//  Public message contracts
-// ---------------------------------------------------------------------------
-
-export interface InitMessage {
-  type: 'init';
-  canvas: OffscreenCanvas;
-  ruleset: Ruleset<readonly Tribe[]>;
-  simulationGridFormat: GridFormatMetadata;
-  recording: boolean;
-  speed: number;
-  running: boolean;
-}
-
-export interface SetRulesetMessage {
-  type: 'setRuleset';
-  ruleset: Ruleset<readonly Tribe[]>;
-  simulationGridFormat: GridFormatMetadata;
-}
-
-export interface SetRunningMessage {
-  type: 'setRunning';
-  running: boolean;
-}
-
-export interface SetSpeedMessage {
-  type: 'setSpeed';
-  speed: number;
-}
-
-export type BrushShape = 'square' | 'round' | 'diamond' | 'vline' | 'hline';
-
-export interface DrawMessage {
-  type: 'draw';
-  x: number;
-  y: number;
-  size: number;
-  shape: BrushShape;
-  fill: 'full' | 'spray' | 'outline';
-  tribes: string[];
-}
-
-export interface CameraMessage {
-  type: 'camera';
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-export interface ResizeMessage {
-  type: 'resize';
-  width: number;
-  height: number;
-}
-
-export interface GetSnapshotMessage {
-  type: 'getSnapshot';
-}
-
-export interface LoadSnapshotMessage {
-  type: 'loadSnapshot';
-  grid: Uint32Array;
-  generation: number;
-  gridFormat: GridFormatMetadata;
-}
-
-export interface SetRecordingMessage {
-  type: 'setRecording';
-  recording: boolean;
-}
-
-export interface GetRecordingMessage {
-  type: 'getRecording';
-}
-
-export interface StepBackMessage {
-  type: 'stepBack';
-  count: number;
-}
-
-export interface StepForwardMessage {
-  type: 'stepForward';
-  count: number;
-}
-
-export interface CancelSteppingMessage {
-  type: 'cancelStepping';
-}
-
-export interface GetUncompressedChunksMessage {
-  type: 'getUncompressedChunks';
-}
-
-export interface UncompressedChunksMessage {
-  type: 'uncompressedChunks';
-  chunks: {
-    filename: string;
-    rawBytes: number;
-    blockCount: number;
-    cols: number;
-    rows: number;
-    rawGridFormat: GridFormatMetadata;
-    storageGridFormat: GridFormatMetadata;
-  }[];
-}
-
-export type WorkerMessage =
-  | InitMessage
-  | SetRulesetMessage
-  | SetRunningMessage
-  | SetSpeedMessage
-  | DrawMessage
-  | CameraMessage
-  | ResizeMessage
-  | GetSnapshotMessage
-  | LoadSnapshotMessage
-  | SetRecordingMessage
-  | GetRecordingMessage
-  | StepBackMessage
-  | StepForwardMessage
-  | CancelSteppingMessage
-  | GetUncompressedChunksMessage
-  | UpdateChunkCodecMessage;
-
-export interface MetricMessage {
-  type: 'metrics';
-  generation: number;
-  population: Record<string, number>;
-  shannonEntropy: number;
-  simpsonIndex: number;
-  boundaryLength: number;
-  extinctionTime: Record<string, number | null>;
-  totalFrames: number;
-  fps: number;
-  canStepBack: boolean;
-  recordingBytes: number;
-  recordingRawBytes: number;
-}
-
-export interface SnapshotMessage {
-  type: 'snapshot';
-  grid: Uint32Array;
-  generation: number;
-  cols: number;
-  rows: number;
-  gridFormat: GridFormatMetadata;
-}
-
-export interface RecordingMessage {
-  type: 'recording';
-  manifest: RecordingManifest;
-  cols: number;
-  rows: number;
-}
-
-export interface LimitsMessage {
-  type: 'limits';
-  maxBytes: number;
-  vramBudgetBytes: number;
-  frameByteSize: number;
-  recordingAvailable: boolean;
-  vramSimulationBytes: number;
-  vramRecordingBytes: number;
-  gridFormat: GridFormatMetadata;
-}
-
-export interface SteppingMessage {
-  type: 'stepping';
-  active: boolean;
-}
-
-export interface ChunksSavingMessage {
-  type: 'chunksSaving';
-  active: boolean;
-}
-
-export interface BackpressureMessage {
-  type: 'backpressure';
-  active: boolean;
-}
-
-export interface StorageQuotaMessage {
-  type: 'storageQuota';
-  usedBytes: number;
-  quotaBytes: number;
-  pendingRawBytes: number;
-  compressedBytes: number;
-  gpuBufferMarginBytes: number;
-}
-
-export interface ChunkSealedMessage {
-  type: 'chunkSealed';
-  filename: string;
-  rawBytes: number;
-  blockCount: number;
-  cols: number;
-  rows: number;
-  rawGridFormat: GridFormatMetadata;
-  storageGridFormat: GridFormatMetadata;
-}
-
-export interface UpdateChunkCodecMessage {
-  type: 'updateChunkCodec';
-  filename: string;
-  codec: string;
-  storedBytes: number;
-  gridFormat: GridFormatMetadata;
-}
-
-export interface GenerationMessage {
-  type: 'generation';
-  generation: number;
-  fps: number;
-}
-
-export interface RebuildingMessage {
-  type: 'rebuilding';
-  active: boolean;
-}
-
-export interface DeviceLostMessage {
-  type: 'deviceLost';
-  reason: string;
-}
-
-export interface GpuErrorMessage {
-  type: 'gpuError';
-  reason: string;
-}
+import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -377,6 +146,8 @@ let stagingAvailable: boolean[] = [];
 
 // OPFS persistence state
 const OPFS_DIR = 'gol-recording';
+const RAW_PACKED_CODEC = 'raw-packed';
+const RAW_DEFLATE_CODEC = 'deflate-raw';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
 let opfsResetPromise: Promise<void> | null = null;
 let inflightSeals = 0;
@@ -384,10 +155,6 @@ let pendingOpfsWrites = 0;
 const MAX_PENDING_OPFS_WRITES = 12;
 let backpressureActive = false;
 let sealEpoch = 0; // Incremented on rebuild; stale callbacks silently bail.
-
-// Chunk compression constants
-const COMPRESS_MIN_BYTES = 4096; // Only attempt compression above this size
-const COMPRESS_SAVINGS_RATIO = 0.90; // Keep compressed only if <= 90% of original
 
 const MAX_TRIBES = 256;
 const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
@@ -408,6 +175,37 @@ const STORAGE_CAP = 128 * 1024 * 1024 * 1024; // 128 GB
 let rebuildAllocatedBytesSinceYield = 0;
 let rebuildMajorAllocationsRemaining = 0;
 let rebuildPendingAllocationBuffers: GPUBuffer[] = [];
+
+function workerErrorReason(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return String(error ?? 'Unknown worker error');
+}
+
+function reportWorkerError(error: unknown): void {
+  simulationRunning = false;
+  self.postMessage({
+    type: 'gpuError',
+    reason: workerErrorReason(error)
+  } satisfies GpuErrorMessage);
+}
+
+self.addEventListener('error', event => {
+  event.preventDefault();
+  reportWorkerError(event.error ?? event.message);
+});
+
+self.addEventListener('unhandledrejection', event => {
+  event.preventDefault();
+  reportWorkerError(event.reason);
+});
 
 async function waitForGpuQueueIdle(): Promise<void> {
   await device.queue.onSubmittedWorkDone();
@@ -560,7 +358,7 @@ async function postStorageQuota(): Promise<void> {
   let pendingRawBytes = 0;
   let compressedBytes = 0;
   for (const c of sealedChunks) {
-    if (c.codec === 'raw-packed') {
+    if (c.codec === RAW_PACKED_CODEC) {
       pendingRawBytes += c.storedBytes;
     } else {
       compressedBytes += c.storedBytes;
@@ -582,49 +380,8 @@ async function postStorageQuota(): Promise<void> {
 
 let getRecordingPending = false;
 
-// ---------------------------------------------------------------------------
-//  Chunk compression helpers (deflate-raw via CompressionStream API)
-// ---------------------------------------------------------------------------
-
-async function compressPayload(raw: ArrayBuffer): Promise<{data: ArrayBuffer; codec: string}> {
-  if (raw.byteLength < COMPRESS_MIN_BYTES) {
-    return {data: raw,
-      codec: 'raw-packed'};
-  }
-  const cs = new CompressionStream('deflate-raw');
-  const writer = cs.writable.getWriter();
-  writer.write(new Uint8Array(raw));
-  writer.close();
-  const chunks: Uint8Array[] = [];
-  const reader = cs.readable.getReader();
-  for (;;) {
-    const {done, value} = await reader.read();
-    if (done) {
-      break;
-    }
-    chunks.push(value);
-  }
-  let totalLen = 0;
-  for (const c of chunks) {
-    totalLen += c.byteLength;
-  }
-  if (totalLen > raw.byteLength * COMPRESS_SAVINGS_RATIO) {
-    // Compression didn't help enough — keep raw.
-    return {data: raw,
-      codec: 'raw-packed'};
-  }
-  const compressed = new Uint8Array(totalLen);
-  let off = 0;
-  for (const c of chunks) {
-    compressed.set(c, off);
-    off += c.byteLength;
-  }
-  return {data: compressed.buffer,
-    codec: 'deflate-raw'};
-}
-
 async function decompressPayload(compressed: ArrayBuffer): Promise<ArrayBuffer> {
-  const ds = new DecompressionStream('deflate-raw');
+  const ds = new DecompressionStream(RAW_DEFLATE_CODEC);
   const writer = ds.writable.getWriter();
   writer.write(new Uint8Array(compressed));
   writer.close();
@@ -813,8 +570,20 @@ function generateComputeWgsl(): string {
 }
 
 function neighborVarName(dx: number, dy: number): string {
-  const xName = dx === -1 ? 'L' : dx === 1 ? 'R' : 'C';
-  const yName = dy === -1 ? 'T' : dy === 1 ? 'B' : 'C';
+  let xName = 'C';
+  if (dx === -1) {
+    xName = 'L';
+  } else if (dx === 1) {
+    xName = 'R';
+  }
+
+  let yName = 'C';
+  if (dy === -1) {
+    yName = 'T';
+  } else if (dy === 1) {
+    yName = 'B';
+  }
+
   return `n${ yName }${xName}`;
 }
 
@@ -1549,14 +1318,6 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
 //  Pack / unpack helpers
 // ---------------------------------------------------------------------------
 
-function unpackGridToFrame(packed: Uint32Array): Uint8Array {
-  return unpackWordsToFrame(packed, cols, rows, gridFormat);
-}
-
-function packFrameToGrid(frame: Uint8Array): Uint32Array {
-  return packFrameToWords(frame, cols, rows, gridFormat);
-}
-
 function readbackGrid(): Promise<Uint32Array> {
   const currentGrid = pingPong ? gridBufferB : gridBufferA;
   const byteSize = gridBufferSize();
@@ -1582,75 +1343,6 @@ function readbackGrid(): Promise<Uint32Array> {
     readBuffer.destroy();
     return copy;
   });
-}
-
-// ---------------------------------------------------------------------------
-//  Metrics helpers
-// ---------------------------------------------------------------------------
-
-function metricsInterval(): number {
-  // Scale down frequency for larger grids.
-  const cellCount = cols * rows;
-  const areaFactor = cellCount > 1_000_000 ? 10 : cellCount > 100_000 ? 3 : 1;
-
-  if (targetStepDuration <= 0) {
-    return 60 * areaFactor;
-  }
-  const stepsPerSecond = 1000 / targetStepDuration;
-  let interval = Math.max(1, Math.round(stepsPerSecond));
-
-  // When FPS < 1, increase interval to reduce metrics overhead.
-  if (currentFps > 0 && currentFps < 1) {
-    interval = Math.max(interval, Math.ceil(1 / currentFps));
-  }
-
-  return interval * areaFactor;
-}
-
-// ---------------------------------------------------------------------------
-//  RLE compression for recorded frames
-// ---------------------------------------------------------------------------
-
-function rleEncode(data: Uint8Array): Uint8Array {
-  if (data.length === 0) {
-    return data;
-  }
-  const out = new Uint8Array(data.length * 2); // Worst case
-  let oi = 0;
-  let i = 0;
-  while (i < data.length) {
-    const val = data[i]!;
-    let run = 1;
-    while (i + run < data.length && data[i + run] === val && run < 255) {
-      run++;
-    }
-    out[oi++] = run;
-    out[oi++] = val;
-    i += run;
-  }
-  return out.slice(0, oi);
-}
-
-function rleDecode(encoded: Uint8Array, length: number): Uint8Array {
-  const out = new Uint8Array(length);
-  let oi = 0;
-  for (let i = 0; i < encoded.length; i += 2) {
-    const run = encoded[i]!;
-    const val = encoded[i + 1]!;
-    out.fill(val, oi, oi + run);
-    oi += run;
-  }
-  return out;
-}
-
-function rleEncodeFrame(frame: Uint8Array): Uint8Array {
-  const encoded = rleEncode(frame);
-  return encoded.length < frame.length ? encoded : frame;
-}
-
-function rleDecodeFrame(stored: Uint8Array): Uint8Array {
-  const expectedLen = cols * rows;
-  return stored.length < expectedLen ? rleDecode(stored, expectedLen) : stored;
 }
 
 // ---------------------------------------------------------------------------
@@ -1762,7 +1454,7 @@ function sealCurrentChunk(): void {
     generationStart: genStart,
     generationEnd: genEnd,
     blockCount,
-    codec: 'raw-packed',
+    codec: RAW_PACKED_CODEC,
     uncompressedBytes: byteLen,
     storedBytes: byteLen,
     gridFormat: currentGridFormatMetadata(),
@@ -2001,12 +1693,12 @@ function applyPendingBrush(): void {
  * @param filename
  * @param codec
  */
-async function readChunkFromOpfs(filename: string, codec: string = 'raw-packed'): Promise<ArrayBuffer> {
+async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CODEC): Promise<ArrayBuffer> {
   const dir = await ensureOpfsDir();
   const fileHandle = await dir.getFileHandle(filename);
   const file = await fileHandle.getFile();
   const stored = await file.arrayBuffer();
-  if (codec === 'deflate-raw') {
+  if (codec === RAW_DEFLATE_CODEC) {
     return decompressPayload(stored);
   }
   return stored;
@@ -2252,8 +1944,8 @@ function renderFrame(): void {
     colorAttachments: [
       {
         view: textureView,
-        loadOp: 'clear' as GPULoadOp,
-        storeOp: 'store' as GPUStoreOp,
+        loadOp: 'clear',
+        storeOp: 'store',
         clearValue: {
           r: 0,
           g: 0,
@@ -2594,8 +2286,10 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
-    self.postMessage({type: 'deviceLost',
-      reason} satisfies DeviceLostMessage);
+    self.postMessage({
+      type: 'deviceLost',
+      reason
+    });
   });
 
   self.postMessage({
@@ -2607,9 +2301,13 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     vramSimulationBytes: 0,
     vramRecordingBytes: 0,
     gridFormat: currentGridFormatMetadata()
-  } satisfies LimitsMessage);
+  });
 
-  context = canvas.getContext('webgpu') as GPUCanvasContext;
+  const nextContext = canvas.getContext('webgpu');
+  if (!nextContext) {
+    throw new Error('WebGPU canvas context not available');
+  }
+  context = nextContext;
   canvasFormat = navigator.gpu.getPreferredCanvasFormat();
 
   context.configure({
@@ -2628,8 +2326,10 @@ async function restoreWebGPUDevice(): Promise<boolean> {
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
-    self.postMessage({type: 'deviceLost',
-      reason} satisfies DeviceLostMessage);
+    self.postMessage({
+      type: 'deviceLost',
+      reason
+    });
     return false;
   }
 }
@@ -2665,12 +2365,9 @@ async function initOpfs(): Promise<void> {
 
 async function buildPipelines(): Promise<void> {
   createUniformBuffer();
-
   computeChunkCapacity();
-
   await createGridBuffers();
   createTribeColorBuffer();
-
   createRenderPipeline();
   createRenderBindGroups();
   createComputePipeline();
@@ -2690,8 +2387,10 @@ async function buildPipelines(): Promise<void> {
 
 async function rebuildForNewRuleset(): Promise<boolean> {
   rebuilding = true;
-  self.postMessage({type: 'rebuilding',
-    active: true} satisfies RebuildingMessage);
+  self.postMessage({
+    type: 'rebuilding',
+    active: true
+  } satisfies RebuildingMessage);
 
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
@@ -2734,8 +2433,10 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     // So mainLoop does not attempt GPU work, then attempt recovery without
     // Recording buffers.
     const reason = err instanceof Error ? err.message : String(err);
-    self.postMessage({type: 'gpuError',
-      reason} satisfies GpuErrorMessage);
+    self.postMessage({
+      type: 'gpuError',
+      reason
+    });
     try {
       destroyRebuildableBuffers();
       createUniformBuffer();
@@ -2760,8 +2461,10 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     }
   }
   rebuilding = false;
-  self.postMessage({type: 'rebuilding',
-    active: false} satisfies RebuildingMessage);
+  self.postMessage({
+    type: 'rebuilding',
+    active: false
+  });
   return true;
 }
 
@@ -2933,7 +2636,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage, [grid.buffer] as never);
+        } satisfies SnapshotMessage, [grid.buffer]);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
         const empty = new Uint32Array(0);
@@ -3201,7 +2904,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
     case 'getUncompressedChunks': {
       const rawChunks = sealedChunks
-        .filter(c => c.codec === 'raw-packed')
+        .filter(c => c.codec === RAW_PACKED_CODEC)
         .map(c => ({
           filename: c.filename,
           rawBytes: c.uncompressedBytes,

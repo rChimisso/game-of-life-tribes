@@ -9,7 +9,7 @@ import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormatMetadata, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, smallestValidSimulationGridFormat, unpackWordsToFrame, validatePackingAgainstStateCount} from './model/grid-format';
 import {Preset} from './model/preset';
 import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
-import {MetricMessage, GenerationMessage, LimitsMessage, RecordingMessage, RebuildingMessage, DeviceLostMessage, GpuErrorMessage, SnapshotMessage, SteppingMessage, ChunksSavingMessage, ChunkSealedMessage, BackpressureMessage, StorageQuotaMessage, UncompressedChunksMessage, BrushShape} from './worker/webengine';
+import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 
 @Component({
   selector: 'gol-home',
@@ -26,9 +26,9 @@ import {MetricMessage, GenerationMessage, LimitsMessage, RecordingMessage, Rebui
   styleUrl: './home.scss'
 })
 export class HomePage implements OnDestroy {
-  @ViewChild(Engine) engine!: Engine<Tribe[]>;
+  @ViewChild(Engine) public engine!: Engine<Tribe[]>;
 
-  ruleset: Ruleset = {
+  public ruleset: Ruleset = {
     cols: 128,
     rows: 128,
     tribes: [
@@ -110,73 +110,73 @@ export class HomePage implements OnDestroy {
     ]
   };
 
-  state: 'running' | 'paused' = 'paused';
+  public state: 'running' | 'paused' = 'paused';
 
-  speed = 1;
+  public speed = 1;
 
-  maxSpeed = false;
+  public maxSpeed = false;
 
-  recording = false;
+  public recording = false;
 
-  drawTribes: string[] = ['classic'];
+  public drawTribes: string[] = ['classic'];
 
-  deleteMode = false;
+  public deleteMode = false;
 
-  panMode = false;
+  public panMode = false;
 
-  latestMetrics: MetricMessage | null = null;
+  public latestMetrics: MetricMessage | null = null;
 
-  brushSize = 1;
+  public brushSize = 1;
 
-  brushShape: BrushShape = 'square';
+  public brushShape: BrushShape = 'square';
 
-  brushFill: 'full' | 'spray' | 'outline' = 'full';
+  public brushFill: 'full' | 'spray' | 'outline' = 'full';
 
-  skipAmount = 1;
+  public skipAmount = 1;
 
-  downloadProgress = -1;
+  public downloadProgress = -1;
 
-  downloadSubProgress = -1;
+  public downloadSubProgress = -1;
 
-  downloadStatus = '';
+  public downloadStatus = '';
 
-  downloadMainStatus = '';
+  public downloadMainStatus = '';
 
-  maxBytes = Infinity;
+  public maxBytes = Infinity;
 
-  vramBudgetBytes = Infinity;
+  public vramBudgetBytes = Infinity;
 
-  frameByteSize = 0;
+  public frameByteSize = 0;
 
-  simulationGridFormat = gridFormatMetadata(smallestValidSimulationGridFormat(this.ruleset.tribes.length, this.ruleset.cols, this.ruleset.rows));
+  public simulationGridFormat = gridFormatMetadata(smallestValidSimulationGridFormat(this.ruleset.tribes.length, this.ruleset.cols, this.ruleset.rows));
 
-  vramSimulationBytes = 0;
+  public vramSimulationBytes = 0;
 
-  vramRecordingBytes = 0;
+  public vramRecordingBytes = 0;
 
-  recordingAvailable = true;
+  public recordingAvailable = true;
 
-  stepping = false;
+  public stepping = false;
 
-  chunksSaving = false;
+  public chunksSaving = false;
 
-  backpressure = false;
+  public backpressure = false;
 
-  rebuilding = false;
+  public rebuilding = false;
 
-  gpuErrorMessage: string | null = null;
+  public gpuErrorMessage: string | null = null;
 
-  storageUsedBytes = 0;
+  public storageUsedBytes = 0;
 
-  storageQuotaBytes = 0;
+  public storageQuotaBytes = 0;
 
-  storagePendingRawBytes = 0;
+  public storagePendingRawBytes = 0;
 
-  storageCompressedBytes = 0;
+  public storageCompressedBytes = 0;
 
-  savingState = false;
+  public savingState = false;
 
-  loadingState = false;
+  public loadingState = false;
 
   private quotaWarningLevel: 0 | 25 | 50 | 75 | 100 = 0;
 
@@ -190,6 +190,14 @@ export class HomePage implements OnDestroy {
 
   private drawTribeIndex = 1;
 
+  private static readonly prefsKey = 'golt-sim-prefs';
+
+  private pendingSnapshotResolve: ((snap: SnapshotMessage) => void) | null = null;
+
+  private pendingRecordingResolve: ((rec: RecordingMessage) => void) | null = null;
+
+  private readonly keydownListenerController = new AbortController();
+
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
@@ -198,28 +206,12 @@ export class HomePage implements OnDestroy {
     return this.maxSpeed ? -1 : this.speed;
   }
 
-  private currentMaxBytes(): number {
-    return this.maxBytes > 0 ? this.maxBytes : Number.POSITIVE_INFINITY;
-  }
-
-  private smallestSimulationGridFormatForRuleset(ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
-    return gridFormatMetadata(smallestValidSimulationGridFormat(ruleset.tribes.length, cols, rows, this.currentMaxBytes()));
-  }
-
-  private resolveSimulationGridFormat(preferred: GridFormatMetadata | null | undefined, ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
-    if (preferred?.bitsPerCell !== undefined && isSupportedBitsPerCell(preferred.bitsPerCell) &&
-        validatePackingAgainstStateCount(preferred.bitsPerCell, ruleset.tribes.length) &&
-        fitsGridFormatInMaxBytes(cols, rows, gridFormatFromBits(preferred.bitsPerCell), this.currentMaxBytes())) {
-      return gridFormatMetadata(gridFormatFromBits(preferred.bitsPerCell));
-    }
-    return this.smallestSimulationGridFormatForRuleset(ruleset, cols, rows);
-  }
-
-  private static readonly PREFS_KEY = 'golt-sim-prefs';
-
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
     this.loadPrefs();
-    document.addEventListener('keydown', this.boundKeydown, true);
+    document.addEventListener('keydown', ev => this.handleKeydown(ev), {
+      capture: true,
+      signal: this.keydownListenerController.signal
+    });
   }
 
   @HostListener('mousedown', ['$event'])
@@ -233,128 +225,16 @@ export class HomePage implements OnDestroy {
   }
 
   public ngOnDestroy(): void {
-    document.removeEventListener('keydown', this.boundKeydown, true);
+    this.keydownListenerController.abort();
     this.terminateCompressWorker();
   }
 
-  private handleKeydown(ev: KeyboardEvent): void {
-    if (this.downloadProgress >= 0) {
-      return;
-    }
-    // While stepping, only allow spacebar (to cancel the step).
-    if (this.stepping) {
-      if (ev.key === ' ') {
-        this.cancelStepping();
-        ev.preventDefault();
-        ev.stopPropagation();
-        (document.activeElement as HTMLElement)?.blur?.();
-        this.cdr.markForCheck();
-      }
-      return;
-    }
-    const active = document.activeElement;
-    if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
-      return;
-    }
-    if (active instanceof HTMLInputElement) {
-      const t = active.type;
-      if (t !== 'checkbox' && t !== 'radio') {
-        return;
-      }
-    }
-    let handled = true;
-    switch (ev.key) {
-      case ' ':
-        this.toggleRun();
-        break;
-      case 'ArrowUp':
-        this.speed += 1;
-        this.maxSpeed = false;
-        break;
-      case 'ArrowDown':
-        this.speed = Math.max(1, this.speed - 1);
-        break;
-      case 'ArrowRight':
-        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
-        if (this.drawTribeIndex === 0) {
-          this.drawTribeIndex = 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        break;
-      case 'ArrowLeft':
-        this.drawTribeIndex -= 1;
-        if (this.drawTribeIndex <= 0) {
-          this.drawTribeIndex = this.tribes.length - 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        break;
-      case 'r':
-        this.restart();
-        break;
-      case 'd':
-        this.deleteMode = !this.deleteMode;
-        if (this.deleteMode) {
-          this.drawTribes = [DEAD_TRIBE.id];
-        } else {
-          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        }
-        break;
-      case 'e':
-        if (this.recordingAvailable) {
-          this.recording = !this.recording;
-        }
-        break;
-      case 'm':
-        this.maxSpeed = !this.maxSpeed;
-        break;
-      case '+':
-      case '=': {
-        const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
-        this.brushSize = Math.min(max, this.brushSize + 1);
-        break;
-      }
-      case '-': {
-        this.brushSize = Math.max(1, this.brushSize - 1);
-        break;
-      }
-      case 'b': {
-        const shapes: BrushShape[] = [
-          'square',
-          'round',
-          'diamond',
-          'vline',
-          'hline'
-        ];
-        const idx = shapes.indexOf(this.brushShape);
-        this.brushShape = shapes[(idx + 1) % shapes.length]!;
-        break;
-      }
-      case 'f': {
-        const fills: ('full' | 'spray' | 'outline')[] = ['full', 'spray', 'outline'];
-        const idx = fills.indexOf(this.brushFill);
-        this.brushFill = fills[(idx + 1) % fills.length]!;
-        break;
-      }
-      default:
-        handled = false;
-    }
-    if (handled) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      (document.activeElement as HTMLElement)?.blur?.();
-      this.savePrefs();
-      this.cdr.markForCheck();
-    }
-  }
-
-  onMetrics(data: MetricMessage): void {
+  public onMetrics(data: MetricMessage): void {
     this.latestMetrics = data;
     this.cdr.markForCheck();
   }
 
-  onGeneration(data: GenerationMessage): void {
+  public onGeneration(data: GenerationMessage): void {
     if (this.latestMetrics) {
       this.latestMetrics = {
         ...this.latestMetrics,
@@ -380,7 +260,7 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onLimits(data: LimitsMessage): void {
+  public onLimits(data: LimitsMessage): void {
     this.maxBytes = data.maxBytes;
     this.vramBudgetBytes = data.vramBudgetBytes;
     this.frameByteSize = data.frameByteSize;
@@ -396,22 +276,22 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onStepping(data: SteppingMessage): void {
+  public onStepping(data: SteppingMessage): void {
     this.stepping = data.active;
     this.cdr.markForCheck();
   }
 
-  onChunksSaving(data: ChunksSavingMessage): void {
+  public onChunksSaving(data: ChunksSavingMessage): void {
     this.chunksSaving = data.active;
     this.cdr.markForCheck();
   }
 
-  onBackpressure(data: BackpressureMessage): void {
+  public onBackpressure(data: BackpressureMessage): void {
     this.backpressure = data.active;
     this.cdr.markForCheck();
   }
 
-  onRebuilding(data: RebuildingMessage): void {
+  public onRebuilding(data: RebuildingMessage): void {
     this.rebuilding = data.active;
     if (!data.active) {
       this.gpuErrorMessage = null;
@@ -425,20 +305,20 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onDeviceLost(data: DeviceLostMessage): void {
+  public onDeviceLost(data: DeviceLostMessage): void {
     this.state = 'paused';
     this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
     this.openSnack('GPU device lost — simulation stopped. Try resetting to a smaller grid or reloading the page.', 'error', 0);
     this.cdr.markForCheck();
   }
 
-  onGpuError(data: GpuErrorMessage): void {
+  public onGpuError(data: GpuErrorMessage): void {
     this.gpuErrorMessage = data.reason;
     this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
     this.cdr.markForCheck();
   }
 
-  onStorageQuota(data: StorageQuotaMessage): void {
+  public onStorageQuota(data: StorageQuotaMessage): void {
     this.storageUsedBytes = data.usedBytes;
     this.storageQuotaBytes = data.quotaBytes;
     this.storagePendingRawBytes = data.pendingRawBytes;
@@ -452,7 +332,21 @@ export class HomePage implements OnDestroy {
     const usedDecimalGiga = effectiveUsed / 1e9;
     const quotaBinaryGiga = data.quotaBytes / (1024 ** 3);
     const pct = quotaBinaryGiga > 0 ? (usedDecimalGiga / quotaBinaryGiga) * 100 : 0;
-    const level: 0 | 25 | 50 | 75 | 100 = pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
+    let level: 0 | 25 | 50 | 75 | 100 = 0;
+    switch (true) {
+      case pct >= 100:
+        level = 100;
+        break;
+      case pct >= 75:
+        level = 75;
+        break;
+      case pct >= 50:
+        level = 50;
+        break;
+      case pct >= 25:
+        level = 25;
+        break;
+    }
     if (level > this.quotaWarningLevel) {
       this.quotaWarningLevel = level;
       const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress — size may decrease)' : '';
@@ -483,7 +377,7 @@ export class HomePage implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  onChunkSealed(data: ChunkSealedMessage): void {
+  public onChunkSealed(data: ChunkSealedMessage): void {
     if (this.compressPool.length === 0) {
       this.initCompressPool();
     }
@@ -501,7 +395,7 @@ export class HomePage implements OnDestroy {
     });
   }
 
-  onUncompressedChunks(data: UncompressedChunksMessage): void {
+  public onUncompressedChunks(data: UncompressedChunksMessage): void {
     for (const chunk of data.chunks) {
       this.onChunkSealed({
         type: 'chunkSealed',
@@ -510,7 +404,7 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  onSnapshot(snap: SnapshotMessage): void {
+  public onSnapshot(snap: SnapshotMessage): void {
     if (this.pendingSnapshotResolve) {
       this.pendingSnapshotResolve(snap);
       this.pendingSnapshotResolve = null;
@@ -522,22 +416,14 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  onRecording(rec: RecordingMessage): void {
+  public onRecording(rec: RecordingMessage): void {
     if (this.pendingRecordingResolve) {
       this.pendingRecordingResolve(rec);
       this.pendingRecordingResolve = null;
-    } else {
-      this.pendingRecording = rec;
     }
   }
 
-  private pendingRecording: RecordingMessage | null = null;
-
-  private pendingSnapshotResolve: ((snap: SnapshotMessage) => void) | null = null;
-
-  private pendingRecordingResolve: ((rec: RecordingMessage) => void) | null = null;
-
-  onSidebarEvent(ev: SidebarEvent): void {
+  public onSidebarEvent(ev: SidebarEvent): void {
     switch (ev.action) {
       case 'toggleRun':
         this.toggleRun();
@@ -665,6 +551,118 @@ export class HomePage implements OnDestroy {
     }
   }
 
+  private handleKeydown(ev: KeyboardEvent): void {
+    if (this.downloadProgress >= 0) {
+      return;
+    }
+    // While stepping, only allow spacebar (to cancel the step).
+    if (this.stepping) {
+      if (ev.key === ' ') {
+        this.cancelStepping();
+        ev.preventDefault();
+        ev.stopPropagation();
+        (document.activeElement as HTMLElement)?.blur?.();
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
+      return;
+    }
+    if (active instanceof HTMLInputElement) {
+      const t = active.type;
+      if (t !== 'checkbox' && t !== 'radio') {
+        return;
+      }
+    }
+    let handled = true;
+    switch (ev.key) {
+      case ' ':
+        this.toggleRun();
+        break;
+      case 'ArrowUp':
+        this.speed += 1;
+        this.maxSpeed = false;
+        break;
+      case 'ArrowDown':
+        this.speed = Math.max(1, this.speed - 1);
+        break;
+      case 'ArrowRight':
+        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
+        if (this.drawTribeIndex === 0) {
+          this.drawTribeIndex = 1;
+        }
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        this.deleteMode = false;
+        break;
+      case 'ArrowLeft':
+        this.drawTribeIndex -= 1;
+        if (this.drawTribeIndex <= 0) {
+          this.drawTribeIndex = this.tribes.length - 1;
+        }
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        this.deleteMode = false;
+        break;
+      case 'r':
+        this.restart();
+        break;
+      case 'd':
+        this.deleteMode = !this.deleteMode;
+        if (this.deleteMode) {
+          this.drawTribes = [DEAD_TRIBE.id];
+        } else {
+          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        }
+        break;
+      case 'e':
+        if (this.recordingAvailable) {
+          this.recording = !this.recording;
+        }
+        break;
+      case 'm':
+        this.maxSpeed = !this.maxSpeed;
+        break;
+      case '+':
+      case '=': {
+        const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
+        this.brushSize = Math.min(max, this.brushSize + 1);
+        break;
+      }
+      case '-': {
+        this.brushSize = Math.max(1, this.brushSize - 1);
+        break;
+      }
+      case 'b': {
+        const shapes: BrushShape[] = [
+          'square',
+          'round',
+          'diamond',
+          'vline',
+          'hline'
+        ];
+        const idx = shapes.indexOf(this.brushShape);
+        this.brushShape = shapes[(idx + 1) % shapes.length]!;
+        break;
+      }
+      case 'f': {
+        const fills: ('full' | 'spray' | 'outline')[] = ['full', 'spray', 'outline'];
+        const idx = fills.indexOf(this.brushFill);
+        this.brushFill = fills[(idx + 1) % fills.length]!;
+        break;
+      }
+      default:
+        handled = false;
+    }
+    if (handled) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      (document.activeElement as HTMLElement)?.blur?.();
+      this.savePrefs();
+      this.cdr.markForCheck();
+    }
+  }
+
   private toggleRun(): void {
     if (this.stepping) {
       this.cancelStepping();
@@ -675,6 +673,23 @@ export class HomePage implements OnDestroy {
 
   private cancelStepping(): void {
     this.engine.cancelStepping();
+  }
+
+  private currentMaxBytes(): number {
+    return this.maxBytes > 0 ? this.maxBytes : Number.POSITIVE_INFINITY;
+  }
+
+  private smallestSimulationGridFormatForRuleset(ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
+    return gridFormatMetadata(smallestValidSimulationGridFormat(ruleset.tribes.length, cols, rows, this.currentMaxBytes()));
+  }
+
+  private resolveSimulationGridFormat(preferred: GridFormatMetadata | null | undefined, ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
+    if (preferred?.bitsPerCell !== undefined && isSupportedBitsPerCell(preferred.bitsPerCell) &&
+        validatePackingAgainstStateCount(preferred.bitsPerCell, ruleset.tribes.length) &&
+        fitsGridFormatInMaxBytes(cols, rows, gridFormatFromBits(preferred.bitsPerCell), this.currentMaxBytes())) {
+      return gridFormatMetadata(gridFormatFromBits(preferred.bitsPerCell));
+    }
+    return this.smallestSimulationGridFormatForRuleset(ruleset, cols, rows);
   }
 
   private terminateCompressWorker(): void {
@@ -855,8 +870,10 @@ export class HomePage implements OnDestroy {
             cols: rec.cols,
             rows: rec.rows
           } : null,
-          tribes: this.tribes.map(t => ({id: t.id,
-            color: t.color})),
+          tribes: this.tribes.map(t => ({
+            id: t.id,
+            color: t.color
+          })),
           rules: this.ruleset.rules,
           metricsHistory: []
         }, transferables);
@@ -916,7 +933,7 @@ export class HomePage implements OnDestroy {
   }
 
   private async buildGoltFile(snap: SnapshotMessage): Promise<Blob> {
-    const MAGIC = new Uint8Array([
+    const magic = new Uint8Array([
       0x47,
       0x6F,
       0x4C,
@@ -932,8 +949,10 @@ export class HomePage implements OnDestroy {
       cols: snap.cols,
       rows: snap.rows,
       gridFormat: gridFormatMetadata(storedGridFormat),
-      tribes: this.tribes.map(t => ({id: t.id,
-        color: t.color})),
+      tribes: this.tribes.map(t => ({
+        id: t.id,
+        color: t.color
+      })),
       rules: this.ruleset.rules
     });
     const headerBytes = new TextEncoder().encode(header);
@@ -952,7 +971,7 @@ export class HomePage implements OnDestroy {
     const view = new DataView(preamble);
     const bytes = new Uint8Array(preamble);
 
-    bytes.set(MAGIC, 0);
+    bytes.set(magic, 0);
     view.setUint32(4, 1, true); // Version 1
     view.setUint32(8, headerBytes.byteLength, true);
     bytes.set(headerBytes, 12);
@@ -1021,7 +1040,7 @@ export class HomePage implements OnDestroy {
 
   private loadPrefs(): void {
     try {
-      const raw = localStorage.getItem(HomePage.PREFS_KEY);
+      const raw = localStorage.getItem(HomePage.prefsKey);
       if (!raw) {
         return;
       }
@@ -1051,8 +1070,8 @@ export class HomePage implements OnDestroy {
 
   private savePrefs(): void {
     try {
-      const existing = JSON.parse(localStorage.getItem(HomePage.PREFS_KEY) ?? '{}');
-      localStorage.setItem(HomePage.PREFS_KEY, JSON.stringify({
+      const existing = JSON.parse(localStorage.getItem(HomePage.prefsKey) ?? '{}');
+      localStorage.setItem(HomePage.prefsKey, JSON.stringify({
         ...existing,
         speed: this.speed,
         recording: this.recording,
@@ -1063,6 +1082,4 @@ export class HomePage implements OnDestroy {
       console.warn('Failed to save home preferences:', e);
     }
   }
-
-  private readonly boundKeydown = (ev: KeyboardEvent) => this.handleKeydown(ev);
 }

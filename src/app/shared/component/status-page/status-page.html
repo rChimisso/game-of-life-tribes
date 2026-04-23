@@ -1,0 +1,21 @@
+<span class="status-code" [style.--text-divisor]="code.length * 0.6">{{ code }}</span>
+<span class="status-desc">
+  <em>{{ description }}</em>
+</span>
+<span class="status-details">
+  @for (line of details; track $index) {
+    {{ line }}
+    @if (!$last) {
+      <br />
+    }
+  }
+</span>
+<section class="status-actions" [class.status-actions-between]="actions.length > 1" [class.status-actions-center]="actions.length === 1">
+  @for (action of actions; track action.id) {
+    @if (action.route !== undefined) {
+      <gol-button [icon]="action.icon" [label]="action.label" [routerLink]="action.route" />
+    } @else {
+      <gol-button [icon]="action.icon" [label]="action.label" (click)="onActionClick(action.id)" />
+    }
+  }
+</section>

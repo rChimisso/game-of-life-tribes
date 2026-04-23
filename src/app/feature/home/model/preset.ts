@@ -1,6 +1,6 @@
 import {DEAD_TRIBE, Ruleset} from './rule';
 
-export interface Preset {
+interface Preset {
   readonly name: string;
   readonly description: string;
   readonly ruleset: Ruleset;
@@ -416,3 +416,5 @@ const ecosystem: Preset = {
 };
 
 export const PRESETS: readonly Preset[] = [conway, sugar, ecosystem];
+
+export type {Preset};

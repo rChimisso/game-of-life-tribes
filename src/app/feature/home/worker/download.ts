@@ -59,8 +59,8 @@ for (let i = 0; i < 256; i++) {
 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) {
-    crc = crcTable[(crc ^ data[i]!) & 0xff]! ^ (crc >>> 8);
+  for (const value of data) {
+    crc = crcTable[(crc ^ value) & 0xff]! ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
@@ -86,7 +86,15 @@ class StreamingZip {
 
   private records: CentralDirRecord[] = [];
 
-  addEntry(path: string, data: Uint8Array): void {
+  public get currentSize(): number {
+    return this.offset;
+  }
+
+  public get entryCount(): number {
+    return this.records.length;
+  }
+
+  public addEntry(path: string, data: Uint8Array): void {
     const encoder = new TextEncoder();
     const nameBytes = encoder.encode(path);
     const entryCrc = crc32(data);
@@ -121,7 +129,7 @@ class StreamingZip {
     });
   }
 
-  finalize(): ArrayBuffer {
+  public finalize(): ArrayBuffer {
     const centralDirOffset = this.offset;
     let centralDirSize = 0;
     const entryCount = this.records.length;
@@ -235,14 +243,6 @@ class StreamingZip {
     this.records = [];
     return out.buffer;
   }
-
-  get currentSize(): number {
-    return this.offset;
-  }
-
-  get entryCount(): number {
-    return this.records.length;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -329,14 +329,14 @@ function computeFrameMetrics(
 // ---------------------------------------------------------------------------
 
 function computeMediaDimensions(cols: number, rows: number, evenRequired: boolean): {width: number; height: number; scale: number} {
-  const MAX_DIM = 4096;
-  const MIN_DIM = 480;
+  const maxDim = 4096;
+  const minDim = 480;
   const maxSide = Math.max(cols, rows);
   let scale: number;
-  if (maxSide <= MIN_DIM) {
-    scale = Math.max(1, Math.floor(MIN_DIM / maxSide));
-  } else if (maxSide > MAX_DIM) {
-    scale = MAX_DIM / maxSide;
+  if (maxSide <= minDim) {
+    scale = Math.max(1, Math.floor(minDim / maxSide));
+  } else if (maxSide > maxDim) {
+    scale = maxDim / maxSide;
   } else {
     scale = 1;
   }
@@ -490,12 +490,27 @@ class IndexedPngEncoder {
 
   private readonly bitDepth: number;
 
-  constructor(cols: number, rows: number, palette: number[][]) {
+  /**
+   * Approximate memory used per concurrent encodeFrame call.
+   */
+  public get frameMemoryBytes(): number {
+    return this.rows * this.rowStride;
+  }
+
+  public constructor(cols: number, rows: number, palette: number[][]) {
     this.cols = cols;
     this.rows = rows;
 
     const n = palette.length;
-    this.bitDepth = n <= 2 ? 1 : n <= 4 ? 2 : n <= 16 ? 4 : 8;
+    if (n <= 2) {
+      this.bitDepth = 1;
+    } else if (n <= 4) {
+      this.bitDepth = 2;
+    } else if (n <= 16) {
+      this.bitDepth = 4;
+    } else {
+      this.bitDepth = 8;
+    }
 
     this.rowBytes = Math.ceil((cols * this.bitDepth) / 8);
     this.rowStride = 1 + this.rowBytes;
@@ -509,14 +524,7 @@ class IndexedPngEncoder {
    *
    * @param frame
    */
-  /**
-   * Approximate memory used per concurrent encodeFrame call.
-   */
-  get frameMemoryBytes(): number {
-    return this.rows * this.rowStride;
-  }
-
-  async encodeFrame(frame: Uint8Array): Promise<Uint8Array> {
+  public async encodeFrame(frame: Uint8Array): Promise<Uint8Array> {
     const {cols, rows, rowBytes, rowStride, bitDepth} = this;
     const filtered = new Uint8Array(rows * rowStride);
     const needsPack = bitDepth !== 8;
@@ -753,7 +761,7 @@ async function createMp4StreamEncoder(
   bitrate: number,
   sharedImageData: ImageData
 ): Promise<Mp4StreamEncoder | null> {
-  const {Output, Mp4OutputFormat, BufferTarget, EncodedVideoPacketSource, EncodedPacket} = await import('mediabunny');
+  const {Output: outputCtor, Mp4OutputFormat: mp4OutputFormatCtor, BufferTarget: bufferTargetCtor, EncodedVideoPacketSource: encodedVideoPacketSourceCtor, EncodedPacket: encodedPacketCtor} = await import('mediabunny');
 
   const {width: idealW, height: idealH} = computeMediaDimensions(cols, rows, true);
   const found = await findVideoConfig(idealW, idealH, bitrate);
@@ -764,20 +772,20 @@ async function createMp4StreamEncoder(
   const {config, width: vw, height: vh} = found;
   const renderScale = vw / cols;
 
-  const target = new BufferTarget();
-  const output = new Output({
-    format: new Mp4OutputFormat({fastStart: 'in-memory'}),
+  const target = new bufferTargetCtor();
+  const output = new outputCtor({
+    format: new mp4OutputFormatCtor({fastStart: 'in-memory'}),
     target
   });
 
-  const videoSource = new EncodedVideoPacketSource('avc');
+  const videoSource = new encodedVideoPacketSourceCtor('avc');
   output.addVideoTrack(videoSource, {frameRate: fps});
   await output.start();
 
   const addPromises: Promise<void>[] = [];
   const encoder = new VideoEncoder({
     output: (chunk, meta) => {
-      addPromises.push(videoSource.add(EncodedPacket.fromEncodedChunk(chunk), meta));
+      addPromises.push(videoSource.add(encodedPacketCtor.fromEncodedChunk(chunk), meta));
     },
     error: e => console.error('VideoEncoder error', e)
   });
@@ -839,13 +847,14 @@ function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: num
 }
 
 const OPFS_DIR = 'gol-recording';
+const RAW_DEFLATE_CODEC = 'deflate-raw';
 
 // ---------------------------------------------------------------------------
 //  Chunk decompression (deflate-raw via DecompressionStream API)
 // ---------------------------------------------------------------------------
 
 async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
-  const ds = new DecompressionStream('deflate-raw');
+  const ds = new DecompressionStream(RAW_DEFLATE_CODEC);
   const decompressed = new Blob([compressed]).stream().pipeThrough(ds);
   return new Response(decompressed).arrayBuffer();
 }
@@ -870,7 +879,7 @@ async function buildGoltState(
   tribes: TribeInfo[],
   rules: unknown
 ): Promise<Uint8Array> {
-  const MAGIC = new Uint8Array([
+  const magic = new Uint8Array([
     0x47,
     0x6F,
     0x4C,
@@ -901,7 +910,7 @@ async function buildGoltState(
   const gridBytes = new Uint8Array(targetGridU32.buffer, targetGridU32.byteOffset, targetGridU32.byteLength);
 
   // Compress grid with deflate-raw
-  const cs = new CompressionStream('deflate-raw');
+  const cs = new CompressionStream(RAW_DEFLATE_CODEC);
   const writer = cs.writable.getWriter();
   writer.write(gridBytes);
   writer.close();
@@ -912,7 +921,7 @@ async function buildGoltState(
   const total = preambleSize + compressedGrid.byteLength;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
-  out.set(MAGIC, 0);
+  out.set(magic, 0);
   view.setUint32(4, 1, true); // Version 1
   view.setUint32(8, headerBytes.byteLength, true);
   out.set(headerBytes, 12);
@@ -946,7 +955,6 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     const hasRecording = rec !== null && rec.manifest.chunks.length > 0;
     const needMetrics = opts.csv;
-    const needFrameOutput = opts.png;
 
     // -- Preflight ---------------------------------------------------------
     mainProgress(0, 'Preflight');
@@ -993,14 +1001,13 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // -- MP4 encoder -------------------------------------------------------
     let mp4Encoder: Mp4StreamEncoder | null = null;
-    const mp4Skipped = false;
     if (hasRecording && opts.mp4) {
       mainProgress(1, 'Initializing MP4 encoder');
       try {
         const mp4ImgData = new ImageData(1, 1);
         mp4Encoder = await createMp4StreamEncoder(rec.cols, rec.rows, tribes, opts.fps, opts.bitrate, mp4ImgData);
-      } catch (e) {
-        console.warn('VideoEncoder not supported, skipping MP4:', e);
+      } catch (error) {
+        console.warn('VideoEncoder not supported, skipping MP4:', error);
       }
     }
 
@@ -1014,11 +1021,11 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     let firstFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
 
     // Progress budget: chunks 2-82%, metrics 85%, MP4 90%, finalize 95%.
-    const PCT_CHUNKS_START = 2;
-    const PCT_CHUNKS_END = 82;
-    const PCT_METRICS = 85;
-    const PCT_MP4 = 90;
-    const PCT_FINALIZE = 95;
+    const chunkProgressStart = 2;
+    const chunkProgressEnd = 82;
+    const metricsProgress = 85;
+    const mp4Progress = 90;
+    const finalizeProgress = 95;
 
     // -- Process frames with dynamic PNG splitting -------------------------
     // PNG frames are collected into a StreamingZip. When the zip's running
@@ -1040,7 +1047,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         type: 'done-part',
         buffer: buf,
         filename
-      }, [buf] as never);
+      }, [buf]);
       pngZip = new StreamingZip();
     }
 
@@ -1062,7 +1069,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         const chunkGridFormat = gridFormatFromMetadata(chunkMeta.gridFormat);
         const chunkFrameByteSz = gridByteSize(rec.cols, rec.rows, chunkGridFormat);
         chunksProcessed++;
-        const pct = PCT_CHUNKS_START + ((chunksProcessed / Math.max(1, chunksToProcess)) * (PCT_CHUNKS_END - PCT_CHUNKS_START));
+        const pct = chunkProgressStart + ((chunksProcessed / Math.max(1, chunksToProcess)) * (chunkProgressEnd - chunkProgressStart));
         mainProgress(Math.round(pct), `Chunk ${chunksProcessed}/${Math.max(1, chunksToProcess)}`);
 
         subProgress(selectedFrameCount > 0 ? Math.round((selectedFramesProcessed / selectedFrameCount) * 100) : 0, 'Loading chunk');
@@ -1075,8 +1082,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
           const fileHandle = await opfsDir.getFileHandle(chunkMeta.filename);
           const blob = await fileHandle.getFile();
           storedData = await blob.arrayBuffer();
-        } catch (e) {
-          console.warn('OPFS read failed, re-acquiring handle:', e);
+        } catch (error) {
+          console.warn('OPFS read failed, re-acquiring handle:', error);
           // Re-acquire OPFS directory handle and retry.
           const root = await navigator.storage.getDirectory();
           opfsDir = await root.getDirectoryHandle(OPFS_DIR);
@@ -1096,19 +1103,19 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         // Process frames in batches: sequential work (unpack, metrics, MP4)
         // Runs per-frame, then PNG encoding runs in parallel across the batch.
         // Batch size scales down for large grids to cap parallel memory usage.
-        const MAX_PARALLEL_MEM = 512 * 1024 * 1024; // 512 MB
-        const PNG_BATCH = pngEncoder ?
-          Math.max(1, Math.min(64, Math.floor(MAX_PARALLEL_MEM / pngEncoder.frameMemoryBytes))) :
+        const maxParallelMem = 512 * 1024 * 1024; // 512 MB
+        const pngBatchSize = pngEncoder ?
+          Math.max(1, Math.min(64, Math.floor(maxParallelMem / pngEncoder.frameMemoryBytes))) :
           64;
-        for (let batchStart = 0; batchStart < chunkMeta.blockCount; batchStart += PNG_BATCH) {
-          const batchEnd = Math.min(batchStart + PNG_BATCH, chunkMeta.blockCount);
+        for (let batchStart = 0; batchStart < chunkMeta.blockCount; batchStart += pngBatchSize) {
+          const batchEnd = Math.min(batchStart + pngBatchSize, chunkMeta.blockCount);
           const selectedBatchStart = Math.max(batchStart, selectedStartIndex - chunkStartIndex);
           const selectedBatchEnd = Math.min(batchEnd - 1, selectedEndIndex - chunkStartIndex);
           if (selectedBatchStart > selectedBatchEnd) {
             continue;
           }
 
-          const pngBatch: {gen: number; frame: Uint8Array}[] = [];
+          const pngFramesBatch: {gen: number; frame: Uint8Array}[] = [];
 
           const batchFirstGen = chunkMeta.generations[selectedBatchStart] ?? (chunkMeta.generationStart + selectedBatchStart);
           const batchLastGen = chunkMeta.generations[selectedBatchEnd] ?? (chunkMeta.generationStart + selectedBatchEnd);
@@ -1142,24 +1149,24 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
             if (mp4Encoder) {
               try {
                 await mp4Encoder.encodeFrame(frame);
-              } catch (e) {
+              } catch (error) {
               // Frame encoding failed — discard MP4 for the rest of the export.
-                console.warn('MP4 frame encoding failed, disabling MP4:', e);
+                console.warn('MP4 frame encoding failed, disabling MP4:', error);
                 mp4Encoder = null;
               }
             }
 
             if (pngEncoder && pngZip) {
-              pngBatch.push({gen: frameGen,
+              pngFramesBatch.push({gen: frameGen,
                 frame});
             }
           }
 
           // Encode PNG frames in parallel within this batch.
-          if (pngEncoder && pngZip && pngBatch.length > 0) {
-            const pngResults = await Promise.all(pngBatch.map(w => pngEncoder.encodeFrame(w.frame)));
+          if (pngEncoder && pngZip && pngFramesBatch.length > 0) {
+            const pngResults = await Promise.all(pngFramesBatch.map(w => pngEncoder.encodeFrame(w.frame)));
             for (let j = 0; j < pngResults.length; j++) {
-              pngZip.addEntry(`frames/${pngBatch[j]!.gen}.png`, pngResults[j]!);
+              pngZip.addEntry(`frames/${pngFramesBatch[j]!.gen}.png`, pngResults[j]!);
             }
             if (pngZip.currentSize >= PART_SIZE_LIMIT) {
               flushPngZip();
@@ -1188,15 +1195,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // Sub-progress for the summary phase: 0-100% across states/metrics/MP4/finalize.
     // Use monotonically increasing milestones.
-    const SUB_STATES = 20;
-    const SUB_METRICS = 40;
-    const SUB_MP4 = 80;
-    const SUB_FINALIZE = 95;
+    const subStates = 20;
+    const subMetrics = 40;
+    const subMp4 = 80;
+    const subFinalize = 95;
 
     // States: first and last generation frames saved as .golt binary files.
     if (opts.saves && hasRecording && firstFrame) {
-      mainProgress(PCT_METRICS, 'Writing states');
-      subProgress(SUB_STATES, 'Building first-gen state');
+      mainProgress(metricsProgress, 'Writing states');
+      subProgress(subStates, 'Building first-gen state');
 
       // FirstFrame.packed is in the recording's native packed format.
       // Reuse the underlying bytes without an extra copy when alignment allows.
@@ -1208,7 +1215,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
       // Use snapshot grid for the last-gen state — it's the current GPU state in native format.
       if (snapshot.generation !== firstFrame.gen) {
-        subProgress(SUB_STATES + 10, 'Building last-gen state');
+        subProgress(subStates + 10, 'Building last-gen state');
         summaryZip.addEntry(
           `state-last-gen${snapshot.generation}.golt`,
           await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
@@ -1216,8 +1223,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       }
     } else if (opts.saves) {
     // No recording -- save the current snapshot state.
-      mainProgress(PCT_METRICS, 'Writing state');
-      subProgress(SUB_STATES, 'Building snapshot state');
+      mainProgress(metricsProgress, 'Writing state');
+      subProgress(subStates, 'Building snapshot state');
       summaryZip.addEntry(
         `state-gen${snapshot.generation}.golt`,
         await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
@@ -1225,7 +1232,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     }
 
     // Metrics.
-    subProgress(SUB_METRICS, 'Writing metrics');
+    subProgress(subMetrics, 'Writing metrics');
     if (needMetrics && allMetrics.length > 0) {
       summaryZip.addEntry('metrics.csv', textEncoder.encode(buildCsvFromMetrics(allMetrics)));
     } else if (needMetrics && metricsHistory.length > 0) {
@@ -1234,29 +1241,29 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // MP4.
     if (mp4Encoder) {
-      mainProgress(PCT_MP4, 'Finalizing MP4');
-      subProgress(SUB_MP4, 'Encoding MP4');
+      mainProgress(mp4Progress, 'Finalizing MP4');
+      subProgress(subMp4, 'Encoding MP4');
       try {
         const mp4Buffer = await mp4Encoder.finalize();
         if (mp4Buffer) {
           summaryZip.addEntry('recording.mp4', new Uint8Array(mp4Buffer));
         }
-      } catch (e) {
-        console.warn('MP4 encoder finalization failed:', e);
+      } catch (error) {
+        console.warn('MP4 encoder finalization failed:', error);
       }
     }
 
     // Finalize summary zip.
-    mainProgress(PCT_FINALIZE, 'Building final archive');
+    mainProgress(finalizeProgress, 'Building final archive');
     const isMultiPart = pngPartsEmitted > 0;
-    subProgress(SUB_FINALIZE, isMultiPart ? 'Building summary archive' : 'Building archive');
+    subProgress(subFinalize, isMultiPart ? 'Building summary archive' : 'Building archive');
     const summaryBuf = summaryZip.finalize();
     const summaryFilename = isMultiPart ? 'gol-export-summary.zip' : 'gol-export.zip';
     self.postMessage({
       type: 'done-part',
       buffer: summaryBuf,
       filename: summaryFilename
-    }, [summaryBuf] as never);
+    }, [summaryBuf]);
 
     mainProgress(100, 'Done');
     subProgress(100, 'Done');

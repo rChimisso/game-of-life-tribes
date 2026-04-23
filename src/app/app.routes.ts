@@ -8,12 +8,13 @@ import {Router, Routes, UrlTree} from '@angular/router';
  * @returns {Promise<boolean>} whether WebGPU API is supported.
  */
 async function hasWebGpu(): Promise<boolean> {
-  try {
-    return !!await navigator?.gpu?.requestAdapter?.();
-  } catch (e) {
-    console.warn('WebGPU check failed:', e);
-    return false;
-  }
+  return false;
+  // Try {
+  //   Return !!await navigator?.gpu?.requestAdapter?.();
+  // } catch (e) {
+  //   Console.warn('WebGPU check failed:', e);
+  //   Return false;
+  // }
 }
 
 /**
@@ -23,10 +24,11 @@ async function hasWebGpu(): Promise<boolean> {
  * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
  */
 async function webGpuGuard(): Promise<boolean | UrlTree> {
+  const router = inject(Router);
   if (await hasWebGpu()) {
     return true;
   }
-  return inject(Router).createUrlTree(['/unsupported']);
+  return router.createUrlTree(['/unsupported']);
 }
 
 /**
@@ -36,8 +38,9 @@ async function webGpuGuard(): Promise<boolean | UrlTree> {
  * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
  */
 async function unsupportedGuard(): Promise<boolean | UrlTree> {
+  const router = inject(Router);
   if (await hasWebGpu()) {
-    return inject(Router).createUrlTree(['/404']);
+    return router.createUrlTree(['/404']);
   }
   return true;
 }
@@ -54,13 +57,17 @@ export const routes: Routes = [
     loadComponent: () => import('~gol/feature/home/home').then(m => m.HomePage)
   },
   {
+    path: '404',
+    canActivate: [webGpuGuard],
+    loadComponent: () => import('~gol/feature/error/error').then(m => m.ErrorPage)
+  },
+  {
     path: 'unsupported',
     canActivate: [unsupportedGuard],
     loadComponent: () => import('~gol/feature/unsupported/unsupported').then(m => m.UnsupportedPage)
   },
   {
     path: '**',
-    canActivate: [webGpuGuard],
-    loadComponent: () => import('~gol/feature/error/error').then(m => m.ErrorPage)
+    redirectTo: '404'
   }
 ];

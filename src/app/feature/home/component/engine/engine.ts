@@ -3,7 +3,7 @@ import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmit
 
 import {GridFormatMetadata} from '../../model/grid-format';
 import {Ruleset, Tribe} from '../../model/rule';
-import {BrushShape, ChunkSealedMessage, ChunksSavingMessage, BackpressureMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../worker/webengine';
+import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -14,8 +14,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChanges, OnDestroy {
-  private static readonly BASE_MAX_SCALE = 128;
-
   @ViewChild('engineCanvas', {static: true})
   public canvasRef!: ElementRef<HTMLCanvasElement>;
 
@@ -91,6 +89,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   @Output()
   public readonly gpuError = new EventEmitter<GpuErrorMessage>();
 
+  private static readonly baseMaxScale = 128;
+
   private worker!: Worker;
 
   private scale = 1;
@@ -101,7 +101,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private minScale = 1;
 
-  private maxScale = Engine.BASE_MAX_SCALE;
+  private maxScale = Engine.baseMaxScale;
 
   // ── Pointer state (unified mouse + touch) ──
   private readonly pointers = new Map<number, {x: number; y: number}>();
@@ -140,8 +140,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public onPointerDown(ev: PointerEvent): void {
     ev.preventDefault();
     (ev.target as Element).setPointerCapture(ev.pointerId);
-    this.pointers.set(ev.pointerId, {x: ev.clientX,
-      y: ev.clientY});
+    this.pointers.set(ev.pointerId, {
+      x: ev.clientX,
+      y: ev.clientY
+    });
 
     if (ev.button === 2) {
       this.mode = 'pan';
@@ -176,8 +178,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       return;
     }
     const prev = this.pointers.get(ev.pointerId)!;
-    this.pointers.set(ev.pointerId, {x: ev.clientX,
-      y: ev.clientY});
+    this.pointers.set(ev.pointerId, {
+      x: ev.clientX,
+      y: ev.clientY
+    });
 
     if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
       const dx = ev.clientX - prev.x;
@@ -375,16 +379,22 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       return;
     }
     if (changes.state) {
-      this.worker.postMessage({type: 'setRunning',
-        running: this.state === 'running'});
+      this.worker.postMessage({
+        type: 'setRunning',
+        running: this.state === 'running'
+      });
     }
     if (changes.isRecording) {
-      this.worker.postMessage({type: 'setRecording',
-        recording: this.isRecording});
+      this.worker.postMessage({
+        type: 'setRecording',
+        recording: this.isRecording
+      });
     }
     if (changes.speed) {
-      this.worker.postMessage({type: 'setSpeed',
-        speed: this.speed});
+      this.worker.postMessage({
+        type: 'setSpeed',
+        speed: this.speed
+      });
     }
     if (changes.ruleset || changes.simulationGridFormat) {
       const prevRuleset = changes.ruleset?.previousValue;
@@ -413,7 +423,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.minScale = Math.max(rect.width / this.ruleset.cols, rect.height / this.ruleset.rows);
     // If fitting the whole grid already requires going beyond the base limit,
     // Raise the zoom cap so tiny grids can avoid repeated tiled cells.
-    this.maxScale = Math.max(Engine.BASE_MAX_SCALE, this.minScale);
+    this.maxScale = Math.max(Engine.baseMaxScale, this.minScale);
   }
 
   private resetCamera(): void {

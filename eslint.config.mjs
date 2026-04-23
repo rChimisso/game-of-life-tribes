@@ -602,7 +602,6 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
 
         "@angular-eslint/template/label-has-associated-control": "warn",
         "@angular-eslint/template/elements-content": "warn",
-        "@angular-eslint/template/no-inline-styles": "warn",
         "@angular-eslint/template/banana-in-box": "warn",
         "@angular-eslint/template/eqeqeq": "warn",
         "@angular-eslint/template/no-duplicate-attributes": "error",

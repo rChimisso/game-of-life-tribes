@@ -1017,30 +1017,51 @@ export class Sidebar implements OnChanges, OnDestroy {
     document.addEventListener('pointercancel', onEnd);
   }
 
-  public onResizeStart(event: MouseEvent): void {
+  public onResizeStart(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
     document.body.style.userSelect = 'none';
     const startX = event.clientX;
     const startWidth = this.sidebarWidth;
+    const handle = event.currentTarget as HTMLElement | null;
+    const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement | null;
 
-    const onMove = (e: MouseEvent) => {
+    handle?.setPointerCapture?.(event.pointerId);
+    panel?.classList.add('resizing');
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
       this.cdr.detectChanges();
     };
 
-    const onUp = (e: MouseEvent) => {
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== event.pointerId) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
       document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove, true);
-      document.removeEventListener('mouseup', onUp, true);
+      panel?.classList.remove('resizing');
+      handle?.releasePointerCapture?.(event.pointerId);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
     };
 
-    document.addEventListener('mousemove', onMove, true);
-    document.addEventListener('mouseup', onUp, true);
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
   }
 
   public clauseTribes(clause: Clause<Tribe[]>): string[] {

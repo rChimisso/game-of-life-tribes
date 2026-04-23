@@ -12,34 +12,32 @@
     </button>
   </div>
 
+  <hr class="divider sidebar-divider" />
+
   <div class="sidebar-content">
     <!-- Playback -->
     <div class="section">
       <h3 class="section-title">Playback</h3>
-      <div class="section-row">
-        <button mat-flat-button [disabled]="downloading || rebuilding || (backpressure && !running && !stepping)" (click)="emit('toggleRun')">
+      <div class="gol-grid-tiny">
+        <button class="gol-cell-4" mat-flat-button [disabled]="downloading || rebuilding || (backpressure && !running && !stepping)" (click)="emit('toggleRun')">
           <mat-icon>{{ running || stepping ? "pause" : "play_arrow" }}</mat-icon>
           {{ running || stepping ? "Pause" : "Run" }}
         </button>
-        <button mat-flat-button [disabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')">
-          <mat-icon>restart_alt</mat-icon>
-        </button>
-      </div>
-      <div class="step-row">
-        <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
+        <button class="gol-cell-2" mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding || chunksSaving || !metrics?.canStepBack" (click)="onStepBack()">
           <mat-icon>skip_previous</mat-icon>
         </button>
-        <input class="skip-input" min="1" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()" />
-        <button mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()">
+        <input class="skip-input gol-cell-4" min="1" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()" />
+        <button class="gol-cell-2" mat-icon-button [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()">
           <mat-icon>skip_next</mat-icon>
         </button>
+        <div class="generation-display gol-cell-12">
+          <span class="gen-label">Generation</span>
+          <span class="gen-value">{{ metrics ? (metrics.generation | number) : 0 }}</span>
+          <span class="gen-label">Gen/s</span>
+          <span class="gen-value">{{ metrics ? (metrics.fps | number: "1.0-0") : 0 }}</span>
+        </div>
       </div>
-      <div class="generation-display">
-        <span class="gen-label">Generation</span>
-        <span class="gen-value">{{ metrics ? (metrics.generation | number) : 0 }}</span>
-        <span class="gen-label">Gen/s</span>
-        <span class="gen-value">{{ metrics ? (metrics.fps | number: "1.0-0") : 0 }}</span>
-      </div>
+      <button class="reset" mat-flat-button [disabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')"><mat-icon>restart_alt</mat-icon> Reset Simulation</button>
     </div>
 
     <hr class="divider" />
@@ -569,7 +567,7 @@
       <span class="about-version">v{{ appVersion }} · Open source</span>
     </div>
   </div>
-  <div class="resize-handle" (mousedown)="onResizeStart($event)"></div>
+  <div class="resize-handle" (pointerdown)="onResizeStart($event)"></div>
 </div>
 
 <!-- Recursive clause template -->

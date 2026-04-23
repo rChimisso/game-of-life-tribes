@@ -1,7 +1,17 @@
 import {Component} from '@angular/core';
+import {Store} from '@ngrx/store';
 
-import {StatusPage, StatusPageAction} from '~gol/shared/component/status-page/status-page';
+import {openBlank} from '~gol/core/redux/actions';
+import {StatusAction} from '~gol/shared/component/status-page/model/status-page-action';
+import {StatusPage} from '~gol/shared/component/status-page/status-page';
 
+/**
+ * WebGPU unsupported page.
+ *
+ * @export
+ * @class UnsupportedPage
+ * @typedef {UnsupportedPage}
+ */
 @Component({
   selector: 'gol-unsupported',
   standalone: true,
@@ -10,23 +20,35 @@ import {StatusPage, StatusPageAction} from '~gol/shared/component/status-page/st
   styleUrl: './unsupported.scss'
 })
 export class UnsupportedPage {
+  /**
+   * Status page error details.
+   *
+   * @public
+   * @readonly
+   * @type {string[]}
+   */
   public readonly details = ['Your browser or device does not support WebGPU, which is required to run this project.', 'Try updating your browser or switching to a supported one.'];
 
-  public readonly actions: StatusPageAction[] = [
+  /**
+   * Status page actions.
+   *
+   * @public
+   * @readonly
+   * @type {StatusAction[]}
+   */
+  public readonly actions: StatusAction[] = [
     {
       id: 'check-support',
       icon: 'open_in_new',
-      label: 'Check support'
+      label: 'Check support',
+      execute: () => this.store$.dispatch(openBlank({link: 'https://caniuse.com/webgpu'}))
     }
   ];
 
-  public onActionClick(action: string): void {
-    if (action === 'check-support') {
-      this.openHelp();
-    }
-  }
-
-  public openHelp(): void {
-    window.open('https://caniuse.com/webgpu', '_blank', 'noopener');
-  }
+  /**
+   * @constructor
+   * @public
+   * @param {Store} store$
+   */
+  public constructor(private readonly store$: Store) {}
 }

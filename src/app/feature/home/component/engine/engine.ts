@@ -1,5 +1,5 @@
 ﻿/* eslint-disable jsdoc/require-jsdoc */
-import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, HostListener, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
+import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {GridFormatMetadata} from '../../model/grid-format';
 import {Ruleset, Tribe} from '../../model/rule';
@@ -11,6 +11,15 @@ import {TypedChanges} from '~gol/core/model/typed-change';
   selector: 'gol-engine',
   templateUrl: './engine.html',
   styleUrls: ['./engine.scss'],
+  host: {
+    '(wheel)': 'onWheel($event)',
+    '(pointerdown)': 'onPointerDown($event)',
+    '(pointermove)': 'onPointerMove($event)',
+    '(pointerup)': 'onPointerUp($event)',
+    '(pointercancel)': 'onPointerUp($event)',
+    '(contextmenu)': 'disableCtx($event)',
+    '(window:resize)': 'onResize()'
+  },
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChanges, OnDestroy {
@@ -91,7 +100,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private static readonly baseMaxScale = 128;
 
-  private worker!: Worker;
+  private worker?: Worker;
 
   private scale = 1;
 
@@ -103,7 +112,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private maxScale = Engine.baseMaxScale;
 
-  // ── Pointer state (unified mouse + touch) ──
   private readonly pointers = new Map<number, {x: number; y: number}>();
 
   private mode: 'idle' | 'draw' | 'pan' | 'pinch' = 'idle';
@@ -114,29 +122,24 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private lastPinchDist = 0;
 
-  @HostListener('wheel', ['$event'])
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const cx = ev.clientX - rect.left;
     const cy = ev.clientY - rect.top;
-
     // World point under cursor before zoom.
     const worldX = cx / this.scale + this.offsetX;
     const worldY = cy / this.scale + this.offsetY;
-
+    // Zoom, with cursor stability.
     const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
     this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-
     // Keep cursor-point stable.
     this.offsetX = worldX - cx / this.scale;
     this.offsetY = worldY - cy / this.scale;
-
+    // Update camera.
     this.sendCamera();
   }
 
-  // ── Pointer events (unified mouse + touch) ──
-  @HostListener('pointerdown', ['$event'])
   public onPointerDown(ev: PointerEvent): void {
     ev.preventDefault();
     (ev.target as Element).setPointerCapture(ev.pointerId);
@@ -144,26 +147,25 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       x: ev.clientX,
       y: ev.clientY
     });
-
     if (ev.button === 2) {
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
       return;
     }
-
     if (this.pointers.size >= 2) {
       this.mode = 'pinch';
       this.touchPendingDraw = null;
       this.lastPinchDist = this.currentPinchDist();
       return;
     }
-
     if (ev.pointerType === 'touch' && this.panMode) {
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
     } else if (ev.pointerType === 'touch') {
-      this.touchPendingDraw = {x: ev.clientX,
-        y: ev.clientY};
+      this.touchPendingDraw = {
+        x: ev.clientX,
+        y: ev.clientY
+      };
       this.primaryPointerId = ev.pointerId;
     } else {
       this.mode = 'draw';
@@ -172,7 +174,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
-  @HostListener('pointermove', ['$event'])
   public onPointerMove(ev: PointerEvent): void {
     if (!this.pointers.has(ev.pointerId)) {
       return;
@@ -221,8 +222,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
-  @HostListener('pointerup', ['$event'])
-  @HostListener('pointercancel', ['$event'])
   public onPointerUp(ev: PointerEvent): void {
     this.pointers.delete(ev.pointerId);
 
@@ -242,12 +241,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
-  @HostListener('contextmenu', ['$event'])
   public disableCtx(ev: Event): void {
     ev.preventDefault();
   }
 
-  @HostListener('window:resize')
   public onResize(): void {
     if (!this.ruleset) {
       return;
@@ -375,39 +372,35 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
-    if (!this.worker) {
-      return;
-    }
-    if (changes.state) {
-      this.worker.postMessage({
-        type: 'setRunning',
-        running: this.state === 'running'
-      });
-    }
-    if (changes.isRecording) {
-      this.worker.postMessage({
-        type: 'setRecording',
-        recording: this.isRecording
-      });
-    }
-    if (changes.speed) {
-      this.worker.postMessage({
-        type: 'setSpeed',
-        speed: this.speed
-      });
-    }
-    if (changes.ruleset || changes.simulationGridFormat) {
-      const prevRuleset = changes.ruleset?.previousValue;
-      const needReset = !prevRuleset ||
-        prevRuleset.rows !== this.ruleset.rows ||
-        prevRuleset.cols !== this.ruleset.cols;
-      this.worker.postMessage({
-        type: 'setRuleset',
-        ruleset: this.ruleset,
-        simulationGridFormat: this.simulationGridFormat
-      });
-      if (needReset) {
-        this.resetCamera();
+    if (this.worker) {
+      if (changes.state) {
+        this.worker.postMessage({
+          type: 'setRunning',
+          running: this.state === 'running'
+        });
+      }
+      if (changes.isRecording) {
+        this.worker.postMessage({
+          type: 'setRecording',
+          recording: this.isRecording
+        });
+      }
+      if (changes.speed) {
+        this.worker.postMessage({
+          type: 'setSpeed',
+          speed: this.speed
+        });
+      }
+      if (changes.ruleset || changes.simulationGridFormat) {
+        this.worker.postMessage({
+          type: 'setRuleset',
+          ruleset: this.ruleset,
+          simulationGridFormat: this.simulationGridFormat
+        });
+        const prevRuleset = changes.ruleset?.previousValue;
+        if (!(prevRuleset && prevRuleset.rows === this.ruleset.rows && prevRuleset.cols === this.ruleset.cols)) {
+          this.resetCamera();
+        }
       }
     }
   }

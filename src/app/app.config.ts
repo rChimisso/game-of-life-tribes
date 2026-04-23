@@ -10,6 +10,11 @@ import {provideStore} from '@ngrx/store';
 import {routes} from './app.routes';
 import {CoreEffects} from './core/redux/effects';
 
+/**
+ * Application configuration.
+ *
+ * @type {ApplicationConfig}
+ */
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),

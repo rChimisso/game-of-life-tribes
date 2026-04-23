@@ -1,15 +1,16 @@
-import {Component, EventEmitter, Input, Output} from '@angular/core';
+import {Component, Input} from '@angular/core';
 import {RouterModule} from '@angular/router';
 
 import {Button} from '../button/button';
+import {StatusAction} from './model/status-page-action';
 
-interface StatusPageAction {
-  id: string;
-  icon: string;
-  label: string;
-  route?: string;
-}
-
+/**
+ * Status page for blocking errors.
+ *
+ * @export
+ * @class StatusPage
+ * @typedef {StatusPage}
+ */
 @Component({
   selector: 'gol-status-page',
   standalone: true,
@@ -18,27 +19,41 @@ interface StatusPageAction {
   styleUrl: './status-page.scss'
 })
 export class StatusPage {
+  /**
+   * Status code.
+   *
+   * @public
+   * @type {!string}
+   */
   @Input({required: true})
   public code!: string;
 
+  /**
+   * Error desctiption.
+   *
+   * @public
+   * @type {!string}
+   */
   @Input({required: true})
   public description!: string;
 
+  /**
+   * Error details.
+   *
+   * @public
+   * @type {string[]}
+   */
   @Input({required: true})
   public details: string[] = [];
 
+  /**
+   * Available actions.
+   *
+   * @public
+   * @type {StatusAction[]}
+   */
   @Input()
-  public actionsLayout: 'between' | 'center' = 'center';
-
-  @Input()
-  public actions: StatusPageAction[] = [];
-
-  @Output()
-  public readonly actionClick = new EventEmitter<string>();
-
-  public onActionClick(id: string): void {
-    this.actionClick.emit(id);
-  }
+  public actions: StatusAction[] = [];
 }
 
-export type {StatusPageAction};
+export type {StatusAction as StatusPageAction};

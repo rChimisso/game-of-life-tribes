@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Component, HostListener, OnDestroy, ViewChild} from '@angular/core';
+import {ChangeDetectorRef, Component, OnDestroy, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {MatSnackBar, MatSnackBarConfig, MatSnackBarModule} from '@angular/material/snack-bar';
@@ -23,7 +23,10 @@ import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage
     MatSnackBarModule
   ],
   templateUrl: './home.html',
-  styleUrl: './home.scss'
+  styleUrl: './home.scss',
+  host: {
+    '(mousedown)': 'onHostMousedown($event)'
+  }
 })
 export class HomePage implements OnDestroy {
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
@@ -214,7 +217,6 @@ export class HomePage implements OnDestroy {
     });
   }
 
-  @HostListener('mousedown', ['$event'])
   public onHostMousedown(ev: MouseEvent): void {
     const target = ev.target as HTMLElement;
     if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {

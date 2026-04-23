@@ -12,10 +12,10 @@
 </span>
 <section class="status-actions" [class.status-actions-between]="actions.length > 1" [class.status-actions-center]="actions.length === 1">
   @for (action of actions; track action.id) {
-    @if (action.route !== undefined) {
+    @if ("route" in action) {
       <gol-button [icon]="action.icon" [label]="action.label" [routerLink]="action.route" />
     } @else {
-      <gol-button [icon]="action.icon" [label]="action.label" (click)="onActionClick(action.id)" />
+      <gol-button [icon]="action.icon" [label]="action.label" (click)="action.execute()" />
     }
   }
 </section>

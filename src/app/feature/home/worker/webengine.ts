@@ -2480,6 +2480,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       initRuleset(m.ruleset, m.simulationGridFormat);
       await initWebGPU(m.canvas);
       await buildPipelines();
+      postStorageQuota();
 
       simulationRunning = m.running;
       targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;

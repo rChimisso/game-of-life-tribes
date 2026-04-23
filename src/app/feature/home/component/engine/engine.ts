@@ -274,19 +274,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
     this.worker = new Worker(new URL('../../worker/webengine.ts', import.meta.url), {type: 'module'});
 
-    const offscreen = canvas.transferControlToOffscreen();
-    this.worker.postMessage({
-      type: 'init',
-      canvas: offscreen,
-      ruleset: this.ruleset,
-      simulationGridFormat: this.simulationGridFormat,
-      recording: this.isRecording,
-      speed: this.speed,
-      running: this.state === 'running'
-    }, [offscreen]);
-
-    this.resetCamera();
-
     this.worker.onmessage = (ev: MessageEvent) => {
       switch (ev.data?.type) {
         case 'metrics': this.metrics.emit(ev.data); break;
@@ -313,6 +300,19 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         reason: err.message || 'Worker crashed unexpectedly'
       });
     };
+
+    const offscreen = canvas.transferControlToOffscreen();
+    this.worker.postMessage({
+      type: 'init',
+      canvas: offscreen,
+      ruleset: this.ruleset,
+      simulationGridFormat: this.simulationGridFormat,
+      recording: this.isRecording,
+      speed: this.speed,
+      running: this.state === 'running'
+    }, [offscreen]);
+
+    this.resetCamera();
   }
 
   public requestSnapshot(): void {

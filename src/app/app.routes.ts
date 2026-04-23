@@ -8,13 +8,12 @@ import {Router, Routes, UrlTree} from '@angular/router';
  * @returns {Promise<boolean>} whether WebGPU API is supported.
  */
 async function hasWebGpu(): Promise<boolean> {
-  return false;
-  // Try {
-  //   Return !!await navigator?.gpu?.requestAdapter?.();
-  // } catch (e) {
-  //   Console.warn('WebGPU check failed:', e);
-  //   Return false;
-  // }
+  try {
+    return !!await navigator?.gpu?.requestAdapter?.();
+  } catch (e) {
+    console.warn('WebGPU check failed:', e);
+    return false;
+  }
 }
 
 /**

@@ -38,7 +38,7 @@ export class HomePage implements OnDestroy {
       DEAD_TRIBE,
       {
         id: 'classic',
-        color: 'f0f0f0'
+        color: 'ffffff'
       }
     ],
     rules: [

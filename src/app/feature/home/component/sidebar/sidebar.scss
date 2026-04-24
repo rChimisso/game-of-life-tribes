@@ -32,7 +32,6 @@
   }
 }
 
-// Expanded panel
 .sidebar-panel {
   pointer-events: auto;
   height: 100vh;
@@ -104,7 +103,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #aaa;
+  color: #d0d0d0;
 }
 
 .sidebar-content {
@@ -121,8 +120,12 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #aeaeae;
+    background: #d0d0d0;
     border-radius: 2px;
+
+    &:hover {
+      background: #ededed;
+    }
   }
 }
 
@@ -481,11 +484,6 @@ mat-progress-bar.sub-progress {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.cancel-download-btn {
-  margin-top: 4px;
-  align-self: flex-start;
 }
 
 .download-status-text {

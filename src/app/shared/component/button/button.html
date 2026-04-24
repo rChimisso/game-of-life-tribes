@@ -1,29 +1,29 @@
 @switch (variant) {
   @case ("flat") {
-    <button mat-flat-button [color]="color" [disabled]="isDisabled" [type]="type">
+    <button mat-flat-button [color]="color" [disabled]="disabled">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("stroked") {
-    <button mat-stroked-button [color]="color" [disabled]="isDisabled" [type]="type">
+    <button mat-stroked-button [color]="color" [disabled]="disabled">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("text") {
-    <button mat-button [color]="color" [disabled]="isDisabled" [type]="type">
+    <button mat-button [color]="color" [disabled]="disabled">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("icon") {
-    <button mat-icon-button [attr.aria-label]="label" [color]="color" [disabled]="isDisabled" [type]="type">
+    <button mat-icon-button [attr.aria-label]="label" [color]="color" [disabled]="disabled">
       <mat-icon>{{ icon }}</mat-icon>
     </button>
   }
   @default {
-    <button mat-raised-button [color]="color" [disabled]="isDisabled" [type]="type">
+    <button mat-raised-button [color]="color" [disabled]="disabled">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>

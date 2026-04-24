@@ -60,8 +60,8 @@ export class InputComponent implements ControlValueAccessor {
     this.onTouched = fn;
   }
 
-  public setDisabledState(isDisabled: boolean): void {
-    this.disabled = isDisabled;
+  public setDisabledState(disabled: boolean): void {
+    this.disabled = disabled;
   }
 
   public onInput(rawValue: string): void {

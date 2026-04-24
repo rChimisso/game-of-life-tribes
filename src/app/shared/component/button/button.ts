@@ -60,14 +60,5 @@ export class Button {
    * @type {boolean}
    */
   @Input()
-  public isDisabled = false;
-
-  /**
-   * Native button type.
-   *
-   * @public
-   * @type {'button' | 'submit' | 'reset'}
-   */
-  @Input()
-  public type: 'button' | 'submit' | 'reset' = 'button';
+  public disabled = false;
 }

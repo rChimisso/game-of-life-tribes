@@ -88,7 +88,7 @@ a {
 }
 
 .toggle-btn.floating > .mat-mdc-button-persistent-ripple.mdc-icon-button__ripple {
-  border: 2px solid #d0d0d0;
+  border: 2px outset #d0d0d0;
 
   &:hover {
     border-color: #ededed;

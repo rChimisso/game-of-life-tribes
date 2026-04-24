@@ -14,8 +14,11 @@ export class HomeSection {
   @Input({required: true})
   public title = '';
 
-  @Input()
+  @Input({required: true})
   public description = '';
+
+  @Input()
+  public info = '';
 
   @Input()
   public collapsible = true;
@@ -27,10 +30,8 @@ export class HomeSection {
   public readonly expandedChange = new EventEmitter<boolean>();
 
   public onHeaderClick(): void {
-    if (!this.collapsible) {
-      return;
+    if (this.collapsible) {
+      this.expandedChange.emit(!this.expanded);
     }
-
-    this.expandedChange.emit(!this.expanded);
   }
 }

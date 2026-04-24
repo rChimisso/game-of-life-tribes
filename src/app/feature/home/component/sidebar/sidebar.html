@@ -14,26 +14,26 @@
 
   <div class="sidebar-content">
     <!-- Playback -->
-    <gol-home-section title="Playback" [collapsible]="false">
+    <gol-home-section title="Playback" [collapsible]="false" [description]="'Control the simulation.'">
       <div class="gol-grid-tiny">
-        <gol-button class="gol-cell-4" variant="flat" [icon]="running || stepping ? 'pause' : 'play_arrow'" [isDisabled]="downloading || rebuilding || (backpressure && !running && !stepping)" [label]="running || stepping ? 'Pause' : 'Run'" (click)="emit('toggleRun')"></gol-button>
-        <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [isDisabled]="stepBackDisabled" (click)="onStepBack()"></gol-button>
+        <gol-button class="gol-cell-4" variant="flat" [disabled]="downloading || rebuilding || (backpressure && !running && !stepping)" [icon]="running || stepping ? 'pause' : 'play_arrow'" [label]="running || stepping ? 'Pause' : 'Run'" (click)="emit('toggleRun')"></gol-button>
+        <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [disabled]="stepBackDisabled" (click)="onStepBack()"></gol-button>
         <gol-input class="gol-cell-4 skip-input-control" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [min]="1" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()"></gol-input>
-        <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [isDisabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()"></gol-button>
+        <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()"></gol-button>
         <div class="generation-display gol-cell-12">
-          <span class="gen-label">Generation</span>
+          <span>Generation</span>
           <span class="gen-value">{{ metrics ? (metrics.generation | number) : 0 }}</span>
-          <span class="gen-label">Gen/s</span>
+          <span>Gen/s</span>
           <span class="gen-value">{{ metrics ? (metrics.fps | number: "1.0-0") : 0 }}</span>
         </div>
       </div>
-      <gol-button class="reset" icon="restart_alt" label="Reset Simulation" variant="flat" [isDisabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')"></gol-button>
+      <gol-button class="reset" icon="restart_alt" label="Reset Simulation" variant="flat" [disabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')"></gol-button>
     </gol-home-section>
 
     <hr class="divider" />
 
     <!-- Speed -->
-    <gol-home-section title="Speed" [collapsible]="false">
+    <gol-home-section title="Speed" [collapsible]="false" [description]="'Adjust the simulation speed. Recording slows down the simulation.'">
       <div class="speed-row">
         <gol-input class="speed-input-control" type="number" [disabled]="maxSpeed || downloading" [min]="1" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)"></gol-input>
         <span class="speed-unit">gen/s</span>
@@ -48,7 +48,7 @@
     <hr class="divider" />
 
     <!-- Drawing -->
-    <gol-home-section title="Draw tribe" [collapsible]="false">
+    <gol-home-section title="Draw tribe" [collapsible]="false" [description]="'Select tribes to draw on the grid. Use the brush options to adjust how drawing works.'">
       <div class="tribe-picker">
         @for (tribe of tribes; track tribe.id) {
           @if (tribe.id !== "dead") {
@@ -105,7 +105,7 @@
     <hr class="divider" />
 
     <!-- Grid size -->
-    <gol-home-section title="Grid size" [collapsible]="false" [description]="vramTitleSize + ' / ' + vramQuotaFormatted">
+    <gol-home-section title="Grid size" [collapsible]="false" [description]="'Choose your preferred grid size. Larger grids require more VRAM and may not be supported by your device.'" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
       <gol-storage-bar [segments]="vramSegments" [tooltip]="vramBarTooltip" [total]="vramBarTotal"></gol-storage-bar>
       <div class="grid-size-inputs">
         <div class="grid-size-input-row">
@@ -126,7 +126,7 @@
     <hr class="divider" />
 
     <!-- Packing -->
-    <gol-home-section title="Packing" [description]="simulationGridFormat.bitsPerCell + ' bit active'" [expanded]="packingExpanded" (expandedChange)="onSectionExpandedChange('packing', $event)">
+    <gol-home-section title="Packing" [description]="'Change how many bits are used to represent a single cell. Fewer bits reduce memory usage, but increase shader complexity. More bits increase memory usage, but reduce shader complexity. Smaller grids benefit more from simpler shaders, while larger grids benefit more from reduced memory usage.'" [expanded]="packingExpanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'" (expandedChange)="onSectionExpandedChange('packing', $event)">
       <div class="brush-row">
         <span class="brush-label">Bits/cell</span>
         <div class="brush-toggle-group">
@@ -150,7 +150,7 @@
     <hr class="divider" />
 
     <!-- Presets -->
-    <gol-home-section title="Presets" [expanded]="presetsExpanded" (expandedChange)="onSectionExpandedChange('presets', $event)">
+    <gol-home-section title="Presets" [description]="'Rule presets for capability demonstration.'" [expanded]="presetsExpanded" (expandedChange)="onSectionExpandedChange('presets', $event)">
       <div class="presets-row">
         @for (preset of presets; track preset.name) {
           <button class="preset-btn" mat-stroked-button [class.selected]="selectedPreset === preset" (click)="selectedPreset = preset">
@@ -165,7 +165,7 @@
     <hr class="divider" />
 
     <!-- Tribes editor -->
-    <gol-home-section title="Tribes" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
+    <gol-home-section title="Tribes" [description]="'Add, edit and remove tribes.'" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
       @for (tribe of editTribes; track tribe.id; let i = $index) {
         <gol-tribe-entry mode="entry" [basicColors]="basicColors" [editing]="editingTribeIndex === i" [editingName]="editingTribeName" [index]="i" [tribe]="tribe" (colorChange)="updateTribeColor($event.index, $event.color)" (editToggle)="startEditTribe($event)" (nameChange)="updateTribeName($event.index, $event.value)" (remove)="removeTribe($event)"> </gol-tribe-entry>
       }
@@ -173,7 +173,7 @@
       @if (showTribeAdder) {
         <gol-tribe-entry mode="adder" [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()"> </gol-tribe-entry>
       } @else {
-        <gol-button class="full-width" icon="add" label="Add tribe" variant="stroked" (click)="startAddTribe()"></gol-button>
+        <gol-button class="full-width" icon="add" label="Add tribe" variant="flat" (click)="startAddTribe()"></gol-button>
       }
 
       <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedTribes" [restoreDisabled]="downloading || !hasUnappliedTribes" (apply)="applyTribes()" (restore)="restoreTribes()"></div>
@@ -182,19 +182,19 @@
     <hr class="divider" />
 
     <!-- Rules editor -->
-    <gol-home-section title="Rules" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
+    <gol-home-section title="Rules" [description]="'Add, edit and remove rules. Rules are applied in order, first match wins. If no rules match a cell state, the cell becomes dead.'" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
       @for (rule of editRules; track ruleTrackKey(rule, $index); let i = $index) {
         <gol-rule-card [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [outputColor]="getTribeColor(rule.tribe)" [outputContrast]="getContrastColor(getTribeColor(rule.tribe))" [rule]="rule" [ruleIndex]="i" [summary]="clauseSummary(rule.clause)" [summaryTribeColors]="tribeColorMap" [summaryTribes]="clauseTribes(rule.clause)" (addChild)="addChildClause($event.ruleIndex, $event.path)" (changeKind)="changeClauseKind($event.ruleIndex, $event.path, $event.newKind)" (removeChild)="removeChildClause($event.ruleIndex, $event.path)" (removeRule)="removeRule($event)" (setInterval)="setClauseInterval($event.ruleIndex, $event.path, $event.which, $event.value)" (setRuleOutput)="setRuleOutput($event.index, $event.tribeId)" (toggleEqTribe)="toggleClauseEqTribe($event.ruleIndex, $event.path, $event.group, $event.tribeId)" (toggleExpand)="toggleRuleExpand($event)" (toggleTribe)="toggleClauseTribe($event.ruleIndex, $event.path, $event.tribeId)"> </gol-rule-card>
       }
 
-      <gol-button class="full-width" icon="add" label="Add rule" variant="stroked" (click)="addRule()"></gol-button>
+      <gol-button class="full-width" icon="add" label="Add rule" variant="flat" (click)="addRule()"></gol-button>
       <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedRules" [restoreDisabled]="downloading || !hasUnappliedRules" (apply)="applyRules()" (restore)="restoreRules()"></div>
     </gol-home-section>
 
     <hr class="divider" />
 
     <!-- Metrics -->
-    <gol-home-section title="Metrics" [expanded]="metricsExpanded" (expandedChange)="onSectionExpandedChange('metrics', $event)">
+    <gol-home-section title="Metrics" [description]="'Preview of some simulation metrics.'" [expanded]="metricsExpanded" (expandedChange)="onSectionExpandedChange('metrics', $event)">
       <mat-expansion-panel>
         <mat-expansion-panel-header>
           <mat-panel-title>Population</mat-panel-title>
@@ -263,7 +263,7 @@
     <hr class="divider" />
 
     <!-- Download -->
-    <gol-home-section title="Download" [collapsible]="false" [description]="storageTitleSize + ' / ' + storageQuotaFormatted">
+    <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'" [info]="storageTitleSize + ' / ' + storageQuotaFormatted">
       <gol-storage-bar [segments]="storageSegments" [tooltip]="storageBarTooltip" [total]="storageQuotaBytes"></gol-storage-bar>
       <div class="download-checks">
         <gol-checkbox label="Saves" [disabled]="downloading" [(ngModel)]="downloadSaves" (ngModelChange)="savePrefs()"></gol-checkbox>
@@ -338,16 +338,18 @@
           @if (downloadStatus) {
             <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
           }
-          <gol-button class="cancel-download-btn" icon="close" label="Cancel" variant="stroked" (click)="emit('cancelDownload')"></gol-button>
         </div>
       }
-      <gol-button icon="download" label="Download ZIP" variant="stroked" [isDisabled]="downloadButtonDisabled" (click)="onDownload()"></gol-button>
+      <div class="gol-grid-tiny">
+        <gol-button class="gol-cell-6" icon="download" label="Download" variant="flat" [disabled]="downloadButtonDisabled" (click)="onDownload()"></gol-button>
+        <gol-button class="gol-cell-6" icon="close" label="Cancel" variant="flat" [disabled]="!downloading" (click)="emit('cancelDownload')"></gol-button>
+      </div>
     </gol-home-section>
 
     <hr class="divider" />
 
     <!-- Snapshot -->
-    <gol-home-section title="Snapshot" [collapsible]="false">
+    <gol-home-section title="Snapshot" [collapsible]="false" [description]="'Save or load a .golt snapshot file.'">
       @if (savingState || loadingState) {
         <div class="snapshot-progress">
           <mat-icon>{{ savingState ? "save" : "upload_file" }}</mat-icon>
@@ -356,8 +358,8 @@
         </div>
       } @else {
         <div class="gol-grid-tiny">
-          <gol-button class="gol-cell-6" icon="save" label="Save" variant="stroked" [isDisabled]="downloading" (click)="emit('saveState')"></gol-button>
-          <gol-button class="gol-cell-6" icon="upload_file" label="Load" variant="stroked" [isDisabled]="downloading" (click)="fileInput.click()"></gol-button>
+          <gol-button class="gol-cell-6" icon="save" label="Save" variant="flat" [disabled]="downloading" (click)="emit('saveState')"></gol-button>
+          <gol-button class="gol-cell-6" icon="upload_file" label="Load" variant="flat" [disabled]="downloading" (click)="fileInput.click()"></gol-button>
           <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
         </div>
       }
@@ -366,7 +368,7 @@
     <hr class="divider shortcuts-divider" />
 
     <!-- Shortcuts -->
-    <gol-home-section title="Shortcuts" [expanded]="shortcutsExpanded" (expandedChange)="onSectionExpandedChange('shortcuts', $event)">
+    <gol-home-section title="Shortcuts" [description]="'Keyboard and mouse shortcuts for controlling and interacting with the simulation.'" [expanded]="shortcutsExpanded" (expandedChange)="onSectionExpandedChange('shortcuts', $event)">
       <h4 class="shortcuts-subheading">Playback</h4>
       <div class="shortcuts-grid"><kbd>Space</kbd><span>Play / Pause</span> <kbd>R</kbd><span>Restart</span> <kbd>&uarr; / &darr;</kbd><span>Speed</span> <kbd>M</kbd><span>Max speed</span> <kbd>E</kbd><span>Toggle recording</span></div>
       <h4 class="shortcuts-subheading">Drawing</h4>

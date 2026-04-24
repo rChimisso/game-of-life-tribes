@@ -43,7 +43,7 @@
     </div>
     <div class="swatch-preview" [style.background-color]="nativeColor(addColor)"></div>
     <div class="section-row">
-      <gol-button label="Add" variant="flat" [isDisabled]="!canConfirmAdd" (click)="confirmAdd.emit()"></gol-button>
+      <gol-button label="Add" variant="flat" [disabled]="!canConfirmAdd" (click)="confirmAdd.emit()"></gol-button>
       <gol-button label="Cancel" variant="stroked" (click)="cancelAdd.emit()"></gol-button>
     </div>
   </div>

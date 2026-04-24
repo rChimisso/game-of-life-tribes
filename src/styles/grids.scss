@@ -11,18 +11,7 @@
     @for $i from 1 to 13 {
       &-#{$i} {
         @include mdc-layout-grid-cell(desktop, $i, $grid-gap);
-
-        &.align-self-start {
-          justify-self: flex-start;
-        }
-
-        &.align-self-center {
-          justify-self: center;
-        }
-
-        &.align-self-end {
-          justify-self: flex-end;
-        }
+        align-self: center;
       }
     }
   }
@@ -36,18 +25,7 @@
     @for $i from 1 to 13 {
       &-#{$i} {
         @include mdc-layout-grid-cell(desktop, $i, $grid-gap-small);
-
-        &.align-self-start {
-          justify-self: flex-start;
-        }
-
-        &.align-self-center {
-          justify-self: center;
-        }
-
-        &.align-self-end {
-          justify-self: flex-end;
-        }
+        align-self: center;
       }
     }
   }
@@ -61,18 +39,7 @@
     @for $i from 1 to 13 {
       &-#{$i} {
         @include mdc-layout-grid-cell(desktop, $i, $grid-gap-tiny);
-
-        &.align-self-start {
-          justify-self: flex-start;
-        }
-
-        &.align-self-center {
-          justify-self: center;
-        }
-
-        &.align-self-end {
-          justify-self: flex-end;
-        }
+        align-self: center;
       }
     }
   }

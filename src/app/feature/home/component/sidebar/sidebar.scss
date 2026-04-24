@@ -4,10 +4,8 @@
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-// Floating toggle button (collapsed state) — positioned absolutely so it doesn't push panel down
 .toggle-btn.floating {
   pointer-events: auto;
   position: fixed;
@@ -15,9 +13,8 @@
   left: 12px;
   color: #d0d0d0;
   background: #000000bb;
-  backdrop-filter: blur(4px);
-  --fab-translate-y: 0px;
-  transform: translateY(var(--fab-translate-y));
+  backdrop-filter: blur(8px);
+  box-shadow: 0px 0px 8px 1px rgb(60, 60, 60);
   transition:
     transform 0.25s ease,
     opacity 0.25s ease,
@@ -27,6 +24,11 @@
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
+  }
+
+  &:hover {
+    color: #ededed;
+    box-shadow: 0px 0px 8px 1px rgb(80, 80, 80);
   }
 }
 
@@ -53,7 +55,7 @@
     border-color 0.25s ease,
     box-shadow 0.25s ease;
   position: relative;
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: var(env(safe-area-inset-bottom, 0px));
 
   &.layout-transition-disabled {
     transition: none;
@@ -647,7 +649,7 @@ mat-expansion-panel {
 @media (max-width: 640px) {
   .toggle-btn.floating {
     z-index: 1000;
-    --fab-translate-y: calc(100dvh - 100% - 24px - env(safe-area-inset-bottom, 0px));
+    transform: translateY(calc(100dvh - 100% - 24px - env(safe-area-inset-bottom, 0px)));
   }
 
   .mobile-only {

@@ -54,7 +54,6 @@
     "@ngrx/router-store": "^20.1.0",
     "@ngrx/store": "^20.1.0",
     "@stylistic/eslint-plugin": "^5.0.0",
-    "@types/jasmine": "~5.1.0",
     "@typescript-eslint/eslint-plugin": "^8.35.0",
     "@typescript-eslint/parser": "^8.35.0",
     "@webgpu/types": "^0.1.63",
@@ -63,12 +62,6 @@
     "eslint-plugin-jsdoc": "^51.2.3",
     "eslint-plugin-sonarjs": "^3.0.3",
     "eslint-plugin-unused-imports": "^4.1.4",
-    "jasmine-core": "~5.7.0",
-    "karma": "~6.4.0",
-    "karma-chrome-launcher": "~3.2.0",
-    "karma-coverage": "~2.2.0",
-    "karma-jasmine": "~5.1.0",
-    "karma-jasmine-html-reporter": "~2.1.0",
     "prettier": "^3.6.0",
     "typescript": "~5.8.2"
   }

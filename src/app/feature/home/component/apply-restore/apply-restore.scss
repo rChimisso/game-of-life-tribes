@@ -1,0 +1,27 @@
+:host {
+  display: flex;
+  gap: 8px;
+}
+
+.apply-btn {
+  flex: 1;
+  background: #4a6;
+  color: #111;
+  font-weight: 500;
+
+  &:disabled {
+    opacity: 0.35;
+    background: #4a6;
+    color: #111;
+    cursor: default;
+  }
+}
+
+.restore-btn {
+  flex: 1;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}

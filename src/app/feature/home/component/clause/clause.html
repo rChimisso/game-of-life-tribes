@@ -1,0 +1,74 @@
+<ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: clause, depth: depth, path: path, ruleIndex: ruleIndex }"></ng-container>
+
+<ng-template #clauseTpl let-clause let-depth="depth" let-path="path" let-ruleIndex="ruleIndex">
+  <div class="clause-node" [style.padding-left.px]="depth * 16">
+    <div class="clause-header">
+      <select class="clause-type-select" [ngModel]="clause.kind" (ngModelChange)="emitChangeKind(ruleIndex, path, $event)">
+        <option value="is">IS</option>
+        <option value="count">COUNT</option>
+        <option value="equality">EQ</option>
+        <option value="not">NOT</option>
+        <option value="and">AND</option>
+        <option value="or">OR</option>
+      </select>
+      @if (depth > 0) {
+        <button class="small-btn" mat-icon-button (click)="emitRemoveChild(ruleIndex, path)">
+          <mat-icon>close</mat-icon>
+        </button>
+      }
+    </div>
+
+    @switch (clause.kind) {
+      @case ("is") {
+        <div class="clause-tribes" [style.padding-left.px]="depth * 16">
+          @for (t of editTribes; track t.id) {
+            <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleTribe(ruleIndex, path, t.id)"></button>
+          }
+        </div>
+      }
+      @case ("count") {
+        <div class="clause-tribes" [style.padding-left.px]="depth * 16">
+          @for (t of editTribes; track t.id) {
+            <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleTribe(ruleIndex, path, t.id)"></button>
+          }
+        </div>
+        <div class="clause-interval" [style.padding-left.px]="depth * 16">
+          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[0]" (ngModelChange)="emitSetInterval(ruleIndex, path, 0, $event)" />
+          <span class="interval-sep">-</span>
+          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[1]" (ngModelChange)="emitSetInterval(ruleIndex, path, 1, $event)" />
+          <span class="interval-label">neighbors</span>
+        </div>
+      }
+      @case ("equality") {
+        <div class="clause-eq" [style.padding-left.px]="depth * 16">
+          <div class="clause-tribes">
+            @for (t of editTribes; track t.id) {
+              <button class="tribe-dot" [class.selected]="clause.tribe1.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleEqTribe(ruleIndex, path, 1, t.id)"></button>
+            }
+          </div>
+          <span class="eq-sign">=</span>
+          <div class="clause-tribes">
+            @for (t of editTribes; track t.id) {
+              <button class="tribe-dot" [class.selected]="clause.tribe2.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleEqTribe(ruleIndex, path, 2, t.id)"></button>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (clause.kind === "and" || clause.kind === "or") {
+      @for (child of clause.clauses; track $index; let ci = $index) {
+        <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1, ruleIndex: ruleIndex, path: childPath(path, ci) }"></ng-container>
+      }
+      <div class="clause-add" [style.padding-left.px]="(depth + 1) * 16">
+        <button class="small-btn" mat-icon-button (click)="emitAddChild(ruleIndex, path)">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    }
+
+    @if (clause.kind === "not") {
+      <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: clause.clause, depth: depth + 1, ruleIndex: ruleIndex, path: childNotPath(path) }"></ng-container>
+    }
+  </div>
+</ng-template>

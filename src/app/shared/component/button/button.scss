@@ -1,5 +1,23 @@
 :host {
   > button {
     width: 100%;
+
+    &:disabled {
+      opacity: var(--gol-button-disabled-opacity, 0.3);
+      cursor: default;
+    }
+  }
+
+  &.small-btn > button[mat-icon-button] {
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    padding: 0;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
   }
 }

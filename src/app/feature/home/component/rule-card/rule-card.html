@@ -1,0 +1,31 @@
+<div class="rule-card">
+  <div class="rule-header" (click)="toggleExpand.emit(ruleIndex)">
+    <mat-icon class="expand-icon">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
+    <span class="rule-summary-dots">
+      @for (tribeId of summaryTribes; track tribeId) {
+        <span class="summary-dot" [style.background-color]="'#' + tribeColor(tribeId)"></span>
+      }
+    </span>
+    <span class="rule-summary">{{ summary }}</span>
+    <span class="rule-arrow">→</span>
+    <span class="rule-output" [style.background-color]="'#' + outputColor" [style.color]="outputContrast">{{ rule.tribe }}</span>
+    <gol-button class="small-btn" icon="close" label="Remove rule" variant="icon" (click)="onRemove($event)"></gol-button>
+  </div>
+
+  <div class="collapsible" [class.open]="expanded">
+    <div class="collapsible-inner">
+      <div class="rule-body">
+        <gol-rule-clause [clause]="rule.clause" [depth]="0" [editTribes]="editTribes" [path]="[]" [ruleIndex]="ruleIndex" (addChild)="addChild.emit($event)" (changeKind)="changeKind.emit($event)" (removeChild)="removeChild.emit($event)" (setInterval)="setInterval.emit($event)" (toggleEqTribe)="toggleEqTribe.emit($event)" (toggleTribe)="toggleTribe.emit($event)"> </gol-rule-clause>
+
+        <div class="rule-output-row">
+          <label>→ becomes</label>
+          <select class="tribe-select" [ngModel]="rule.tribe" (ngModelChange)="onSetRuleOutput($event)">
+            @for (tribe of editTribes; track tribe.id) {
+              <option [value]="tribe.id">{{ tribe.id }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

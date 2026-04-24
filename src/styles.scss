@@ -86,3 +86,7 @@ a {
 .mat-mdc-unelevated-button {
   padding: 0 12px !important;
 }
+
+.toggle-btn.floating > .mat-mdc-button-persistent-ripple.mdc-icon-button__ripple {
+  border: 1px solid #d0d0d0bb;
+}

@@ -55,5 +55,3 @@ export class StatusPage {
   @Input()
   public actions: StatusAction[] = [];
 }
-
-export type {StatusAction as StatusPageAction};

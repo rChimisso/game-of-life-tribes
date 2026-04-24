@@ -1,0 +1,18 @@
+<div class="section">
+  <h3 class="section-title" [class.section-title-collapsible]="collapsible" (click)="onHeaderClick()">
+    @if (collapsible) {
+      <mat-icon class="expand-icon">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
+    }
+    <span>{{ title }}</span>
+    @if (description) {
+      <span class="section-desc">{{ description }}</span>
+    }
+    <ng-content select="[section-header-extra]"></ng-content>
+  </h3>
+
+  <div class="section-content" [class.open]="!collapsible || expanded" [class.section-content-collapsible]="collapsible">
+    <div class="section-content-inner">
+      <ng-content></ng-content>
+    </div>
+  </div>
+</div>

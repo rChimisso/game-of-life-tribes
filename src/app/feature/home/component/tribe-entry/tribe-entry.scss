@@ -1,0 +1,125 @@
+:host {
+  display: block;
+}
+
+.tribe-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.tribe-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tribe-id {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.color-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px 8px 26px;
+  background: #1a1a2e;
+  border-radius: 4px;
+  margin: 2px 0 4px;
+}
+
+.name-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name-label {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+
+  &.selected {
+    border-color: white;
+  }
+}
+
+.random-swatch {
+  background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hex-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hex-hash {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.hex-input {
+  width: 70px;
+}
+
+.native-picker {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.tribe-adder {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid #2a2a4a;
+  margin-top: 4px;
+}
+
+.tribe-name-input {
+  width: 100%;
+}
+
+.swatch-preview {
+  width: 100%;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.section-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  > gol-button {
+    flex: 1;
+    min-width: 0;
+  }
+}

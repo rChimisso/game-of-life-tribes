@@ -29,7 +29,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": ["src/favicon", "src/site.webmanifest", "src/assets"],
+            "assets": ["src/favicon", "src/site.webmanifest", "src/assets", "src/.nojekyll"],
             "styles": ["src/theme.scss", "src/styles.scss"],
             "stylePreprocessorOptions": {
               "includePaths": ["src/styles", "src"]
@@ -46,8 +46,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "14kB",
-                  "maximumError": "16kB"
+                  "maximumWarning": "6kB",
+                  "maximumError": "10kB"
                 }
               ],
               "outputHashing": "all"

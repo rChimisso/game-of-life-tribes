@@ -1,19 +1,26 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import {DecimalPipe, NgTemplateOutlet} from '@angular/common';
+import {DecimalPipe} from '@angular/common';
 import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
-import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import packageJson from '../../../../../../package.json';
+import {Button} from '../../../../shared/component/button/button';
+import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
+import {InputComponent} from '../../../../shared/component/input/input';
+import {StorageBar, StorageBarSegment} from '../../../../shared/component/storage-bar/storage-bar';
 import {BitsPerCell, chooseGridFormat, gridByteSize, gridFormatFromBits, GridFormatMetadata, maxStateCountForBits, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
+import {ApplyRestoreButtons} from '../apply-restore/apply-restore';
+import {RuleCard} from '../rule-card/rule-card';
+import {HomeSection} from '../section/section';
+import {TribeEntry} from '../tribe-entry/tribe-entry';
 
 interface SidebarEvent {
   action:
@@ -52,9 +59,15 @@ interface DownloadFrameRange {
   standalone: true,
   imports: [
     FormsModule,
-    NgTemplateOutlet,
+    ApplyRestoreButtons,
+    HomeSection,
+    RuleCard,
+    StorageBar,
+    TribeEntry,
+    Button,
+    InputComponent,
+    CheckboxComponent,
     MatButtonModule,
-    MatCheckboxModule,
     MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
@@ -296,6 +309,14 @@ export class Sidebar implements OnChanges, OnDestroy {
     return this.downloadProgress >= 0;
   }
 
+  public get stepBackDisabled(): boolean {
+    return this.running || this.downloading || this.stepping || this.backpressure || this.rebuilding || this.chunksSaving || !this.metrics?.canStepBack;
+  }
+
+  public get downloadButtonDisabled(): boolean {
+    return this.downloadProgress >= 0 || this.chunksSaving || !!this.downloadFrameRangeError || (!this.downloadCsv && !this.downloadSaves && !this.downloadMp4 && !this.downloadPng);
+  }
+
   public get recordingSize(): string {
     const total = this.storagePendingRawBytes + this.storageCompressedBytes;
     if (total <= 0) {
@@ -372,6 +393,55 @@ export class Sidebar implements OnChanges, OnDestroy {
     const recording = this.vramRecordingFormatted;
     const quota = this.vramQuotaFormatted;
     return `${simulation} simulation / ${recording} recording / ${quota} budget`;
+  }
+
+  public get vramBarTotal(): number {
+    if (Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0) {
+      return this.vramBudgetBytes;
+    }
+
+    return this.vramSimulationBytes + this.vramRecordingBytes;
+  }
+
+  public get vramSegments(): StorageBarSegment[] {
+    return [
+      {
+        label: 'simulation',
+        value: this.vramSimulationBytes,
+        formatted: this.vramSimulationFormatted,
+        color: '#f59e0b'
+      },
+      {
+        label: 'recording',
+        value: this.vramRecordingBytes,
+        formatted: this.vramRecordingFormatted,
+        color: '#e91e8a'
+      }
+    ];
+  }
+
+  public get storageSegments(): StorageBarSegment[] {
+    return [
+      {
+        label: 'pending',
+        value: this.storagePendingRawBytes,
+        formatted: this.storagePendingFormatted,
+        color: '#f59e0b'
+      },
+      {
+        label: 'compressed',
+        value: this.storageCompressedBytes,
+        formatted: this.storageCompressedFormatted,
+        color: '#e91e8a'
+      }
+    ];
+  }
+
+  public get tribeColorMap(): Record<string, string> {
+    return this.editTribes.reduce<Record<string, string>>((acc, tribe) => {
+      acc[tribe.id] = tribe.color;
+      return acc;
+    }, {});
   }
 
   public get hasUnappliedGridSize(): boolean {
@@ -669,6 +739,10 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.hasUnappliedTribes = true;
   }
 
+  public cancelAddTribe(): void {
+    this.showTribeAdder = false;
+  }
+
   public removeTribe(index: number): void {
     const {id} = (this.editTribes[index]!);
     if (id === 'dead') {
@@ -937,10 +1011,6 @@ export class Sidebar implements OnChanges, OnDestroy {
     return `${index}:${rule.tribe}:${this.clauseStr(rule.clause)}`;
   }
 
-  public clauseTrackKey(clause: Clause<Tribe[]>, index: number): string {
-    return `${index}:${this.clauseStr(clause)}`;
-  }
-
   public getTribeColor(tribeId: string): string {
     return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
   }
@@ -1080,6 +1150,18 @@ export class Sidebar implements OnChanges, OnDestroy {
       case 'shortcuts': this.shortcutsExpanded = !this.shortcutsExpanded; break;
       case 'mp4Settings': this.mp4SettingsExpanded = !this.mp4SettingsExpanded; break;
       case 'downloadSelection': this.downloadSelectionExpanded = !this.downloadSelectionExpanded; break;
+    }
+    this.savePrefs();
+  }
+
+  public onSectionExpandedChange(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts', expanded: boolean): void {
+    switch (section) {
+      case 'presets': this.presetsExpanded = expanded; break;
+      case 'packing': this.packingExpanded = expanded; break;
+      case 'tribes': this.tribesExpanded = expanded; break;
+      case 'rules': this.rulesExpanded = expanded; break;
+      case 'metrics': this.metricsExpanded = expanded; break;
+      case 'shortcuts': this.shortcutsExpanded = expanded; break;
     }
     this.savePrefs();
   }

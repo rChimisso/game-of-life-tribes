@@ -32,8 +32,8 @@ export class Button {
    * @public
    * @type {!string}
    */
-  @Input({required: true})
-  public icon!: string;
+  @Input()
+  public icon: string | null = null;
 
   /**
    * Color.
@@ -45,6 +45,15 @@ export class Button {
   public color: 'primary' | 'accent' | 'warn' = 'primary';
 
   /**
+   * Variant.
+   *
+   * @public
+   * @type {'raised' | 'flat' | 'stroked' | 'text' | 'icon'}
+   */
+  @Input()
+  public variant: 'raised' | 'flat' | 'stroked' | 'text' | 'icon' = 'raised';
+
+  /**
    * Whether it's disabled.
    *
    * @public
@@ -52,4 +61,13 @@ export class Button {
    */
   @Input()
   public isDisabled = false;
+
+  /**
+   * Native button type.
+   *
+   * @public
+   * @type {'button' | 'submit' | 'reset'}
+   */
+  @Input()
+  public type: 'button' | 'submit' | 'reset' = 'button';
 }

@@ -1,0 +1,16 @@
+<div class="storage-bar" [title]="tooltip">
+  @for (segment of segments; track segment.label) {
+    <div class="storage-segment" [style.width.%]="segmentPercent(segment.value)" [style.background-color]="segment.color"></div>
+  }
+</div>
+
+@if (showLegend) {
+  <div class="storage-legend">
+    @for (segment of segments; track segment.label) {
+      <span class="storage-legend-item">
+        <span class="legend-dot" [style.background-color]="segment.color"></span>
+        {{ segment.formatted }} {{ segment.label }}
+      </span>
+    }
+  </div>
+}

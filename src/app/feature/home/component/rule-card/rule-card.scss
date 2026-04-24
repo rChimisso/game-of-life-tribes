@@ -1,0 +1,111 @@
+:host {
+  display: block;
+}
+
+.collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+
+  &.open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.collapsible-inner {
+  overflow: hidden;
+}
+
+.rule-card {
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.rule-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.expand-icon {
+  font-size: 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: #888;
+}
+
+.rule-summary {
+  flex: 1;
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.rule-arrow {
+  color: #888;
+}
+
+.rule-output {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.rule-summary-dots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  margin-right: 4px;
+}
+
+.summary-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.small-btn {
+  --gol-icon-button-size: 28px;
+  --gol-button-icon-size: 16px;
+}
+
+.rule-body {
+  padding: 6px 8px;
+  border-top: 1px solid #2a2a4a;
+}
+
+.rule-output-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2a4a;
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.tribe-select {
+  flex: 1;
+  padding: 3px 6px;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: white;
+  font-size: 0.8rem;
+}

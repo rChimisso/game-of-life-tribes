@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+
+.storage-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.storage-segment {
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.storage-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: #aaa;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.storage-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}

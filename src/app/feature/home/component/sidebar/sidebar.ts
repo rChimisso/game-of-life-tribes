@@ -673,11 +673,11 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public onStepBack(): void {
-    this.emit('stepBack', this.skipAmount);
+    this.emit('stepBack', +this.skipAmount);
   }
 
   public onStepForward(): void {
-    this.emit('stepForward', this.skipAmount);
+    this.emit('stepForward', +this.skipAmount);
   }
 
   public onBrushSizeChange(value: string): void {
@@ -1186,7 +1186,7 @@ export class Sidebar implements OnChanges, OnDestroy {
         mp4BitrateMbps: this.mp4BitrateMbps,
         mp4SettingsExpanded: this.mp4SettingsExpanded,
         downloadSelectionExpanded: this.downloadSelectionExpanded,
-        skipAmount: this.skipAmount
+        skipAmount: +this.skipAmount
       }));
     } catch (e) {
       console.warn('Failed to save sidebar preferences:', e);

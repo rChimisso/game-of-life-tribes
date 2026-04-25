@@ -12,6 +12,7 @@
     border-radius: 4px;
     color: #d0d0d0;
     font-size: 0.85rem;
+    text-align: center;
 
     &.hex-input {
       font-family: monospace;
@@ -25,6 +26,10 @@
     &:disabled {
       opacity: 0.33;
       border-style: inset;
+    }
+
+    &:focus-visible {
+      outline: unset;
     }
   }
 }

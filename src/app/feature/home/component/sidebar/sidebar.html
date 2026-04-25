@@ -18,7 +18,7 @@
       <div class="gol-grid-tiny">
         <gol-button class="gol-cell-4" variant="flat" [disabled]="downloading || rebuilding || (backpressure && !running && !stepping)" [icon]="running || stepping ? 'pause' : 'play_arrow'" [label]="running || stepping ? 'Pause' : 'Run'" (click)="emit('toggleRun')"></gol-button>
         <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [disabled]="stepBackDisabled" (click)="onStepBack()"></gol-button>
-        <gol-input class="gol-cell-4 skip-input-control" type="number" [disabled]="downloading || stepping || backpressure || rebuilding" [min]="1" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()"></gol-input>
+        <gol-input class="gol-cell-4" regex="^[1-9][0-9]*$" [disabled]="downloading || stepping || backpressure || rebuilding" [min]="1" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()"></gol-input>
         <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()"></gol-button>
         <div class="generation-display gol-cell-12">
           <span>Generation</span>
@@ -35,7 +35,7 @@
     <!-- Speed -->
     <gol-home-section title="Speed" [collapsible]="false" [description]="'Adjust the simulation speed. Recording slows down the simulation.'">
       <div class="speed-row">
-        <gol-input class="speed-input-control" type="number" [disabled]="maxSpeed || downloading" [min]="1" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)"></gol-input>
+        <gol-input class="speed-input-control" regex="^[1-9][0-9]*$" [disabled]="maxSpeed || downloading" [min]="1" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)"></gol-input>
         <span class="speed-unit">gen/s</span>
         <gol-checkbox label="Max" [disabled]="downloading" [ngModel]="maxSpeed" (ngModelChange)="onMaxSpeedChange($event)"></gol-checkbox>
         <gol-checkbox label="Rec" [disabled]="downloading || !recordingAvailable" [ngModel]="recording" (ngModelChange)="onRecordingChange($event)"></gol-checkbox>
@@ -62,7 +62,7 @@
       <div class="brush-options">
         <div class="brush-row">
           <span class="brush-label">Size</span>
-          <gol-input class="brush-size-input-control" type="number" [max]="brushMaxSize" [min]="1" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)"></gol-input>
+          <gol-input class="brush-size-input-control" regex="^[1-9][0-9]*$" [max]="brushMaxSize" [min]="1" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)"></gol-input>
         </div>
         <div class="brush-row">
           <span class="brush-label">Shape</span>
@@ -110,11 +110,11 @@
       <div class="grid-size-inputs">
         <div class="grid-size-input-row">
           <span>Cols</span>
-          <gol-input class="grid-size-input-control" type="number" [min]="3" [(ngModel)]="pendingCols"></gol-input>
+          <gol-input class="grid-size-input-control" regex="^[1-9][0-9]*$" [min]="3" [(ngModel)]="pendingCols"></gol-input>
         </div>
         <div class="grid-size-input-row">
           <span>Rows</span>
-          <gol-input class="grid-size-input-control" type="number" [min]="3" [(ngModel)]="pendingRows"></gol-input>
+          <gol-input class="grid-size-input-control" regex="^[1-9][0-9]*$" [min]="3" [(ngModel)]="pendingRows"></gol-input>
         </div>
         @if (gridSizeError) {
           <span class="grid-size-error">{{ gridSizeError }}</span>
@@ -282,11 +282,11 @@
             <div class="mp4-settings-grid">
               <div class="mp4-setting-label">
                 <span class="mp4-setting-text">Start frame</span>
-                <gol-input class="mp4-fps-input-control" type="number" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [min]="1" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)"></gol-input>
+                <gol-input class="mp4-fps-input-control" regex="^[0-9]+$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [min]="1" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)"></gol-input>
               </div>
               <div class="mp4-setting-label">
                 <span class="mp4-setting-text">End frame</span>
-                <gol-input class="mp4-fps-input-control" type="number" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [min]="1" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)"></gol-input>
+                <gol-input class="mp4-fps-input-control" regex="^[1-9][0-9]*$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [min]="1" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)"></gol-input>
               </div>
             </div>
             <div class="generation-display">
@@ -313,7 +313,7 @@
             <div class="mp4-settings-grid">
               <div class="mp4-setting-label">
                 <span class="mp4-setting-text">FPS</span>
-                <gol-input class="mp4-fps-input-control" type="number" [disabled]="downloading" [max]="60" [min]="1" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()"></gol-input>
+                <gol-input class="mp4-fps-input-control" regex="^[1-9][0-9]*$" [disabled]="downloading" [max]="60" [min]="1" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()"></gol-input>
               </div>
               <div class="mp4-setting-label">
                 <span class="mp4-setting-text">Bitrate (Mbps)</span>

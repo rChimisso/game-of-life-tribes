@@ -33,9 +33,9 @@
           }
         </div>
         <div class="clause-interval" [style.padding-left.px]="depth * 16">
-          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[0]" (ngModelChange)="emitSetInterval(ruleIndex, path, 0, $event)" />
+          <input class="interval-input" max="8" min="0" regex="^[0-9]+$" [ngModel]="clause.interval[0]" (ngModelChange)="emitSetInterval(ruleIndex, path, 0, $event)" />
           <span class="interval-sep">-</span>
-          <input class="interval-input" max="8" min="0" type="number" [ngModel]="clause.interval[1]" (ngModelChange)="emitSetInterval(ruleIndex, path, 1, $event)" />
+          <input class="interval-input" max="8" min="0" regex="^[0-9]+$" [ngModel]="clause.interval[1]" (ngModelChange)="emitSetInterval(ruleIndex, path, 1, $event)" />
           <span class="interval-label">neighbors</span>
         </div>
       }

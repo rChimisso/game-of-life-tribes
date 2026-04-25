@@ -2,6 +2,8 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 
+import {CharFilterDirective} from '~gol/shared/directive/char-filter';
+
 @Component({
   selector: 'gol-input',
   standalone: true,
@@ -14,9 +16,19 @@ import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
       useExisting: forwardRef(() => InputComponent),
       multi: true
     }
-  ]
+  ],
+  imports: [CharFilterDirective]
 })
 export class InputComponent implements ControlValueAccessor {
+  /**
+   * Regex to filter the user input.
+   *
+   * @public
+   * @type {(string | RegExp)}
+   */
+  @Input()
+  public regex: string | RegExp = /.*/;
+
   @Input()
   public type: 'text' | 'number' | 'color' = 'text';
 

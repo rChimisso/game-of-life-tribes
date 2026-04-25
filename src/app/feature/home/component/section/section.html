@@ -10,6 +10,7 @@
   </h3>
   <div class="section-content" [class.open]="!collapsible || expanded" [class.section-content-collapsible]="collapsible">
     <div class="section-content-inner">
+      <ng-content select="gol-storage-bar"></ng-content>
       <span class="section-description">{{ description }}</span>
       <ng-content></ng-content>
     </div>

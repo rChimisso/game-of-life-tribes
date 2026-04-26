@@ -54,9 +54,11 @@ export class CharFilterDirective {
    * @param {KeyboardEvent} event
    */
   public onKeyDown(event: KeyboardEvent) {
-    const {value, selectionStart, selectionEnd} = this.input.nativeElement, nextValue = selectionStart && selectionEnd ? `${value.slice(0, selectionStart)}${event.key}${value.slice(selectionEnd)}` : `${value}${event.key}`;
-    if (!(specialKeys.includes(event.key) || new RegExp(this.regex).test(nextValue))) {
-      event.preventDefault();
+    if (this.input.nativeElement.type === 'text') {
+      const {value, selectionStart, selectionEnd} = this.input.nativeElement, nextValue = `${value.slice(0, selectionStart!)}${event.key}${value.slice(selectionEnd!)}`;
+      if (!(specialKeys.includes(event.key) || new RegExp(this.regex).test(nextValue))) {
+        event.preventDefault();
+      }
     }
   }
 }

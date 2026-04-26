@@ -1,20 +1,19 @@
 :host {
-  display: block;
-}
-
-.label-value-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-}
+  font-size: 0.85rem;
 
-.label {
-  color: #aaa;
-}
+  > .label {
+    color: #d0d0d0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.value {
-  color: #fff;
-  font-variant-numeric: tabular-nums;
+  > .value {
+    color: #ededed;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }

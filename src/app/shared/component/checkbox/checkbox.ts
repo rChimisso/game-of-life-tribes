@@ -19,7 +19,7 @@ import {MatCheckboxChange, MatCheckboxModule} from '@angular/material/checkbox';
   ]
 })
 export class CheckboxComponent implements ControlValueAccessor {
-  @Input()
+  @Input({required: true})
   public label = '';
 
   @Input()
@@ -29,10 +29,6 @@ export class CheckboxComponent implements ControlValueAccessor {
   public readonly checkedChange = new EventEmitter<boolean>();
 
   public checked = false;
-
-  private onChange: (value: boolean) => void = () => undefined;
-
-  private onTouched: () => void = () => undefined;
 
   public writeValue(value: boolean | null): void {
     this.checked = value === true;
@@ -59,4 +55,8 @@ export class CheckboxComponent implements ControlValueAccessor {
   public touch(): void {
     this.onTouched();
   }
+
+  private onChange: (value: boolean) => void = () => undefined;
+
+  private onTouched: () => void = () => undefined;
 }

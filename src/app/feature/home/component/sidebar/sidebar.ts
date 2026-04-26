@@ -22,6 +22,8 @@ import {RuleCard} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
 
+import {LabelValue} from '~gol/shared/component/label-value/label-value';
+
 interface SidebarEvent {
   action:
     | 'toggleRun'
@@ -71,7 +73,8 @@ interface DownloadFrameRange {
     MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
-    DecimalPipe
+    DecimalPipe,
+    LabelValue
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -470,7 +473,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public get recordingGateMessage(): string | null {
     if (this.recordingAvailable) {
-      return null;
+      return 'Recording slows down the simulation.';
     }
     return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${RECORDING_MAX_FRAME_BYTES.toLocaleString()})`;
   }

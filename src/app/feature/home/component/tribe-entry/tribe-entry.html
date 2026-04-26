@@ -2,15 +2,15 @@
   <div class="tribe-edit-row">
     <span class="tribe-color-dot" [style.background-color]="'#' + tribe.color"></span>
     <span class="tribe-id">{{ tribe.id }}</span>
-    <gol-button class="small-btn" icon="edit" label="Edit tribe" variant="icon" (click)="editToggle.emit(index)"></gol-button>
-    <gol-button class="small-btn" icon="close" label="Remove tribe" variant="icon" (click)="remove.emit(index)"></gol-button>
+    <gol-button class="small-btn" icon="edit" label="Edit tribe" variant="icon" (click)="editToggle.emit(index)" />
+    <gol-button class="small-btn" icon="close" label="Remove tribe" variant="icon" (click)="remove.emit(index)" />
   </div>
 
   @if (editing) {
     <div class="color-editor">
       <div class="name-edit-row">
         <span class="name-label">Name</span>
-        <gol-input class="tribe-name-input" [ngModel]="editingName" (ngModelChange)="onNameChange($event)"></gol-input>
+        <gol-input class="tribe-name-input" name="tribeName" [ngModel]="editingName" (ngModelChange)="onNameChange($event)" />
       </div>
       <div class="color-palette">
         @for (c of basicColors; track c) {
@@ -20,7 +20,7 @@
       </div>
       <div class="hex-row">
         <span class="hex-hash">#</span>
-        <gol-input class="hex-input" [ngModel]="tribe.color" (ngModelChange)="onColorChange($event)"></gol-input>
+        <gol-input class="hex-input" name="tribeHex" [ngModel]="tribe.color" (ngModelChange)="onColorChange($event)" />
         <input class="native-picker" type="color" [value]="nativeColor(tribe.color)" (input)="onColorChange($event.target.value)" />
       </div>
     </div>
@@ -29,7 +29,7 @@
 
 @if (mode === "adder") {
   <div class="tribe-adder">
-    <gol-input class="tribe-name-input" placeholder="Name (a-z, 0-9)" [ngModel]="addName" (ngModelChange)="onAddNameChange($event)"></gol-input>
+    <gol-input class="tribe-name-input" name="tribeName" placeholder="Name (a-z, 0-9)" [ngModel]="addName" (ngModelChange)="onAddNameChange($event)" />
     <div class="color-palette">
       @for (c of basicColors; track c) {
         <button class="color-swatch" [class.selected]="addColor === c" [style.background-color]="'#' + c" (click)="onAddColorChange(c)"></button>
@@ -38,13 +38,13 @@
     </div>
     <div class="hex-row">
       <span class="hex-hash">#</span>
-      <gol-input class="hex-input" [ngModel]="addColor" (ngModelChange)="onAddColorChange($event)"></gol-input>
+      <gol-input class="hex-input" name="tribeHex" [ngModel]="addColor" (ngModelChange)="onAddColorChange($event)" />
       <input class="native-picker" type="color" [value]="nativeColor(addColor)" (input)="onAddColorChange($event.target.value)" />
     </div>
     <div class="swatch-preview" [style.background-color]="nativeColor(addColor)"></div>
     <div class="section-row">
-      <gol-button label="Add" variant="flat" [disabled]="!canConfirmAdd" (click)="confirmAdd.emit()"></gol-button>
-      <gol-button label="Cancel" variant="stroked" (click)="cancelAdd.emit()"></gol-button>
+      <gol-button label="Add" variant="flat" [disabled]="!canConfirmAdd" (click)="confirmAdd.emit()" />
+      <gol-button label="Cancel" variant="stroked" (click)="cancelAdd.emit()" />
     </div>
   </div>
 }

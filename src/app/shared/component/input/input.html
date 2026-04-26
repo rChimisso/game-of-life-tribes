@@ -1,1 +1,1 @@
-<input charFilter [disabled]="disabled" [max]="max" [min]="min" [placeholder]="placeholder" [regex]="regex" [step]="step" [type]="type" [value]="value" (blur)="touch()" (input)="onInput($event.target.value)" />
+<input charFilter [disabled]="disabled" [inputMode]="type === 'number' ? 'numeric' : 'text'" [name]="name" [placeholder]="placeholder" [regex]="regex" [type]="inputType" [value]="value" (blur)="touch()" (input)="onInput($event.target.value)" />

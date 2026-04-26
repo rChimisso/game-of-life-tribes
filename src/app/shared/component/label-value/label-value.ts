@@ -12,6 +12,6 @@ export class LabelValue {
   @Input({required: true})
   public label = '';
 
-  @Input()
+  @Input({required: true})
   public value: string | number | null = null;
 }

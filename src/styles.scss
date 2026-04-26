@@ -49,10 +49,6 @@ a {
   }
 }
 
-// ---------------------------------------------------------------------------
-//  MatSnackBar panel classes (rendered in overlay, must be global)
-// ---------------------------------------------------------------------------
-
 .snackbar-info .mdc-snackbar__surface {
   background: #b9dcff !important;
   background-color: #b9dcff !important;
@@ -104,4 +100,16 @@ input::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+mat-checkbox.mat-mdc-checkbox {
+  background-color: #00000099;
+  padding-right: 10px;
+  border-radius: 4px;
+}
+
+mat-checkbox.mat-mdc-checkbox.mat-mdc-checkbox-disabled {
+  --mat-checkbox-disabled-label-color: color-mix(in srgb, var(--mat-checkbox-label-text-color, currentColor) 33%, transparent);
+  --mat-checkbox-disabled-unselected-icon-color: color-mix(in srgb, var(--mat-checkbox-unselected-icon-color, currentColor) 33%, transparent);
+  --mat-checkbox-disabled-selected-icon-color: color-mix(in srgb, var(--mat-checkbox-selected-icon-color, currentColor) 33%, transparent);
 }

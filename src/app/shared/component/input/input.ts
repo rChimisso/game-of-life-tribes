@@ -20,6 +20,9 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
   imports: [CharFilterDirective]
 })
 export class InputComponent implements ControlValueAccessor {
+  @Input({required: true})
+  public name!: string;
+
   /**
    * Regex to filter the user input.
    *
@@ -36,24 +39,16 @@ export class InputComponent implements ControlValueAccessor {
   public placeholder = '';
 
   @Input()
-  public min?: number;
-
-  @Input()
-  public max?: number;
-
-  @Input()
-  public step?: number | string;
-
-  @Input()
-  public inputClass = '';
-
-  @Input()
   public disabled = false;
 
   @Output()
   public readonly valueChange = new EventEmitter<string | number>();
 
   public value = '';
+
+  public get inputType(): 'text' | 'color' {
+    return this.type === 'color' ? 'color' : 'text';
+  }
 
   public writeValue(value: string | number | null): void {
     if (value === null || value === undefined) {
@@ -78,19 +73,13 @@ export class InputComponent implements ControlValueAccessor {
 
   public onInput(rawValue: string): void {
     this.value = rawValue;
-
-    const parsed = this.type === 'number' ? this.toNumber(rawValue) : rawValue;
+    const parsed = this.type === 'number' ? +rawValue : rawValue;
     this.onChange(parsed);
     this.valueChange.emit(parsed);
   }
 
   public touch(): void {
     this.onTouched();
-  }
-
-  private toNumber(rawValue: string): number {
-    const parsed = Number(rawValue);
-    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   private onChange: (value: string | number) => void = () => undefined;

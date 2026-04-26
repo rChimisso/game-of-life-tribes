@@ -1,70 +1,66 @@
 :host {
-  display: block;
-}
-
-.section {
   display: flex;
   flex-direction: column;
-}
 
-.section-title {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #888;
-  margin-bottom: 12px;
-  transition: margin-bottom 0.25s ease;
+  > .section-title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin-bottom: 12px;
+    transition: margin-bottom 0.25s ease;
 
-  &:has(+ .section-content-collapsible:not(.open)) {
-    margin-bottom: 0;
+    &:has(+ .section-content-collapsible:not(.open)) {
+      margin-bottom: 0;
+    }
+
+    &.section-title-collapsible {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    > .expand-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #888;
+    }
+
+    > .section-info {
+      margin-left: 8px;
+      font-weight: 400;
+      color: #666;
+      text-transform: none;
+      letter-spacing: normal;
+    }
   }
-}
 
-.section-info {
-  margin-left: 8px;
-  font-weight: 400;
-  color: #666;
-  text-transform: none;
-  letter-spacing: normal;
-}
+  > .section-content-collapsible {
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
+    transition: grid-template-rows 0.25s ease;
 
-.section-title-collapsible {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  user-select: none;
-}
+    &.open {
+      grid-template-rows: 1fr;
+    }
+  }
 
-.expand-icon {
-  font-size: 18px !important;
-  width: 18px !important;
-  height: 18px !important;
-  color: #888;
-}
+  .section-content-inner {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 
-.section-description {
-  margin-bottom: 12px;
-  font-size: small;
-  font-weight: 300;
-}
-
-.section-content-collapsible {
-  display: grid;
-  grid-template-rows: 0fr;
-  overflow: hidden;
-  transition: grid-template-rows 0.25s ease;
-}
-
-.section-content-collapsible.open {
-  grid-template-rows: 1fr;
-}
-
-.section-content-inner {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    > .section-description {
+      margin-bottom: 12px;
+      font-size: small;
+      font-weight: 300;
+    }
+  }
 }

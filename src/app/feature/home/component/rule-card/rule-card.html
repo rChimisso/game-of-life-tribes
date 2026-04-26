@@ -9,7 +9,7 @@
     <span class="rule-summary">{{ summary }}</span>
     <span class="rule-arrow">→</span>
     <span class="rule-output" [style.background-color]="'#' + outputColor" [style.color]="outputContrast">{{ rule.tribe }}</span>
-    <gol-button class="small-btn" icon="close" label="Remove rule" variant="icon" (click)="onRemove($event)"></gol-button>
+    <gol-button class="small-btn" icon="close" label="Remove rule" variant="icon" (click)="onRemove($event)" />
   </div>
 
   <div class="collapsible" [class.open]="expanded">

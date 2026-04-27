@@ -13,5 +13,8 @@ export class LabelValue {
   public label = '';
 
   @Input({required: true})
-  public value: string | number | null = null;
+  public value?: string | number | null = null;
+
+  @Input()
+  public type: 'info' | 'warning' | 'error' = 'info';
 }

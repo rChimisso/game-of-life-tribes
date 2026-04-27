@@ -1,2 +1,2 @@
-<span class="label">{{ label }}</span>
-<span class="value">{{ value ?? "-" }}</span>
+<span [class]="'label ' + type">{{ label }}</span>
+<span [class]="'value ' + type">{{ value ?? "-" }}</span>

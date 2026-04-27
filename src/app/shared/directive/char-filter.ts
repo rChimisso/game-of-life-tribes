@@ -27,7 +27,8 @@ const specialKeys: string[] = [
   selector: '[charFilter]',
   standalone: true,
   host: {
-    '(keydown)': 'onKeyDown($event)'
+    '(keydown)': 'onKeyDown($event)',
+    '(paste)': 'onPaste($event)'
   }
 })
 export class CharFilterDirective {
@@ -54,11 +55,23 @@ export class CharFilterDirective {
    * @param {KeyboardEvent} event
    */
   public onKeyDown(event: KeyboardEvent) {
-    if (this.input.nativeElement.type === 'text') {
+    if (this.input.nativeElement.type === 'text' && !(event.ctrlKey && (event.key.toLowerCase() === 'v' || event.key.toLowerCase() === 'c'))) {
       const {value, selectionStart, selectionEnd} = this.input.nativeElement, nextValue = `${value.slice(0, selectionStart!)}${event.key}${value.slice(selectionEnd!)}`;
       if (!(specialKeys.includes(event.key) || new RegExp(this.regex).test(nextValue))) {
         event.preventDefault();
       }
+    }
+  }
+
+  /**
+   * Prevents pasting not-allowed strings.
+   *
+   * @public
+   * @param {ClipboardEvent} event
+   */
+  public onPaste(event: ClipboardEvent) {
+    if (this.input.nativeElement.type === 'text' && !new RegExp(this.regex).test(event.clipboardData?.getData('text') ?? '')) {
+      event.preventDefault();
     }
   }
 }

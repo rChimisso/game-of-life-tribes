@@ -49,6 +49,21 @@ a {
   }
 }
 
+@keyframes dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+}
+
 .snackbar-info .mdc-snackbar__surface {
   background: #b9dcff !important;
   background-color: #b9dcff !important;
@@ -112,4 +127,26 @@ mat-checkbox.mat-mdc-checkbox.mat-mdc-checkbox-disabled {
   --mat-checkbox-disabled-label-color: color-mix(in srgb, var(--mat-checkbox-label-text-color, currentColor) 33%, transparent);
   --mat-checkbox-disabled-unselected-icon-color: color-mix(in srgb, var(--mat-checkbox-unselected-icon-color, currentColor) 33%, transparent);
   --mat-checkbox-disabled-selected-icon-color: color-mix(in srgb, var(--mat-checkbox-selected-icon-color, currentColor) 33%, transparent);
+}
+
+.mat-expansion-panel {
+  background: transparent !important;
+  color: #e0e0e0 !important;
+  box-shadow: none !important;
+}
+
+.mat-expansion-panel-header-title {
+  color: #888 !important;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mat-expansion-indicator::after {
+  color: #888 !important;
+}
+
+mat-expansion-panel {
+  margin: 0 -16px;
 }

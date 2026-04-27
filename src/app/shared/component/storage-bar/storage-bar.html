@@ -1,6 +1,6 @@
 <div class="storage-bar" [title]="tooltip">
   @for (segment of segments; track segment.label) {
-    <div class="storage-segment" [style.width.%]="segmentPercent(segment.value)" [style.background-color]="segment.color"></div>
+    <div class="storage-segment" [style.background-color]="segment.color" [style.width.%]="segmentPercent(segment.value)"></div>
   }
 </div>
 

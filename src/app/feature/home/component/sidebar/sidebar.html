@@ -17,9 +17,9 @@
         <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [disabled]="stepBackDisabled" (click)="onStepBack()" />
         <gol-input class="gol-cell-4" name="skipAmount" regex="^[1-9][0-9]*$" [disabled]="downloading || stepping || backpressure || rebuilding" [(ngModel)]="skipAmount" (ngModelChange)="savePrefs()" />
         <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [disabled]="running || downloading || stepping || backpressure || rebuilding" (click)="onStepForward()" />
-        <div class="playback-metrics gol-cell-12 gol-grid-tiny">
-          <gol-label-value class="gol-cell-6" label="Generation" [value]="metrics ? (metrics.generation | number) : 0" />
-          <gol-label-value class="gol-cell-6" label="Gen/s" [value]="metrics ? (metrics.fps | number: '1.0-0') : 0" />
+        <div class="info-labels gol-cell-12 gol-grid-tiny">
+          <gol-label-value class="gol-cell-6" label="Generation" [value]="(metrics?.generation ?? 0)?.toLocaleString()" />
+          <gol-label-value class="gol-cell-6" label="Gen/s" [value]="(metrics?.fps ?? 0)?.toLocaleString(undefined, { maximumFractionDigits: 0 })" />
         </div>
       </div>
       <gol-button class="reset" icon="restart_alt" label="Reset Simulation" variant="flat" [disabled]="downloading || stepping || backpressure || rebuilding" (click)="emit('restart')" />
@@ -30,14 +30,12 @@
         <gol-input class="gol-cell-4" name="speed" regex="^[1-9][0-9]*$" [disabled]="maxSpeed || downloading" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
         <span class="speed-unit gol-cell-3">gen/s</span>
         <gol-checkbox class="gol-cell-5" label="Max" [disabled]="downloading" [ngModel]="maxSpeed" (ngModelChange)="onMaxSpeedChange($event)" />
-        <span class="recording-gate-warning gol-cell-7">{{ recordingGateMessage }}</span>
+        <span class="warning-message gol-cell-7">{{ recordingGateMessage }}</span>
         <gol-checkbox class="gol-cell-5" label="Rec" [disabled]="downloading || !recordingAvailable" [ngModel]="recording" (ngModelChange)="onRecordingChange($event)" />
       </div>
     </gol-home-section>
     <hr class="divider" />
-
-    <!-- Drawing -->
-    <gol-home-section title="Draw tribe" [collapsible]="false" [description]="'Select tribes to draw on the grid. Use the brush options to adjust how drawing works.'">
+    <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
       <div class="tribe-picker">
         @for (tribe of tribes; track tribe.id) {
           @if (tribe.id !== "dead") {
@@ -48,94 +46,91 @@
           <mat-icon>close</mat-icon>
         </button>
       </div>
-      <div class="brush-options">
-        <div class="brush-row">
-          <span class="brush-label">Size</span>
-          <gol-input class="brush-size-input-control" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)" />
+      <div class="gol-grid-tiny">
+        <div class="gol-cell-12 gol-grid-tiny">
+          <span class="input-label gol-cell-2">Size</span>
+          <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)" />
         </div>
-        <div class="brush-row">
-          <span class="brush-label">Shape</span>
-          <div class="brush-toggle-group">
-            <button class="brush-toggle" title="Square" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
+        <div class="gol-cell-12 gol-grid-tiny">
+          <span class="input-label gol-cell-2">Shape</span>
+          <div class="exclusive-button-group gol-cell-10">
+            <button class="exclusive-button" title="Square" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
               <mat-icon>square</mat-icon>
             </button>
-            <button class="brush-toggle" title="Round" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
+            <button class="exclusive-button" title="Round" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
               <mat-icon>circle</mat-icon>
             </button>
-            <button class="brush-toggle" title="Diamond" [class.active]="brushShape === 'diamond'" (click)="onBrushShapeChange('diamond')">
+            <button class="exclusive-button" title="Diamond" [class.active]="brushShape === 'diamond'" (click)="onBrushShapeChange('diamond')">
               <mat-icon style="transform: rotate(45deg)">square</mat-icon>
             </button>
-            <button class="brush-toggle" title="Vertical Line" [class.active]="brushShape === 'vline'" (click)="onBrushShapeChange('vline')">
+            <button class="exclusive-button" title="Vertical Line" [class.active]="brushShape === 'vline'" (click)="onBrushShapeChange('vline')">
               <mat-icon style="transform: rotate(90deg)">horizontal_rule</mat-icon>
             </button>
-            <button class="brush-toggle" title="Horizontal Line" [class.active]="brushShape === 'hline'" (click)="onBrushShapeChange('hline')">
+            <button class="exclusive-button" title="Horizontal Line" [class.active]="brushShape === 'hline'" (click)="onBrushShapeChange('hline')">
               <mat-icon>horizontal_rule</mat-icon>
             </button>
           </div>
         </div>
-        <div class="brush-row">
-          <span class="brush-label">Mode</span>
-          <div class="brush-toggle-group">
-            <button class="brush-toggle" [class.active]="brushFill === 'full'" (click)="onBrushFillChange('full')">Full</button>
-            <button class="brush-toggle" [class.active]="brushFill === 'spray'" (click)="onBrushFillChange('spray')">Spray</button>
-            <button class="brush-toggle" [class.active]="brushFill === 'outline'" (click)="onBrushFillChange('outline')">Outline</button>
+        <div class="gol-cell-12 gol-grid-tiny">
+          <span class="input-label gol-cell-2">Mode</span>
+          <div class="exclusive-button-group gol-cell-10">
+            <button class="exclusive-button" [class.active]="brushFill === 'full'" (click)="onBrushFillChange('full')">Full</button>
+            <button class="exclusive-button" [class.active]="brushFill === 'spray'" (click)="onBrushFillChange('spray')">Spray</button>
+            <button class="exclusive-button" [class.active]="brushFill === 'outline'" (click)="onBrushFillChange('outline')">Outline</button>
           </div>
         </div>
-        <div class="brush-row mobile-only">
-          <span class="brush-label">Touch</span>
-          <div class="brush-toggle-group">
-            <button class="brush-toggle" [class.active]="!panMode" (click)="panMode ? emit('togglePanMode') : null">Draw</button>
-            <button class="brush-toggle" [class.active]="panMode" (click)="!panMode ? emit('togglePanMode') : null">Pan</button>
+        <div class="gol-cell-12 gol-grid-tiny mobile-only">
+          <span class="input-label gol-cell-2">Touch</span>
+          <div class="exclusive-button-group gol-cell-10">
+            <button class="exclusive-button" [class.active]="!panMode" (click)="panMode ? emit('togglePanMode') : null">Draw</button>
+            <button class="exclusive-button" [class.active]="panMode" (click)="!panMode ? emit('togglePanMode') : null">Pan</button>
           </div>
         </div>
       </div>
     </gol-home-section>
-
     <hr class="divider" />
-
-    <!-- Grid size -->
-    <gol-home-section title="Grid size" [collapsible]="false" [description]="'Choose your preferred grid size. Larger grids require more VRAM and may not be supported by your device.'" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
-      <gol-storage-bar [segments]="vramSegments" [tooltip]="vramBarTooltip" [total]="vramBarTotal"></gol-storage-bar>
-      <div class="grid-size-inputs">
-        <div class="grid-size-input-row">
-          <span>Cols</span>
-          <gol-input class="grid-size-input-control" name="columns" regex="^[1-9][0-9]*$" [(ngModel)]="pendingCols" />
-        </div>
-        <div class="grid-size-input-row">
-          <span>Rows</span>
-          <gol-input class="grid-size-input-control" name="rows" regex="^[1-9][0-9]*$" [(ngModel)]="pendingRows" />
-        </div>
-        @if (gridSizeError) {
-          <span class="grid-size-error">{{ gridSizeError }}</span>
-        }
-        <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedGridSize || !!gridSizeError" [restoreDisabled]="downloading || !hasUnappliedGridSize" (apply)="onGridSizeApply()" (restore)="restoreGridSize()"></div>
+    <gol-home-section description="Set the grid size and monitor VRAM usage." title="Grid size" [collapsible]="false" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
+      <gol-storage-bar [segments]="vramSegments" [tooltip]="vramBarTooltip" [total]="vramBarTotal" />
+      <div class="gol-cell-12 gol-grid-tiny">
+        <span class="input-label gol-cell-2">Cols</span>
+        <gol-input class="gol-cell-5" name="columns" regex="^[1-9][0-9]*$" [(ngModel)]="pendingCols" />
+        <span class="gol-cell-5 error-message">{{ gridColsError }}</span>
       </div>
+      <div class="gol-cell-12 gol-grid-tiny">
+        <span class="input-label gol-cell-2">Rows</span>
+        <gol-input class="gol-cell-5" name="rows" regex="^[1-9][0-9]*$" [(ngModel)]="pendingRows" />
+        <span class="gol-cell-5 error-message">{{ gridRowsError }}</span>
+      </div>
+      <div class="info-labels gol-cell-12 gol-grid-tiny">
+        <gol-label-value class="gol-cell-6" label="Frame size" [value]="pendingGridFrameSizeFormatted" />
+        <gol-label-value class="gol-cell-6" label="Bytes" [value]="pendingGridFrameByteSize.toLocaleString()" />
+      </div>
+      <div class="limits-labels gol-cell-12 gol-grid-tiny">
+        <gol-label-value class="gol-cell-12" label="Max recording size" [type]="pendingGridOverRecordingFrameLimit ? 'warning' : 'info'" [value]="recordingFrameLimitLabel" />
+        <gol-label-value class="gol-cell-12" label="Max supported size" [type]="pendingGridOverAllowedFrameLimit ? 'error' : 'info'" [value]="allowedFrameLimitLabel" />
+      </div>
+      <gol-button-pair class="gol-cell-12" [leftDisabled]="running || downloading || !hasUnappliedGridSize || pendingGridOverAllowedFrameLimit || !!(gridColsError || gridRowsError)" [rightDisabled]="downloading || !hasUnappliedGridSize" (leftClick)="onGridSizeApply()" (rightClick)="restoreGridSize()" />
     </gol-home-section>
-
     <hr class="divider" />
-
-    <!-- Packing -->
-    <gol-home-section title="Packing" [description]="'Change how many bits are used to represent a single cell. Fewer bits reduce memory usage, but increase shader complexity. More bits increase memory usage, but reduce shader complexity. Smaller grids benefit more from simpler shaders, while larger grids benefit more from reduced memory usage.'" [expanded]="packingExpanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'" (expandedChange)="onSectionExpandedChange('packing', $event)">
-      <div class="brush-row">
-        <span class="brush-label">Bits/cell</span>
-        <div class="brush-toggle-group">
+    <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." title="Packing" [expanded]="packingExpanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'" (expandedChange)="onSectionExpandedChange('packing', $event)">
+      <div class="gol-grid-tiny">
+        <span class="input-label gol-cell-3">Bits/cell</span>
+        <div class="exclusive-button-group gol-cell-9">
           @for (bitsPerCell of simulationPackingOptions; track bitsPerCell) {
-            <button class="brush-toggle" [class.active]="pendingSimulationBitsPerCell === bitsPerCell" (click)="pendingSimulationBitsPerCell = bitsPerCell">{{ bitsPerCell }}</button>
+            <button class="exclusive-button" [class.active]="pendingSimulationBitsPerCell === bitsPerCell" [disabled]="isBitPackingDisabled(bitsPerCell)" (click)="pendingSimulationBitsPerCell = bitsPerCell">{{ bitsPerCell }}</button>
           }
         </div>
       </div>
-      <div class="generation-display">
-        <span class="gen-label">Frame size</span>
-        <span class="gen-value">{{ pendingPackingFrameSizeFormatted }}</span>
-        <span class="gen-label">Bytes</span>
-        <span class="gen-value">{{ pendingPackingFrameByteSize | number }}</span>
+      <div class="info-labels gol-grid-tiny">
+        <gol-label-value class="gol-cell-6" label="Frame size" [value]="pendingPackingFrameSizeFormatted" />
+        <gol-label-value class="gol-cell-6" label="Bytes" [value]="pendingPackingFrameByteSize.toLocaleString()" />
       </div>
-      @if (pendingPackingError) {
-        <span class="grid-size-error">{{ pendingPackingError }}</span>
-      }
-      <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedPacking || !!pendingPackingError" [restoreDisabled]="downloading || !hasUnappliedPacking" (apply)="onPackingApply()" (restore)="restorePacking()"></div>
+      <div class="limits-labels gol-grid-tiny">
+        <gol-label-value class="gol-cell-12" label="Max recording size" [type]="pendingPackingOverRecordingFrameLimit ? 'warning' : 'info'" [value]="recordingFrameLimitLabel" />
+        <gol-label-value class="gol-cell-12" label="Max supported size" [type]="pendingPackingOverAllowedFrameLimit ? 'error' : 'info'" [value]="allowedFrameLimitLabel" />
+      </div>
+      <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedPacking || pendingPackingOverAllowedFrameLimit" [rightDisabled]="downloading || !hasUnappliedPacking" (leftClick)="onPackingApply()" (rightClick)="restorePacking()" />
     </gol-home-section>
-
     <hr class="divider" />
 
     <!-- Presets -->
@@ -148,7 +143,7 @@
           </button>
         }
       </div>
-      <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !selectedPreset" [restoreDisabled]="downloading || !selectedPreset" (apply)="applyPreset()" (restore)="restorePreset()"></div>
+      <gol-button-pair [leftDisabled]="running || downloading || !selectedPreset" [rightDisabled]="downloading || !selectedPreset" (leftClick)="applyPreset()" (rightClick)="restorePreset()" />
     </gol-home-section>
 
     <hr class="divider" />
@@ -156,16 +151,16 @@
     <!-- Tribes editor -->
     <gol-home-section title="Tribes" [description]="'Add, edit and remove tribes.'" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
       @for (tribe of editTribes; track tribe.id; let i = $index) {
-        <gol-tribe-entry mode="entry" [basicColors]="basicColors" [editing]="editingTribeIndex === i" [editingName]="editingTribeName" [index]="i" [tribe]="tribe" (colorChange)="updateTribeColor($event.index, $event.color)" (editToggle)="startEditTribe($event)" (nameChange)="updateTribeName($event.index, $event.value)" (remove)="removeTribe($event)"> </gol-tribe-entry>
+        <gol-tribe-entry mode="entry" [basicColors]="basicColors" [editing]="editingTribeIndex === i" [editingName]="editingTribeName" [index]="i" [tribe]="tribe" (colorChange)="updateTribeColor($event.index, $event.color)" (editToggle)="startEditTribe($event)" (nameChange)="updateTribeName($event.index, $event.value)" (remove)="removeTribe($event)" />
       }
 
       @if (showTribeAdder) {
-        <gol-tribe-entry mode="adder" [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()"> </gol-tribe-entry>
+        <gol-tribe-entry mode="adder" [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()" />
       } @else {
         <gol-button class="full-width" icon="add" label="Add tribe" variant="flat" (click)="startAddTribe()" />
       }
 
-      <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedTribes" [restoreDisabled]="downloading || !hasUnappliedTribes" (apply)="applyTribes()" (restore)="restoreTribes()"></div>
+      <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedTribes" [rightDisabled]="downloading || !hasUnappliedTribes" (leftClick)="applyTribes()" (rightClick)="restoreTribes()" />
     </gol-home-section>
 
     <hr class="divider" />
@@ -177,7 +172,7 @@
       }
 
       <gol-button class="full-width" icon="add" label="Add rule" variant="flat" (click)="addRule()" />
-      <div gol-apply-restore-buttons [applyDisabled]="running || downloading || !hasUnappliedRules" [restoreDisabled]="downloading || !hasUnappliedRules" (apply)="applyRules()" (restore)="restoreRules()"></div>
+      <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="applyRules()" (rightClick)="restoreRules()" />
     </gol-home-section>
 
     <hr class="divider" />
@@ -253,7 +248,7 @@
 
     <!-- Download -->
     <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'" [info]="storageTitleSize + ' / ' + storageQuotaFormatted">
-      <gol-storage-bar [segments]="storageSegments" [tooltip]="storageBarTooltip" [total]="storageQuotaBytes"></gol-storage-bar>
+      <gol-storage-bar [segments]="storageSegments" [tooltip]="storageBarTooltip" [total]="storageQuotaBytes" />
       <div class="download-checks">
         <gol-checkbox label="Saves" [disabled]="downloading" [(ngModel)]="downloadSaves" (ngModelChange)="savePrefs()" />
         <gol-checkbox label="CSV" [disabled]="downloading" [(ngModel)]="downloadCsv" (ngModelChange)="savePrefs()" />
@@ -329,10 +324,7 @@
           }
         </div>
       }
-      <div class="gol-grid-tiny">
-        <gol-button class="gol-cell-6" icon="download" label="Download" variant="flat" [disabled]="downloadButtonDisabled" (click)="onDownload()" />
-        <gol-button class="gol-cell-6" icon="close" label="Cancel" variant="flat" [disabled]="!downloading" (click)="emit('cancelDownload')" />
-      </div>
+      <gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="!downloading" (leftClick)="onDownload()" (rightClick)="emit('cancelDownload')" />
     </gol-home-section>
 
     <hr class="divider" />
@@ -346,11 +338,8 @@
           <mat-progress-bar mode="indeterminate" />
         </div>
       } @else {
-        <div class="gol-grid-tiny">
-          <gol-button class="gol-cell-6" icon="save" label="Save" variant="flat" [disabled]="downloading" (click)="emit('saveState')" />
-          <gol-button class="gol-cell-6" icon="upload_file" label="Load" variant="flat" [disabled]="downloading" (click)="fileInput.click()" />
-          <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
-        </div>
+        <gol-button-pair leftIcon="save" leftLabel="Save" rightIcon="upload_file" rightLabel="Load" [leftDisabled]="downloading" [rightDisabled]="downloading" (leftClick)="emit('saveState')" (rightClick)="fileInput.click()" />
+        <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
       }
     </gol-home-section>
 

@@ -4,16 +4,35 @@
   gap: 8px;
   font-size: 0.85rem;
 
-  > .label {
-    color: #d0d0d0;
+  > .label,
+  > .value {
     overflow: hidden;
     text-overflow: ellipsis;
+    text-wrap: nowrap;
+  }
+
+  > .label {
+    color: #d0d0d0;
+
+    &.warning {
+      color: #ffa726;
+    }
+
+    &.error {
+      color: #ff6b6b;
+    }
   }
 
   > .value {
     color: #ededed;
     font-variant-numeric: tabular-nums;
-    overflow: hidden;
-    text-overflow: ellipsis;
+
+    &.warning {
+      color: #ffbd2e;
+    }
+
+    &.error {
+      color: #ff5252;
+    }
   }
 }

@@ -8,16 +8,16 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import packageJson from '../../../../../../package.json';
+import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../shared/component/button/button';
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar, StorageBarSegment} from '../../../../shared/component/storage-bar/storage-bar';
-import {BitsPerCell, chooseGridFormat, gridByteSize, gridFormatFromBits, GridFormatMetadata, maxStateCountForBits, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
+import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
-import {ApplyRestoreButtons} from '../apply-restore/apply-restore';
 import {RuleCard} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
@@ -448,34 +448,59 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public get hasUnappliedGridSize(): boolean {
-    return this.pendingCols !== this.gridCols || this.pendingRows !== this.gridRows;
+    return +this.pendingCols !== +this.gridCols || +this.pendingRows !== +this.gridRows;
   }
 
   public get hasUnappliedPacking(): boolean {
-    return this.pendingSimulationBitsPerCell !== this.simulationGridFormat.bitsPerCell;
+    return +this.pendingSimulationBitsPerCell !== +this.simulationGridFormat.bitsPerCell;
   }
 
-  public get totalStateCount(): number {
-    return this.editTribes.length > 0 ? this.editTribes.length : this.ruleset.tribes.length;
-  }
-
-  public get gridSizeError(): string | null {
-    const packedGridByteSize = gridByteSize(this.pendingCols, this.pendingRows, chooseGridFormat(this.totalStateCount));
-
-    if (packedGridByteSize > this.maxBytes) {
-      return `Grid requires ${packedGridByteSize.toLocaleString()} bytes but GPU supports at most ${this.maxBytes.toLocaleString()}`;
-    }
-    if (this.pendingCols < 3 || this.pendingRows < 3) {
-      return 'Minimum grid size is 3×3';
+  public get gridColsError(): string | null {
+    if (+this.pendingCols < 3) {
+      return 'Min 3';
     }
     return null;
   }
 
-  public get recordingGateMessage(): string | null {
+  public get gridRowsError(): string | null {
+    if (+this.pendingRows < 3) {
+      return 'Min 3';
+    }
+    return null;
+  }
+
+  public get recordingGateMessage(): string {
     if (this.recordingAvailable) {
       return 'Recording slows down the simulation.';
     }
-    return `Recording unavailable (frame size: ${this.frameByteSize.toLocaleString()} bytes, max: ${RECORDING_MAX_FRAME_BYTES.toLocaleString()})`;
+    return 'Grid is too large for recording.';
+  }
+
+  public get pendingGridOverRecordingFrameLimit(): boolean {
+    return this.pendingGridFrameByteSize > RECORDING_MAX_FRAME_BYTES;
+  }
+
+  public get pendingGridOverAllowedFrameLimit(): boolean {
+    return Number.isFinite(this.maxBytes) && this.pendingGridFrameByteSize > this.maxBytes;
+  }
+
+  public get pendingPackingOverRecordingFrameLimit(): boolean {
+    return this.pendingPackingFrameByteSize > RECORDING_MAX_FRAME_BYTES;
+  }
+
+  public get pendingPackingOverAllowedFrameLimit(): boolean {
+    return Number.isFinite(this.maxBytes) && this.pendingPackingFrameByteSize > this.maxBytes;
+  }
+
+  public get recordingFrameLimitLabel(): string {
+    return `${this.formatBytes(RECORDING_MAX_FRAME_BYTES)} (${RECORDING_MAX_FRAME_BYTES.toLocaleString()} bytes)`;
+  }
+
+  public get allowedFrameLimitLabel(): string {
+    if (!Number.isFinite(this.maxBytes)) {
+      return 'Detecting…';
+    }
+    return `${this.formatBytes(this.maxBytes)} (${this.maxBytes.toLocaleString()} bytes)`;
   }
 
   public get mp4GateMessage(): string | null {
@@ -537,28 +562,19 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public get pendingPackingFrameByteSize(): number {
-    return gridByteSize(this.pendingCols, this.pendingRows, gridFormatFromBits(this.pendingSimulationBitsPerCell));
+    return gridByteSize(this.gridCols, this.gridRows, gridFormatFromBits(this.pendingSimulationBitsPerCell));
+  }
+
+  public get pendingGridFrameByteSize(): number {
+    return gridByteSize(this.pendingCols, this.pendingRows, gridFormatFromBits(this.simulationGridFormat.bitsPerCell));
+  }
+
+  public get pendingGridFrameSizeFormatted(): string {
+    return this.formatBytes(this.pendingGridFrameByteSize);
   }
 
   public get pendingPackingFrameSizeFormatted(): string {
     return this.formatBytes(this.pendingPackingFrameByteSize);
-  }
-
-  public get pendingPackingError(): string | null {
-    if (this.pendingCols < 3 || this.pendingRows < 3) {
-      return 'Minimum grid size is 3×3';
-    }
-
-    if (!validatePackingAgainstStateCount(this.pendingSimulationBitsPerCell, this.totalStateCount)) {
-      return `${this.totalStateCount.toLocaleString()} states (including dead) require more than ${this.pendingSimulationBitsPerCell} bits per cell; that format supports at most ${maxStateCountForBits(this.pendingSimulationBitsPerCell).toLocaleString()} states.`;
-    }
-
-    const requiredBytes = this.pendingPackingFrameByteSize;
-    if (requiredBytes > this.maxBytes) {
-      return `Grid would require ${requiredBytes.toLocaleString()} bytes at ${this.pendingSimulationBitsPerCell} bits per cell, but GPU supports at most ${this.maxBytes.toLocaleString()} bytes.`;
-    }
-
-    return null;
   }
 
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
@@ -598,6 +614,10 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
   }
 
+  public isBitPackingDisabled(bitsPerCell: BitsPerCell): boolean {
+    return !validatePackingAgainstStateCount(bitsPerCell, this.ruleset.tribes.length);
+  }
+
   public toggle(): void {
     this.clearPendingTransitionReset();
     this.suppressClosedTransition = false;
@@ -619,7 +639,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public onSpeedChange(value: string): void {
-    const n = parseInt(value, 10);
+    const n = +value;
     if (n > 0) {
       this.emit('setSpeed', n);
     }
@@ -641,9 +661,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public onPackingApply(): void {
-    this.emit('setPacking', {
-      bitsPerCell: this.pendingSimulationBitsPerCell
-    });
+    this.emit('setPacking', {bitsPerCell: this.pendingSimulationBitsPerCell});
   }
 
   public onDownload(): void {
@@ -1459,15 +1477,27 @@ export class Sidebar implements OnChanges, OnDestroy {
       return `${bytes} B`;
     }
     if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(2)} KB`;
+      return `${(bytes / 1024).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} KB`;
     }
     if (bytes < 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+      return `${(bytes / (1024 * 1024)).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} MB`;
     }
     if (bytes < 1024 * 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} GB`;
     }
-    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
+    return `${(bytes / (1024 * 1024 * 1024 * 1024)).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })} TB`;
   }
 
   /**
@@ -1480,15 +1510,27 @@ export class Sidebar implements OnChanges, OnDestroy {
       return `${bytes} B`;
     }
     if (bytes < 1_000_000) {
-      return `${(bytes / 1000).toFixed(2)} KB`;
+      return `${(bytes / 1000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} KB`;
     }
     if (bytes < 1_000_000_000) {
-      return `${(bytes / 1_000_000).toFixed(2)} MB`;
+      return `${(bytes / 1_000_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} MB`;
     }
     if (bytes < 1_000_000_000_000) {
-      return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
+      return `${(bytes / 1_000_000_000).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })} GB`;
     }
-    return `${(bytes / 1_000_000_000_000).toFixed(2)} TB`;
+    return `${(bytes / 1_000_000_000_000).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })} TB`;
   }
 }
 

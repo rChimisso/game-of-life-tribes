@@ -3,14 +3,11 @@
     <div class="storage-segment" [style.background-color]="segment.color" [style.width.%]="segmentPercent(segment.value)"></div>
   }
 </div>
-
-@if (showLegend) {
-  <div class="storage-legend">
-    @for (segment of segments; track segment.label) {
-      <span class="storage-legend-item">
-        <span class="legend-dot" [style.background-color]="segment.color"></span>
-        {{ segment.formatted }} {{ segment.label }}
-      </span>
-    }
-  </div>
-}
+<div class="storage-legend">
+  @for (segment of segments; track segment.label) {
+    <span class="storage-legend-item">
+      <span class="legend-dot" [style.background-color]="segment.color"></span>
+      {{ segment.formatted }} {{ segment.label }}
+    </span>
+  }
+</div>

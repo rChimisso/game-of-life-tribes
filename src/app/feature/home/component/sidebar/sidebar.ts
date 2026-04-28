@@ -12,7 +12,7 @@ import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/bu
 import {Button} from '../../../../shared/component/button/button';
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
 import {InputComponent} from '../../../../shared/component/input/input';
-import {StorageBar, StorageBarSegment} from '../../../../shared/component/storage-bar/storage-bar';
+import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
@@ -23,6 +23,7 @@ import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
 
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
+import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 interface SidebarEvent {
   action:

@@ -1,13 +1,14 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 
-export interface StorageBarSegment {
-  label: string;
-  value: number;
-  formatted: string;
-  color: string;
-}
+import {StorageBarSegment} from './model/storage-bar-segment';
 
+/**
+ * Storage segmented bar.
+ *
+ * @export
+ * @class StorageBar
+ * @typedef {StorageBar}
+ */
 @Component({
   selector: 'gol-storage-bar',
   standalone: true,
@@ -16,23 +17,41 @@ export interface StorageBarSegment {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StorageBar {
+  /**
+   * List of segments.
+   *
+   * @public
+   * @type {StorageBarSegment[]}
+   */
   @Input({required: true})
   public segments: StorageBarSegment[] = [];
 
+  /**
+   * Total amount of storage available.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public total = 0;
 
+  /**
+   * Bar tooltip.
+   *
+   * @public
+   * @type {string}
+   */
   @Input()
   public tooltip = '';
 
-  @Input()
-  public showLegend = true;
-
+  /**
+   * Returns the percentage of a segment value relative to the total.
+   *
+   * @public
+   * @param {number} value segment value.
+   * @returns {number} segment percentage relative to the total.
+   */
   public segmentPercent(value: number): number {
-    if (this.total <= 0) {
-      return 0;
-    }
-
-    return Math.max(0, (value / this.total) * 100);
+    return this.total <= 0 ? 0 : Math.max(0, (value / this.total) * 100);
   }
 }

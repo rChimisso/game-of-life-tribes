@@ -36,15 +36,6 @@ export class StorageBar {
   public total = 0;
 
   /**
-   * Bar tooltip.
-   *
-   * @public
-   * @type {string}
-   */
-  @Input()
-  public tooltip = '';
-
-  /**
    * Returns the percentage of a segment value relative to the total.
    *
    * @public

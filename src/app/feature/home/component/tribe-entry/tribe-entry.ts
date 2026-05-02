@@ -2,6 +2,7 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
+import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../shared/component/button/button';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {Tribe} from '../../model/rule';
@@ -19,15 +20,17 @@ interface TribeColorChange {
 @Component({
   selector: 'gol-tribe-entry',
   standalone: true,
-  imports: [FormsModule, InputComponent, Button],
+  imports: [
+    FormsModule,
+    InputComponent,
+    Button,
+    ApplyRestoreButtons
+  ],
   templateUrl: './tribe-entry.html',
   styleUrl: './tribe-entry.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TribeEntry {
-  @Input()
-  public mode: 'entry' | 'adder' = 'entry';
-
   @Input()
   public tribe: Tribe | null = null;
 
@@ -75,6 +78,46 @@ export class TribeEntry {
 
   @Output()
   public readonly cancelAdd = new EventEmitter<void>();
+
+  public get isAdder(): boolean {
+    return !this.tribe;
+  }
+
+  public get showHeader(): boolean {
+    return !!this.tribe && this.tribe.id !== 'dead';
+  }
+
+  public get showEditor(): boolean {
+    return this.isAdder || this.editing;
+  }
+
+  public get showPanel(): boolean {
+    return this.isAdder || this.showHeader;
+  }
+
+  public get currentName(): string {
+    return this.isAdder ? this.addName : this.editingName ?? '';
+  }
+
+  public get currentColor(): string {
+    return this.isAdder ? this.addColor : this.tribe?.color ?? '';
+  }
+
+  public onCurrentNameChange(value: string | number): void {
+    if (this.isAdder) {
+      this.onAddNameChange(value);
+    } else {
+      this.onNameChange(value);
+    }
+  }
+
+  public onCurrentColorChange(value: string | number): void {
+    if (this.isAdder) {
+      this.onAddColorChange(value);
+    } else {
+      this.onColorChange(value);
+    }
+  }
 
   public onNameChange(value: string | number): void {
     this.nameChange.emit({

@@ -1,50 +1,35 @@
-@if (mode === "entry" && tribe && tribe.id !== "dead") {
-  <div class="tribe-edit-row">
-    <span class="tribe-color-dot" [style.background-color]="'#' + tribe.color"></span>
-    <span class="tribe-id">{{ tribe.id }}</span>
-    <gol-button class="small-btn" icon="edit" label="Edit tribe" variant="icon" (click)="editToggle.emit(index)" />
-    <gol-button class="small-btn" icon="close" label="Remove tribe" variant="icon" (click)="remove.emit(index)" />
-  </div>
-
-  @if (editing) {
-    <div class="color-editor">
-      <div class="name-edit-row">
-        <span class="name-label">Name</span>
-        <gol-input class="tribe-name-input" name="tribeName" [ngModel]="editingName" (ngModelChange)="onNameChange($event)" />
+@if (showPanel) {
+  <div class="tribe-panel">
+    @if (showHeader && tribe) {
+      <div class="tribe-edit-row">
+        <span class="tribe-color-swatch" [style.background-color]="'#' + tribe.color"></span>
+        <span class="tribe-id">{{ tribe.id }}</span>
+        <gol-button class="small-btn" icon="edit" label="Edit tribe" variant="icon" (clicked)="editToggle.emit(index)" />
+        <gol-button class="small-btn" icon="close" label="Remove tribe" variant="icon" (clicked)="remove.emit(index)" />
       </div>
-      <div class="color-palette">
-        @for (c of basicColors; track c) {
-          <button class="color-swatch" [class.selected]="tribe.color === c" [style.background-color]="'#' + c" (click)="onColorChange(c)"></button>
+    }
+
+    @if (showEditor) {
+      <div class="tribe-editor">
+        <div class="name-edit-row">
+          <gol-input class="tribe-name-input" name="tribeName" placeholder="Name (A-z, 0-9)" [ngModel]="currentName" (ngModelChange)="onCurrentNameChange($event)" />
+        </div>
+        <div class="color-palette">
+          @for (c of basicColors; track c) {
+            <button class="color-swatch" type="button" [class.selected]="currentColor === c" [style.background-color]="'#' + c" (click)="onCurrentColorChange(c)"></button>
+          }
+          <button class="color-swatch random-swatch" type="button" (click)="onCurrentColorChange(randomColor())">🎲</button>
+        </div>
+        <div class="hex-row">
+          <span class="hex-hash">#</span>
+          <gol-input class="hex-input" name="tribeHex" [ngModel]="currentColor" (ngModelChange)="onCurrentColorChange($event)" />
+          <input class="native-picker" type="color" [value]="nativeColor(currentColor)" (input)="onCurrentColorChange($event.target.value)" />
+        </div>
+
+        @if (isAdder) {
+          <gol-button-pair leftIcon="add" leftLabel="Add" rightIcon="close" rightLabel="Cancel" [leftDisabled]="!canConfirmAdd" (leftClick)="confirmAdd.emit()" (rightClick)="cancelAdd.emit()" />
         }
-        <button class="color-swatch random-swatch" (click)="onColorChange(randomColor())">🎲</button>
       </div>
-      <div class="hex-row">
-        <span class="hex-hash">#</span>
-        <gol-input class="hex-input" name="tribeHex" [ngModel]="tribe.color" (ngModelChange)="onColorChange($event)" />
-        <input class="native-picker" type="color" [value]="nativeColor(tribe.color)" (input)="onColorChange($event.target.value)" />
-      </div>
-    </div>
-  }
-}
-
-@if (mode === "adder") {
-  <div class="tribe-adder">
-    <gol-input class="tribe-name-input" name="tribeName" placeholder="Name (a-z, 0-9)" [ngModel]="addName" (ngModelChange)="onAddNameChange($event)" />
-    <div class="color-palette">
-      @for (c of basicColors; track c) {
-        <button class="color-swatch" [class.selected]="addColor === c" [style.background-color]="'#' + c" (click)="onAddColorChange(c)"></button>
-      }
-      <button class="color-swatch random-swatch" (click)="onAddColorChange(randomColor())">🎲</button>
-    </div>
-    <div class="hex-row">
-      <span class="hex-hash">#</span>
-      <gol-input class="hex-input" name="tribeHex" [ngModel]="addColor" (ngModelChange)="onAddColorChange($event)" />
-      <input class="native-picker" type="color" [value]="nativeColor(addColor)" (input)="onAddColorChange($event.target.value)" />
-    </div>
-    <div class="swatch-preview" [style.background-color]="nativeColor(addColor)"></div>
-    <div class="section-row">
-      <gol-button label="Add" variant="flat" [disabled]="!canConfirmAdd" (click)="confirmAdd.emit()" />
-      <gol-button label="Cancel" variant="stroked" (click)="cancelAdd.emit()" />
-    </div>
+    }
   </div>
 }

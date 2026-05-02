@@ -29,14 +29,21 @@
     border-radius: 4px;
     background-color: #00000099;
 
-    &:hover[disabled="false"],
     &:hover:has(button:not(:disabled)) {
       color: #ededed;
       border-color: #ededed;
     }
 
-    &:has(button:disabled) {
+    &:has(button:disabled),
+    &:active {
       border-style: inset;
+    }
+  }
+
+  &[variant="stroked"] {
+    > button {
+      border: none;
+      border-bottom: 2px solid #d0d0d0;
     }
   }
 

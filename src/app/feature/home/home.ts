@@ -23,10 +23,7 @@ import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage
     MatSnackBarModule
   ],
   templateUrl: './home.html',
-  styleUrl: './home.scss',
-  host: {
-    '(mousedown)': 'onHostMousedown($event)'
-  }
+  styleUrl: './home.scss'
 })
 export class HomePage implements OnDestroy {
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
@@ -37,7 +34,7 @@ export class HomePage implements OnDestroy {
     tribes: [
       DEAD_TRIBE,
       {
-        id: 'classic',
+        id: 'Alive',
         color: 'ffffff'
       }
     ],
@@ -48,12 +45,12 @@ export class HomePage implements OnDestroy {
           clauses: [
             {
               kind: 'is',
-              tribes: ['classic']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [0, 1],
-              tribes: ['classic']
+              tribes: ['Alive']
             }
           ]
         },
@@ -65,16 +62,16 @@ export class HomePage implements OnDestroy {
           clauses: [
             {
               kind: 'is',
-              tribes: ['classic']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [2, 3],
-              tribes: ['classic']
+              tribes: ['Alive']
             }
           ]
         },
-        tribe: 'classic'
+        tribe: 'Alive'
       },
       {
         clause: {
@@ -82,12 +79,12 @@ export class HomePage implements OnDestroy {
           clauses: [
             {
               kind: 'is',
-              tribes: ['classic']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [4, 8],
-              tribes: ['classic']
+              tribes: ['Alive']
             }
           ]
         },
@@ -104,11 +101,11 @@ export class HomePage implements OnDestroy {
             {
               kind: 'count',
               interval: [3, 3],
-              tribes: ['classic']
+              tribes: ['Alive']
             }
           ]
         },
-        tribe: 'classic'
+        tribe: 'Alive'
       }
     ]
   };
@@ -121,7 +118,7 @@ export class HomePage implements OnDestroy {
 
   public recording = false;
 
-  public drawTribes: string[] = ['classic'];
+  public drawTribes: string[] = ['Alive'];
 
   public deleteMode = false;
 
@@ -215,15 +212,6 @@ export class HomePage implements OnDestroy {
       capture: true,
       signal: this.keydownListenerController.signal
     });
-  }
-
-  public onHostMousedown(ev: MouseEvent): void {
-    const target = ev.target as HTMLElement;
-    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
-      return;
-    }
-    // Defer blur so it fires after the browser sets focus on the clicked element.
-    setTimeout(() => (document.activeElement as HTMLElement)?.blur?.());
   }
 
   public ngOnDestroy(): void {

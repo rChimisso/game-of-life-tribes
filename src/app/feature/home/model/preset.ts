@@ -15,7 +15,7 @@ const conway: Preset = {
     tribes: [
       DEAD_TRIBE,
       {
-        id: 'alive',
+        id: 'Alive',
         color: 'ffffff'
       }
     ],
@@ -26,12 +26,12 @@ const conway: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['alive']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [0, 1],
-              tribes: ['alive']
+              tribes: ['Alive']
             }
           ]
         },
@@ -43,16 +43,16 @@ const conway: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['alive']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [2, 3],
-              tribes: ['alive']
+              tribes: ['Alive']
             }
           ]
         },
-        tribe: 'alive'
+        tribe: 'Alive'
       },
       {
         clause: {
@@ -60,12 +60,12 @@ const conway: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['alive']
+              tribes: ['Alive']
             },
             {
               kind: 'count',
               interval: [4, 8],
-              tribes: ['alive']
+              tribes: ['Alive']
             }
           ]
         },
@@ -82,11 +82,11 @@ const conway: Preset = {
             {
               kind: 'count',
               interval: [3, 3],
-              tribes: ['alive']
+              tribes: ['Alive']
             }
           ]
         },
-        tribe: 'alive'
+        tribe: 'Alive'
       }
     ]
   }
@@ -94,22 +94,22 @@ const conway: Preset = {
 
 const ecosystem: Preset = {
   name: 'Ecosystem',
-  description: 'Grass, rabbits, and foxes',
+  description: 'Grass, Rabbits, and Foxes',
   ruleset: {
     cols: 128,
     rows: 128,
     tribes: [
       DEAD_TRIBE,
       {
-        id: 'grass',
+        id: 'Grass',
         color: '00ff00'
       },
       {
-        id: 'rabbit',
+        id: 'Rabbit',
         color: 'ffffff'
       },
       {
-        id: 'fox',
+        id: 'Fox',
         color: 'ff4d00'
       }
     ],
@@ -120,7 +120,7 @@ const ecosystem: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: [DEAD_TRIBE.id, 'rabbit', 'grass']
+              tribes: [DEAD_TRIBE.id, 'Rabbit', 'Grass']
             },
             {
               kind: 'and',
@@ -128,18 +128,18 @@ const ecosystem: Preset = {
                 {
                   kind: 'count',
                   interval: [2, 8],
-                  tribes: ['rabbit']
+                  tribes: ['Rabbit']
                 },
                 {
                   kind: 'count',
                   interval: [2, 4],
-                  tribes: ['fox']
+                  tribes: ['Fox']
                 }
               ]
             }
           ]
         },
-        tribe: 'fox'
+        tribe: 'Fox'
       },
       {
         clause: {
@@ -147,7 +147,7 @@ const ecosystem: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['fox']
+              tribes: ['Fox']
             },
             {
               kind: 'and',
@@ -155,31 +155,31 @@ const ecosystem: Preset = {
                 {
                   kind: 'count',
                   interval: [0, 7],
-                  tribes: ['grass']
+                  tribes: ['Grass']
                 },
                 {
                   kind: 'count',
                   interval: [1, 7],
-                  tribes: ['rabbit']
+                  tribes: ['Rabbit']
                 },
                 {
                   kind: 'count',
                   interval: [0, 2],
-                  tribes: ['fox']
+                  tribes: ['Fox']
                 },
                 {
                   kind: 'not',
                   clause: {
                     kind: 'count',
                     interval: [8, 8],
-                    tribes: ['grass', 'rabbit', 'fox']
+                    tribes: ['Grass', 'Rabbit', 'Fox']
                   }
                 }
               ]
             }
           ]
         },
-        tribe: 'fox'
+        tribe: 'Fox'
       },
       {
         clause: {
@@ -187,7 +187,7 @@ const ecosystem: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: [DEAD_TRIBE.id, 'grass']
+              tribes: [DEAD_TRIBE.id, 'Grass']
             },
             {
               kind: 'and',
@@ -195,23 +195,23 @@ const ecosystem: Preset = {
                 {
                   kind: 'count',
                   interval: [2, 8],
-                  tribes: ['grass']
+                  tribes: ['Grass']
                 },
                 {
                   kind: 'count',
                   interval: [2, 6],
-                  tribes: ['rabbit']
+                  tribes: ['Rabbit']
                 },
                 {
                   kind: 'count',
                   interval: [0, 0],
-                  tribes: ['fox']
+                  tribes: ['Fox']
                 }
               ]
             }
           ]
         },
-        tribe: 'rabbit'
+        tribe: 'Rabbit'
       },
       {
         clause: {
@@ -219,7 +219,7 @@ const ecosystem: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['rabbit']
+              tribes: ['Rabbit']
             },
             {
               kind: 'and',
@@ -227,31 +227,31 @@ const ecosystem: Preset = {
                 {
                   kind: 'count',
                   interval: [1, 7],
-                  tribes: ['grass']
+                  tribes: ['Grass']
                 },
                 {
                   kind: 'count',
                   interval: [0, 0],
-                  tribes: ['fox']
+                  tribes: ['Fox']
                 },
                 {
                   kind: 'count',
                   interval: [0, 3],
-                  tribes: ['rabbit']
+                  tribes: ['Rabbit']
                 },
                 {
                   kind: 'not',
                   clause: {
                     kind: 'count',
                     interval: [8, 8],
-                    tribes: ['grass', 'rabbit', 'fox']
+                    tribes: ['Grass', 'Rabbit', 'Fox']
                   }
                 }
               ]
             }
           ]
         },
-        tribe: 'rabbit'
+        tribe: 'Rabbit'
       },
       {
         clause: {
@@ -264,11 +264,11 @@ const ecosystem: Preset = {
             {
               kind: 'count',
               interval: [2, 6],
-              tribes: ['grass']
+              tribes: ['Grass']
             }
           ]
         },
-        tribe: 'grass'
+        tribe: 'Grass'
       },
       {
         clause: {
@@ -276,7 +276,7 @@ const ecosystem: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['grass']
+              tribes: ['Grass']
             },
             {
               kind: 'and',
@@ -284,26 +284,26 @@ const ecosystem: Preset = {
                 {
                   kind: 'count',
                   interval: [0, 6],
-                  tribes: ['grass']
+                  tribes: ['Grass']
                 },
                 {
                   kind: 'count',
                   interval: [0, 7],
-                  tribes: ['fox']
+                  tribes: ['Fox']
                 },
                 {
                   kind: 'not',
                   clause: {
                     kind: 'count',
                     interval: [8, 8],
-                    tribes: ['grass', 'rabbit', 'fox']
+                    tribes: ['Grass', 'Rabbit', 'Fox']
                   }
                 }
               ]
             }
           ]
         },
-        tribe: 'grass'
+        tribe: 'Grass'
       }
     ]
   }

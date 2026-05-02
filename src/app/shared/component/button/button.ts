@@ -1,4 +1,4 @@
-import {Component, Input} from '@angular/core';
+import {Component, EventEmitter, Input, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
@@ -21,16 +21,16 @@ export class Button {
    * Label.
    *
    * @public
-   * @type {!string}
+   * @type {string}
    */
-  @Input({required: true})
-  public label!: string;
+  @Input()
+  public label = '';
 
   /**
    * Icon.
    *
    * @public
-   * @type {!string}
+   * @type {string | null}
    */
   @Input()
   public icon: string | null = null;
@@ -61,4 +61,13 @@ export class Button {
    */
   @Input()
   public disabled = false;
+
+  @Output()
+  public readonly clicked = new EventEmitter<void>();
+
+  public emit(): void {
+    if (!this.disabled) {
+      this.clicked.emit();
+    }
+  }
 }

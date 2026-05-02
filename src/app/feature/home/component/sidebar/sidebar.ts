@@ -18,6 +18,7 @@ import {Preset, PRESETS} from '../../model/preset';
 import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
+import {PresetButton} from '../preset-button/preset-button';
 import {RuleCard} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
@@ -75,7 +76,8 @@ interface DownloadFrameRange {
     MatIconModule,
     MatProgressBarModule,
     DecimalPipe,
-    LabelValue
+    LabelValue,
+    PresetButton
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -309,12 +311,59 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   private readonly mobileLayoutListenerController = new AbortController();
 
-  public get downloading(): boolean {
-    return this.downloadProgress >= 0;
+  public get generationCounter(): number {
+    return this.metrics?.generation ?? 0;
+  }
+
+  public get runTooltip(): string {
+    switch (true) {
+      case this.runDisabled: return 'Busy';
+      case this.canPause: return 'Pause the simulation';
+      default: return 'Run the simulation';
+    }
+  }
+
+  public get stepBackTooltip(): string {
+    switch (true) {
+      case this.stepBackDisabled: return 'Busy or no recording available';
+      case +this.skipAmount > this.generationCounter: return 'Go back to generation #0';
+      default: return `Go back to generation #${this.generationCounter - this.skipAmount}`;
+    }
+  }
+
+  public get stepForwardTooltip(): string {
+    if (this.stepForwardDisabled) {
+      return 'Busy';
+    }
+    return `Skip to generation #${+this.skipAmount + this.generationCounter}`;
+  }
+
+  public get runDisabled(): boolean {
+    return this.downloading || this.rebuilding || (this.backpressure && !this.running && !this.stepping);
+  }
+
+  public get canPause(): boolean {
+    return this.running || this.stepping;
+  }
+
+  public get isBusy(): boolean {
+    return this.downloading || this.stepping || this.backpressure || this.rebuilding;
   }
 
   public get stepBackDisabled(): boolean {
-    return this.running || this.downloading || this.stepping || this.backpressure || this.rebuilding || this.chunksSaving || !this.metrics?.canStepBack;
+    return this.running || this.isBusy || this.chunksSaving || !this.metrics?.canStepBack;
+  }
+
+  public get stepForwardDisabled(): boolean {
+    return this.running || this.isBusy;
+  }
+
+  public get recordingDisabled(): boolean {
+    return this.downloading || !this.recordingAvailable;
+  }
+
+  public get downloading(): boolean {
+    return this.downloadProgress >= 0;
   }
 
   public get downloadButtonDisabled(): boolean {
@@ -334,6 +383,10 @@ export class Sidebar implements OnChanges, OnDestroy {
       parts.push(`${this.formatBytesDecimal(this.storageCompressedBytes)} compressed`);
     }
     return `${this.formatBytesDecimal(total)} (${parts.join(', ')})`;
+  }
+
+  public get frameSizeTooltip(): string {
+    return `${this.formatBytes(RECORDING_MAX_FRAME_BYTES)} recording buget / ${this.formatBytes(this.maxBytes)} total buget`;
   }
 
   public get storageTitleSize(): string {
@@ -362,10 +415,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public get storageBarTooltip(): string {
-    const pending = this.formatBytesDecimal(this.storagePendingRawBytes);
-    const compressed = this.formatBytesDecimal(this.storageCompressedBytes);
-    const quota = this.formatBytes(this.storageQuotaBytes);
-    return `${pending} pending / ${compressed} compressed / ${quota} quota`;
+    return `${this.formatBytesDecimal(this.storagePendingRawBytes)} pending / ${this.formatBytesDecimal(this.storageCompressedBytes)} compressed / ${this.formatBytes(this.storageQuotaBytes)} quota`;
   }
 
   public get vramTitleSize(): string {
@@ -393,10 +443,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public get vramBarTooltip(): string {
-    const simulation = this.vramSimulationFormatted;
-    const recording = this.vramRecordingFormatted;
-    const quota = this.vramQuotaFormatted;
-    return `${simulation} simulation / ${recording} recording / ${quota} budget`;
+    return `${this.vramSimulationFormatted} simulation / ${this.vramRecordingFormatted} recording / ${this.vramQuotaFormatted} budget`;
   }
 
   public get vramBarTotal(): number {

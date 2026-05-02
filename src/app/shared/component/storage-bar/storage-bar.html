@@ -1,4 +1,4 @@
-<div class="storage-bar" [title]="tooltip">
+<div class="storage-bar">
   @for (segment of segments; track segment.label) {
     <div class="storage-segment" [style.background-color]="segment.color" [style.width.%]="segmentPercent(segment.value)"></div>
   }

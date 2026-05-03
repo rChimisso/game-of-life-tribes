@@ -7,22 +7,24 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
-import packageJson from '../../../../../../package.json';
 import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../shared/component/button/button';
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
+import {ExclusiveButtonGroup} from '../../../../shared/component/exclusive-button-group/exclusive-button-group';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
-import {Clause, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
+import {Clause, DEAD_TRIBE, EditableTribe, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
+import {HomeFooter} from '../footer/footer';
 import {PresetButton} from '../preset-button/preset-button';
 import {RuleCard} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
 
+import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
@@ -71,13 +73,15 @@ interface DownloadFrameRange {
     Button,
     InputComponent,
     CheckboxComponent,
+    ExclusiveButtonGroup,
     MatButtonModule,
     MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
     DecimalPipe,
     LabelValue,
-    PresetButton
+    PresetButton,
+    HomeFooter
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -250,11 +254,6 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public downloadSelectionExpanded = true;
 
-  // App info
-  public readonly appVersion = packageJson.version;
-
-  public readonly repoUrl = 'https://github.com/rChimisso/game-of-life-tribes';
-
   // Presets
   public readonly presets = PRESETS;
 
@@ -263,17 +262,13 @@ export class Sidebar implements OnChanges, OnDestroy {
   public selectedPreset: Preset | null = null;
 
   // Tribe editing
-  public editTribes: Tribe[] = [];
+  public editTribes: EditableTribe[] = [];
 
   public showTribeAdder = false;
 
   public newTribeId = '';
 
   public newTribeColor = '';
-
-  public editingTribeIndex: number | null = null;
-
-  public editingTribeName: string | null = null;
 
   // Rule editing
   public editRules: Rule<Tribe[]>[] = [];
@@ -285,23 +280,104 @@ export class Sidebar implements OnChanges, OnDestroy {
   public hasUnappliedRules = false;
 
   public readonly basicColors = [
-    'ff0000',
-    '00ff00',
+    '000088',
     '0000ff',
-    'ffff00',
-    'ff00ff',
-    '00ffff',
-    'ff8800',
-    '8800ff',
-    '88ff00',
-    'ff0088',
+    '008800',
+    '008888',
     '0088ff',
+    '00ff00',
+    '00ff88',
+    '00ffff',
+    '880000',
+    '880088',
+    '8800ff',
+    '888800',
+    '888888',
+    '8888ff',
+    '88ff00',
+    '88ff88',
+    '88ffff',
+    'ff0000',
+    'ff0088',
+    'ff00ff',
+    'ff8800',
+    'ff8888',
+    'ff88ff',
+    'ffff00',
+    'ffff88',
     'ffffff'
+  ];
+
+  public readonly brushShapeOptions: readonly ExclusiveButtonOption<BrushShape>[] = [
+    {
+      value: 'square',
+      tooltip: 'Square',
+      icon: 'square'
+    },
+    {
+      value: 'round',
+      tooltip: 'Round',
+      icon: 'circle'
+    },
+    {
+      value: 'diamond',
+      tooltip: 'Diamond',
+      icon: 'square',
+      iconStyle: {
+        transform: 'rotate(45deg)'
+      }
+    },
+    {
+      value: 'vline',
+      tooltip: 'Vertical Line',
+      icon: 'horizontal_rule',
+      iconStyle: {
+        transform: 'rotate(90deg)'
+      }
+    },
+    {
+      value: 'hline',
+      tooltip: 'Horizontal Line',
+      icon: 'horizontal_rule'
+    }
+  ];
+
+  public readonly brushFillOptions: readonly ExclusiveButtonOption<'full' | 'spray' | 'outline'>[] = [
+    {
+      value: 'full',
+      tooltip: 'Full',
+      label: 'Full'
+    },
+    {
+      value: 'spray',
+      tooltip: 'Spray',
+      label: 'Spray'
+    },
+    {
+      value: 'outline',
+      tooltip: 'Outline',
+      label: 'Outline'
+    }
+  ];
+
+  public readonly touchModeOptions: readonly ExclusiveButtonOption<'draw' | 'pan'>[] = [
+    {
+      value: 'draw',
+      tooltip: 'Draw',
+      label: 'Draw'
+    },
+    {
+      value: 'pan',
+      tooltip: 'Pan',
+      label: 'Pan'
+    }
   ];
 
   private static readonly prefsKey = 'golt-simfs';
 
   private downloadFrameRangeTouched = false;
+
+  private nextEditableTribeKey = 0;
 
   private readonly mobileLayoutQuery: MediaQueryList | null = null;
 
@@ -313,6 +389,19 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public get generationCounter(): number {
     return this.metrics?.generation ?? 0;
+  }
+
+  public get packingButtonOptions(): readonly ExclusiveButtonOption<BitsPerCell>[] {
+    return this.simulationPackingOptions.map(bitsPerCell => ({
+      value: bitsPerCell,
+      title: `${bitsPerCell} bits per cell`,
+      label: `${bitsPerCell}`,
+      disabled: this.isBitPackingDisabled(bitsPerCell)
+    }));
+  }
+
+  public get selectedTouchMode(): 'draw' | 'pan' {
+    return this.panMode ? 'pan' : 'draw';
   }
 
   public get runTooltip(): string {
@@ -764,6 +853,16 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.emit('setBrushFill', fill);
   }
 
+  public onTouchModeChange(mode: 'draw' | 'pan'): void {
+    if ((mode === 'pan') !== this.panMode) {
+      this.emit('togglePanMode');
+    }
+  }
+
+  public onPackingOptionChange(bitsPerCell: BitsPerCell): void {
+    this.pendingSimulationBitsPerCell = bitsPerCell;
+  }
+
   public onFileSelect(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -794,15 +893,19 @@ export class Sidebar implements OnChanges, OnDestroy {
     if (!this.newTribeId || !this.newTribeColor || this.newTribeColor.length !== 6) {
       return false;
     }
-    const id = this.newTribeId.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return id.length > 0 && !this.editTribes.some(t => t.id === id);
+    const id = this.normalizeTribeId(this.newTribeId);
+    return id.length > 0 && !this.isReservedDeadId(id) && !this.editTribes.some(t => t.id === id);
   }
 
   public confirmAddTribe(): void {
-    const id = this.newTribeId.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const id = this.normalizeTribeId(this.newTribeId);
+    if (!this.isValidNewTribe()) {
+      return;
+    }
     this.editTribes.push({
       id,
-      color: this.newTribeColor
+      color: this.normalizeHexColor(this.newTribeColor),
+      key: this.createEditableTribeKey()
     });
     this.showTribeAdder = false;
     this.hasUnappliedTribes = true;
@@ -814,7 +917,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public removeTribe(index: number): void {
     const {id} = (this.editTribes[index]!);
-    if (id === 'dead') {
+    if (id === DEAD_TRIBE.id) {
       return;
     }
     this.editTribes.splice(index, 1);
@@ -826,49 +929,31 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.hasUnappliedRules = true;
   }
 
-  public startEditTribe(index: number): void {
-    if (this.editingTribeIndex === index) {
-      this.editingTribeIndex = null;
-      this.editingTribeName = null;
-    } else {
-      this.editingTribeIndex = index;
-      this.editingTribeName = this.editTribes[index]!.id;
-    }
-  }
-
-  public updateTribeName(index: number, newName: string): void {
-    const clean = newName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!clean || clean === 'dead' || this.editTribes.some((t, i) => i !== index && t.id === clean)) {
+  public confirmEditTribe(index: number, tribe: Tribe): void {
+    const cleanId = this.normalizeTribeId(tribe.id);
+    const cleanColor = this.normalizeHexColor(tribe.color);
+    if (!cleanId || this.isReservedDeadId(cleanId) || this.editTribes.some((t, i) => i !== index && t.id === cleanId) || cleanColor.length !== 6) {
       return;
     }
     const oldId = this.editTribes[index]!.id;
     this.editTribes[index] = {
       ...this.editTribes[index]!,
-      id: clean
+      id: cleanId,
+      color: cleanColor
     };
-    for (const rule of this.editRules) {
-      if (rule.tribe === oldId) {
-        rule.tribe = clean;
+    if (oldId !== cleanId) {
+      for (const rule of this.editRules) {
+        if (rule.tribe === oldId) {
+          rule.tribe = cleanId;
+        }
+        this.renameTribeInClause(rule.clause, oldId, cleanId);
       }
-      this.renameTribeInClause(rule.clause, oldId, clean);
     }
-    this.editingTribeName = clean;
     this.hasUnappliedTribes = true;
   }
 
-  public updateTribeColor(index: number, color: string): void {
-    const c = color.toLowerCase().replace(/[^0-9a-f]/g, '');
-    if (c.length === 6) {
-      this.editTribes[index] = {
-        ...this.editTribes[index]!,
-        color: c
-      };
-      this.hasUnappliedTribes = true;
-    }
-  }
-
   public addRule(): void {
-    const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
+    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
     this.editRules.push({
       clause: {kind: 'and',
         clauses: [
@@ -909,7 +994,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public changeClauseKind(ruleIndex: number, path: number[], newKind: string): void {
-    const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
+    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
     let nc: Clause<Tribe[]>;
     switch (newKind) {
       case 'is': nc = {kind: 'is',
@@ -998,7 +1083,7 @@ export class Sidebar implements OnChanges, OnDestroy {
     if (clause.kind !== 'and' && clause.kind !== 'or') {
       return;
     }
-    const dt = this.editTribes.find(t => t.id !== 'dead')?.id ?? 'dead';
+    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
     (clause.clauses as Clause<Tribe[]>[]).push({kind: 'is',
       tribes: [dt]});
     this.hasUnappliedRules = true;
@@ -1019,7 +1104,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public applyTribes(): void {
     this.emit('updateRuleset', {
-      tribes: this.editTribes.map(t => ({...t})),
+      tribes: this.editTribes.map(t => this.toTribe(t)),
       rules: structuredClone(this.editRules),
       cols: this.ruleset.cols,
       rows: this.ruleset.rows
@@ -1028,9 +1113,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public restoreTribes(): void {
-    this.editTribes = this.ruleset.tribes.map(t => ({...t}));
-    this.editingTribeIndex = null;
-    this.editingTribeName = null;
+    this.editTribes = this.ruleset.tribes.map(t => this.toEditableTribe(t));
     this.showTribeAdder = false;
     this.hasUnappliedTribes = false;
   }
@@ -1048,7 +1131,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public applyRules(): void {
     this.emit('updateRuleset', {
-      tribes: this.editTribes.map(t => ({...t})),
+      tribes: this.editTribes.map(t => this.toTribe(t)),
       rules: structuredClone(this.editRules),
       cols: this.ruleset.cols,
       rows: this.ruleset.rows
@@ -1074,10 +1157,6 @@ export class Sidebar implements OnChanges, OnDestroy {
   public clauseSummary(clause: Clause<Tribe[]>): string {
     const s = this.clauseStr(clause);
     return s.length > 50 ? `${s.substring(0, 47) }…` : s;
-  }
-
-  public ruleTrackKey(rule: Rule<Tribe[]>, index: number): string {
-    return `${index}:${rule.tribe}:${this.clauseStr(rule.clause)}`;
   }
 
   public getTribeColor(tribeId: string): string {
@@ -1291,14 +1370,14 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private toggleTribeSelection(id: string): string[] {
-    if (id === 'dead') {
-      return ['dead'];
+    if (id === DEAD_TRIBE.id) {
+      return [DEAD_TRIBE.id];
     }
-    // If currently in delete mode (only 'dead' selected), start fresh.
-    if (this.drawTribes.length === 1 && this.drawTribes[0] === 'dead') {
+    // If currently in delete mode (only DEAD_TRIBE.id selected), start fresh.
+    if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE.id) {
       return [id];
     }
-    const current = this.drawTribes.filter(t => t !== 'dead');
+    const current = this.drawTribes.filter(t => t !== DEAD_TRIBE.id);
     const idx = current.indexOf(id);
     if (idx >= 0) {
       // Don't allow deselecting the last tribe.
@@ -1311,10 +1390,42 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private syncFromRuleset(): void {
-    this.editTribes = this.ruleset.tribes.map(t => ({...t}));
+    this.editTribes = this.ruleset.tribes.map(t => this.toEditableTribe(t));
     this.editRules = structuredClone(this.ruleset.rules);
     this.pendingCols = this.ruleset.cols;
     this.pendingRows = this.ruleset.rows;
+  }
+
+  private normalizeTribeId(value: string): string {
+    return value.replace(/[^A-Za-z0-9]/g, '');
+  }
+
+  private normalizeHexColor(value: string): string {
+    return value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+  }
+
+  private isReservedDeadId(value: string): boolean {
+    return value.toLowerCase() === DEAD_TRIBE.id;
+  }
+
+  private toEditableTribe(tribe: Tribe): EditableTribe {
+    return {
+      ...tribe,
+      key: this.createEditableTribeKey()
+    };
+  }
+
+  private toTribe(tribe: EditableTribe): Tribe {
+    return {
+      id: tribe.id,
+      color: tribe.color
+    };
+  }
+
+  private createEditableTribeKey(): string {
+    const key = `editable-tribe-${this.nextEditableTribeKey}`;
+    this.nextEditableTribeKey++;
+    return key;
   }
 
   private syncDownloadFrameRange(): void {

@@ -53,38 +53,15 @@
         </div>
         <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
           <span class="input-label gol-cell-2">Shape</span>
-          <div class="exclusive-button-group gol-cell-10">
-            <button class="exclusive-button" title="Square" [class.active]="brushShape === 'square'" (click)="onBrushShapeChange('square')">
-              <mat-icon>square</mat-icon>
-            </button>
-            <button class="exclusive-button" title="Round" [class.active]="brushShape === 'round'" (click)="onBrushShapeChange('round')">
-              <mat-icon>circle</mat-icon>
-            </button>
-            <button class="exclusive-button" title="Diamond" [class.active]="brushShape === 'diamond'" (click)="onBrushShapeChange('diamond')">
-              <mat-icon style="transform: rotate(45deg)">square</mat-icon>
-            </button>
-            <button class="exclusive-button" title="Vertical Line" [class.active]="brushShape === 'vline'" (click)="onBrushShapeChange('vline')">
-              <mat-icon style="transform: rotate(90deg)">horizontal_rule</mat-icon>
-            </button>
-            <button class="exclusive-button" title="Horizontal Line" [class.active]="brushShape === 'hline'" (click)="onBrushShapeChange('hline')">
-              <mat-icon>horizontal_rule</mat-icon>
-            </button>
-          </div>
+          <gol-exclusive-button-group class="gol-cell-10" [options]="brushShapeOptions" [selectedValue]="brushShape" (selectedChange)="onBrushShapeChange($event)" />
         </div>
         <div class="gol-cell-12 gol-grid-tiny" title="Brush fill mode">
           <span class="input-label gol-cell-2">Mode</span>
-          <div class="exclusive-button-group gol-cell-10">
-            <button class="exclusive-button" title="Full" [class.active]="brushFill === 'full'" (click)="onBrushFillChange('full')">Full</button>
-            <button class="exclusive-button" title="Spray" [class.active]="brushFill === 'spray'" (click)="onBrushFillChange('spray')">Spray</button>
-            <button class="exclusive-button" title="Outline" [class.active]="brushFill === 'outline'" (click)="onBrushFillChange('outline')">Outline</button>
-          </div>
+          <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="onBrushFillChange($event)" />
         </div>
         <div class="gol-cell-12 gol-grid-tiny mobile-only">
           <span class="input-label gol-cell-2">Touch</span>
-          <div class="exclusive-button-group gol-cell-10">
-            <button class="exclusive-button" [class.active]="!panMode" (click)="panMode ? emit('togglePanMode') : null">Draw</button>
-            <button class="exclusive-button" [class.active]="panMode" (click)="!panMode ? emit('togglePanMode') : null">Pan</button>
-          </div>
+          <gol-exclusive-button-group class="gol-cell-10" [options]="touchModeOptions" [selectedValue]="selectedTouchMode" (selectedChange)="onTouchModeChange($event)" />
         </div>
       </div>
     </gol-home-section>
@@ -115,11 +92,7 @@
     <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." title="Packing" [expanded]="packingExpanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'" (expandedChange)="onSectionExpandedChange('packing', $event)">
       <div class="gol-grid-tiny">
         <span class="input-label gol-cell-3">Bits/cell</span>
-        <div class="exclusive-button-group gol-cell-9">
-          @for (bitsPerCell of simulationPackingOptions; track bitsPerCell) {
-            <button class="exclusive-button" [class.active]="pendingSimulationBitsPerCell === bitsPerCell" [disabled]="isBitPackingDisabled(bitsPerCell)" [title]="bitsPerCell + ' bits per cell'" (click)="pendingSimulationBitsPerCell = bitsPerCell">{{ bitsPerCell }}</button>
-          }
-        </div>
+        <gol-exclusive-button-group class="gol-cell-9" [options]="packingButtonOptions" [selectedValue]="pendingSimulationBitsPerCell" (selectedChange)="onPackingOptionChange($event)" />
       </div>
       <div class="info-labels gol-grid-tiny" [title]="pendingPackingFrameSizeFormatted + ' frame size'">
         <gol-label-value class="gol-cell-6" label="Frame size" [value]="pendingPackingFrameSizeFormatted" />
@@ -143,11 +116,13 @@
     <hr class="divider" />
     <gol-home-section description="Add, edit and remove tribes." title="Tribes" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
       <div class="tribe-list">
-        @for (tribe of editTribes; track tribe.id; let i = $index) {
-          <gol-tribe-entry [basicColors]="basicColors" [editing]="editingTribeIndex === i" [editingName]="editingTribeName" [index]="i" [tribe]="tribe" (colorChange)="updateTribeColor($event.index, $event.color)" (editToggle)="startEditTribe($event)" (nameChange)="updateTribeName($event.index, $event.value)" (remove)="removeTribe($event)" />
+        @for (tribe of editTribes; track tribe.key; let i = $index) {
+          @if (tribe.id !== "dead") {
+            <gol-tribe-entry [basicColors]="basicColors" [existingTribes]="editTribes" [index]="i" [title]="'Tribe ' + tribe.id" [tribe]="tribe" (confirmEdit)="confirmEditTribe($event.index, $event.tribe)" (remove)="removeTribe($event)" />
+          }
         }
         @if (showTribeAdder) {
-          <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()" />
+          <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()" />
         } @else {
           <gol-button icon="add" label="Add tribe" title="Add a new tribe" variant="stroked" (clicked)="startAddTribe()" />
         }
@@ -155,17 +130,13 @@
       <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedTribes || editTribes.length <= 1" [rightDisabled]="downloading || !hasUnappliedTribes" (leftClick)="applyTribes()" (rightClick)="restoreTribes()" />
     </gol-home-section>
     <hr class="divider" />
-
-    <!-- Rules editor -->
     <gol-home-section title="Rules" [description]="'Add, edit and remove rules. Rules are applied in order, first match wins. If no rules match a cell state, the cell becomes dead.'" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
-      @for (rule of editRules; track ruleTrackKey(rule, $index); let i = $index) {
+      @for (rule of editRules; track $index; let i = $index) {
         <gol-rule-card [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [outputColor]="getTribeColor(rule.tribe)" [outputContrast]="getContrastColor(getTribeColor(rule.tribe))" [rule]="rule" [ruleIndex]="i" [summary]="clauseSummary(rule.clause)" [summaryTribeColors]="tribeColorMap" [summaryTribes]="clauseTribes(rule.clause)" (addChild)="addChildClause($event.ruleIndex, $event.path)" (changeKind)="changeClauseKind($event.ruleIndex, $event.path, $event.newKind)" (removeChild)="removeChildClause($event.ruleIndex, $event.path)" (removeRule)="removeRule($event)" (setInterval)="setClauseInterval($event.ruleIndex, $event.path, $event.which, $event.value)" (setRuleOutput)="setRuleOutput($event.index, $event.tribeId)" (toggleEqTribe)="toggleClauseEqTribe($event.ruleIndex, $event.path, $event.group, $event.tribeId)" (toggleExpand)="toggleRuleExpand($event)" (toggleTribe)="toggleClauseTribe($event.ruleIndex, $event.path, $event.tribeId)"> </gol-rule-card>
       }
-
       <gol-button icon="add" label="Add rule" variant="flat" (clicked)="addRule()" />
       <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="applyRules()" (rightClick)="restoreRules()" />
     </gol-home-section>
-
     <hr class="divider" />
 
     <!-- Metrics -->
@@ -346,17 +317,6 @@
       <div class="shortcuts-grid"><kbd>RMB</kbd><span>Pan</span> <kbd>Scroll</kbd><span>Zoom</span></div>
     </gol-home-section>
   </div>
-  <div class="sidebar-footer">
-    <hr class="divider" />
-    <div class="section about-section">
-      <span class="about-desc">
-        <svg class="github-icon" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>
-        <a class="repo-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl">Game of Life: Tribes</a>
-        —
-        <a class="about-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl + '#game-of-life-tribes'">README</a> &amp; <a class="about-link" rel="noopener noreferrer" target="_blank" [href]="repoUrl + '/wiki'">Wiki</a>
-      </span>
-      <span class="about-version">v{{ appVersion }} · Open source</span>
-    </div>
-  </div>
+  <gol-home-footer />
   <div class="resize-handle" (pointerdown)="onResizeStart($event)"></div>
 </div>

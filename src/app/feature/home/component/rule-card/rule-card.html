@@ -2,7 +2,7 @@
   <div class="rule-header" (click)="toggleExpand.emit(ruleIndex)">
     <mat-icon class="expand-icon">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
     <span class="rule-summary-dots">
-      @for (tribeId of summaryTribes; track tribeId) {
+      @for (tribeId of summaryTribes; track $index) {
         <span class="summary-dot" [style.background-color]="'#' + tribeColor(tribeId)"></span>
       }
     </span>
@@ -20,7 +20,7 @@
         <div class="rule-output-row">
           <label>→ becomes</label>
           <select class="tribe-select" [ngModel]="rule.tribe" (ngModelChange)="onSetRuleOutput($event)">
-            @for (tribe of editTribes; track tribe.id) {
+            @for (tribe of editTribes; track tribe.key) {
               <option [value]="tribe.id">{{ tribe.id }}</option>
             }
           </select>

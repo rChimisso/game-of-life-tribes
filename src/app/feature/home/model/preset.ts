@@ -77,7 +77,7 @@ const conway: Preset = {
           clauses: [
             {
               kind: 'is',
-              tribes: ['dead']
+              tribes: [DEAD_TRIBE.id]
             },
             {
               kind: 'count',

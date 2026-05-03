@@ -21,14 +21,14 @@
     @switch (clause.kind) {
       @case ("is") {
         <div class="clause-tribes" [style.padding-left.px]="depth * 16">
-          @for (t of editTribes; track t.id) {
+          @for (t of editTribes; track t.key) {
             <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleTribe(ruleIndex, path, t.id)"></button>
           }
         </div>
       }
       @case ("count") {
         <div class="clause-tribes" [style.padding-left.px]="depth * 16">
-          @for (t of editTribes; track t.id) {
+          @for (t of editTribes; track t.key) {
             <button class="tribe-dot" [class.selected]="clause.tribes.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleTribe(ruleIndex, path, t.id)"></button>
           }
         </div>
@@ -42,13 +42,13 @@
       @case ("equality") {
         <div class="clause-eq" [style.padding-left.px]="depth * 16">
           <div class="clause-tribes">
-            @for (t of editTribes; track t.id) {
+            @for (t of editTribes; track t.key) {
               <button class="tribe-dot" [class.selected]="clause.tribe1.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleEqTribe(ruleIndex, path, 1, t.id)"></button>
             }
           </div>
           <span class="eq-sign">=</span>
           <div class="clause-tribes">
-            @for (t of editTribes; track t.id) {
+            @for (t of editTribes; track t.key) {
               <button class="tribe-dot" [class.selected]="clause.tribe2.includes(t.id)" [style.background-color]="'#' + t.color" (click)="emitToggleEqTribe(ruleIndex, path, 2, t.id)"></button>
             }
           </div>

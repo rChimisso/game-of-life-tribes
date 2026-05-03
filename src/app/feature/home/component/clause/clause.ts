@@ -6,7 +6,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
 import {ChangeClauseKindEvent, ClausePathEvent, SetClauseIntervalEvent, ToggleClauseEqTribeEvent, ToggleClauseTribeEvent} from '../../model/clause-event';
-import {Clause, Tribe} from '../../model/rule';
+import {Clause, EditableTribe, Tribe} from '../../model/rule';
 
 @Component({
   selector: 'gol-rule-clause',
@@ -26,7 +26,7 @@ export class RuleClause {
   public clause!: Clause<Tribe[]>;
 
   @Input({required: true})
-  public editTribes!: Tribe[];
+  public editTribes!: EditableTribe[];
 
   @Input()
   public depth = 0;

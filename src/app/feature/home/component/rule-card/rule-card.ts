@@ -5,7 +5,7 @@ import {MatIconModule} from '@angular/material/icon';
 
 import {Button} from '../../../../shared/component/button/button';
 import {ChangeClauseKindEvent, ClausePathEvent, SetClauseIntervalEvent, ToggleClauseEqTribeEvent, ToggleClauseTribeEvent} from '../../model/clause-event';
-import {Rule, Tribe} from '../../model/rule';
+import {EditableTribe, Rule, Tribe} from '../../model/rule';
 import {RuleClause} from '../clause/clause';
 
 @Component({
@@ -29,7 +29,7 @@ export class RuleCard {
   public ruleIndex!: number;
 
   @Input({required: true})
-  public editTribes: Tribe[] = [];
+  public editTribes: EditableTribe[] = [];
 
   @Input()
   public expanded = false;

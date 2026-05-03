@@ -29,6 +29,22 @@ export interface Tribe<T extends string = string> {
 }
 
 /**
+ * Editable tribe draft used only by the UI.
+ *
+ * @export
+ * @interface EditableTribe
+ * @typedef {EditableTribe}
+ */
+export interface EditableTribe<T extends string = string> extends Tribe<T> {
+  /**
+   * Stable UI key for Angular tracking.
+   *
+   * @type {string}
+   */
+  key: string;
+}
+
+/**
  * Type utility for allowed tribes in rules and clauses.
  *
  * @export

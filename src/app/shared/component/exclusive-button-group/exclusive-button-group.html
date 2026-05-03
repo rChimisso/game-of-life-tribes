@@ -1,0 +1,10 @@
+@for (option of options; track $index) {
+  <button class="exclusive-button" type="button" [attr.aria-label]="option.label || option.tooltip || ''" [class.active]="isActive(option)" [disabled]="option.disabled" [title]="option.tooltip || option.label || ''" (click)="onOptionClick(option)">
+    @if (option.icon) {
+      <mat-icon [ngStyle]="option.iconStyle || null">{{ option.icon }}</mat-icon>
+    }
+    @if (option.label) {
+      {{ option.label }}
+    }
+  </button>
+}

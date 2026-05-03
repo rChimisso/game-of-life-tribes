@@ -96,7 +96,7 @@ export class HomePage implements OnDestroy {
           clauses: [
             {
               kind: 'is',
-              tribes: ['dead']
+              tribes: [DEAD_TRIBE.id]
             },
             {
               kind: 'count',
@@ -495,7 +495,7 @@ export class HomePage implements OnDestroy {
         this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, newRuleset);
         this.ruleset = newRuleset;
         if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
         this.latestMetrics = null;
@@ -531,7 +531,7 @@ export class HomePage implements OnDestroy {
         this.simulationGridFormat = this.smallestSimulationGridFormatForRuleset(newRuleset);
         this.ruleset = newRuleset;
         if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== 'dead')?.id ?? 'dead'];
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
         this.latestMetrics = null;

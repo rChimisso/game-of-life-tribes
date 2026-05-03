@@ -1,20 +1,15 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
 import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../shared/component/button/button';
 import {InputComponent} from '../../../../shared/component/input/input';
-import {Tribe} from '../../model/rule';
+import {DEAD_TRIBE, EditableTribe, Tribe} from '../../model/rule';
 
-interface TribeTextChange {
+interface TribeDraftChange {
   index: number;
-  value: string;
-}
-
-interface TribeColorChange {
-  index: number;
-  color: string;
+  tribe: Tribe;
 }
 
 @Component({
@@ -30,7 +25,7 @@ interface TribeColorChange {
   styleUrl: './tribe-entry.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TribeEntry {
+export class TribeEntry implements OnChanges {
   @Input()
   public tribe: Tribe | null = null;
 
@@ -38,10 +33,7 @@ export class TribeEntry {
   public index = -1;
 
   @Input()
-  public editing = false;
-
-  @Input()
-  public editingName: string | null = null;
+  public existingTribes: readonly EditableTribe[] = [];
 
   @Input()
   public basicColors: string[] = [];
@@ -56,16 +48,10 @@ export class TribeEntry {
   public canConfirmAdd = false;
 
   @Output()
-  public readonly editToggle = new EventEmitter<number>();
-
-  @Output()
   public readonly remove = new EventEmitter<number>();
 
   @Output()
-  public readonly nameChange = new EventEmitter<TribeTextChange>();
-
-  @Output()
-  public readonly colorChange = new EventEmitter<TribeColorChange>();
+  public readonly confirmEdit = new EventEmitter<TribeDraftChange>();
 
   @Output()
   public readonly addNameChange = new EventEmitter<string>();
@@ -79,28 +65,75 @@ export class TribeEntry {
   @Output()
   public readonly cancelAdd = new EventEmitter<void>();
 
+  public draftName = '';
+
+  public draftColor = '';
+
+  public editing = false;
+
   public get isAdder(): boolean {
     return !this.tribe;
-  }
-
-  public get showHeader(): boolean {
-    return !!this.tribe && this.tribe.id !== 'dead';
   }
 
   public get showEditor(): boolean {
     return this.isAdder || this.editing;
   }
 
-  public get showPanel(): boolean {
-    return this.isAdder || this.showHeader;
+  public get headerName(): string {
+    return this.tribe?.id ?? '';
+  }
+
+  public get headerColor(): string {
+    return this.tribe?.color ?? '';
   }
 
   public get currentName(): string {
-    return this.isAdder ? this.addName : this.editingName ?? '';
+    return this.isAdder ? this.addName : this.draftName;
   }
 
   public get currentColor(): string {
-    return this.isAdder ? this.addColor : this.tribe?.color ?? '';
+    return this.isAdder ? this.addColor : this.draftColor;
+  }
+
+  public get hasPendingChanges(): boolean {
+    if (!this.tribe) {
+      return false;
+    }
+    return this.draftName !== this.tribe.id || this.draftColor !== this.tribe.color;
+  }
+
+  public get canConfirmEdit(): boolean {
+    if (!this.tribe) {
+      return false;
+    }
+    const cleanId = this.normalizeId(this.draftName);
+    const cleanColor = this.normalizeHex(this.draftColor);
+    if (!cleanId || cleanId === DEAD_TRIBE.id || cleanColor.length !== 6) {
+      return false;
+    }
+    return !this.existingTribes.some((entry, entryIndex) => entryIndex !== this.index && entry.id === cleanId);
+  }
+
+  public ngOnChanges(changes: SimpleChanges): void {
+    if (changes['tribe']) {
+      this.resetDraft();
+      if (!changes['tribe'].firstChange) {
+        this.editing = false;
+      }
+    }
+  }
+
+  public openEditor(): void {
+    if (this.isAdder) {
+      return;
+    }
+    this.resetDraft();
+    this.editing = true;
+  }
+
+  public cancelEdit(): void {
+    this.resetDraft();
+    this.editing = false;
   }
 
   public onCurrentNameChange(value: string | number): void {
@@ -120,17 +153,11 @@ export class TribeEntry {
   }
 
   public onNameChange(value: string | number): void {
-    this.nameChange.emit({
-      index: this.index,
-      value: String(value)
-    });
+    this.draftName = this.normalizeId(String(value));
   }
 
   public onColorChange(value: string | number): void {
-    this.colorChange.emit({
-      index: this.index,
-      color: this.normalizeHex(String(value))
-    });
+    this.draftColor = this.normalizeHex(String(value));
   }
 
   public onAddNameChange(value: string | number): void {
@@ -141,6 +168,20 @@ export class TribeEntry {
     this.addColorChange.emit(this.normalizeHex(String(value)));
   }
 
+  public onConfirmEdit(): void {
+    if (!this.tribe || !this.canConfirmEdit || !this.hasPendingChanges) {
+      return;
+    }
+    this.confirmEdit.emit({
+      index: this.index,
+      tribe: {
+        id: this.draftName,
+        color: this.draftColor
+      }
+    });
+    this.editing = false;
+  }
+
   public randomColor(): string {
     return Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
   }
@@ -149,7 +190,25 @@ export class TribeEntry {
     return `#${this.normalizeHex(color).padEnd(6, '0')}`;
   }
 
+  public isColorSelected(color: string): boolean {
+    return this.currentColor.toLowerCase() === color.toLowerCase();
+  }
+
   private normalizeHex(value: string): string {
-    return value.toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 6);
+    return value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+  }
+
+  private normalizeId(value: string): string {
+    return value.replace(/[^A-Za-z0-9]/g, '');
+  }
+
+  private resetDraft(): void {
+    if (!this.tribe) {
+      this.draftName = '';
+      this.draftColor = '';
+      return;
+    }
+    this.draftName = this.tribe.id;
+    this.draftColor = this.tribe.color;
   }
 }

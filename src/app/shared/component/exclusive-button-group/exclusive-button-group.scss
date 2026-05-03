@@ -1,0 +1,38 @@
+gol-exclusive-button-group {
+  display: flex;
+  gap: 2px;
+}
+
+gol-exclusive-button-group > .exclusive-button {
+  padding: 3px 8px;
+  background: #222;
+  border: 2px outset #666;
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+gol-exclusive-button-group > .exclusive-button mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+gol-exclusive-button-group > .exclusive-button:active {
+  border-style: inset;
+}
+
+gol-exclusive-button-group > .exclusive-button.active {
+  background: #446;
+  border-color: #88a;
+  color: white;
+  border-style: inset;
+}
+
+gol-exclusive-button-group > .exclusive-button:hover:not(:disabled) {
+  filter: brightness(1.3);
+}

@@ -1,101 +1,92 @@
 :host {
-  display: block;
-}
-
-.tribe-panel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.tribe-edit-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  padding: 0 4px;
+  border-radius: 4px 4px 0 0;
+  background-color: #00000099;
   border-bottom: 2px solid #d0d0d0;
-}
+  min-height: 40px;
 
-.tribe-color-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
+  > .tribe-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    --mat-icon-button-touch-target-size: 32px;
 
-.tribe-id {
-  flex: 1;
-  font-size: 0.85rem;
-}
+    > .tribe-color-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
 
-.tribe-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  background: #1a1a2e;
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-
-.name-edit-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.color-palette {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.color-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-
-  &.selected {
-    border-color: white;
+    > .tribe-id {
+      flex: 1;
+      font-size: 0.85rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
-}
 
-.random-swatch {
-  background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  > .tribe-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 4px;
 
-.hex-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+    > .color-palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
 
-.hex-hash {
-  color: #888;
-  font-size: 0.85rem;
-}
+      > .color-swatch {
+        width: 22px;
+        height: 22px;
+        border-radius: 3px;
+        border: 1px solid black;
+        cursor: pointer;
+        padding: 0;
 
-.hex-input {
-  width: 70px;
-}
+        &.selected {
+          outline: solid 1px white;
+        }
+      }
 
-.native-picker {
-  flex-grow: 1;
-  height: 32px;
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color-scheme: dark;
-}
+      > .random-swatch {
+        background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
 
-.tribe-name-input {
-  width: 100%;
+    > .hex-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      > .hex-hash {
+        color: #888;
+        font-size: 0.85rem;
+      }
+
+      > .hex-input {
+        width: 70px;
+      }
+
+      > .native-picker {
+        flex-grow: 1;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color-scheme: dark;
+      }
+    }
+  }
 }

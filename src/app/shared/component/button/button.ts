@@ -62,9 +62,21 @@ export class Button {
   @Input()
   public disabled = false;
 
+  /**
+   * Emitter for the clicked event.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<void>}
+   */
   @Output()
   public readonly clicked = new EventEmitter<void>();
 
+  /**
+   * Emits the clicked event if not disabled.
+   *
+   * @public
+   */
   public emit(): void {
     if (!this.disabled) {
       this.clicked.emit();

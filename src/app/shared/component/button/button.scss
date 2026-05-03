@@ -41,16 +41,25 @@
   }
 
   &[variant="stroked"] {
+    background-color: #00000099;
+
     > button {
       border: none;
-      border-bottom: 2px solid #d0d0d0;
+      border-bottom: 2px dashed #d0d0d0;
+    }
+
+    &:hover {
+      color: #ededed;
+
+      > button:not(:disabled) {
+        border-color: #ededed;
+      }
     }
   }
 
   &[variant="icon"] {
     color: #d0d0d0;
 
-    &:hover[disabled="false"],
     &:hover:has(button:not(:disabled)) {
       color: #ededed;
     }

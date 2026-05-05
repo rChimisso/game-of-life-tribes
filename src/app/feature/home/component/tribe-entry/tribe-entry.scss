@@ -31,61 +31,78 @@
   }
 
   > .tribe-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px;
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
     border-radius: 4px;
+    transition: grid-template-rows 0.25s ease;
 
-    > .color-palette {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
+    &.open {
+      grid-template-rows: 1fr;
 
-      > .color-swatch {
-        width: 22px;
-        height: 22px;
-        border-radius: 3px;
-        border: 1px solid black;
-        cursor: pointer;
-        padding: 0;
-
-        &.selected {
-          outline: solid 1px white;
-        }
-      }
-
-      > .random-swatch {
-        background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      > .tribe-editor-inner {
+        padding: 8px;
       }
     }
 
-    > .hex-row {
+    > .tribe-editor-inner {
+      overflow: hidden;
       display: flex;
-      align-items: center;
-      gap: 4px;
+      flex-direction: column;
+      gap: 6px;
+      padding: 0;
+      transition: padding 0.25s ease;
 
-      > .hex-hash {
-        color: #888;
-        font-size: 0.85rem;
+      > .color-palette {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+
+        > .color-swatch {
+          width: 22px;
+          height: 22px;
+          border-radius: 3px;
+          border: 1px solid black;
+          cursor: pointer;
+          padding: 0;
+
+          &.selected {
+            outline: solid 1px white;
+          }
+        }
+
+        > .random-swatch {
+          background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
       }
 
-      > .hex-input {
-        width: 70px;
-      }
+      > .hex-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
 
-      > .native-picker {
-        flex-grow: 1;
-        height: 32px;
-        padding: 0;
-        border: none;
-        background: none;
-        cursor: pointer;
-        color-scheme: dark;
+        > .hex-hash {
+          color: #888;
+          font-size: 0.85rem;
+        }
+
+        > .hex-input {
+          width: 70px;
+        }
+
+        > .native-picker {
+          flex-grow: 1;
+          height: 32px;
+          padding: 0;
+          border: none;
+          background: none;
+          cursor: pointer;
+          color-scheme: dark;
+        }
       }
     }
   }

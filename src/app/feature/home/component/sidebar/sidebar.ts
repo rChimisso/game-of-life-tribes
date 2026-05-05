@@ -16,6 +16,7 @@ import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {Clause, DEAD_TRIBE, EditableTribe, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
+import {TribeSaveEvent} from '../../model/tribe-save-event';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
 import {HomeFooter} from '../footer/footer';
@@ -889,25 +890,37 @@ export class Sidebar implements OnChanges, OnDestroy {
     return Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
   }
 
-  public isValidNewTribe(): boolean {
-    if (!this.newTribeId || !this.newTribeColor || this.newTribeColor.length !== 6) {
-      return false;
-    }
-    const id = this.normalizeTribeId(this.newTribeId);
-    return id.length > 0 && !this.isReservedDeadId(id) && !this.editTribes.some(t => t.id === id);
-  }
-
-  public confirmAddTribe(): void {
-    const id = this.normalizeTribeId(this.newTribeId);
-    if (!this.isValidNewTribe()) {
+  public saveTribe(event: TribeSaveEvent): void {
+    if (event.kind === 'add') {
+      this.editTribes.push({
+        id: event.tribe.id,
+        color: event.tribe.color,
+        key: this.createEditableTribeKey()
+      });
+      this.showTribeAdder = false;
+      this.hasUnappliedTribes = true;
       return;
     }
-    this.editTribes.push({
-      id,
-      color: this.normalizeHexColor(this.newTribeColor),
-      key: this.createEditableTribeKey()
-    });
-    this.showTribeAdder = false;
+
+    const index = this.findEditTribeIndexByKey(event.key);
+    if (index < 0) {
+      return;
+    }
+
+    const oldId = this.editTribes[index]!.id;
+    this.editTribes[index] = {
+      ...this.editTribes[index]!,
+      id: event.tribe.id,
+      color: event.tribe.color
+    };
+    if (oldId !== event.tribe.id) {
+      for (const rule of this.editRules) {
+        if (rule.tribe === oldId) {
+          rule.tribe = event.tribe.id;
+        }
+        this.renameTribeInClause(rule.clause, oldId, event.tribe.id);
+      }
+    }
     this.hasUnappliedTribes = true;
   }
 
@@ -915,7 +928,12 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.showTribeAdder = false;
   }
 
-  public removeTribe(index: number): void {
+  public removeTribe(key: string): void {
+    const index = this.findEditTribeIndexByKey(key);
+    if (index < 0) {
+      return;
+    }
+
     const {id} = (this.editTribes[index]!);
     if (id === DEAD_TRIBE.id) {
       return;
@@ -927,29 +945,6 @@ export class Sidebar implements OnChanges, OnDestroy {
     });
     this.hasUnappliedTribes = true;
     this.hasUnappliedRules = true;
-  }
-
-  public confirmEditTribe(index: number, tribe: Tribe): void {
-    const cleanId = this.normalizeTribeId(tribe.id);
-    const cleanColor = this.normalizeHexColor(tribe.color);
-    if (!cleanId || this.isReservedDeadId(cleanId) || this.editTribes.some((t, i) => i !== index && t.id === cleanId) || cleanColor.length !== 6) {
-      return;
-    }
-    const oldId = this.editTribes[index]!.id;
-    this.editTribes[index] = {
-      ...this.editTribes[index]!,
-      id: cleanId,
-      color: cleanColor
-    };
-    if (oldId !== cleanId) {
-      for (const rule of this.editRules) {
-        if (rule.tribe === oldId) {
-          rule.tribe = cleanId;
-        }
-        this.renameTribeInClause(rule.clause, oldId, cleanId);
-      }
-    }
-    this.hasUnappliedTribes = true;
   }
 
   public addRule(): void {
@@ -1396,23 +1391,15 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.pendingRows = this.ruleset.rows;
   }
 
-  private normalizeTribeId(value: string): string {
-    return value.replace(/[^A-Za-z0-9]/g, '');
-  }
-
-  private normalizeHexColor(value: string): string {
-    return value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
-  }
-
-  private isReservedDeadId(value: string): boolean {
-    return value.toLowerCase() === DEAD_TRIBE.id;
-  }
-
   private toEditableTribe(tribe: Tribe): EditableTribe {
     return {
       ...tribe,
       key: this.createEditableTribeKey()
     };
+  }
+
+  private findEditTribeIndexByKey(key: string): number {
+    return this.editTribes.findIndex(tribe => tribe.key === key);
   }
 
   private toTribe(tribe: EditableTribe): Tribe {

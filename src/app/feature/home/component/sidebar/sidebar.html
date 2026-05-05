@@ -116,13 +116,13 @@
     <hr class="divider" />
     <gol-home-section description="Add, edit and remove tribes." title="Tribes" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
       <div class="tribe-list">
-        @for (tribe of editTribes; track tribe.key; let i = $index) {
+        @for (tribe of editTribes; track tribe.key) {
           @if (tribe.id !== "dead") {
-            <gol-tribe-entry [basicColors]="basicColors" [existingTribes]="editTribes" [index]="i" [title]="'Tribe ' + tribe.id" [tribe]="tribe" (confirmEdit)="confirmEditTribe($event.index, $event.tribe)" (remove)="removeTribe($event)" />
+            <gol-tribe-entry [basicColors]="basicColors" [existingTribes]="editTribes" [title]="'Tribe ' + tribe.id" [tribe]="tribe" [tribeKey]="tribe.key" (remove)="removeTribe($event)" (save)="saveTribe($event)" />
           }
         }
         @if (showTribeAdder) {
-          <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [canConfirmAdd]="isValidNewTribe()" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (confirmAdd)="confirmAddTribe()" />
+          <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [existingTribes]="editTribes" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (save)="saveTribe($event)" />
         } @else {
           <gol-button icon="add" label="Add tribe" title="Add a new tribe" variant="stroked" (clicked)="startAddTribe()" />
         }
@@ -130,9 +130,9 @@
       <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedTribes || editTribes.length <= 1" [rightDisabled]="downloading || !hasUnappliedTribes" (leftClick)="applyTribes()" (rightClick)="restoreTribes()" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section title="Rules" [description]="'Add, edit and remove rules. Rules are applied in order, first match wins. If no rules match a cell state, the cell becomes dead.'" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
+    <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." title="Rules" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
       @for (rule of editRules; track $index; let i = $index) {
-        <gol-rule-card [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [outputColor]="getTribeColor(rule.tribe)" [outputContrast]="getContrastColor(getTribeColor(rule.tribe))" [rule]="rule" [ruleIndex]="i" [summary]="clauseSummary(rule.clause)" [summaryTribeColors]="tribeColorMap" [summaryTribes]="clauseTribes(rule.clause)" (addChild)="addChildClause($event.ruleIndex, $event.path)" (changeKind)="changeClauseKind($event.ruleIndex, $event.path, $event.newKind)" (removeChild)="removeChildClause($event.ruleIndex, $event.path)" (removeRule)="removeRule($event)" (setInterval)="setClauseInterval($event.ruleIndex, $event.path, $event.which, $event.value)" (setRuleOutput)="setRuleOutput($event.index, $event.tribeId)" (toggleEqTribe)="toggleClauseEqTribe($event.ruleIndex, $event.path, $event.group, $event.tribeId)" (toggleExpand)="toggleRuleExpand($event)" (toggleTribe)="toggleClauseTribe($event.ruleIndex, $event.path, $event.tribeId)"> </gol-rule-card>
+        <gol-rule-card [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [outputColor]="getTribeColor(rule.tribe)" [outputContrast]="getContrastColor(getTribeColor(rule.tribe))" [rule]="rule" [ruleIndex]="i" [summary]="clauseSummary(rule.clause)" [summaryTribeColors]="tribeColorMap" [summaryTribes]="clauseTribes(rule.clause)" (addChild)="addChildClause($event.ruleIndex, $event.path)" (changeKind)="changeClauseKind($event.ruleIndex, $event.path, $event.newKind)" (removeChild)="removeChildClause($event.ruleIndex, $event.path)" (removeRule)="removeRule($event)" (setInterval)="setClauseInterval($event.ruleIndex, $event.path, $event.which, $event.value)" (setRuleOutput)="setRuleOutput($event.index, $event.tribeId)" (toggleEqTribe)="toggleClauseEqTribe($event.ruleIndex, $event.path, $event.group, $event.tribeId)" (toggleExpand)="toggleRuleExpand($event)" (toggleTribe)="toggleClauseTribe($event.ruleIndex, $event.path, $event.tribeId)" />
       }
       <gol-button icon="add" label="Add rule" variant="flat" (clicked)="addRule()" />
       <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="applyRules()" (rightClick)="restoreRules()" />

@@ -9,16 +9,15 @@
     <span class="rule-summary">{{ summary }}</span>
     <span class="rule-arrow">→</span>
     <span class="rule-output" [style.background-color]="'#' + outputColor" [style.color]="outputContrast">{{ rule.tribe }}</span>
-    <gol-button class="small-btn" icon="close" label="Remove rule" variant="icon" (click)="onRemove($event)" />
+    <gol-button class="small-btn" icon="delete" label="Remove rule" variant="icon" (click)="onRemove($event)" />
   </div>
 
   <div class="collapsible" [class.open]="expanded">
     <div class="collapsible-inner">
       <div class="rule-body">
-        <gol-rule-clause [clause]="rule.clause" [depth]="0" [editTribes]="editTribes" [path]="[]" [ruleIndex]="ruleIndex" (addChild)="addChild.emit($event)" (changeKind)="changeKind.emit($event)" (removeChild)="removeChild.emit($event)" (setInterval)="setInterval.emit($event)" (toggleEqTribe)="toggleEqTribe.emit($event)" (toggleTribe)="toggleTribe.emit($event)"> </gol-rule-clause>
-
+        <gol-rule-clause [clause]="rule.clause" [depth]="0" [editTribes]="editTribes" [path]="[]" [ruleIndex]="ruleIndex" (addChild)="addChild.emit($event)" (changeKind)="changeKind.emit($event)" (removeChild)="removeChild.emit($event)" (setInterval)="setInterval.emit($event)" (toggleEqTribe)="toggleEqTribe.emit($event)" (toggleTribe)="toggleTribe.emit($event)" />
         <div class="rule-output-row">
-          <label>→ becomes</label>
+          <span>→ becomes</span>
           <select class="tribe-select" [ngModel]="rule.tribe" (ngModelChange)="onSetRuleOutput($event)">
             @for (tribe of editTribes; track tribe.key) {
               <option [value]="tribe.id">{{ tribe.id }}</option>

@@ -1,4 +1,4 @@
-import {Clause, Tribe} from '../model/rule';
+import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
 
 export interface RuleSummaryPart {
   kind: 'text' | 'tribe';
@@ -19,35 +19,34 @@ function appendClauseSummaryParts(parts: RuleSummaryPart[], clause: Clause<Tribe
   }
 
   switch (clause.kind) {
-    case 'empty':
+    case EMPTY_CLAUSE_KIND:
       pushSummaryText(parts, '∅');
       break;
-    case 'is':
+    case IS_CLAUSE_KIND:
       pushSummaryText(parts, 'is ');
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       break;
-    case 'count':
+    case COUNT_CLAUSE_KIND:
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       pushSummaryText(parts, ` ∈ [${clause.interval[0]},${clause.interval[1]}]`);
       break;
-    case 'none':
+    case NONE_CLAUSE_KIND:
       pushSummaryText(parts, 'none of ');
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       break;
-    case 'exactly':
+    case EXACTLY_CLAUSE_KIND:
       pushSummaryText(parts, `exactly ${clause.value} `);
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       break;
-    case 'atLeast':
-      pushSummaryText(parts, `at least ${clause.value} `);
+    case MIN_CLAUSE_KIND:
+      pushSummaryText(parts, `min ${clause.value} `);
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       break;
-    case 'atMost':
-      pushSummaryText(parts, `at most ${clause.value} `);
+    case MAX_CLAUSE_KIND:
+      pushSummaryText(parts, `max ${clause.value} `);
       appendTribeSummaryParts(parts, clause.tribes as string[]);
       break;
-    case 'comparison':
-    case 'equality':
+    case COMPARISON_CLAUSE_KIND:
       pushSummaryText(parts, '#');
       appendTribeSummaryParts(parts, clause.tribe1 as string[]);
       pushSummaryText(parts, ` ${clause.operator ?? '='} #`);
@@ -57,11 +56,11 @@ function appendClauseSummaryParts(parts: RuleSummaryPart[], clause: Clause<Tribe
         pushSummaryText(parts, margin >= 0 ? ` + ${margin}` : ` - ${Math.abs(margin)}`);
       }
       break;
-    case 'not':
+    case NOT_CLAUSE_KIND:
       pushSummaryText(parts, '¬');
       appendClauseSummaryParts(parts, clause.clause, clause);
       break;
-    case 'and':
+    case AND_CLAUSE_KIND:
       clause.clauses.forEach((sub, index) => {
         if (index > 0) {
           pushSummaryText(parts, ' ∧ ');
@@ -69,7 +68,7 @@ function appendClauseSummaryParts(parts: RuleSummaryPart[], clause: Clause<Tribe
         appendClauseSummaryParts(parts, sub, clause);
       });
       break;
-    case 'or':
+    case OR_CLAUSE_KIND:
       clause.clauses.forEach((sub, index) => {
         if (index > 0) {
           pushSummaryText(parts, ' ∨ ');
@@ -77,7 +76,7 @@ function appendClauseSummaryParts(parts: RuleSummaryPart[], clause: Clause<Tribe
         appendClauseSummaryParts(parts, sub, clause);
       });
       break;
-    case 'xor':
+    case XOR_CLAUSE_KIND:
       clause.clauses.forEach((sub, index) => {
         if (index > 0) {
           pushSummaryText(parts, ' ⊕ ');
@@ -108,26 +107,26 @@ function shouldWrapClause(parentClause: Clause<Tribe[]>, childClause: Clause<Tri
 
 function clausePrecedence(clause: Clause<Tribe[]>): number {
   switch (clause.kind) {
-    case 'or':
-    case 'xor':
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND:
       return 1;
-    case 'and':
+    case AND_CLAUSE_KIND:
       return 2;
-    case 'not':
+    case NOT_CLAUSE_KIND:
       return 3;
     default:
       return 4;
   }
 }
 
-function isBinaryLogicalClause(clause: Clause<Tribe[]>): clause is Extract<Clause<Tribe[]>, {kind: 'and' | 'or' | 'xor'}> {
-  return clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor';
+function isBinaryLogicalClause(clause: Clause<Tribe[]>): clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}> {
+  return clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND;
 }
 
 function appendTribeSummaryParts(parts: RuleSummaryPart[], tribeIds: string[]): void {
   tribeIds.forEach(tribeId => {
-    if (tribeId === 'any') {
-      pushSummaryText(parts, 'any');
+    if (tribeId === ANY_TRIBE_ID) {
+      pushSummaryText(parts, ANY_TRIBE_ID);
       return;
     }
 

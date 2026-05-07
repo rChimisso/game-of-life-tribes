@@ -1,0 +1,10 @@
+<mat-form-field class="gol-select-field" subscriptSizing="dynamic" [appearance]="appearance">
+  @if (label) {
+    <mat-label>{{ label }}</mat-label>
+  }
+  <mat-select [disabled]="disabled" [hideSingleSelectionIndicator]="hideSingleSelectionIndicator" [panelClass]="panelClass" [placeholder]="placeholder" [value]="value" (blur)="touch()" (closed)="touch()" (selectionChange)="onSelectionChange($event.value)">
+    @for (option of options; track option.value) {
+      <mat-option [class.gol-option-hidden]="option.hidden === true" [disabled]="option.disabled" [value]="option.value">{{ option.label }}</mat-option>
+    }
+  </mat-select>
+</mat-form-field>

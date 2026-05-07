@@ -13,7 +13,7 @@ import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import renderWgsl from './render.wgsl';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormat, GridFormatMetadata, GRID_FORMAT_8, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../model/grid-format';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
-import {Clause, DEAD_TRIBE, Ruleset, Tribe} from '../model/rule';
+import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
 import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
 
 // ---------------------------------------------------------------------------
@@ -454,7 +454,7 @@ function generateComputeWgsl(): string {
   lines.push('');
 
   // Generate applyRules function containing all rule logic.
-  const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const activeRules = ruleset.rules.filter(rule => !rule.muted);
   lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
 
@@ -614,7 +614,7 @@ function wrapExpr(varName: string, delta: number, limit: string): string {
 function resolveTribeIds(tribeNames: string[]): number[] {
   const ids: number[] = [];
   for (const name of tribeNames) {
-    if (name === 'any') {
+    if (name === ANY_TRIBE_ID) {
       for (let i = 0; i < tribes.length; i++) {
         ids.push(i);
       }
@@ -629,7 +629,7 @@ function resolveTribeIds(tribeNames: string[]): number[] {
 }
 
 function resolveTribeTarget(tribeName: string): number {
-  if (tribeName === 'any') {
+  if (tribeName === ANY_TRIBE_ID) {
     return 0;
   }
   return tribeIndex.get(tribeName) ?? 0;
@@ -645,28 +645,24 @@ function collectCountSets(clauses: Clause<Tribe[]>[]): Set<string> {
 
 function collectCountSetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
   switch (c.kind) {
-    case 'empty':
-    case 'is':
+    case EMPTY_CLAUSE_KIND:
+    case IS_CLAUSE_KIND:
       break;
-    case 'count': {
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+    case COUNT_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       result.add(ids.join(','));
       break;
     }
-    case 'none':
-    case 'exactly':
-    case 'atLeast':
-    case 'atMost': {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      result.add(ids.join(','));
-      break;
-    }
-    case 'not':
+    case NOT_CLAUSE_KIND:
       collectCountSetsRec(c.clause, result);
       break;
-    case 'and':
-    case 'or':
-    case 'xor':
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND:
       for (const sub of c.clauses) {
         collectCountSetsRec(sub, result);
       }
@@ -684,28 +680,27 @@ function collectEqualitySets(clauses: Clause<Tribe[]>[]): Set<string> {
 
 function collectEqualitySetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
   switch (c.kind) {
-    case 'empty':
-    case 'is':
-    case 'count':
-    case 'none':
-    case 'exactly':
-    case 'atLeast':
-    case 'atMost':
+    case EMPTY_CLAUSE_KIND:
+    case IS_CLAUSE_KIND:
+    case COUNT_CLAUSE_KIND:
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
       break;
-    case 'comparison':
-    case 'equality': {
+    case COMPARISON_CLAUSE_KIND: {
       const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
       const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
       result.add(ids1.join(','));
       result.add(ids2.join(','));
       break;
     }
-    case 'not':
+    case NOT_CLAUSE_KIND:
       collectEqualitySetsRec(c.clause, result);
       break;
-    case 'and':
-    case 'or':
-    case 'xor':
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND:
       for (const sub of c.clauses) {
         collectEqualitySetsRec(sub, result);
       }
@@ -719,9 +714,9 @@ function generateClauseExpr(
   eqVarMap: Map<string, string>,
 ): string {
   switch (c.kind) {
-    case 'empty':
+    case EMPTY_CLAUSE_KIND:
       return 'false';
-    case 'is': {
+    case IS_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]);
       if (ids.length === 0) {
         return 'false';
@@ -732,33 +727,32 @@ function generateClauseExpr(
       const checks = ids.map(id => `selfTribe == ${ id }u`);
       return `(${ checks.join(' || ') })`;
     }
-    case 'count': {
+    case COUNT_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= ${ c.interval[0] }u && ${ varName } <= ${ c.interval[1] }u)`;
     }
-    case 'none': {
+    case NONE_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= 0u && ${ varName } <= 0u)`;
     }
-    case 'exactly': {
+    case EXACTLY_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= ${ c.value }u && ${ varName } <= ${ c.value }u)`;
     }
-    case 'atLeast': {
+    case MIN_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= ${ c.value }u && ${ varName } <= 8u)`;
     }
-    case 'atMost': {
+    case MAX_CLAUSE_KIND: {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= 0u && ${ varName } <= ${ c.value }u)`;
     }
-    case 'comparison':
-    case 'equality': {
+    case COMPARISON_CLAUSE_KIND: {
       const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
       const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
       const var1 = eqVarMap.get(ids1.join(','))!;
@@ -782,17 +776,17 @@ function generateClauseExpr(
           return `(i32(${ var1 }) == ${ rightExpr })`;
       }
     }
-    case 'not':
+    case NOT_CLAUSE_KIND:
       return `!(${ generateClauseExpr(c.clause, countVarMap, eqVarMap) })`;
-    case 'and': {
+    case AND_CLAUSE_KIND: {
       const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
       return `(${ parts.join(' && ') })`;
     }
-    case 'or': {
+    case OR_CLAUSE_KIND: {
       const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
       return `(${ parts.join(' || ') })`;
     }
-    case 'xor': {
+    case XOR_CLAUSE_KIND: {
       const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
       const oddExpr = parts.map(p => `select(0u, 1u, ${ p })`).join(' + ');
       return `(((${ oddExpr }) & 1u) == 1u)`;
@@ -1351,7 +1345,7 @@ function createBrushPipeline(): void {
 }
 
 function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeIds: number[]): void {
-  const deadId = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  const deadId = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const seed = brushSeedCounter++;
 
   const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
@@ -1826,7 +1820,7 @@ function readMetricsAndPost(): void {
   mapPromises.push(boundaryReadBuffer.mapAsync(GPUMapMode.READ));
 
   Promise.all(mapPromises).then(() => {
-    const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+    const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
 
     // Population + diversity metrics (derived from histogram — cheap).
     const population: Record<string, number> = {};

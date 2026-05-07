@@ -17,7 +17,7 @@ import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
-import {Clause, DEAD_TRIBE, EditableTribe, Rule, Ruleset, Tribe} from '../../model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
@@ -945,7 +945,7 @@ export class Sidebar implements OnChanges, OnDestroy {
     }
 
     const {id} = (this.editTribes[index]!);
-    if (id === DEAD_TRIBE.id) {
+    if (id === DEAD_TRIBE_ID) {
       return;
     }
     this.editTribes.splice(index, 1);
@@ -962,7 +962,7 @@ export class Sidebar implements OnChanges, OnDestroy {
     const newRule = {
       key: this.createEditableRuleKey(),
       muted: false,
-      clause: this.createEmptyClause(),
+      clause: EMPTY_CLAUSE,
       tribe: dt
     };
     this.editRules.push(newRule);
@@ -1339,14 +1339,14 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private toggleTribeSelection(id: string): string[] {
-    if (id === DEAD_TRIBE.id) {
-      return [DEAD_TRIBE.id];
+    if (id === DEAD_TRIBE_ID) {
+      return [DEAD_TRIBE_ID];
     }
-    // If currently in delete mode (only DEAD_TRIBE.id selected), start fresh.
-    if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE.id) {
+    // If currently in delete mode (only DEAD_TRIBE_ID selected), start fresh.
+    if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID) {
       return [id];
     }
-    const current = this.drawTribes.filter(t => t !== DEAD_TRIBE.id);
+    const current = this.drawTribes.filter(t => t !== DEAD_TRIBE_ID);
     const idx = current.indexOf(id);
     if (idx >= 0) {
       // Don't allow deselecting the last tribe.
@@ -1391,30 +1391,24 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   private normalizeClauseForEditor(clause: Clause<Tribe[]>): Clause<Tribe[]> {
     switch (clause.kind) {
-      case 'empty':
-        return this.createEmptyClause();
-      case 'equality':
-        return {
-          ...clause,
-          kind: 'comparison',
-          margin: clause.margin ?? 0
-        };
-      case 'comparison':
+      case EMPTY_CLAUSE_KIND:
+        return EMPTY_CLAUSE;
+      case COMPARISON_CLAUSE_KIND:
         return {
           ...clause,
           margin: clause.margin ?? 0
         };
-      case 'not':
+      case NOT_CLAUSE_KIND:
         return {
           ...clause,
           clause: this.normalizeClauseForEditor(clause.clause)
         };
-      case 'and':
-      case 'or':
-      case 'xor': {
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND: {
         const normalizedClauses = clause.clauses.map(sub => this.normalizeClauseForEditor(sub));
         while (normalizedClauses.length < 2) {
-          normalizedClauses.push(this.createEmptyClause());
+          normalizedClauses.push(EMPTY_CLAUSE);
         }
         return {
           ...clause,
@@ -1470,14 +1464,8 @@ export class Sidebar implements OnChanges, OnDestroy {
     return key;
   }
 
-  private createEmptyClause(): Clause<Tribe[]> {
-    return {
-      kind: 'empty'
-    };
-  }
-
   private defaultTribeId(): string {
-    return this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
+    return this.editTribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID;
   }
 
   private refreshTribesDirtyState(): void {
@@ -1576,15 +1564,15 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
-    if (clause.kind === 'empty') {
+    if (clause.kind === EMPTY_CLAUSE_KIND) {
       return;
     }
-    if (clause.kind === 'is' || clause.kind === 'count' || clause.kind === 'none' || clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
+    if (clause.kind === IS_CLAUSE_KIND || clause.kind === COUNT_CLAUSE_KIND || clause.kind === NONE_CLAUSE_KIND || clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
       const idx = clause.tribes.indexOf(tribeId);
       if (idx >= 0 && clause.tribes.length > 1) {
         clause.tribes.splice(idx, 1);
       }
-    } else if (clause.kind === 'comparison' || clause.kind === 'equality') {
+    } else if (clause.kind === COMPARISON_CLAUSE_KIND) {
       const idx1 = clause.tribe1.indexOf(tribeId);
       if (idx1 >= 0 && clause.tribe1.length > 1) {
         clause.tribe1.splice(idx1, 1);
@@ -1593,9 +1581,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       if (idx2 >= 0 && clause.tribe2.length > 1) {
         clause.tribe2.splice(idx2, 1);
       }
-    } else if (clause.kind === 'not') {
+    } else if (clause.kind === NOT_CLAUSE_KIND) {
       this.removeTribeIdFromClause(clause.clause, tribeId);
-    } else if (clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor') {
+    } else if (clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND) {
       for (const child of clause.clauses) {
         this.removeTribeIdFromClause(child, tribeId);
       }
@@ -1603,15 +1591,15 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private renameTribeInClause(clause: Clause<Tribe[]>, oldId: string, newId: string): void {
-    if (clause.kind === 'empty') {
+    if (clause.kind === EMPTY_CLAUSE_KIND) {
       return;
     }
-    if (clause.kind === 'is' || clause.kind === 'count' || clause.kind === 'none' || clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
+    if (clause.kind === IS_CLAUSE_KIND || clause.kind === COUNT_CLAUSE_KIND || clause.kind === NONE_CLAUSE_KIND || clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
       const idx = clause.tribes.indexOf(oldId);
       if (idx >= 0) {
         clause.tribes[idx] = newId;
       }
-    } else if (clause.kind === 'comparison' || clause.kind === 'equality') {
+    } else if (clause.kind === COMPARISON_CLAUSE_KIND) {
       const idx1 = clause.tribe1.indexOf(oldId);
       if (idx1 >= 0) {
         clause.tribe1[idx1] = newId;
@@ -1620,9 +1608,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       if (idx2 >= 0) {
         clause.tribe2[idx2] = newId;
       }
-    } else if (clause.kind === 'not') {
+    } else if (clause.kind === NOT_CLAUSE_KIND) {
       this.renameTribeInClause(clause.clause, oldId, newId);
-    } else if (clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor') {
+    } else if (clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND) {
       for (const child of clause.clauses) {
         this.renameTribeInClause(child, oldId, newId);
       }

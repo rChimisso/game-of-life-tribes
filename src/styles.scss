@@ -1,10 +1,32 @@
 @use "variables" as *;
 @use "grids" as *;
 
+:root {
+  --gol-scrollbar-size: 4px;
+  --gol-scrollbar-thumb: #d0d0d0;
+  --gol-scrollbar-thumb-hover: #ededed;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gol-scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--gol-scrollbar-size);
+  height: var(--gol-scrollbar-size);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--gol-scrollbar-thumb);
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gol-scrollbar-thumb-hover);
 }
 
 html {
@@ -164,4 +186,116 @@ mat-expansion-panel {
 .gol-rule-drag-preview .rule-card,
 .gol-rule-drag-preview .rule-body {
   overflow: hidden !important;
+}
+
+.gol-select-panel.mat-mdc-select-panel {
+  background: #000000 !important;
+  border: none;
+  border-radius: 0 0 4px 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  --mat-option-selected-state-layer-color: color-mix(in srgb, #d0d0d0 22%, transparent);
+  --mat-option-selected-state-label-text-color: #ededed;
+}
+
+.gol-select-panel .mat-mdc-option {
+  color: #d0d0d0;
+  font-size: 0.85rem;
+  min-height: 32px;
+}
+
+.gol-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  color: #ededed;
+  background-color: color-mix(in srgb, #d0d0d0 22%, transparent) !important;
+}
+
+.gol-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+.gol-select-panel .mat-mdc-option.mdc-list-item--focus:not(.mdc-list-item--disabled) {
+  background: color-mix(in srgb, #d0d0d0 22%, transparent);
+  color: #ededed;
+}
+
+.gol-select-panel .mat-mdc-option.mdc-list-item--disabled {
+  opacity: 0.45;
+}
+
+.gol-select-panel .mat-pseudo-checkbox {
+  display: none;
+}
+
+.gol-select-panel .gol-option-hidden {
+  display: none;
+}
+
+.gol-select-field .mat-mdc-text-field-wrapper {
+  background-color: rgb(0 0 0 / 0.1);
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gol-select-field.mat-form-field-appearance-fill .mat-mdc-text-field-wrapper {
+  border: 1px solid #d0d0d0;
+  padding: 0 2px 0 8px;
+}
+
+.gol-select-field.mat-form-field-appearance-fill:hover:not(.mat-form-field-disabled) .mat-mdc-text-field-wrapper,
+.gol-select-field.mat-form-field-appearance-fill.mat-focused:not(.mat-form-field-disabled) .mat-mdc-text-field-wrapper {
+  border-color: #ededed;
+}
+
+.gol-select-field.mat-form-field-appearance-fill .mdc-line-ripple {
+  display: none;
+}
+
+.gol-select-field .mat-mdc-form-field-infix {
+  min-height: 30px;
+  width: 100%;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+
+.gol-select-field .mat-mdc-select-trigger {
+  min-height: 24px;
+  align-items: center;
+}
+
+.gol-select-field .mat-mdc-select {
+  width: 100%;
+}
+
+.gol-select-field .mat-mdc-select-value {
+  color: #d0d0d0;
+}
+
+.gol-select-field .mat-mdc-select-arrow-wrapper {
+  padding-right: 8px;
+}
+
+.gol-select-field .mdc-notched-outline__leading {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+.gol-select-field .mdc-notched-outline__trailing {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.gol-select-field:hover:not(.mat-form-field-disabled) .mat-mdc-select-value,
+.gol-select-field:hover:not(.mat-form-field-disabled) .mat-mdc-select-arrow {
+  color: #ededed;
+}
+
+.gol-select-field.mat-focused:not(.mat-form-field-disabled) .mat-mdc-select-value,
+.gol-select-field.mat-focused:not(.mat-form-field-disabled) .mat-mdc-select-arrow {
+  color: #ededed;
+}
+
+.gol-select-field.mat-focused:not(.mat-form-field-disabled) .mat-mdc-notch-piece {
+  border-color: #ededed;
+}
+
+.gol-select-field.mat-form-field-disabled {
+  opacity: 0.33;
 }

@@ -3,20 +3,7 @@
 <ng-template #clauseTpl let-clause let-depth="depth" let-path="path">
   <div class="clause-node" [style.padding-left.px]="depth > 0 ? 16 : 0">
     <div class="clause-header">
-      <select class="clause-type-select" [ngModel]="clause.kind" (ngModelChange)="emitChangeKind(path, $event)">
-        <option disabled hidden value="empty">EMPTY</option>
-        <option value="is">IS</option>
-        <option value="count">COUNT</option>
-        <option value="none">NONE</option>
-        <option value="exactly">EXACTLY</option>
-        <option value="atLeast">AT LEAST</option>
-        <option value="atMost">AT MOST</option>
-        <option value="comparison">COMP</option>
-        <option value="not">NOT</option>
-        <option value="and">AND</option>
-        <option value="or">OR</option>
-        <option value="xor">XOR</option>
-      </select>
+      <gol-select class="clause-type-select" [ngModel]="clause.kind" [options]="clauseKindOptions" (ngModelChange)="emitChangeKind(path, $event)" />
       @if (clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") {
         <button class="small-btn group-toggle-btn" mat-icon-button [title]="isGroupCollapsed(path) ? 'Expand group' : 'Collapse group'" (click)="toggleGroupCollapse(path, $event)">
           <mat-icon>{{ isGroupCollapsed(path) ? "chevron_right" : "expand_more" }}</mat-icon>
@@ -89,7 +76,7 @@
           <input class="interval-input" max="8" min="0" regex="^[0-9]+$" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
         </div>
       }
-      @case ("atLeast") {
+      @case ("min") {
         <div class="clause-tribes">
           <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
           @for (t of editTribes; track t.key) {
@@ -101,7 +88,7 @@
           <input class="interval-input" max="8" min="0" regex="^[0-9]+$" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
         </div>
       }
-      @case ("atMost") {
+      @case ("max") {
         <div class="clause-tribes">
           <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
           @for (t of editTribes; track t.key) {
@@ -121,14 +108,7 @@
               <gol-tribe-swatch class="clause-swatch" size="sm" [color]="t.color" [selected]="clause.tribe1.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 1, t.id)" />
             }
           </div>
-          <select class="comparison-operator" [ngModel]="clause.operator || '='" (ngModelChange)="emitSetOperator(path, $event)">
-            <option value="=">=</option>
-            <option value="!=">!=</option>
-            <option value=">">&gt;</option>
-            <option value="<">&lt;</option>
-            <option value=">=">&gt;=</option>
-            <option value="<=">&lt;=</option>
-          </select>
+          <gol-select class="comparison-operator" [ngModel]="clause.operator || '='" [options]="comparisonOperatorOptions" (ngModelChange)="emitSetOperator(path, $event)" />
           <div class="clause-tribes">
             <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribe2)" (ngModelChange)="onToggleAllEqTribes(path, 2, clause.tribe2, $event)" />
             @for (t of editTribes; track t.key) {
@@ -147,14 +127,7 @@
               <gol-tribe-swatch class="clause-swatch" size="sm" [color]="t.color" [selected]="clause.tribe1.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 1, t.id)" />
             }
           </div>
-          <select class="comparison-operator" [ngModel]="clause.operator || '='" (ngModelChange)="emitSetOperator(path, $event)">
-            <option value="=">=</option>
-            <option value="!=">!=</option>
-            <option value=">">&gt;</option>
-            <option value="<">&lt;</option>
-            <option value=">=">&gt;=</option>
-            <option value="<=">&lt;=</option>
-          </select>
+          <gol-select class="comparison-operator" [ngModel]="clause.operator || '='" [options]="comparisonOperatorOptions" (ngModelChange)="emitSetOperator(path, $event)" />
           <div class="clause-tribes">
             <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribe2)" (ngModelChange)="onToggleAllEqTribes(path, 2, clause.tribe2, $event)" />
             @for (t of editTribes; track t.key) {

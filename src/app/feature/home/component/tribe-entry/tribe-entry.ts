@@ -5,7 +5,7 @@ import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/bu
 import {Button} from '../../../../shared/component/button/button';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
-import {DEAD_TRIBE, EditableTribe, Tribe} from '../../model/rule';
+import {DEAD_TRIBE_ID, EditableTribe, Tribe} from '../../model/rule';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
 
 /**
@@ -465,7 +465,7 @@ export class TribeEntry implements OnChanges {
   private validateTribeDraft(name: string, color: string, excludeKey: string | null = null): Tribe | null {
     const cleanId = this.normalizeId(name);
     const cleanColor = this.normalizeHex(color);
-    if (!cleanId || cleanId === DEAD_TRIBE.id || cleanColor.length !== 6) {
+    if (!cleanId || cleanId === DEAD_TRIBE_ID || cleanColor.length !== 6) {
       return null;
     }
     if (this.existingTribes.some(entry => entry.id === cleanId && entry.key !== excludeKey)) {

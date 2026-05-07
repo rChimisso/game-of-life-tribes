@@ -5,8 +5,10 @@ import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {Button} from '../../../../shared/component/button/button';
+import {SelectOption} from '../../../../shared/component/select/model/select';
+import {SelectComponent} from '../../../../shared/component/select/select';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
-import {Clause, EditableTribe, Rule, Tribe} from '../../model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
 import {buildClauseSummaryParts, RuleSummaryPart} from '../../util/clause-summary';
 import {ClauseChangeEvent, ClauseStateChangeEvent, RuleClause} from '../clause/clause';
 
@@ -38,6 +40,7 @@ type RuleDisplaySummaryPart =
     DragDropModule,
     RuleClause,
     Button,
+    SelectComponent,
     TribeSwatch,
     MatIconModule
   ],
@@ -144,6 +147,13 @@ export class RuleCard implements OnChanges {
     return this.displaySummaryParts.map(part => part.kind === 'text' ? part.text : part.tribes.join('/')).reduce((acc, curr) => acc + curr, '');
   }
 
+  public get tribeSelectOptions(): SelectOption[] {
+    return this.editTribes.map(tribe => ({
+      value: tribe.id,
+      label: tribe.id
+    }));
+  }
+
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['rule'] || changes['baselineRule']) {
       this.emitRuleState();
@@ -233,12 +243,6 @@ export class RuleCard implements OnChanges {
     });
   }
 
-  private createEmptyClause(): Clause<Tribe[]> {
-    return {
-      kind: 'empty'
-    };
-  }
-
   private rulesEqual(editableRule: Rule<Tribe[]>, baseRule: Rule<Tribe[]>): boolean {
     return JSON.stringify(this.toPersistedRule(editableRule)) === JSON.stringify(this.toPersistedRule(baseRule));
   }
@@ -253,30 +257,24 @@ export class RuleCard implements OnChanges {
 
   private normalizeClauseForEditor(clause: Clause<Tribe[]>): Clause<Tribe[]> {
     switch (clause.kind) {
-      case 'empty':
-        return this.createEmptyClause();
-      case 'equality':
-        return {
-          ...clause,
-          kind: 'comparison',
-          margin: clause.margin ?? 0
-        };
-      case 'comparison':
+      case EMPTY_CLAUSE_KIND:
+        return EMPTY_CLAUSE;
+      case COMPARISON_CLAUSE_KIND:
         return {
           ...clause,
           margin: clause.margin ?? 0
         };
-      case 'not':
+      case NOT_CLAUSE_KIND:
         return {
           ...clause,
           clause: this.normalizeClauseForEditor(clause.clause)
         };
-      case 'and':
-      case 'or':
-      case 'xor': {
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND: {
         const normalizedClauses = clause.clauses.map(sub => this.normalizeClauseForEditor(sub));
         while (normalizedClauses.length < 2) {
-          normalizedClauses.push(this.createEmptyClause());
+          normalizedClauses.push(EMPTY_CLAUSE);
         }
 
         return {

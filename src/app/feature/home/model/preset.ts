@@ -1,4 +1,4 @@
-import {DEAD_TRIBE, Ruleset} from './rule';
+import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, NOT_CLAUSE_KIND, Ruleset} from './rule';
 
 interface Preset {
   readonly name: string;
@@ -22,31 +22,31 @@ const conway: Preset = {
     rules: [
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [0, 1],
               tribes: ['Alive']
             }
           ]
         },
-        tribe: DEAD_TRIBE.id
+        tribe: DEAD_TRIBE_ID
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [2, 3],
               tribes: ['Alive']
             }
@@ -56,31 +56,31 @@ const conway: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [4, 8],
               tribes: ['Alive']
             }
           ]
         },
-        tribe: DEAD_TRIBE.id
+        tribe: DEAD_TRIBE_ID
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
-              tribes: [DEAD_TRIBE.id]
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [3, 3],
               tribes: ['Alive']
             }
@@ -116,22 +116,22 @@ const ecosystem: Preset = {
     rules: [
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
-              tribes: [DEAD_TRIBE.id, 'Rabbit', 'Grass']
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID, 'Rabbit', 'Grass']
             },
             {
-              kind: 'and',
+              kind: AND_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [2, 8],
                   tribes: ['Rabbit']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [2, 4],
                   tribes: ['Fox']
                 }
@@ -143,34 +143,34 @@ const ecosystem: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Fox']
             },
             {
-              kind: 'and',
+              kind: AND_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 7],
                   tribes: ['Grass']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [1, 7],
                   tribes: ['Rabbit']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 2],
                   tribes: ['Fox']
                 },
                 {
-                  kind: 'not',
+                  kind: NOT_CLAUSE_KIND,
                   clause: {
-                    kind: 'count',
+                    kind: COUNT_CLAUSE_KIND,
                     interval: [8, 8],
                     tribes: ['Grass', 'Rabbit', 'Fox']
                   }
@@ -183,27 +183,27 @@ const ecosystem: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
-              tribes: [DEAD_TRIBE.id, 'Grass']
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID, 'Grass']
             },
             {
-              kind: 'and',
+              kind: AND_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [2, 8],
                   tribes: ['Grass']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [2, 6],
                   tribes: ['Rabbit']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 0],
                   tribes: ['Fox']
                 }
@@ -215,34 +215,34 @@ const ecosystem: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Rabbit']
             },
             {
-              kind: 'and',
+              kind: AND_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [1, 7],
                   tribes: ['Grass']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 0],
                   tribes: ['Fox']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 3],
                   tribes: ['Rabbit']
                 },
                 {
-                  kind: 'not',
+                  kind: NOT_CLAUSE_KIND,
                   clause: {
-                    kind: 'count',
+                    kind: COUNT_CLAUSE_KIND,
                     interval: [8, 8],
                     tribes: ['Grass', 'Rabbit', 'Fox']
                   }
@@ -255,14 +255,14 @@ const ecosystem: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
-              tribes: [DEAD_TRIBE.id]
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [2, 6],
               tribes: ['Grass']
             }
@@ -272,29 +272,29 @@ const ecosystem: Preset = {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Grass']
             },
             {
-              kind: 'and',
+              kind: AND_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 6],
                   tribes: ['Grass']
                 },
                 {
-                  kind: 'count',
+                  kind: COUNT_CLAUSE_KIND,
                   interval: [0, 7],
                   tribes: ['Fox']
                 },
                 {
-                  kind: 'not',
+                  kind: NOT_CLAUSE_KIND,
                   clause: {
-                    kind: 'count',
+                    kind: COUNT_CLAUSE_KIND,
                     interval: [8, 8],
                     tribes: ['Grass', 'Rabbit', 'Fox']
                   }

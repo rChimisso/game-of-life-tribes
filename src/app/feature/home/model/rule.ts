@@ -17,7 +17,7 @@ export interface Tribe<T extends string = string> {
   /**
    * Tribe ID.
    *
-   * @type {TribeId}
+   * @type {T}
    */
   id: T;
   /**
@@ -56,19 +56,99 @@ export type AllowedTribe<T extends readonly Tribe[]> = T[number]['id'] | typeof 
 /**
  * Tribe ID to identify any tribe.
  *
- * @type {TribeId}
+ * @type {"any"}
  */
 export const ANY_TRIBE_ID = 'any';
+
+/**
+ * Tribe ID to identify the dead tribe.
+ *
+ * @type {"dead"}
+ */
+export const DEAD_TRIBE_ID = 'dead';
 
 /**
  * Tribe for "empty" cells.
  *
  * @type {Tribe}
  */
-export const DEAD_TRIBE: Tribe<'dead'> = {
-  id: 'dead',
+export const DEAD_TRIBE: Tribe<typeof DEAD_TRIBE_ID> = {
+  id: DEAD_TRIBE_ID,
   color: '000000'
 };
+
+/**
+ * Empty clause kind.
+ *
+ * @type {"empty"}
+ */
+export const EMPTY_CLAUSE_KIND = 'empty';
+/**
+ * Is clause kind.
+ *
+ * @type {"is"}
+ */
+export const IS_CLAUSE_KIND = 'is';
+/**
+ * Comparison clause kind.
+ *
+ * @type {"comparison"}
+ */
+export const COMPARISON_CLAUSE_KIND = 'comparison';
+/**
+ * Count clause kind.
+ *
+ * @type {"count"}
+ */
+export const COUNT_CLAUSE_KIND = 'count';
+/**
+ * None clause kind.
+ *
+ * @type {"none"}
+ */
+export const NONE_CLAUSE_KIND = 'none';
+/**
+ * Exactly clause kind.
+ *
+ * @type {"exactly"}
+ */
+export const EXACTLY_CLAUSE_KIND = 'exactly';
+/**
+ * Min clause kind.
+ *
+ * @type {"min"}
+ */
+export const MIN_CLAUSE_KIND = 'min';
+/**
+ * Max clause kind.
+ *
+ * @type {"max"}
+ */
+export const MAX_CLAUSE_KIND = 'max';
+/**
+ * Not clause kind.
+ *
+ * @type {"not"}
+ */
+export const NOT_CLAUSE_KIND = 'not';
+/**
+ * And clause kind.
+ *
+ * @type {"and"}
+ */
+export const AND_CLAUSE_KIND = 'and';
+/**
+ * Or clause kind.
+ *
+ * @type {"or"}
+ */
+export const OR_CLAUSE_KIND = 'or';
+/**
+ * Xor clause kind.
+ *
+ * @type {"xor"}
+ */
+export const XOR_CLAUSE_KIND = 'xor';
 
 /**
  * Interval for counting a cell's neighbors (both inclusive).
@@ -77,14 +157,6 @@ export const DEAD_TRIBE: Tribe<'dead'> = {
  * @typedef {Interval}
  */
 export type Interval = [NeighborCount, NeighborCount];
-
-/**
- * Rule logical clause.
- *
- * @export
- * @typedef {Clause}
- */
-export type Clause<T extends readonly Tribe[]> = EmptyClause | IsClause<T> | IntervalClause<T> | NoneClause<T> | ExactlyClause<T> | AtLeastClause<T> | AtMostClause<T> | ComparisonClause<T> | NotClause<T> | AndClause<T> | OrClause<T> | XorClause<T>;
 
 /**
  * Placeholder clause used while building rule expressions.
@@ -98,9 +170,9 @@ export interface EmptyClause {
    * Clause type.
    *
    * @readonly
-   * @type {'empty'}
+   * @type {typeof EMPTY_CLAUSE_KIND}
    */
-  readonly kind: 'empty';
+  readonly kind: typeof EMPTY_CLAUSE_KIND;
 }
 
 /**
@@ -115,9 +187,9 @@ export interface IsClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'is'}
+   * @type {typeof IS_CLAUSE_KIND}
    */
-  readonly kind: 'is';
+  readonly kind: typeof IS_CLAUSE_KIND;
   /**
    * Set of tribes that make this clause true if the cell belongs to any of them.
    *
@@ -138,9 +210,9 @@ export interface IntervalClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'count'}
+   * @type {typeof COUNT_CLAUSE_KIND}
    */
-  readonly kind: 'count';
+  readonly kind: typeof COUNT_CLAUSE_KIND;
   /**
    * Set of tribes that this clause counts.
    *
@@ -167,9 +239,9 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'comparison' | 'equality'}
+   * @type {typeof COMPARISON_CLAUSE_KIND}
    */
-  readonly kind: 'comparison' | 'equality';
+  readonly kind: typeof COMPARISON_CLAUSE_KIND;
   /**
    * Tribes for the left-hand side count.
    *
@@ -209,9 +281,9 @@ export interface NoneClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'none'}
+   * @type {typeof NONE_CLAUSE_KIND}
    */
-  readonly kind: 'none';
+  readonly kind: typeof NONE_CLAUSE_KIND;
   /**
    * Set of tribes this alias counts.
    *
@@ -232,9 +304,9 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'exactly'}
+   * @type {typeof EXACTLY_CLAUSE_KIND}
    */
-  readonly kind: 'exactly';
+  readonly kind: typeof EXACTLY_CLAUSE_KIND;
   /**
    * Set of tribes this alias counts.
    *
@@ -253,17 +325,17 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
  * Alias clause: at least N neighbors from selected tribes.
  *
  * @export
- * @interface AtLeastClause<T extends readonly Tribe[]>
- * @typedef {AtLeastClause<T extends readonly Tribe[]>}
+ * @interface MinClause<T extends readonly Tribe[]>
+ * @typedef {MinClause<T extends readonly Tribe[]>}
  */
-export interface AtLeastClause<T extends readonly Tribe[]> {
+export interface MinClause<T extends readonly Tribe[]> {
   /**
    * Clause type.
    *
    * @readonly
-   * @type {'atLeast'}
+   * @type {typeof MIN_CLAUSE_KIND}
    */
-  readonly kind: 'atLeast';
+  readonly kind: typeof MIN_CLAUSE_KIND;
   /**
    * Set of tribes this alias counts.
    *
@@ -282,17 +354,17 @@ export interface AtLeastClause<T extends readonly Tribe[]> {
  * Alias clause: at most N neighbors from selected tribes.
  *
  * @export
- * @interface AtMostClause<T extends readonly Tribe[]>
- * @typedef {AtMostClause<T extends readonly Tribe[]>}
+ * @interface MaxClause<T extends readonly Tribe[]>
+ * @typedef {MaxClause<T extends readonly Tribe[]>}
  */
-export interface AtMostClause<T extends readonly Tribe[]> {
+export interface MaxClause<T extends readonly Tribe[]> {
   /**
    * Clause type.
    *
    * @readonly
-   * @type {'atMost'}
+   * @type {typeof MAX_CLAUSE_KIND}
    */
-  readonly kind: 'atMost';
+  readonly kind: typeof MAX_CLAUSE_KIND;
   /**
    * Set of tribes this alias counts.
    *
@@ -319,9 +391,9 @@ export interface NotClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'not'}
+   * @type {typeof NOT_CLAUSE_KIND}
    */
-  readonly kind: 'not';
+  readonly kind: typeof NOT_CLAUSE_KIND;
   /**
    * Affected clause.
    *
@@ -342,9 +414,9 @@ export interface AndClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'and'}
+   * @type {typeof AND_CLAUSE_KIND}
    */
-  readonly kind: 'and';
+  readonly kind: typeof AND_CLAUSE_KIND;
   /**
    * Affected clauses.
    *
@@ -365,9 +437,9 @@ export interface OrClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'or'}
+   * @type {typeof OR_CLAUSE_KIND}
    */
-  readonly kind: 'or';
+  readonly kind: typeof OR_CLAUSE_KIND;
   /**
    * Affected clauses.
    *
@@ -388,9 +460,9 @@ export interface XorClause<T extends readonly Tribe[]> {
    * Clause type.
    *
    * @readonly
-   * @type {'xor'}
+   * @type {typeof XOR_CLAUSE_KIND}
    */
-  readonly kind: 'xor';
+  readonly kind: typeof XOR_CLAUSE_KIND;
   /**
    * Affected clauses.
    *
@@ -398,6 +470,14 @@ export interface XorClause<T extends readonly Tribe[]> {
    */
   clauses: [Clause<T>, Clause<T>, ...Clause<T>[]];
 }
+
+/**
+ * Rule logical clause.
+ *
+ * @export
+ * @typedef {Clause}
+ */
+export type Clause<T extends readonly Tribe[]> = EmptyClause | IsClause<T> | IntervalClause<T> | NoneClause<T> | ExactlyClause<T> | MinClause<T> | MaxClause<T> | ComparisonClause<T> | NotClause<T> | AndClause<T> | OrClause<T> | XorClause<T>;
 
 /**
  * Rule.
@@ -466,3 +546,10 @@ export interface Ruleset<T extends readonly Tribe[] = Tribe[]> {
    */
   rows: number;
 }
+
+/**
+ * Empty clause.
+ *
+ * @type {EmptyClause}
+ */
+export const EMPTY_CLAUSE: EmptyClause = {kind: EMPTY_CLAUSE_KIND};

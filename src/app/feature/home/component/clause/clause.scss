@@ -37,6 +37,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 40px;
   --mat-icon-button-touch-target-size: 32px;
 }
 
@@ -65,13 +66,8 @@
 }
 
 .clause-type-select {
-  padding: 2px 4px;
-  background: #222;
-  border: 1px solid #444;
-  border-radius: 3px;
-  color: #ccc;
-  font-size: 0.75rem;
-  font-weight: 500;
+  width: 98px;
+  flex: 0 0 auto;
 }
 
 .clause-tribes {
@@ -127,13 +123,8 @@
 }
 
 .comparison-operator {
-  padding: 1px 4px;
-  min-width: 46px;
-  background: #111;
-  border: 1px solid #444;
-  border-radius: 3px;
-  color: #ddd;
-  font-size: 0.75rem;
+  width: 56px;
+  flex: 0 0 auto;
 }
 
 .margin-input {

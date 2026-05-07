@@ -6,8 +6,10 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
+import {SelectOption} from '../../../../shared/component/select/model/select';
+import {SelectComponent} from '../../../../shared/component/select/select';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
-import {Clause, EditableTribe, NeighborCount, Tribe} from '../../model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
 import {buildClauseSummaryParts, RuleSummaryPart} from '../../util/clause-summary';
 
 interface ClauseStateChangeEvent {
@@ -28,6 +30,7 @@ interface ClauseChangeEvent extends ClauseStateChangeEvent {
     MatButtonModule,
     MatIconModule,
     CheckboxComponent,
+    SelectComponent,
     TribeSwatch
   ],
   templateUrl: './clause.html',
@@ -59,6 +62,86 @@ export class RuleClause implements OnChanges {
 
   public collapsedGroupKeys = new Set<string>();
 
+  public readonly clauseKindOptions: readonly SelectOption[] = [
+    {
+      value: EMPTY_CLAUSE_KIND,
+      label: 'EMPTY',
+      disabled: true,
+      hidden: true
+    },
+    {
+      value: IS_CLAUSE_KIND,
+      label: 'IS'
+    },
+    {
+      value: COUNT_CLAUSE_KIND,
+      label: 'COUNT'
+    },
+    {
+      value: NONE_CLAUSE_KIND,
+      label: 'NONE'
+    },
+    {
+      value: EXACTLY_CLAUSE_KIND,
+      label: 'EXACTLY'
+    },
+    {
+      value: MIN_CLAUSE_KIND,
+      label: 'MIN'
+    },
+    {
+      value: MAX_CLAUSE_KIND,
+      label: 'MAX'
+    },
+    {
+      value: COMPARISON_CLAUSE_KIND,
+      label: 'COMP'
+    },
+    {
+      value: NOT_CLAUSE_KIND,
+      label: 'NOT'
+    },
+    {
+      value: AND_CLAUSE_KIND,
+      label: 'AND'
+    },
+    {
+      value: OR_CLAUSE_KIND,
+      label: 'OR'
+    },
+    {
+      value: XOR_CLAUSE_KIND,
+      label: 'XOR'
+    }
+  ];
+
+  public readonly comparisonOperatorOptions: readonly SelectOption[] = [
+    {
+      value: '=',
+      label: '='
+    },
+    {
+      value: '!=',
+      label: '!='
+    },
+    {
+      value: '>',
+      label: '>'
+    },
+    {
+      value: '<',
+      label: '<'
+    },
+    {
+      value: '>=',
+      label: '>='
+    },
+    {
+      value: '<=',
+      label: '<='
+    }
+  ];
+
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['clause'] || changes['baselineClause']) {
       this.emitClauseState();
@@ -69,81 +152,80 @@ export class RuleClause implements OnChanges {
     const dt = this.defaultTribeId();
     let nextClause: Clause<Tribe[]> | null = null;
     switch (newKind) {
-      case 'empty':
-        nextClause = this.createEmptyClause();
+      case EMPTY_CLAUSE_KIND:
+        nextClause = EMPTY_CLAUSE;
         break;
-      case 'is':
+      case IS_CLAUSE_KIND:
         nextClause = {
-          kind: 'is',
+          kind: IS_CLAUSE_KIND,
           tribes: [dt]
         };
         break;
-      case 'count':
+      case COUNT_CLAUSE_KIND:
         nextClause = {
-          kind: 'count',
+          kind: COUNT_CLAUSE_KIND,
           tribes: [dt],
           interval: [0, 8]
         };
         break;
-      case 'none':
+      case NONE_CLAUSE_KIND:
         nextClause = {
-          kind: 'none',
+          kind: NONE_CLAUSE_KIND,
           tribes: [dt]
         };
         break;
-      case 'exactly':
+      case EXACTLY_CLAUSE_KIND:
         nextClause = {
-          kind: 'exactly',
+          kind: EXACTLY_CLAUSE_KIND,
           tribes: [dt],
           value: 1
         };
         break;
-      case 'atLeast':
+      case MIN_CLAUSE_KIND:
         nextClause = {
-          kind: 'atLeast',
+          kind: MIN_CLAUSE_KIND,
           tribes: [dt],
           value: 1
         };
         break;
-      case 'atMost':
+      case MAX_CLAUSE_KIND:
         nextClause = {
-          kind: 'atMost',
+          kind: MAX_CLAUSE_KIND,
           tribes: [dt],
           value: 1
         };
         break;
-      case 'comparison':
-      case 'equality':
+      case COMPARISON_CLAUSE_KIND:
         nextClause = {
-          kind: 'comparison',
+          kind: COMPARISON_CLAUSE_KIND,
           tribe1: [dt],
           tribe2: [dt],
           operator: '=',
           margin: 0
         };
         break;
-      case 'not':
+      case NOT_CLAUSE_KIND:
         nextClause = {
-          kind: 'not',
-          clause: this.createEmptyClause()
+          kind: NOT_CLAUSE_KIND,
+          clause: EMPTY_CLAUSE
         };
         break;
-      case 'and':
+      case AND_CLAUSE_KIND:
         nextClause = {
-          kind: 'and',
-          clauses: [this.createEmptyClause(), this.createEmptyClause()]
+          kind: AND_CLAUSE_KIND,
+          clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
         };
         break;
-      case 'or':
+      case OR_CLAUSE_KIND:
         nextClause = {
-          kind: 'or',
-          clauses: [this.createEmptyClause(), this.createEmptyClause()]
+          kind: OR_CLAUSE_KIND,
+          clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
         };
         break;
-      case 'xor':
+      case XOR_CLAUSE_KIND:
         nextClause = {
-          kind: 'xor',
-          clauses: [this.createEmptyClause(), this.createEmptyClause()]
+          kind: XOR_CLAUSE_KIND,
+          clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
         };
         break;
       default:
@@ -160,19 +242,19 @@ export class RuleClause implements OnChanges {
     this.updateClause(clauseRoot => {
       let updatedRoot = clauseRoot;
       if (path.length === 0) {
-        updatedRoot = this.createEmptyClause();
+        updatedRoot = EMPTY_CLAUSE;
       } else {
         const parentPath = path.slice(0, -1);
         const childIdx = path[path.length - 1]!;
         const parent = this.getClauseAtPath(clauseRoot, parentPath);
-        if (parent.kind === 'and' || parent.kind === 'or' || parent.kind === 'xor') {
+        if (parent.kind === AND_CLAUSE_KIND || parent.kind === OR_CLAUSE_KIND || parent.kind === XOR_CLAUSE_KIND) {
           if (parent.clauses.length > 2) {
             (parent.clauses as Clause<Tribe[]>[]).splice(childIdx, 1);
           } else {
-            (parent.clauses as Clause<Tribe[]>[])[childIdx] = this.createEmptyClause();
+            (parent.clauses as Clause<Tribe[]>[])[childIdx] = EMPTY_CLAUSE;
           }
-        } else if (parent.kind === 'not') {
-          parent.clause = this.createEmptyClause();
+        } else if (parent.kind === NOT_CLAUSE_KIND) {
+          parent.clause = EMPTY_CLAUSE;
         }
       }
 
@@ -183,7 +265,7 @@ export class RuleClause implements OnChanges {
   public emitToggleTribe(path: number[], tribeId: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === 'is' || clause.kind === 'count' || clause.kind === 'none' || clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
+      if (clause.kind === IS_CLAUSE_KIND || clause.kind === COUNT_CLAUSE_KIND || clause.kind === NONE_CLAUSE_KIND || clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
         const idx = clause.tribes.indexOf(tribeId);
         if (idx >= 0) {
           if (clause.tribes.length > 1) {
@@ -201,7 +283,7 @@ export class RuleClause implements OnChanges {
   public emitToggleEqTribe(path: number[], group: 1 | 2, tribeId: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === 'comparison' || clause.kind === 'equality') {
+      if (clause.kind === COMPARISON_CLAUSE_KIND) {
         const target = group === 1 ? clause.tribe1 : clause.tribe2;
         const idx = target.indexOf(tribeId);
         if (idx >= 0) {
@@ -221,9 +303,9 @@ export class RuleClause implements OnChanges {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
       const nextValue = Math.max(0, Math.min(8, parseInt(value, 10) || 0)) as NeighborCount;
-      if (clause.kind === 'count') {
+      if (clause.kind === COUNT_CLAUSE_KIND) {
         clause.interval[which] = nextValue;
-      } else if (clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
+      } else if (clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
         clause.value = nextValue;
       }
 
@@ -234,7 +316,7 @@ export class RuleClause implements OnChanges {
   public emitSetOperator(path: number[], operator: '=' | '!=' | '>' | '<' | '>=' | '<='): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === 'comparison' || clause.kind === 'equality') {
+      if (clause.kind === COMPARISON_CLAUSE_KIND) {
         clause.operator = operator;
       }
 
@@ -245,7 +327,7 @@ export class RuleClause implements OnChanges {
   public emitSetMargin(path: number[], value: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === 'comparison' || clause.kind === 'equality') {
+      if (clause.kind === COMPARISON_CLAUSE_KIND) {
         const parsed = +value;
         clause.margin = Math.max(-8, Math.min(8, Number.isNaN(parsed) ? 0 : parsed));
       }
@@ -257,8 +339,8 @@ export class RuleClause implements OnChanges {
   public emitAddChild(path: number[]): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor') {
-        (clause.clauses as Clause<Tribe[]>[]).push(this.createEmptyClause());
+      if (clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND) {
+        (clause.clauses as Clause<Tribe[]>[]).push(EMPTY_CLAUSE);
       }
 
       return clauseRoot;
@@ -394,25 +476,19 @@ export class RuleClause implements OnChanges {
     return this.containsEmptyClause(this.clause);
   }
 
-  private createEmptyClause(): Clause<Tribe[]> {
-    return {
-      kind: 'empty'
-    };
-  }
-
   private defaultTribeId(): string {
-    return this.editTribes.find(tribe => tribe.id !== 'dead')?.id ?? 'dead';
+    return this.editTribes.find(tribe => tribe.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID;
   }
 
   private containsEmptyClause(clause: Clause<Tribe[]>): boolean {
     switch (clause.kind) {
-      case 'empty':
+      case EMPTY_CLAUSE_KIND:
         return true;
-      case 'not':
+      case NOT_CLAUSE_KIND:
         return this.containsEmptyClause(clause.clause);
-      case 'and':
-      case 'or':
-      case 'xor':
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND:
         return clause.clauses.some(child => this.containsEmptyClause(child));
       default:
         return false;
@@ -422,9 +498,9 @@ export class RuleClause implements OnChanges {
   private getClauseAtPath(root: Clause<Tribe[]>, path: number[]): Clause<Tribe[]> {
     let current: Clause<Tribe[]> = root;
     for (const idx of path) {
-      if (current.kind === 'and' || current.kind === 'or' || current.kind === 'xor') {
+      if (current.kind === AND_CLAUSE_KIND || current.kind === OR_CLAUSE_KIND || current.kind === XOR_CLAUSE_KIND) {
         current = current.clauses[idx]!;
-      } else if (current.kind === 'not') {
+      } else if (current.kind === NOT_CLAUSE_KIND) {
         current = current.clause;
       }
     }
@@ -438,9 +514,9 @@ export class RuleClause implements OnChanges {
 
     const parent = this.getClauseAtPath(root, path.slice(0, -1));
     const lastIdx = path[path.length - 1]!;
-    if (parent.kind === 'and' || parent.kind === 'or' || parent.kind === 'xor') {
+    if (parent.kind === AND_CLAUSE_KIND || parent.kind === OR_CLAUSE_KIND || parent.kind === XOR_CLAUSE_KIND) {
       (parent.clauses as Clause<Tribe[]>[])[lastIdx] = nextClause;
-    } else if (parent.kind === 'not') {
+    } else if (parent.kind === NOT_CLAUSE_KIND) {
       parent.clause = nextClause;
     }
 
@@ -453,30 +529,24 @@ export class RuleClause implements OnChanges {
 
   private normalizeClauseForEditor(clause: Clause<Tribe[]>): Clause<Tribe[]> {
     switch (clause.kind) {
-      case 'empty':
-        return this.createEmptyClause();
-      case 'equality':
-        return {
-          ...clause,
-          kind: 'comparison',
-          margin: clause.margin ?? 0
-        };
-      case 'comparison':
+      case EMPTY_CLAUSE_KIND:
+        return EMPTY_CLAUSE;
+      case COMPARISON_CLAUSE_KIND:
         return {
           ...clause,
           margin: clause.margin ?? 0
         };
-      case 'not':
+      case NOT_CLAUSE_KIND:
         return {
           ...clause,
           clause: this.normalizeClauseForEditor(clause.clause)
         };
-      case 'and':
-      case 'or':
-      case 'xor': {
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND: {
         const normalizedClauses = clause.clauses.map(sub => this.normalizeClauseForEditor(sub));
         while (normalizedClauses.length < 2) {
-          normalizedClauses.push(this.createEmptyClause());
+          normalizedClauses.push(EMPTY_CLAUSE);
         }
 
         return {

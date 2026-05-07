@@ -2,7 +2,7 @@
 
 import {alignPackedBytesToWords, chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
 import {RecordingManifest} from '../model/recording';
-import {DEAD_TRIBE} from '../model/rule';
+import {DEAD_TRIBE_ID} from '../model/rule';
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -1014,7 +1014,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // -- Metrics accumulator -----------------------------------------------
     const allMetrics: MetricEntry[] = [];
-    const deadId = hasRecording ? tribes.find(t => t.id === DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id : DEAD_TRIBE.id;
+    const deadId = hasRecording ? tribes.find(t => t.id === DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID : DEAD_TRIBE_ID;
 
     // OPFS dir handle (opened once).
     let opfsDir: FileSystemDirectoryHandle | null = null;

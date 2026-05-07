@@ -34,11 +34,7 @@
           <gol-tribe-swatch size="sm" [color]="outputTribeColor()" [interactive]="false" [title]="rule.tribe" />
           <span>{{ rule.tribe }}</span>
         </span>
-        <select class="tribe-select" [disabled]="!!rule.muted" [ngModel]="rule.tribe" (ngModelChange)="onSetRuleOutput($event)">
-          @for (tribe of editTribes; track tribe.key) {
-            <option [value]="tribe.id">{{ tribe.id }}</option>
-          }
-        </select>
+        <gol-select class="tribe-select" [disabled]="!!rule.muted" [ngModel]="rule.tribe" [options]="tribeSelectOptions" (ngModelChange)="onSetRuleOutput($event)" />
       </div>
     </div>
   </div>

@@ -8,7 +8,7 @@ import {Engine} from './component/engine/engine';
 import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormatMetadata, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, smallestValidSimulationGridFormat, unpackWordsToFrame, validatePackingAgainstStateCount} from './model/grid-format';
 import {Preset} from './model/preset';
-import {DEAD_TRIBE, Ruleset, Tribe} from './model/rule';
+import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, Ruleset, Tribe} from './model/rule';
 import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 
 @Component({
@@ -41,31 +41,31 @@ export class HomePage implements OnDestroy {
     rules: [
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [0, 1],
               tribes: ['Alive']
             }
           ]
         },
-        tribe: DEAD_TRIBE.id
+        tribe: DEAD_TRIBE_ID
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [2, 3],
               tribes: ['Alive']
             }
@@ -75,31 +75,31 @@ export class HomePage implements OnDestroy {
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
+              kind: IS_CLAUSE_KIND,
               tribes: ['Alive']
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [4, 8],
               tribes: ['Alive']
             }
           ]
         },
-        tribe: DEAD_TRIBE.id
+        tribe: DEAD_TRIBE_ID
       },
       {
         clause: {
-          kind: 'and',
+          kind: AND_CLAUSE_KIND,
           clauses: [
             {
-              kind: 'is',
-              tribes: [DEAD_TRIBE.id]
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
             },
             {
-              kind: 'count',
+              kind: COUNT_CLAUSE_KIND,
               interval: [3, 3],
               tribes: ['Alive']
             }
@@ -428,7 +428,7 @@ export class HomePage implements OnDestroy {
         break;
       case 'selectTribes':
         this.drawTribes = ev.value as string[];
-        this.deleteMode = this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE.id;
+        this.deleteMode = this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID;
         if (!this.deleteMode && this.drawTribes.length === 1) {
           this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribes[0]);
         }
@@ -484,7 +484,7 @@ export class HomePage implements OnDestroy {
       case 'deleteMode':
         this.deleteMode = !this.deleteMode;
         if (this.deleteMode) {
-          this.drawTribes = [DEAD_TRIBE.id];
+          this.drawTribes = [DEAD_TRIBE_ID];
         } else {
           this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
@@ -495,7 +495,7 @@ export class HomePage implements OnDestroy {
         this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, newRuleset);
         this.ruleset = newRuleset;
         if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id];
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
         this.latestMetrics = null;
@@ -531,7 +531,7 @@ export class HomePage implements OnDestroy {
         this.simulationGridFormat = this.smallestSimulationGridFormatForRuleset(newRuleset);
         this.ruleset = newRuleset;
         if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id];
+          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
         }
         this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
         this.latestMetrics = null;
@@ -600,7 +600,7 @@ export class HomePage implements OnDestroy {
       case 'd':
         this.deleteMode = !this.deleteMode;
         if (this.deleteMode) {
-          this.drawTribes = [DEAD_TRIBE.id];
+          this.drawTribes = [DEAD_TRIBE_ID];
         } else {
           this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }

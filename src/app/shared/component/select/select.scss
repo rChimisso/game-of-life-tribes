@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.gol-select-field {
+  width: 100%;
+  font-size: 0.85rem;
+
+  --mat-form-field-container-height: 32px;
+  --mat-form-field-container-vertical-padding: 0;
+  --mdc-outlined-text-field-outline-width: 1px;
+  --mat-form-field-outlined-outline-width: 1px;
+  --mat-form-field-outlined-focus-outline-width: 1px;
+  --mat-form-field-outlined-outline-color: #d0d0d0;
+  --mat-form-field-outlined-hover-outline-color: #ededed;
+  --mat-form-field-outlined-focus-outline-color: #ededed;
+  --mdc-outlined-text-field-outline-color: #d0d0d0;
+  --mdc-outlined-text-field-hover-outline-color: #ededed;
+  --mdc-outlined-text-field-focus-outline-color: #ededed;
+  --mdc-outlined-text-field-disabled-outline-color: color-mix(in srgb, #d0d0d0 33%, transparent);
+  --mat-select-enabled-trigger-text-color: #d0d0d0;
+  --mat-select-disabled-trigger-text-color: color-mix(in srgb, #d0d0d0 33%, transparent);
+  --mat-select-enabled-arrow-color: #d0d0d0;
+  --mat-select-focused-arrow-color: #ededed;
+}

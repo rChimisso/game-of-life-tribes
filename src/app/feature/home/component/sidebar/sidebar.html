@@ -39,10 +39,10 @@
       <div class="tribe-picker">
         @for (tribe of tribes; track tribe.id) {
           @if (tribe.id !== "dead") {
-            <button class="tribe-swatch" [class.active]="drawTribes.includes(tribe.id) && !deleteMode" [style.background-color]="'#' + tribe.color" [title]="tribe.id" (click)="onTribeChange(tribe.id)"></button>
+            <gol-tribe-swatch class="draw-swatch" size="md" [color]="tribe.color" [selected]="drawTribes.includes(tribe.id) && !deleteMode" [title]="tribe.id" (clicked)="onTribeChange(tribe.id)" />
           }
         }
-        <button class="tribe-swatch delete-swatch" title="Delete" [class.active]="deleteMode" (click)="emit('deleteMode')">
+        <button class="delete-swatch" title="Delete" type="button" [class.active]="deleteMode" (click)="emit('deleteMode')">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -131,11 +131,15 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." title="Rules" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
-      @for (rule of editRules; track $index; let i = $index) {
-        <gol-rule-card [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [outputColor]="getTribeColor(rule.tribe)" [outputContrast]="getContrastColor(getTribeColor(rule.tribe))" [rule]="rule" [ruleIndex]="i" [summary]="clauseSummary(rule.clause)" [summaryTribeColors]="tribeColorMap" [summaryTribes]="clauseTribes(rule.clause)" (addChild)="addChildClause($event.ruleIndex, $event.path)" (changeKind)="changeClauseKind($event.ruleIndex, $event.path, $event.newKind)" (removeChild)="removeChildClause($event.ruleIndex, $event.path)" (removeRule)="removeRule($event)" (setInterval)="setClauseInterval($event.ruleIndex, $event.path, $event.which, $event.value)" (setRuleOutput)="setRuleOutput($event.index, $event.tribeId)" (toggleEqTribe)="toggleClauseEqTribe($event.ruleIndex, $event.path, $event.group, $event.tribeId)" (toggleExpand)="toggleRuleExpand($event)" (toggleTribe)="toggleClauseTribe($event.ruleIndex, $event.path, $event.tribeId)" />
-      }
-      <gol-button icon="add" label="Add rule" variant="flat" (clicked)="addRule()" />
-      <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="applyRules()" (rightClick)="restoreRules()" />
+      <div cdkDropList cdkDropListOrientation="vertical" class="rules-list" [cdkDropListData]="editRules" [class.dragging-list]="draggingRuleIndex !== null" (cdkDropListDropped)="onRuleDropped($event)">
+        @for (rule of editRules; track rule.key; let i = $index) {
+          <div cdkDrag cdkDragLockAxis="y" cdkDragPlaceholderClass="gol-rule-drag-placeholder" cdkDragPreviewClass="gol-rule-drag-preview" class="rule-list-item" [class.dragging-rule]="draggingRuleIndex === i" (cdkDragEnded)="onRuleDragEnded()" (cdkDragStarted)="onRuleDragStarted(i)">
+            <gol-rule-card [baselineRule]="baselineRule(i)" [editTribes]="editTribes" [expanded]="expandedRuleIndex === i" [rule]="rule" [ruleIndex]="i" (dragHandlePointerDown)="onRuleDragHandlePointerDown(i)" (duplicateRule)="duplicateRule($event)" (removeRule)="removeRule($event)" (ruleChange)="onRuleChanged($event)" (ruleStateChange)="onRuleStateChanged($event)" (toggleExpand)="toggleRuleExpand($event)" />
+          </div>
+        }
+      </div>
+      <gol-button icon="add" label="Add rule" title="Add a new rule" variant="stroked" (clicked)="addRule()" />
+      <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules || hasInvalidRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="applyRules()" (rightClick)="restoreRules()" />
     </gol-home-section>
     <hr class="divider" />
 

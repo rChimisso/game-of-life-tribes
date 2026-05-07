@@ -1,6 +1,6 @@
 @if (tribe) {
   <div class="tribe-edit-row">
-    <span class="tribe-color-swatch" [style.background-color]="'#' + headerColor"></span>
+    <gol-tribe-swatch class="tribe-color-swatch" size="base" [color]="headerColor" [interactive]="false" [title]="headerName" />
     <span class="tribe-id">{{ headerName }}</span>
     <gol-button class="small-btn" variant="icon" [disabled]="editing && (!canConfirmEdit || !hasPendingChanges)" [icon]="editing ? 'check' : 'edit'" [title]="editing ? 'Apply tribe changes' : 'Edit tribe'" (clicked)="editing ? onSave() : openEditor()" />
     <gol-button class="small-btn" icon="close" title="Discard tribe changes" variant="icon" [disabled]="!editing" (clicked)="cancelEdit()" />
@@ -12,7 +12,7 @@
     <gol-input name="tribeName" placeholder="Name (A-z, 0-9)" regex="^[0-9a-zA-Z]*$" [ngModel]="currentName" (ngModelChange)="onCurrentNameChange($event)" />
     <div class="color-palette">
       @for (c of basicColors; track c) {
-        <button class="color-swatch" type="button" [class.selected]="isColorSelected(c)" [style.background-color]="'#' + c" (click)="onCurrentColorChange(c)"></button>
+        <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [title]="'#' + c" (clicked)="onCurrentColorChange(c)" />
       }
       <button class="color-swatch random-swatch" type="button" (click)="onCurrentColorChange(randomColor())">🎲</button>
     </div>

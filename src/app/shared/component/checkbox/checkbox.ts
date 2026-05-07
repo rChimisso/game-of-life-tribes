@@ -45,6 +45,15 @@ export class CheckboxComponent implements ControlValueAccessor {
   public disabled = false;
 
   /**
+   * Checkbox size.
+   *
+   * @public
+   * @type {'sm' | 'md'}
+   */
+  @Input()
+  public size: 'sm' | 'md' = 'md';
+
+  /**
    * Emitter for the checked change event.
    *
    * @public

@@ -150,3 +150,18 @@ mat-checkbox.mat-mdc-checkbox.mat-mdc-checkbox-disabled {
 mat-expansion-panel {
   margin: 0 -16px;
 }
+
+.gol-rule-drag-preview {
+  overflow: hidden !important;
+  max-width: 100%;
+}
+
+.gol-rule-drag-preview .collapsible,
+.gol-rule-drag-placeholder .collapsible {
+  display: none !important;
+}
+
+.gol-rule-drag-preview .rule-card,
+.gol-rule-drag-preview .rule-body {
+  overflow: hidden !important;
+}

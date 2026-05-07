@@ -1,4 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
+import {CdkDragDrop, DragDropModule, moveItemInArray} from '@angular/cdk/drag-drop';
 import {DecimalPipe} from '@angular/common';
 import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
@@ -13,15 +14,16 @@ import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox'
 import {ExclusiveButtonGroup} from '../../../../shared/component/exclusive-button-group/exclusive-button-group';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
+import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
-import {Clause, DEAD_TRIBE, EditableTribe, NeighborCount, Rule, Ruleset, Tribe} from '../../model/rule';
+import {Clause, DEAD_TRIBE, EditableTribe, Rule, Ruleset, Tribe} from '../../model/rule';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
 import {HomeFooter} from '../footer/footer';
 import {PresetButton} from '../preset-button/preset-button';
-import {RuleCard} from '../rule-card/rule-card';
+import {RuleCard, RuleChangeEvent, RuleStateChangeEvent} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
 
@@ -79,10 +81,12 @@ interface DownloadFrameRange {
     MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
+    DragDropModule,
     DecimalPipe,
     LabelValue,
     PresetButton,
-    HomeFooter
+    HomeFooter,
+    TribeSwatch
   ],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
@@ -276,9 +280,13 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public expandedRuleIndex: number | null = null;
 
+  public draggingRuleIndex: number | null = null;
+
   public hasUnappliedTribes = false;
 
   public hasUnappliedRules = false;
+
+  private readonly ruleStatesByKey = new Map<string, {dirty: boolean; invalid: boolean}>();
 
   public readonly basicColors = [
     '000088',
@@ -379,6 +387,10 @@ export class Sidebar implements OnChanges, OnDestroy {
   private downloadFrameRangeTouched = false;
 
   private nextEditableTribeKey = 0;
+
+  private nextEditableRuleKey = 0;
+
+  private expandedRuleKeyBeforeDrag: string | null = null;
 
   private readonly mobileLayoutQuery: MediaQueryList | null = null;
 
@@ -578,15 +590,12 @@ export class Sidebar implements OnChanges, OnDestroy {
     ];
   }
 
-  public get tribeColorMap(): Record<string, string> {
-    return this.editTribes.reduce<Record<string, string>>((acc, tribe) => {
-      acc[tribe.id] = tribe.color;
-      return acc;
-    }, {});
-  }
-
   public get hasUnappliedGridSize(): boolean {
     return +this.pendingCols !== +this.gridCols || +this.pendingRows !== +this.gridRows;
+  }
+
+  public get hasInvalidRules(): boolean {
+    return this.editRules.some((rule, index) => this.getRuleState(rule, index).invalid);
   }
 
   public get hasUnappliedPacking(): boolean {
@@ -737,8 +746,8 @@ export class Sidebar implements OnChanges, OnDestroy {
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['ruleset'] && this.ruleset) {
       this.syncFromRuleset();
-      this.hasUnappliedTribes = false;
-      this.hasUnappliedRules = false;
+      this.refreshTribesDirtyState();
+      this.refreshRulesDirtyState();
     }
     if (changes['gridCols'] || changes['gridRows']) {
       this.pendingCols = this.gridCols;
@@ -898,7 +907,7 @@ export class Sidebar implements OnChanges, OnDestroy {
         key: this.createEditableTribeKey()
       });
       this.showTribeAdder = false;
-      this.hasUnappliedTribes = true;
+      this.refreshTribesDirtyState();
       return;
     }
 
@@ -921,7 +930,8 @@ export class Sidebar implements OnChanges, OnDestroy {
         this.renameTribeInClause(rule.clause, oldId, event.tribe.id);
       }
     }
-    this.hasUnappliedTribes = true;
+    this.refreshTribesDirtyState();
+    this.refreshRulesDirtyState();
   }
 
   public cancelAddTribe(): void {
@@ -943,164 +953,134 @@ export class Sidebar implements OnChanges, OnDestroy {
       this.removeTribeIdFromClause(r.clause, id);
       return r.tribe !== id;
     });
-    this.hasUnappliedTribes = true;
-    this.hasUnappliedRules = true;
+    this.refreshTribesDirtyState();
+    this.refreshRulesDirtyState();
   }
 
   public addRule(): void {
-    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
-    this.editRules.push({
-      clause: {kind: 'and',
-        clauses: [
-          {kind: 'is',
-            tribes: [dt]},
-          {
-            kind: 'count',
-            tribes: [dt],
-            interval: [2, 3]
-          }
-        ]},
+    const dt = this.defaultTribeId();
+    const newRule = {
+      key: this.createEditableRuleKey(),
+      muted: false,
+      clause: this.createEmptyClause(),
       tribe: dt
+    };
+    this.editRules.push(newRule);
+    this.ruleStatesByKey.set(this.ruleStateKey(newRule, this.editRules.length - 1), {
+      dirty: true,
+      invalid: true
     });
     this.expandedRuleIndex = this.editRules.length - 1;
-    this.hasUnappliedRules = true;
+    this.refreshRulesDirtyState();
   }
 
   public removeRule(index: number): void {
+    const removedRule = this.editRules[index];
     this.editRules.splice(index, 1);
+    if (removedRule) {
+      this.ruleStatesByKey.delete(this.ruleStateKey(removedRule, index));
+    }
+    this.pruneRuleStates();
     if (this.expandedRuleIndex === index) {
       this.expandedRuleIndex = null;
     } else if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
       this.expandedRuleIndex--;
     }
-    this.hasUnappliedRules = true;
+    this.refreshRulesDirtyState();
   }
 
-  public setRuleOutput(index: number, tribe: string): void {
-    this.editRules[index] = {
-      ...this.editRules[index]!,
-      tribe
-    };
-    this.hasUnappliedRules = true;
+  public duplicateRule(index: number): void {
+    const rule = this.editRules[index];
+    if (!rule) {
+      return;
+    }
+    const clonedRule = structuredClone(rule);
+    clonedRule.key = this.createEditableRuleKey();
+    clonedRule.muted = !!clonedRule.muted;
+    this.editRules.splice(index + 1, 0, clonedRule);
+    this.ruleStatesByKey.set(this.ruleStateKey(clonedRule, index + 1), {
+      dirty: true,
+      invalid: true
+    });
+    if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
+      this.expandedRuleIndex++;
+    }
+    this.expandedRuleIndex = index + 1;
+    this.refreshRulesDirtyState();
+  }
+
+  public onRuleDragStarted(index: number): void {
+    this.draggingRuleIndex = index;
+    this.beginRuleDragSession();
+  }
+
+  public onRuleDragHandlePointerDown(index: number): void {
+    this.draggingRuleIndex = index;
+    this.beginRuleDragSession();
+  }
+
+  public onRuleDragEnded(): void {
+    this.draggingRuleIndex = null;
+  }
+
+  public onRuleDropped(event: CdkDragDrop<Rule<Tribe[]>[]>): void {
+    if (event.previousIndex !== event.currentIndex) {
+      moveItemInArray(this.editRules, event.previousIndex, event.currentIndex);
+      this.pruneRuleStates();
+      this.refreshRulesDirtyState();
+    }
+
+    this.draggingRuleIndex = null;
+    this.restoreExpandedRuleAfterReorder();
+  }
+
+  public baselineRule(index: number): Rule<Tribe[]> | null {
+    return this.ruleset.rules[index] ?? null;
   }
 
   public toggleRuleExpand(index: number): void {
     this.expandedRuleIndex = this.expandedRuleIndex === index ? null : index;
   }
 
-  public changeClauseKind(ruleIndex: number, path: number[], newKind: string): void {
-    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
-    let nc: Clause<Tribe[]>;
-    switch (newKind) {
-      case 'is': nc = {kind: 'is',
-        tribes: [dt]}; break;
-      case 'count': nc = {
-        kind: 'count',
-        tribes: [dt],
-        interval: [0, 8]
-      }; break;
-      case 'equality': nc = {
-        kind: 'equality',
-        tribe1: [dt],
-        tribe2: [dt]
-      }; break;
-      case 'not': nc = {kind: 'not',
-        clause: {kind: 'is',
-          tribes: [dt]} }; break;
-      case 'and': nc = {kind: 'and',
-        clauses: [
-          {kind: 'is',
-            tribes: [dt]},
-          {
-            kind: 'count',
-            tribes: [dt],
-            interval: [0, 8]
-          }
-        ]}; break;
-      case 'or': nc = {kind: 'or',
-        clauses: [
-          {kind: 'is',
-            tribes: [dt]},
-          {kind: 'is',
-            tribes: [dt]}
-        ]}; break;
-      default: return;
-    }
-    this.setClauseAtPath(this.editRules[ruleIndex]!, path, nc);
-    this.hasUnappliedRules = true;
-  }
-
-  public toggleClauseTribe(ruleIndex: number, path: number[], tribeId: string): void {
-    const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
-    if (clause.kind !== 'is' && clause.kind !== 'count') {
+  public onRuleChanged(event: RuleChangeEvent): void {
+    const currentRule = this.editRules[event.index];
+    if (!currentRule) {
       return;
     }
-    const idx = clause.tribes.indexOf(tribeId);
-    if (idx >= 0) {
-      if (clause.tribes.length > 1) {
-        clause.tribes.splice(idx, 1);
-      }
-    } else {
-      clause.tribes.push(tribeId);
-    }
-    this.hasUnappliedRules = true;
+
+    this.editRules[event.index] = {
+      ...event.rule,
+      key: currentRule.key
+    };
+    this.ruleStatesByKey.set(this.ruleStateKey(this.editRules[event.index]!, event.index), {
+      dirty: event.dirty,
+      invalid: event.invalid
+    });
+    this.pruneRuleStates();
+    this.refreshRulesDirtyState();
   }
 
-  public toggleClauseEqTribe(ruleIndex: number, path: number[], group: 1 | 2, tribeId: string): void {
-    const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
-    if (clause.kind !== 'equality') {
+  public onRuleStateChanged(event: RuleStateChangeEvent): void {
+    const rule = this.editRules[event.index];
+    if (!rule) {
       return;
     }
-    const arr = group === 1 ? clause.tribe1 : clause.tribe2;
-    const idx = arr.indexOf(tribeId);
-    if (idx >= 0) {
-      if (arr.length > 1) {
-        arr.splice(idx, 1);
-      }
-    } else {
-      arr.push(tribeId);
-    }
-    this.hasUnappliedRules = true;
-  }
 
-  public setClauseInterval(ruleIndex: number, path: number[], which: 0 | 1, value: string): void {
-    const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
-    if (clause.kind !== 'count') {
-      return;
-    }
-    const n = Math.max(0, Math.min(8, parseInt(value, 10) || 0)) as NeighborCount;
-    clause.interval[which] = n;
-    this.hasUnappliedRules = true;
-  }
-
-  public addChildClause(ruleIndex: number, path: number[]): void {
-    const clause = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, path);
-    if (clause.kind !== 'and' && clause.kind !== 'or') {
-      return;
-    }
-    const dt = this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
-    (clause.clauses as Clause<Tribe[]>[]).push({kind: 'is',
-      tribes: [dt]});
-    this.hasUnappliedRules = true;
-  }
-
-  public removeChildClause(ruleIndex: number, path: number[]): void {
-    if (path.length === 0) {
-      return;
-    }
-    const parentPath = path.slice(0, -1);
-    const childIdx = path[path.length - 1]!;
-    const parent = this.getClauseAtPath(this.editRules[ruleIndex]!.clause, parentPath);
-    if ((parent.kind === 'and' || parent.kind === 'or') && parent.clauses.length > 2) {
-      (parent.clauses as Clause<Tribe[]>[]).splice(childIdx, 1);
-      this.hasUnappliedRules = true;
-    }
+    this.ruleStatesByKey.set(this.ruleStateKey(rule, event.index), {
+      dirty: event.dirty,
+      invalid: event.invalid
+    });
+    this.refreshRulesDirtyState();
   }
 
   public applyTribes(): void {
+    if (this.hasInvalidRules) {
+      return;
+    }
+
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => this.toTribe(t)),
-      rules: structuredClone(this.editRules),
+      rules: this.editRules.map(rule => this.toPersistedRule(rule)),
       cols: this.ruleset.cols,
       rows: this.ruleset.rows
     });
@@ -1110,7 +1090,8 @@ export class Sidebar implements OnChanges, OnDestroy {
   public restoreTribes(): void {
     this.editTribes = this.ruleset.tribes.map(t => this.toEditableTribe(t));
     this.showTribeAdder = false;
-    this.hasUnappliedTribes = false;
+    this.refreshTribesDirtyState();
+    this.refreshRulesDirtyState();
   }
 
   public applyPreset(): void {
@@ -1125,9 +1106,13 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public applyRules(): void {
+    if (this.hasInvalidRules) {
+      return;
+    }
+
     this.emit('updateRuleset', {
       tribes: this.editTribes.map(t => this.toTribe(t)),
-      rules: structuredClone(this.editRules),
+      rules: this.editRules.map(rule => this.toPersistedRule(rule)),
       cols: this.ruleset.cols,
       rows: this.ruleset.rows
     });
@@ -1135,9 +1120,22 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public restoreRules(): void {
-    this.editRules = structuredClone(this.ruleset.rules);
-    this.expandedRuleIndex = null;
-    this.hasUnappliedRules = false;
+    const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.editRules[this.expandedRuleIndex]?.key ?? null : null;
+    const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.editRules);
+    this.editRules = this.ruleset.rules.map(rule => {
+      const signature = this.ruleSignature(rule);
+      const keyBucket = previousRuleKeyBuckets.get(signature);
+      const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
+      return this.toEditableRule(rule, preferredKey);
+    });
+    this.ruleStatesByKey.clear();
+    if (previousExpandedRuleKey) {
+      const expandedRuleIndex = this.editRules.findIndex(rule => rule.key === previousExpandedRuleKey);
+      this.expandedRuleIndex = expandedRuleIndex >= 0 ? expandedRuleIndex : null;
+    } else {
+      this.expandedRuleIndex = null;
+    }
+    this.refreshRulesDirtyState();
   }
 
   public restoreGridSize(): void {
@@ -1147,24 +1145,6 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public restorePacking(): void {
     this.pendingSimulationBitsPerCell = this.simulationGridFormat.bitsPerCell;
-  }
-
-  public clauseSummary(clause: Clause<Tribe[]>): string {
-    const s = this.clauseStr(clause);
-    return s.length > 50 ? `${s.substring(0, 47) }…` : s;
-  }
-
-  public getTribeColor(tribeId: string): string {
-    return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
-  }
-
-  public getContrastColor(hex: string): string {
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    // Relative luminance (sRGB)
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5 ? '#111' : '#fff';
   }
 
   public onSheetDragStart(event: PointerEvent): void {
@@ -1277,12 +1257,6 @@ export class Sidebar implements OnChanges, OnDestroy {
     document.addEventListener('pointercancel', onUp);
   }
 
-  public clauseTribes(clause: Clause<Tribe[]>): string[] {
-    const ids = new Set<string>();
-    this.collectClauseTribes(clause, ids);
-    return [...ids];
-  }
-
   public toggleSection(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection'): void {
     switch (section) {
       case 'presets': this.presetsExpanded = !this.presetsExpanded; break;
@@ -1386,7 +1360,8 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   private syncFromRuleset(): void {
     this.editTribes = this.ruleset.tribes.map(t => this.toEditableTribe(t));
-    this.editRules = structuredClone(this.ruleset.rules);
+    this.editRules = this.ruleset.rules.map(rule => this.toEditableRule(rule));
+    this.ruleStatesByKey.clear();
     this.pendingCols = this.ruleset.cols;
     this.pendingRows = this.ruleset.rows;
   }
@@ -1396,6 +1371,80 @@ export class Sidebar implements OnChanges, OnDestroy {
       ...tribe,
       key: this.createEditableTribeKey()
     };
+  }
+
+  private toEditableRule(rule: Rule<Tribe[]>, preferredKey?: string): Rule<Tribe[]> {
+    const editableRule = structuredClone(rule);
+    editableRule.clause = this.normalizeClauseForEditor(editableRule.clause);
+    editableRule.key = preferredKey ?? this.createEditableRuleKey();
+    editableRule.muted = !!editableRule.muted;
+    return editableRule;
+  }
+
+  private toPersistedRule(rule: Rule<Tribe[]>): Rule<Tribe[]> {
+    const persistedRule = structuredClone(rule);
+    persistedRule.clause = this.normalizeClauseForEditor(persistedRule.clause);
+    delete persistedRule.key;
+    persistedRule.muted = !!persistedRule.muted;
+    return persistedRule;
+  }
+
+  private normalizeClauseForEditor(clause: Clause<Tribe[]>): Clause<Tribe[]> {
+    switch (clause.kind) {
+      case 'empty':
+        return this.createEmptyClause();
+      case 'equality':
+        return {
+          ...clause,
+          kind: 'comparison',
+          margin: clause.margin ?? 0
+        };
+      case 'comparison':
+        return {
+          ...clause,
+          margin: clause.margin ?? 0
+        };
+      case 'not':
+        return {
+          ...clause,
+          clause: this.normalizeClauseForEditor(clause.clause)
+        };
+      case 'and':
+      case 'or':
+      case 'xor': {
+        const normalizedClauses = clause.clauses.map(sub => this.normalizeClauseForEditor(sub));
+        while (normalizedClauses.length < 2) {
+          normalizedClauses.push(this.createEmptyClause());
+        }
+        return {
+          ...clause,
+          clauses: normalizedClauses as [Clause<Tribe[]>, Clause<Tribe[]>, ...Clause<Tribe[]>[]]
+        };
+      }
+      default:
+        return clause;
+    }
+  }
+
+  private restoreExpandedRuleAfterReorder(): void {
+    if (!this.expandedRuleKeyBeforeDrag) {
+      return;
+    }
+
+    const expandedIndex = this.editRules.findIndex(rule => rule.key === this.expandedRuleKeyBeforeDrag);
+    this.expandedRuleIndex = expandedIndex >= 0 ? expandedIndex : null;
+    this.expandedRuleKeyBeforeDrag = null;
+  }
+
+  private beginRuleDragSession(): void {
+    if (this.expandedRuleIndex === null) {
+      return;
+    }
+
+    const expandedRule = this.editRules[this.expandedRuleIndex];
+    this.expandedRuleKeyBeforeDrag = expandedRule?.key ?? null;
+    this.expandedRuleIndex = null;
+    this.cdr.detectChanges();
   }
 
   private findEditTribeIndexByKey(key: string): number {
@@ -1413,6 +1462,93 @@ export class Sidebar implements OnChanges, OnDestroy {
     const key = `editable-tribe-${this.nextEditableTribeKey}`;
     this.nextEditableTribeKey++;
     return key;
+  }
+
+  private createEditableRuleKey(): string {
+    const key = `editable-rule-${this.nextEditableRuleKey}`;
+    this.nextEditableRuleKey++;
+    return key;
+  }
+
+  private createEmptyClause(): Clause<Tribe[]> {
+    return {
+      kind: 'empty'
+    };
+  }
+
+  private defaultTribeId(): string {
+    return this.editTribes.find(t => t.id !== DEAD_TRIBE.id)?.id ?? DEAD_TRIBE.id;
+  }
+
+  private refreshTribesDirtyState(): void {
+    if (!this.ruleset) {
+      return;
+    }
+    this.hasUnappliedTribes = !this.tribesEqual(this.editTribes, this.ruleset.tribes);
+  }
+
+  private refreshRulesDirtyState(): void {
+    if (!this.ruleset) {
+      return;
+    }
+    this.pruneRuleStates();
+    const countChanged = this.editRules.length !== this.ruleset.rules.length;
+    const anyDirty = this.editRules.some((rule, index) => this.getRuleState(rule, index).dirty);
+    this.hasUnappliedRules = countChanged || anyDirty;
+  }
+
+  private tribesEqual(editableTribes: readonly EditableTribe[], baseTribes: readonly Tribe[]): boolean {
+    if (editableTribes.length !== baseTribes.length) {
+      return false;
+    }
+
+    return editableTribes.every((tribe, index) => {
+      const base = baseTribes[index];
+      return base ? tribe.id === base.id && tribe.color === base.color : false;
+    });
+  }
+
+  private ruleStateKey(rule: Rule<Tribe[]>, index: number): string {
+    return rule.key ?? `rule-${index}`;
+  }
+
+  private ruleSignature(rule: Rule<Tribe[]>): string {
+    return JSON.stringify(this.toPersistedRule(rule));
+  }
+
+  private buildRuleKeyBuckets(rules: readonly Rule<Tribe[]>[]): Map<string, string[]> {
+    const ruleKeyBuckets = new Map<string, string[]>();
+    for (const rule of rules) {
+      const signature = this.ruleSignature(rule);
+      const {key} = rule;
+      if (!key) {
+        continue;
+      }
+
+      const existingKeys = ruleKeyBuckets.get(signature);
+      if (existingKeys) {
+        existingKeys.push(key);
+      } else {
+        ruleKeyBuckets.set(signature, [key]);
+      }
+    }
+    return ruleKeyBuckets;
+  }
+
+  private getRuleState(rule: Rule<Tribe[]>, index: number): {dirty: boolean; invalid: boolean} {
+    return this.ruleStatesByKey.get(this.ruleStateKey(rule, index)) ?? {
+      dirty: true,
+      invalid: true
+    };
+  }
+
+  private pruneRuleStates(): void {
+    const activeKeys = new Set(this.editRules.map((rule, index) => this.ruleStateKey(rule, index)));
+    for (const key of this.ruleStatesByKey.keys()) {
+      if (!activeKeys.has(key)) {
+        this.ruleStatesByKey.delete(key);
+      }
+    }
   }
 
   private syncDownloadFrameRange(): void {
@@ -1440,12 +1576,15 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private removeTribeIdFromClause(clause: Clause<Tribe[]>, tribeId: string): void {
-    if (clause.kind === 'is' || clause.kind === 'count') {
+    if (clause.kind === 'empty') {
+      return;
+    }
+    if (clause.kind === 'is' || clause.kind === 'count' || clause.kind === 'none' || clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
       const idx = clause.tribes.indexOf(tribeId);
       if (idx >= 0 && clause.tribes.length > 1) {
         clause.tribes.splice(idx, 1);
       }
-    } else if (clause.kind === 'equality') {
+    } else if (clause.kind === 'comparison' || clause.kind === 'equality') {
       const idx1 = clause.tribe1.indexOf(tribeId);
       if (idx1 >= 0 && clause.tribe1.length > 1) {
         clause.tribe1.splice(idx1, 1);
@@ -1456,7 +1595,7 @@ export class Sidebar implements OnChanges, OnDestroy {
       }
     } else if (clause.kind === 'not') {
       this.removeTribeIdFromClause(clause.clause, tribeId);
-    } else if (clause.kind === 'and' || clause.kind === 'or') {
+    } else if (clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor') {
       for (const child of clause.clauses) {
         this.removeTribeIdFromClause(child, tribeId);
       }
@@ -1464,12 +1603,15 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   private renameTribeInClause(clause: Clause<Tribe[]>, oldId: string, newId: string): void {
-    if (clause.kind === 'is' || clause.kind === 'count') {
+    if (clause.kind === 'empty') {
+      return;
+    }
+    if (clause.kind === 'is' || clause.kind === 'count' || clause.kind === 'none' || clause.kind === 'exactly' || clause.kind === 'atLeast' || clause.kind === 'atMost') {
       const idx = clause.tribes.indexOf(oldId);
       if (idx >= 0) {
         clause.tribes[idx] = newId;
       }
-    } else if (clause.kind === 'equality') {
+    } else if (clause.kind === 'comparison' || clause.kind === 'equality') {
       const idx1 = clause.tribe1.indexOf(oldId);
       if (idx1 >= 0) {
         clause.tribe1[idx1] = newId;
@@ -1480,70 +1622,10 @@ export class Sidebar implements OnChanges, OnDestroy {
       }
     } else if (clause.kind === 'not') {
       this.renameTribeInClause(clause.clause, oldId, newId);
-    } else if (clause.kind === 'and' || clause.kind === 'or') {
+    } else if (clause.kind === 'and' || clause.kind === 'or' || clause.kind === 'xor') {
       for (const child of clause.clauses) {
         this.renameTribeInClause(child, oldId, newId);
       }
-    }
-  }
-
-  private getClauseAtPath(root: Clause<Tribe[]>, path: number[]): Clause<Tribe[]> {
-    let current: Clause<Tribe[]> = root;
-    for (const idx of path) {
-      if (current.kind === 'and' || current.kind === 'or') {
-        current = current.clauses[idx]!;
-      } else if (current.kind === 'not') {
-        current = current.clause;
-      }
-    }
-    return current;
-  }
-
-  private setClauseAtPath(rule: Rule<Tribe[]>, path: number[], newClause: Clause<Tribe[]>): void {
-    if (path.length === 0) {
-      rule.clause = newClause;
-      return;
-    }
-    const parent = this.getClauseAtPath(rule.clause, path.slice(0, -1));
-    const lastIdx = path[path.length - 1]!;
-    if (parent.kind === 'and' || parent.kind === 'or') {
-      (parent.clauses as Clause<Tribe[]>[])[lastIdx] = newClause;
-    } else if (parent.kind === 'not') {
-      (parent as {kind: 'not'; clause: Clause<Tribe[]>}).clause = newClause;
-    }
-  }
-
-  private clauseStr(clause: Clause<Tribe[]>): string {
-    switch (clause.kind) {
-      case 'is': return `is ${clause.tribes.join('/')}`;
-      case 'count': return `${clause.tribes.join('/')} ∈ [${clause.interval[0]},${clause.interval[1]}]`;
-      case 'equality': return `#${clause.tribe1.join('/')} = #${clause.tribe2.join('/')}`;
-      case 'not': return `¬(${this.clauseStr(clause.clause)})`;
-      case 'and': return clause.clauses.map(c => this.clauseStr(c)).join(' ∧ ');
-      case 'or': return clause.clauses.map(c => this.clauseStr(c)).join(' ∨ ');
-      default: return '';
-    }
-  }
-
-  private collectClauseTribes(clause: Clause<Tribe[]>, ids: Set<string>): void {
-    switch (clause.kind) {
-      case 'is':
-        clause.tribes.forEach(t => ids.add(t));
-        break;
-      case 'count':
-        clause.tribes.forEach(t => ids.add(t));
-        break;
-      case 'equality':
-        clause.tribe1.forEach(t => ids.add(t));
-        clause.tribe2.forEach(t => ids.add(t));
-        break;
-      case 'not':
-        this.collectClauseTribes(clause.clause, ids);
-        break;
-      case 'and':
-      case 'or':
-        clause.clauses.forEach(c => this.collectClauseTribes(c, ids));
-        break;
     }
   }
 

@@ -4,6 +4,7 @@ import {FormsModule} from '@angular/forms';
 import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../shared/component/button/button';
 import {InputComponent} from '../../../../shared/component/input/input';
+import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
 import {DEAD_TRIBE, EditableTribe, Tribe} from '../../model/rule';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
 
@@ -22,7 +23,8 @@ import {TribeSaveEvent} from '../../model/tribe-save-event';
     FormsModule,
     InputComponent,
     Button,
-    ApplyRestoreButtons
+    ApplyRestoreButtons,
+    TribeSwatch
   ],
   templateUrl: './tribe-entry.html',
   styleUrl: './tribe-entry.scss',

@@ -455,10 +455,11 @@ function generateComputeWgsl(): string {
 
   // Generate applyRules function containing all rule logic.
   const deadIdx = tribeIndex.get(DEAD_TRIBE.id) ?? 0;
+  const activeRules = ruleset.rules.filter(rule => !rule.muted);
   lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
 
   // Precompute neighbor count variables for each unique tribe set used in count clauses.
-  const countSets = collectCountSets(ruleset.rules.map(r => r.clause));
+  const countSets = collectCountSets(activeRules.map(r => r.clause));
   const countVarMap = new Map<string, string>();
   let countIdx = 0;
   for (const key of countSets) {
@@ -480,7 +481,7 @@ function generateComputeWgsl(): string {
   }
 
   // Precompute equality group counts.
-  const equalitySets = collectEqualitySets(ruleset.rules.map(r => r.clause));
+  const equalitySets = collectEqualitySets(activeRules.map(r => r.clause));
   const eqVarMap = new Map<string, string>();
   let eqIdx = 0;
   for (const key of equalitySets) {
@@ -512,8 +513,8 @@ function generateComputeWgsl(): string {
   lines.push('');
 
   // Rule chain: first matching rule wins.
-  for (let ri = 0; ri < ruleset.rules.length; ri++) {
-    const rule = ruleset.rules[ri]!;
+  for (let ri = 0; ri < activeRules.length; ri++) {
+    const rule = activeRules[ri]!;
     const condExpr = generateClauseExpr(rule.clause, countVarMap, eqVarMap);
     const targetIdx = resolveTribeTarget(rule.tribe);
     if (ri === 0) {
@@ -523,7 +524,7 @@ function generateComputeWgsl(): string {
     }
     lines.push(`    result = ${ targetIdx }u;`);
   }
-  if (ruleset.rules.length > 0) {
+  if (activeRules.length > 0) {
     lines.push('  }');
   }
   lines.push('');
@@ -644,7 +645,18 @@ function collectCountSets(clauses: Clause<Tribe[]>[]): Set<string> {
 
 function collectCountSetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
   switch (c.kind) {
+    case 'empty':
+    case 'is':
+      break;
     case 'count': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      result.add(ids.join(','));
+      break;
+    }
+    case 'none':
+    case 'exactly':
+    case 'atLeast':
+    case 'atMost': {
       const ids = resolveTribeIds(c.tribes as string[]).sort();
       result.add(ids.join(','));
       break;
@@ -654,6 +666,7 @@ function collectCountSetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
       break;
     case 'and':
     case 'or':
+    case 'xor':
       for (const sub of c.clauses) {
         collectCountSetsRec(sub, result);
       }
@@ -671,6 +684,15 @@ function collectEqualitySets(clauses: Clause<Tribe[]>[]): Set<string> {
 
 function collectEqualitySetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
   switch (c.kind) {
+    case 'empty':
+    case 'is':
+    case 'count':
+    case 'none':
+    case 'exactly':
+    case 'atLeast':
+    case 'atMost':
+      break;
+    case 'comparison':
     case 'equality': {
       const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
       const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
@@ -683,6 +705,7 @@ function collectEqualitySetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
       break;
     case 'and':
     case 'or':
+    case 'xor':
       for (const sub of c.clauses) {
         collectEqualitySetsRec(sub, result);
       }
@@ -696,6 +719,8 @@ function generateClauseExpr(
   eqVarMap: Map<string, string>,
 ): string {
   switch (c.kind) {
+    case 'empty':
+      return 'false';
     case 'is': {
       const ids = resolveTribeIds(c.tribes as string[]);
       if (ids.length === 0) {
@@ -712,12 +737,50 @@ function generateClauseExpr(
       const varName = countVarMap.get(ids.join(','))!;
       return `(${ varName } >= ${ c.interval[0] }u && ${ varName } <= ${ c.interval[1] }u)`;
     }
+    case 'none': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      const varName = countVarMap.get(ids.join(','))!;
+      return `(${ varName } >= 0u && ${ varName } <= 0u)`;
+    }
+    case 'exactly': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      const varName = countVarMap.get(ids.join(','))!;
+      return `(${ varName } >= ${ c.value }u && ${ varName } <= ${ c.value }u)`;
+    }
+    case 'atLeast': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      const varName = countVarMap.get(ids.join(','))!;
+      return `(${ varName } >= ${ c.value }u && ${ varName } <= 8u)`;
+    }
+    case 'atMost': {
+      const ids = resolveTribeIds(c.tribes as string[]).sort();
+      const varName = countVarMap.get(ids.join(','))!;
+      return `(${ varName } >= 0u && ${ varName } <= ${ c.value }u)`;
+    }
+    case 'comparison':
     case 'equality': {
       const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
       const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
       const var1 = eqVarMap.get(ids1.join(','))!;
       const var2 = eqVarMap.get(ids2.join(','))!;
-      return `(${ var1 } == ${ var2 })`;
+      const op = c.operator ?? '=';
+      const margin = Math.max(-8, Math.min(8, c.margin ?? 0));
+      const rightExpr = `(i32(${ var2 }) + ${ margin }i)`;
+      switch (op) {
+        case '!=':
+          return `(i32(${ var1 }) != ${ rightExpr })`;
+        case '>':
+          return `(i32(${ var1 }) > ${ rightExpr })`;
+        case '<':
+          return `(i32(${ var1 }) < ${ rightExpr })`;
+        case '>=':
+          return `(i32(${ var1 }) >= ${ rightExpr })`;
+        case '<=':
+          return `(i32(${ var1 }) <= ${ rightExpr })`;
+        case '=':
+        default:
+          return `(i32(${ var1 }) == ${ rightExpr })`;
+      }
     }
     case 'not':
       return `!(${ generateClauseExpr(c.clause, countVarMap, eqVarMap) })`;
@@ -728,6 +791,11 @@ function generateClauseExpr(
     case 'or': {
       const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
       return `(${ parts.join(' || ') })`;
+    }
+    case 'xor': {
+      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
+      const oddExpr = parts.map(p => `select(0u, 1u, ${ p })`).join(' + ');
+      return `(((${ oddExpr }) & 1u) == 1u)`;
     }
     default:
       return 'false';

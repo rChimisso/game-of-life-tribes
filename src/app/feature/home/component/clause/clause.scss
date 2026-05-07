@@ -19,10 +19,49 @@
   margin: 2px 0;
 }
 
+.collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+
+  &.open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.collapsible-inner {
+  overflow: hidden;
+}
+
 .clause-header {
   display: flex;
   align-items: center;
   gap: 4px;
+  --mat-icon-button-touch-target-size: 32px;
+}
+
+.clause-summary {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #999;
+  font-size: 0.72rem;
+  user-select: none;
+  line-height: 18px;
+
+  > gol-tribe-swatch {
+    transform: translateY(2px);
+
+    & + gol-tribe-swatch {
+      margin-left: 3px;
+    }
+  }
+}
+
+.clause-summary-text {
+  white-space: pre;
 }
 
 .clause-type-select {
@@ -38,23 +77,13 @@
 .clause-tribes {
   display: flex;
   gap: 3px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: max-content;
   padding: 2px 0;
 }
 
-.tribe-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  opacity: 0.35;
-
-  &.selected {
-    opacity: 1;
-    border-color: white;
-  }
+.clause-all-checkbox {
+  margin-right: 4px;
 }
 
 .clause-interval {
@@ -88,6 +117,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: max-content;
   padding: 2px 0;
 }
 
@@ -96,6 +126,37 @@
   font-weight: 500;
 }
 
+.comparison-operator {
+  padding: 1px 4px;
+  min-width: 46px;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ddd;
+  font-size: 0.75rem;
+}
+
+.margin-input {
+  width: 44px;
+  padding: 2px 4px;
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: white;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
 .clause-add {
   padding: 2px 0;
+}
+
+.group-toggle-btn {
+  color: #888;
+}
+
+.clause-children {
+  margin-left: 12px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }

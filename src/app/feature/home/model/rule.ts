@@ -84,7 +84,24 @@ export type Interval = [NeighborCount, NeighborCount];
  * @export
  * @typedef {Clause}
  */
-export type Clause<T extends readonly Tribe[]> = IsClause<T> | IntervalClause<T> | EqualityClause<T> | NotClause<T> | AndClause<T> | OrClause<T>;
+export type Clause<T extends readonly Tribe[]> = EmptyClause | IsClause<T> | IntervalClause<T> | NoneClause<T> | ExactlyClause<T> | AtLeastClause<T> | AtMostClause<T> | ComparisonClause<T> | NotClause<T> | AndClause<T> | OrClause<T> | XorClause<T>;
+
+/**
+ * Placeholder clause used while building rule expressions.
+ *
+ * @export
+ * @interface EmptyClause
+ * @typedef {EmptyClause}
+ */
+export interface EmptyClause {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'empty'}
+   */
+  readonly kind: 'empty';
+}
 
 /**
  * Clause specifying the belonging of a cell to a set of tribes.
@@ -139,32 +156,155 @@ export interface IntervalClause<T extends readonly Tribe[]> {
 }
 
 /**
- * Clause specifying equality for a cell's neighbor count of two different tribes.
+ * Clause specifying a comparison between neighbor counts of two tribe groups.
  *
  * @export
- * @interface EqualityClause<T extends readonly Tribe[]>
- * @typedef {EqualityClause<T extends readonly Tribe[]>}
+ * @interface ComparisonClause<T extends readonly Tribe[]>
+ * @typedef {ComparisonClause<T extends readonly Tribe[]>}
  */
-export interface EqualityClause<T extends readonly Tribe[]> {
+export interface ComparisonClause<T extends readonly Tribe[]> {
   /**
    * Clause type.
    *
    * @readonly
-   * @type {'equality'}
+   * @type {'comparison' | 'equality'}
    */
-  readonly kind: 'equality';
+  readonly kind: 'comparison' | 'equality';
   /**
-   * Tribes to check the equality count for.
+   * Tribes for the left-hand side count.
    *
    * @type {AllowedTribe<T>}
    */
   tribe1: [AllowedTribe<T>, ...AllowedTribe<T>[]];
   /**
-   * Tribes to check the equality count for.
+   * Tribes for the right-hand side count.
    *
    * @type {AllowedTribe<T>}
    */
   tribe2: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  /**
+   * Comparison operator between the two counts.
+   *
+   * @type {'=' | '!=' | '>' | '<' | '>=' | '<='}
+   */
+  operator?: '=' | '!=' | '>' | '<' | '>=' | '<=';
+  /**
+   * Right-side margin applied to tribe2 count before comparison.
+   * Effective expression: count(tribe1) operator (count(tribe2) + margin).
+   *
+   * @type {number}
+   */
+  margin?: number;
+}
+
+/**
+ * Alias clause: no matching neighbors from selected tribes.
+ *
+ * @export
+ * @interface NoneClause<T extends readonly Tribe[]>
+ * @typedef {NoneClause<T extends readonly Tribe[]>}
+ */
+export interface NoneClause<T extends readonly Tribe[]> {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'none'}
+   */
+  readonly kind: 'none';
+  /**
+   * Set of tribes this alias counts.
+   *
+   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   */
+  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+}
+
+/**
+ * Alias clause: exactly N neighbors from selected tribes.
+ *
+ * @export
+ * @interface ExactlyClause<T extends readonly Tribe[]>
+ * @typedef {ExactlyClause<T extends readonly Tribe[]>}
+ */
+export interface ExactlyClause<T extends readonly Tribe[]> {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'exactly'}
+   */
+  readonly kind: 'exactly';
+  /**
+   * Set of tribes this alias counts.
+   *
+   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   */
+  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  /**
+   * Required exact neighbor count.
+   *
+   * @type {NeighborCount}
+   */
+  value: NeighborCount;
+}
+
+/**
+ * Alias clause: at least N neighbors from selected tribes.
+ *
+ * @export
+ * @interface AtLeastClause<T extends readonly Tribe[]>
+ * @typedef {AtLeastClause<T extends readonly Tribe[]>}
+ */
+export interface AtLeastClause<T extends readonly Tribe[]> {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'atLeast'}
+   */
+  readonly kind: 'atLeast';
+  /**
+   * Set of tribes this alias counts.
+   *
+   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   */
+  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  /**
+   * Minimum neighbor count.
+   *
+   * @type {NeighborCount}
+   */
+  value: NeighborCount;
+}
+
+/**
+ * Alias clause: at most N neighbors from selected tribes.
+ *
+ * @export
+ * @interface AtMostClause<T extends readonly Tribe[]>
+ * @typedef {AtMostClause<T extends readonly Tribe[]>}
+ */
+export interface AtMostClause<T extends readonly Tribe[]> {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'atMost'}
+   */
+  readonly kind: 'atMost';
+  /**
+   * Set of tribes this alias counts.
+   *
+   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   */
+  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  /**
+   * Maximum neighbor count.
+   *
+   * @type {NeighborCount}
+   */
+  value: NeighborCount;
 }
 
 /**
@@ -237,6 +377,29 @@ export interface OrClause<T extends readonly Tribe[]> {
 }
 
 /**
+ * Clause requiring an odd number of affected clauses to be true.
+ *
+ * @export
+ * @interface XorClause<T extends readonly Tribe[]>
+ * @typedef {XorClause<T extends readonly Tribe[]>}
+ */
+export interface XorClause<T extends readonly Tribe[]> {
+  /**
+   * Clause type.
+   *
+   * @readonly
+   * @type {'xor'}
+   */
+  readonly kind: 'xor';
+  /**
+   * Affected clauses.
+   *
+   * @type {[Clause<T>, Clause<T>, ...Clause<T>[]]}
+   */
+  clauses: [Clause<T>, Clause<T>, ...Clause<T>[]];
+}
+
+/**
  * Rule.
  *
  * @export
@@ -244,6 +407,12 @@ export interface OrClause<T extends readonly Tribe[]> {
  * @typedef {Rule}
  */
 export interface Rule<T extends readonly Tribe[]> {
+  /**
+   * Stable UI key used for Angular list tracking in editors.
+   *
+   * @type {string}
+   */
+  key?: string;
   /**
    * Clause that needs to be true for the rule to apply.
    *
@@ -256,6 +425,12 @@ export interface Rule<T extends readonly Tribe[]> {
    * @type {T[number]['id'] | typeof ANY_TRIBE_ID}
    */
   tribe: AllowedTribe<T>;
+  /**
+   * Whether this rule is temporarily disabled in the editor/runtime.
+   *
+   * @type {boolean}
+   */
+  muted?: boolean;
 }
 
 /**

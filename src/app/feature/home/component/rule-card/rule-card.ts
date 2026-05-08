@@ -150,7 +150,8 @@ export class RuleCard implements OnChanges {
   public get tribeSelectOptions(): SelectOption[] {
     return this.editTribes.map(tribe => ({
       value: tribe.id,
-      label: tribe.id
+      label: tribe.id,
+      swatchColor: tribe.color
     }));
   }
 

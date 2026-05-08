@@ -4,6 +4,7 @@ import {MatFormFieldModule, MatFormFieldAppearance} from '@angular/material/form
 import {MatSelectModule} from '@angular/material/select';
 
 import {SelectOption, SelectValue} from './model/select';
+import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 /**
  * Shared select component.
@@ -16,7 +17,7 @@ import {SelectOption, SelectValue} from './model/select';
 @Component({
   selector: 'gol-select',
   standalone: true,
-  imports: [MatFormFieldModule, MatSelectModule],
+  imports: [MatFormFieldModule, MatSelectModule, TribeSwatch],
   templateUrl: './select.html',
   styleUrl: './select.scss',
   preserveWhitespaces: false,
@@ -110,6 +111,16 @@ export class SelectComponent implements ControlValueAccessor {
    * @type {SelectValue}
    */
   public value: SelectValue = null;
+
+  /**
+   * Currently selected option metadata.
+   *
+   * @public
+   * @type {(SelectOption | null)}
+   */
+  public get selectedOption(): SelectOption | null {
+    return this.options.find(option => option.value === this.value) ?? null;
+  }
 
   /**
    * @inheritdoc

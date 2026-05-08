@@ -55,10 +55,6 @@
         flex-wrap: wrap;
         gap: 4px;
 
-        > .color-swatch {
-          display: inline-flex;
-        }
-
         > .random-swatch {
           background: linear-gradient(135deg, #f00, #0f0, #00f) !important;
           font-size: 12px;

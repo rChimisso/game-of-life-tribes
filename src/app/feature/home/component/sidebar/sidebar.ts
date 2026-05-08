@@ -1480,9 +1480,18 @@ export class Sidebar implements OnChanges, OnDestroy {
       return;
     }
     this.pruneRuleStates();
-    const countChanged = this.editRules.length !== this.ruleset.rules.length;
-    const anyDirty = this.editRules.some((rule, index) => this.getRuleState(rule, index).dirty);
-    this.hasUnappliedRules = countChanged || anyDirty;
+    this.hasUnappliedRules = !this.rulesEqual(this.editRules, this.ruleset.rules);
+  }
+
+  private rulesEqual(editableRules: readonly Rule<Tribe[]>[], baseRules: readonly Rule<Tribe[]>[]): boolean {
+    if (editableRules.length !== baseRules.length) {
+      return false;
+    }
+
+    return editableRules.every((rule, index) => {
+      const baseRule = baseRules[index];
+      return baseRule ? this.ruleSignature(rule) === this.ruleSignature(baseRule) : false;
+    });
   }
 
   private tribesEqual(editableTribes: readonly EditableTribe[], baseTribes: readonly Tribe[]): boolean {
@@ -1525,8 +1534,8 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   private getRuleState(rule: Rule<Tribe[]>, index: number): {dirty: boolean; invalid: boolean} {
     return this.ruleStatesByKey.get(this.ruleStateKey(rule, index)) ?? {
-      dirty: true,
-      invalid: true
+      dirty: false,
+      invalid: false
     };
   }
 

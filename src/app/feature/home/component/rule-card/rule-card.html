@@ -30,10 +30,6 @@
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [editTribes]="editTribes" [path]="[]" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />
       <div class="rule-output-row">
         <span class="rule-output-label">→ becomes</span>
-        <span class="rule-output-preview">
-          <gol-tribe-swatch size="sm" [color]="outputTribeColor()" [interactive]="false" [title]="rule.tribe" />
-          <span>{{ rule.tribe }}</span>
-        </span>
         <gol-select class="tribe-select" [disabled]="!!rule.muted" [ngModel]="rule.tribe" [options]="tribeSelectOptions" (ngModelChange)="onSetRuleOutput($event)" />
       </div>
     </div>

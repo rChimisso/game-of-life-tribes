@@ -38,4 +38,10 @@ export interface SelectOption {
    * @type {?boolean}
    */
   hidden?: boolean;
+  /**
+   * Optional tribe swatch color in RGB hex (no #) used for rich option rendering.
+   *
+   * @type {?string}
+   */
+  swatchColor?: string;
 }

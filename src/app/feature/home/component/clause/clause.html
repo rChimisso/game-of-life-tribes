@@ -3,26 +3,14 @@
 <ng-template #clauseTpl let-clause let-depth="depth" let-path="path">
   <div class="clause-node" [style.padding-left.px]="depth > 0 ? 16 : 0">
     <div class="clause-header">
-      <gol-select class="clause-type-select" [ngModel]="clause.kind" [options]="clauseKindOptions" (ngModelChange)="emitChangeKind(path, $event)" />
+      <gol-select class="clause-type-select" title="Change clause type" [ngModel]="clause.kind" [options]="clauseKindOptions" (ngModelChange)="emitChangeKind(path, $event)" />
       @if (clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") {
-        <button class="small-btn group-toggle-btn" mat-icon-button [title]="isGroupCollapsed(path) ? 'Expand group' : 'Collapse group'" (click)="toggleGroupCollapse(path, $event)">
-          <mat-icon>{{ isGroupCollapsed(path) ? "chevron_right" : "expand_more" }}</mat-icon>
-        </button>
+        <gol-button class="group-toggle-btn" size="sm" variant="icon" [icon]="isGroupCollapsed(path) ? 'chevron_right' : 'expand_more'" [label]="isGroupCollapsed(path) ? 'Expand clause' : 'Collapse clause'" [title]="isGroupCollapsed(path) ? 'Expand clause' : 'Collapse clause'" (clicked)="toggleGroupCollapse(path)" />
       }
       @if ((clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") && isGroupCollapsed(path)) {
-        <span class="clause-summary">
-          @for (part of clauseSummaryParts(clause); track $index) {
-            @if (part.kind === "text") {
-              <span class="clause-summary-text">{{ part.text }}</span>
-            } @else {
-              <gol-tribe-swatch size="xs" [color]="summaryTribeColor(part.tribeId!)" [interactive]="false" [title]="part.tribeId!" />
-            }
-          }
-        </span>
+        <gol-summary class="clause-summary" [clause]="clause" [tribeColors]="editTribes" />
       }
-      <button class="small-btn" mat-icon-button (click)="emitRemoveChild(path)">
-        <mat-icon>delete</mat-icon>
-      </button>
+      <gol-button icon="delete" label="Delete clause" size="sm" title="Delete clause" variant="icon" (clicked)="emitRemoveChild(path)" />
     </div>
 
     @switch (clause.kind) {
@@ -115,26 +103,7 @@
               <gol-tribe-swatch class="clause-swatch" size="sm" [color]="t.color" [selected]="clause.tribe2.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 2, t.id)" />
             }
           </div>
-          <span class="interval-label">+ margin</span>
-          <input class="margin-input" max="8" min="-8" [ngModel]="clause.margin ?? 0" (ngModelChange)="emitSetMargin(path, $event)" />
-        </div>
-      }
-      @case ("equality") {
-        <div class="clause-eq">
-          <div class="clause-tribes">
-            <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribe1)" (ngModelChange)="onToggleAllEqTribes(path, 1, clause.tribe1, $event)" />
-            @for (t of editTribes; track t.key) {
-              <gol-tribe-swatch class="clause-swatch" size="sm" [color]="t.color" [selected]="clause.tribe1.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 1, t.id)" />
-            }
-          </div>
-          <gol-select class="comparison-operator" [ngModel]="clause.operator || '='" [options]="comparisonOperatorOptions" (ngModelChange)="emitSetOperator(path, $event)" />
-          <div class="clause-tribes">
-            <gol-checkbox class="clause-all-checkbox" label="All" size="sm" [ngModel]="tribeSelectionState(clause.tribe2)" (ngModelChange)="onToggleAllEqTribes(path, 2, clause.tribe2, $event)" />
-            @for (t of editTribes; track t.key) {
-              <gol-tribe-swatch class="clause-swatch" size="sm" [color]="t.color" [selected]="clause.tribe2.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 2, t.id)" />
-            }
-          </div>
-          <span class="interval-label">+ margin</span>
+          <span class="interval-label">+</span>
           <input class="margin-input" max="8" min="-8" [ngModel]="clause.margin ?? 0" (ngModelChange)="emitSetMargin(path, $event)" />
         </div>
       }
@@ -146,11 +115,9 @@
           @for (child of clause.clauses; track $index; let ci = $index) {
             <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1, path: childPath(path, ci) }"></ng-container>
           }
-          <div class="clause-add">
-            <button class="small-btn" mat-icon-button (click)="emitAddChild(path)">
-              <mat-icon>add</mat-icon>
-            </button>
-          </div>
+          <button class="clause-add" mat-icon-button title="Add new clause" (click)="emitAddChild(path)">
+            <mat-icon>add</mat-icon>
+          </button>
         </div>
       </div>
     }

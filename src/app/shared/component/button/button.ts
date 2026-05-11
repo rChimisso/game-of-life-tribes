@@ -54,6 +54,15 @@ export class Button {
   public variant: 'raised' | 'flat' | 'stroked' | 'text' | 'icon' = 'raised';
 
   /**
+   * Size.
+   *
+   * @public
+   * @type {'base' | 'sm'}
+   */
+  @Input()
+  public size: 'base' | 'sm' = 'base';
+
+  /**
    * Whether it's disabled.
    *
    * @public

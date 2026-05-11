@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import {CdkDragDrop, DragDropModule, moveItemInArray} from '@angular/cdk/drag-drop';
 import {DecimalPipe} from '@angular/common';
-import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, ElementRef, NgZone} from '@angular/core';
+import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatExpansionModule} from '@angular/material/expansion';
@@ -18,15 +18,17 @@ import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatc
 import {BitsPerCell, gridByteSize, gridFormatFromBits, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL, validatePackingAgainstStateCount} from '../../model/grid-format';
 import {Preset, PRESETS} from '../../model/preset';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
+import {RuleChangeEvent, RuleStateChangeEvent} from '../../model/rule-card';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {RECORDING_MAX_FRAME_BYTES} from '../../worker/recording-limits';
 import {HomeFooter} from '../footer/footer';
 import {PresetButton} from '../preset-button/preset-button';
-import {RuleCard, RuleChangeEvent, RuleStateChangeEvent} from '../rule-card/rule-card';
+import {RuleCard} from '../rule-card/rule-card';
 import {HomeSection} from '../section/section';
 import {TribeEntry} from '../tribe-entry/tribe-entry';
 
+import {TypedChanges} from '~gol/core/model/typed-change';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
@@ -743,20 +745,20 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.clearPendingTransitionReset();
   }
 
-  public ngOnChanges(changes: SimpleChanges): void {
-    if (changes['ruleset'] && this.ruleset) {
+  public ngOnChanges(changes: TypedChanges<Sidebar>): void {
+    if (changes.ruleset && this.ruleset) {
       this.syncFromRuleset();
       this.refreshTribesDirtyState();
       this.refreshRulesDirtyState();
     }
-    if (changes['gridCols'] || changes['gridRows']) {
+    if (changes.gridCols || changes.gridRows) {
       this.pendingCols = this.gridCols;
       this.pendingRows = this.gridRows;
     }
-    if (changes['simulationGridFormat']) {
+    if (changes.simulationGridFormat) {
       this.pendingSimulationBitsPerCell = this.simulationGridFormat.bitsPerCell;
     }
-    if (changes['metrics']) {
+    if (changes.metrics) {
       this.syncDownloadFrameRange();
     }
   }

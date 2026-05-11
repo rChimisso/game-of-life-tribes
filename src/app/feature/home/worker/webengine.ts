@@ -753,27 +753,23 @@ function generateClauseExpr(
       return `(${ varName } >= 0u && ${ varName } <= ${ c.value }u)`;
     }
     case COMPARISON_CLAUSE_KIND: {
-      const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
-      const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
-      const var1 = eqVarMap.get(ids1.join(','))!;
-      const var2 = eqVarMap.get(ids2.join(','))!;
-      const op = c.operator ?? '=';
+      const var1 = eqVarMap.get(resolveTribeIds(c.tribe1 as string[]).sort().join(','))!;
       const margin = Math.max(-8, Math.min(8, c.margin ?? 0));
-      const rightExpr = `(i32(${ var2 }) + ${ margin }i)`;
-      switch (op) {
-        case '!=':
-          return `(i32(${ var1 }) != ${ rightExpr })`;
+      const rightExpr = `(i32(${eqVarMap.get(resolveTribeIds(c.tribe2 as string[]).sort().join(','))!}) + ${ margin }i)`;
+      switch (c.operator) {
+        case '≠':
+          return `(i32(${var1}) != ${rightExpr})`;
         case '>':
-          return `(i32(${ var1 }) > ${ rightExpr })`;
+          return `(i32(${var1}) > ${rightExpr})`;
         case '<':
-          return `(i32(${ var1 }) < ${ rightExpr })`;
-        case '>=':
-          return `(i32(${ var1 }) >= ${ rightExpr })`;
-        case '<=':
-          return `(i32(${ var1 }) <= ${ rightExpr })`;
+          return `(i32(${var1}) < ${rightExpr})`;
+        case '≥':
+          return `(i32(${var1}) >= ${rightExpr})`;
+        case '≤':
+          return `(i32(${var1}) <= ${rightExpr})`;
         case '=':
         default:
-          return `(i32(${ var1 }) == ${ rightExpr })`;
+          return `(i32(${var1}) == ${rightExpr})`;
       }
     }
     case NOT_CLAUSE_KIND:

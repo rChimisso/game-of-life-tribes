@@ -1,36 +1,19 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {Button} from '../../../../shared/component/button/button';
 import {SelectOption} from '../../../../shared/component/select/model/select';
 import {SelectComponent} from '../../../../shared/component/select/select';
+import {SummaryComponent} from '../../../../shared/component/summary/summary';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
-import {buildClauseSummaryParts, RuleSummaryPart} from '../../util/clause-summary';
+import {RuleChangeEvent, RuleStateChangeEvent} from '../../model/rule-card';
 import {ClauseChangeEvent, ClauseStateChangeEvent, RuleClause} from '../clause/clause';
 
-interface RuleStateChangeEvent {
-  index: number;
-  dirty: boolean;
-  invalid: boolean;
-}
-
-interface RuleChangeEvent extends RuleStateChangeEvent {
-  rule: Rule<Tribe[]>;
-}
-
-type RuleDisplaySummaryPart =
-  | {
-      kind: 'text';
-      text: string;
-    }
-  | {
-      kind: 'tribes';
-      tribes: string[];
-    };
+import {TypedChanges} from '~gol/core/model/typed-change';
 
 @Component({
   selector: 'gol-rule-card',
@@ -41,6 +24,7 @@ type RuleDisplaySummaryPart =
     RuleClause,
     Button,
     SelectComponent,
+    SummaryComponent,
     TribeSwatch,
     MatIconModule
   ],
@@ -85,10 +69,6 @@ export class RuleCard implements OnChanges {
 
   private clauseInvalid = false;
 
-  public get summaryParts(): RuleSummaryPart[] {
-    return buildClauseSummaryParts(this.rule.clause);
-  }
-
   public get isDirty(): boolean {
     if (!this.baselineRule) {
       return true;
@@ -101,52 +81,6 @@ export class RuleCard implements OnChanges {
     return this.clauseInvalid;
   }
 
-  public get displaySummaryParts(): RuleDisplaySummaryPart[] {
-    const parts: RuleDisplaySummaryPart[] = [];
-
-    this.summaryParts.forEach(part => {
-      if (part.kind === 'text') {
-        const text = part.text ?? '';
-        if (!text) {
-          return;
-        }
-
-        const lastPart = parts.at(-1);
-        if (lastPart?.kind === 'text') {
-          lastPart.text += text;
-          return;
-        }
-
-        parts.push({
-          kind: 'text',
-          text
-        });
-        return;
-      }
-
-      if (!part.tribeId) {
-        return;
-      }
-
-      const lastPart = parts.at(-1);
-      if (lastPart?.kind === 'tribes') {
-        lastPart.tribes.push(part.tribeId);
-        return;
-      }
-
-      parts.push({
-        kind: 'tribes',
-        tribes: [part.tribeId]
-      });
-    });
-
-    return parts;
-  }
-
-  public get summaryTooltip(): string {
-    return this.displaySummaryParts.map(part => part.kind === 'text' ? part.text : part.tribes.join('/')).reduce((acc, curr) => acc + curr, '');
-  }
-
   public get tribeSelectOptions(): SelectOption[] {
     return this.editTribes.map(tribe => ({
       value: tribe.id,
@@ -155,22 +89,14 @@ export class RuleCard implements OnChanges {
     }));
   }
 
-  public ngOnChanges(changes: SimpleChanges): void {
-    if (changes['rule'] || changes['baselineRule']) {
+  public ngOnChanges(changes: TypedChanges<RuleCard>): void {
+    if (changes.rule || changes.baselineRule) {
       this.emitRuleState();
     }
   }
 
-  public tribeColor(tribeId: string): string {
-    return this.editTribes.find(tribe => tribe.id === tribeId)?.color ?? '888888';
-  }
-
   public outputTribeColor(): string {
     return this.editTribes.find(tribe => tribe.id === this.rule.tribe)?.color ?? '888888';
-  }
-
-  public summaryOverflowLabel(tribeIds: string[]): string {
-    return `${tribeIds.join(', ')}`;
   }
 
   public onSetRuleOutput(tribeId: string): void {
@@ -277,7 +203,6 @@ export class RuleCard implements OnChanges {
         while (normalizedClauses.length < 2) {
           normalizedClauses.push(EMPTY_CLAUSE);
         }
-
         return {
           ...clause,
           clauses: normalizedClauses as [Clause<Tribe[]>, Clause<Tribe[]>, ...Clause<Tribe[]>[]]
@@ -288,5 +213,3 @@ export class RuleCard implements OnChanges {
     }
   }
 }
-
-export type {RuleChangeEvent, RuleStateChangeEvent};

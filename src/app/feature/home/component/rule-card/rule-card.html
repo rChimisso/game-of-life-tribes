@@ -3,32 +3,18 @@
     <mat-icon>drag_indicator</mat-icon>
   </button>
   <mat-icon class="expand-icon" [title]="expanded ? 'Collapse rule' : 'Expand rule'">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
-  <span class="rule-summary" [title]="summaryTooltip">
-    @for (part of displaySummaryParts; track $index) {
-      @if (part.kind === "text") {
-        <span class="summary-text">{{ part.text }}</span>
-      } @else if (part.tribes.length > 4) {
-        <span class="summary-overflow" tabindex="0" [attr.aria-label]="summaryOverflowLabel(part.tribes)" [title]="summaryOverflowLabel(part.tribes)">
-          <mat-icon>more_horiz</mat-icon>
-        </span>
-      } @else {
-        @for (tribeId of part.tribes; track tribeId) {
-          <gol-tribe-swatch size="xs" [color]="tribeColor(tribeId)" [interactive]="false" [title]="tribeId" />
-        }
-      }
-    }
-  </span>
+  <gol-summary class="rule-summary" [clause]="rule.clause" [tribeColors]="editTribes" />
   <span class="rule-arrow" [title]="'Becomes ' + rule.tribe">→</span>
   <gol-tribe-swatch size="sm" [color]="outputTribeColor()" [interactive]="false" [title]="'Becomes ' + rule.tribe" />
-  <gol-button class="small-btn" icon="content_copy" label="Duplicate rule" title="Duplicate rule" variant="icon" (click)="onDuplicate($event)" />
-  <gol-button class="small-btn" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [title]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />
-  <gol-button class="small-btn" icon="delete" label="Delete rule" title="Delete rule" variant="icon" (click)="onRemove($event)" />
+  <gol-button icon="content_copy" label="Duplicate rule" size="sm" title="Duplicate rule" variant="icon" (click)="onDuplicate($event)" />
+  <gol-button size="sm" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [title]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />
+  <gol-button icon="delete" label="Delete rule" size="sm" title="Delete rule" variant="icon" (click)="onRemove($event)" />
 </div>
 <div class="collapsible" title="" [class.muted]="rule.muted" [class.open]="expanded">
   <div class="collapsible-inner">
     <div class="rule-body">
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [editTribes]="editTribes" [path]="[]" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />
-      <div class="rule-output-row">
+      <div class="rule-output-row" [title]="'This cell will become ' + rule.tribe + ' if the above conditions are met'">
         <span class="rule-output-label">→ becomes</span>
         <gol-select class="tribe-select" [disabled]="!!rule.muted" [ngModel]="rule.tribe" [options]="tribeSelectOptions" (ngModelChange)="onSetRuleOutput($event)" />
       </div>

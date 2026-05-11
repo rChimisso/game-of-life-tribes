@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
 import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
@@ -7,6 +7,8 @@ import {InputComponent} from '../../../../shared/component/input/input';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
 import {DEAD_TRIBE_ID, EditableTribe, Tribe} from '../../model/rule';
 import {TribeSaveEvent} from '../../model/tribe-save-event';
+
+import {TypedChanges} from '~gol/core/model/typed-change';
 
 /**
  * Tribe entry editor.
@@ -261,10 +263,10 @@ export class TribeEntry implements OnChanges {
   /**
    * @inheritdoc
    */
-  public ngOnChanges(changes: SimpleChanges): void {
-    if (changes['tribe']) {
+  public ngOnChanges(changes: TypedChanges<TribeEntry>): void {
+    if (changes.tribe) {
       this.resetDraft();
-      if (!changes['tribe'].firstChange) {
+      if (!changes.tribe.firstChange) {
         this.editing = false;
       }
     }

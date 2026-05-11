@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import {NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -8,9 +8,12 @@ import {MatIconModule} from '@angular/material/icon';
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
 import {SelectOption} from '../../../../shared/component/select/model/select';
 import {SelectComponent} from '../../../../shared/component/select/select';
+import {SummaryComponent} from '../../../../shared/component/summary/summary';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
-import {buildClauseSummaryParts, RuleSummaryPart} from '../../util/clause-summary';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
+
+import {TypedChanges} from '~gol/core/model/typed-change';
+import {Button} from '~gol/shared/component/button/button';
 
 interface ClauseStateChangeEvent {
   dirty: boolean;
@@ -31,7 +34,9 @@ interface ClauseChangeEvent extends ClauseStateChangeEvent {
     MatIconModule,
     CheckboxComponent,
     SelectComponent,
-    TribeSwatch
+    SummaryComponent,
+    TribeSwatch,
+    Button
   ],
   templateUrl: './clause.html',
   styleUrl: './clause.scss',
@@ -121,8 +126,8 @@ export class RuleClause implements OnChanges {
       label: '='
     },
     {
-      value: '!=',
-      label: '!='
+      value: '≠',
+      label: '≠'
     },
     {
       value: '>',
@@ -133,17 +138,17 @@ export class RuleClause implements OnChanges {
       label: '<'
     },
     {
-      value: '>=',
-      label: '>='
+      value: '≥',
+      label: '≥'
     },
     {
-      value: '<=',
-      label: '<='
+      value: '≤',
+      label: '≤'
     }
   ];
 
-  public ngOnChanges(changes: SimpleChanges): void {
-    if (changes['clause'] || changes['baselineClause']) {
+  public ngOnChanges(changes: TypedChanges<RuleClause>): void {
+    if (changes.clause || changes.baselineClause) {
       this.emitClauseState();
     }
   }
@@ -313,7 +318,7 @@ export class RuleClause implements OnChanges {
     });
   }
 
-  public emitSetOperator(path: number[], operator: '=' | '!=' | '>' | '<' | '>=' | '<='): void {
+  public emitSetOperator(path: number[], operator: Operator): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
       if (clause.kind === COMPARISON_CLAUSE_KIND) {
@@ -355,8 +360,7 @@ export class RuleClause implements OnChanges {
     return path.concat(0);
   }
 
-  public toggleGroupCollapse(path: number[], event: Event): void {
-    event.stopPropagation();
+  public toggleGroupCollapse(path: number[]): void {
     const key = this.groupKey(path);
     if (this.collapsedGroupKeys.has(key)) {
       this.collapsedGroupKeys.delete(key);
@@ -367,14 +371,6 @@ export class RuleClause implements OnChanges {
 
   public isGroupCollapsed(path: number[]): boolean {
     return this.collapsedGroupKeys.has(this.groupKey(path));
-  }
-
-  public clauseSummaryParts(clause: Clause<Tribe[]>): RuleSummaryPart[] {
-    return buildClauseSummaryParts(clause);
-  }
-
-  public summaryTribeColor(tribeId: string): string {
-    return this.editTribes.find(t => t.id === tribeId)?.color ?? '888888';
   }
 
   public tribeSelectionState(tribes: string[]): boolean {

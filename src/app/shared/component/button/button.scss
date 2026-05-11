@@ -69,10 +69,10 @@
     width: 100%;
   }
 
-  &.small-btn > button[mat-icon-button] {
-    width: 28px;
-    height: 28px;
-    line-height: 28px;
+  > button[mat-icon-button][data-size="sm"] {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
     padding: 0;
 
     mat-icon {

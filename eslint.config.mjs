@@ -164,7 +164,10 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
       }],
       "comma-dangle": ["warn", "never"],
       "max-params": ["warn", 7],
-      complexity: ["warn", 16],
+      complexity: ["warn", {
+        "max": 16,
+        "variant": "modified"
+      }],
       "max-lines": ["warn", {
         max: 1024,
         skipBlankLines: true,

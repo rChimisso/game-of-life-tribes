@@ -35,6 +35,9 @@
       flex: 0 0 auto;
       width: 24px;
       height: 24px;
+      --mat-icon-button-state-layer-size: 24px;
+      --mat-icon-button-touch-target-size: 24px;
+      --mat-icon-button-icon-size: 16px;
       border: none;
       background: transparent;
       color: #777;
@@ -64,49 +67,10 @@
     }
 
     > .rule-summary {
-      display: block;
       flex: 1 1 auto;
       min-width: 0;
       color: #aaa;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      user-select: none;
-      -webkit-user-select: none;
-
-      > .summary-text {
-        font-size: 0.85rem;
-        white-space: pre;
-      }
-
-      > .summary-overflow {
-        position: relative;
-        width: 18px;
-        height: 18px;
-        flex: 0 0 auto;
-        border-radius: 3px;
-        border: 1px solid #4b4b69;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: #aaa;
-        background: #181829;
-        outline: none;
-
-        mat-icon {
-          width: 14px;
-          height: 14px;
-          font-size: 14px;
-        }
-      }
-
-      > gol-tribe-swatch {
-        transform: translateY(2px);
-
-        & + gol-tribe-swatch {
-          margin-left: 3px;
-        }
-      }
+      font-size: 0.85rem;
     }
 
     > .rule-arrow {

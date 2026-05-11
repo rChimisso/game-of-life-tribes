@@ -1,0 +1,43 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.summary-text {
+  white-space: pre;
+}
+
+.summary-overflow {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  border: 1px solid #4b4b69;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  background: #181829;
+  outline: none;
+
+  mat-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+  }
+}
+
+gol-tribe-swatch {
+  transform: translateY(2px);
+
+  & + gol-tribe-swatch {
+    margin-left: 3px;
+  }
+}

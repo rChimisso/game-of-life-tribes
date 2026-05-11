@@ -159,6 +159,14 @@ export const XOR_CLAUSE_KIND = 'xor';
 export type Interval = [NeighborCount, NeighborCount];
 
 /**
+ * Comparison operator.
+ *
+ * @export
+ * @typedef {Operator}
+ */
+export type Operator = '=' | '≠' | '>' | '<' | '≥' | '≤';
+
+/**
  * Placeholder clause used while building rule expressions.
  *
  * @export
@@ -257,9 +265,9 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
   /**
    * Comparison operator between the two counts.
    *
-   * @type {'=' | '!=' | '>' | '<' | '>=' | '<='}
+   * @type {Operator}
    */
-  operator?: '=' | '!=' | '>' | '<' | '>=' | '<=';
+  operator: Operator;
   /**
    * Right-side margin applied to tribe2 count before comparison.
    * Effective expression: count(tribe1) operator (count(tribe2) + margin).

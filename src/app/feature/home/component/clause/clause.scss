@@ -2,19 +2,6 @@
   display: block;
 }
 
-.small-btn {
-  width: 28px !important;
-  height: 28px !important;
-  padding: 0 !important;
-  line-height: 28px !important;
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-  }
-}
-
 .clause-node {
   margin: 2px 0;
 }
@@ -30,39 +17,32 @@
 }
 
 .collapsible-inner {
-  overflow: hidden;
+  overflow-y: hidden;
 }
 
 .clause-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   height: 40px;
+  min-width: 138px;
   --mat-icon-button-touch-target-size: 32px;
+
+  &:has(.group-toggle-btn) {
+    min-width: 178px;
+  }
+
+  &:has(.clause-summary) {
+    min-width: 218px;
+  }
 }
 
 .clause-summary {
   min-width: 0;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #999;
   font-size: 0.72rem;
-  user-select: none;
   line-height: 18px;
-
-  > gol-tribe-swatch {
-    transform: translateY(2px);
-
-    & + gol-tribe-swatch {
-      margin-left: 3px;
-    }
-  }
-}
-
-.clause-summary-text {
-  white-space: pre;
 }
 
 .clause-type-select {
@@ -139,7 +119,31 @@
 }
 
 .clause-add {
-  padding: 2px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d0d0d0;
+  border: 1px dashed #d0d0d0;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  margin-top: 8px;
+
+  &:hover {
+    border-color: #ededed;
+    color: #ededed;
+  }
+
+  width: 98px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  line-height: 32px !important;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .group-toggle-btn {
@@ -147,7 +151,7 @@
 }
 
 .clause-children {
-  margin-left: 12px;
+  margin-left: 2px;
   padding-left: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-left: 2px dashed #aeaeae;
 }

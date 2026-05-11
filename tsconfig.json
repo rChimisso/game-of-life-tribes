@@ -29,7 +29,7 @@
     "allowJs": true,
     "moduleResolution": "node",
     "module": "ES2022",
-    "lib": ["ES2022", "dom"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ESNext.Collection"],
     "paths": {
       "~gol/core/*": ["app/core/*"],
       "~gol/feature/*": ["app/feature/*"],

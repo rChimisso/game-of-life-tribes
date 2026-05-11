@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {ChangeDetectionStrategy, Component, Input, OnChanges} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
@@ -8,6 +7,14 @@ import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
+/**
+ * Clause/rule summary component.
+ *
+ * @export
+ * @class SummaryComponent
+ * @typedef {SummaryComponent}
+ * @implements {OnChanges}
+ */
 @Component({
   selector: 'gol-summary',
   standalone: true,
@@ -21,249 +28,302 @@ import {TypedChanges} from '~gol/core/model/typed-change';
   }
 })
 export class SummaryComponent implements OnChanges {
+  /**
+   * Clause to summarize.
+   *
+   * @public
+   * @type {Clause<Tribe[]> | null}
+   */
   @Input({required: true})
   public clause: Clause<Tribe[]> | null = null;
 
+  /**
+   * Colors for the tribes.
+   *
+   * @public
+   * @type {readonly SummaryTribeColor[]}
+   */
   @Input()
   public tribeColors: readonly SummaryTribeColor[] = [];
 
+  /**
+   * Maximum number of tribes to display before overflowing into a single swatch.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public overflowThreshold = 4;
 
+  /**
+   * Parts of the clause summary to display.
+   *
+   * @public
+   * @type {SummaryPart[]}
+   */
   public displayParts: SummaryPart[] = [];
 
+  /**
+   * Tooltip for the clause summary.
+   *
+   * @public
+   * @type {string | null}
+   */
   public summaryTitle: string | null = null;
 
+  /**
+   * Tokens used for summarizing clauses.
+   *
+   * @private
+   * @readonly
+   * @type {Record<string, string>}
+   */
   private readonly summaryTokens = {
     openParen: '(',
     closeParen: ')',
-    empty: '∅',
-    not: '¬',
     comparisonCountPrefix: '#',
-    any: ANY_TRIBE_ID
-  } as const;
-
-  private readonly binaryClauseJoiners: Record<typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND, string> = {
-    [AND_CLAUSE_KIND]: ' ∧ ',
-    [OR_CLAUSE_KIND]: ' ∨ ',
-    [XOR_CLAUSE_KIND]: ' ⊕ '
+    [EMPTY_CLAUSE_KIND]: '∅',
+    [NOT_CLAUSE_KIND]: '¬',
+    [IS_CLAUSE_KIND]: 'is ',
+    [NONE_CLAUSE_KIND]: 'none of ',
+    [EXACTLY_CLAUSE_KIND]: 'exactly ',
+    [MIN_CLAUSE_KIND]: 'min ',
+    [MAX_CLAUSE_KIND]: 'max ',
+    [ANY_TRIBE_ID]: ANY_TRIBE_ID
   };
 
+  /**
+   * Characters used to join binary logical clauses.
+   *
+   * @private
+   * @readonly
+   * @type {Record<string, string>}
+   */
+  private readonly binaryClauseJoiners = {
+    [AND_CLAUSE_KIND]: ' ∧ ',
+    [OR_CLAUSE_KIND]: ' ∨ ',
+    [XOR_CLAUSE_KIND]: ' ⊻ '
+  };
+
+  /**
+   * Mapping of tribe IDs to their corresponding colors.
+   *
+   * @private
+   * @type {Map<string, string>}
+   */
   private tribeColorById = new Map<string, string>();
 
+  /**
+   * Set of all tribe IDs.
+   *
+   * @private
+   * @type {Set<string>}
+   */
   private allTribeIds = new Set<string>();
 
+  /**
+   * @inheritdoc
+   */
   public ngOnChanges(changes: TypedChanges<SummaryComponent>): void {
     if (changes.tribeColors) {
       this.tribeColorById = new Map(this.tribeColors.map(tribe => [tribe.id, tribe.color]));
       this.allTribeIds = new Set(this.tribeColors.map(tribe => tribe.id));
     }
-
     if (changes.clause || changes.tribeColors) {
       this.displayParts = this.clause ? this.buildClauseSummaryParts(this.clause) : [];
-      this.summaryTitle = this.buildSummaryTitle();
+      this.summaryTitle = this.displayParts.map(part => part.kind === 'text' ? part.text : part.tribes.join('/')).join('');
     }
   }
 
+  /**
+   * Returns the color for the given tribe ID, or a default color if the tribe ID is not found.
+   *
+   * @public
+   * @param {string} tribeId tribe ID.
+   * @returns {string} hex color code for the tribe.
+   */
   public tribeColor(tribeId: string): string {
     return this.tribeColorById.get(tribeId) ?? '888888';
   }
 
+  /**
+   * Returns the overflow label for the given tribe IDs.
+   *
+   * @public
+   * @param {readonly string[]} tribeIds tribe IDs.
+   * @returns {string} overflow label for the tribes.
+   */
   public summaryOverflowLabel(tribeIds: readonly string[]): string {
-    return tribeIds.join(', ');
+    return tribeIds.join(' / ');
   }
 
-  private buildSummaryTitle(): string | null {
-    const title = this.displayParts.map(part => part.kind === 'text' ? part.text : part.tribes.join('/')).join('');
-    return title || null;
-  }
-
+  /**
+   * Builds the summary parts for the given clause.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to summarize.
+   * @returns {SummaryPart[]} summary parts for the clause.
+   */
   private buildClauseSummaryParts(clause: Clause<Tribe[]>): SummaryPart[] {
     const parts: SummaryPart[] = [];
     this.appendClauseSummaryParts(parts, clause);
     return parts;
   }
 
+  /**
+   * Appends the summary parts for the given clause, optionally wrapping them in parentheses if needed.
+   *
+   * @private
+   * @param {SummaryPart[]} parts summary parts to append to.
+   * @param {Clause<Tribe[]>} clause clause to summarize.
+   * @param {Clause<Tribe[]> | null} [parentClause=null] parent clause, if any.
+   */
   private appendClauseSummaryParts(parts: SummaryPart[], clause: Clause<Tribe[]>, parentClause: Clause<Tribe[]> | null = null): void {
-    const wrapWithParentheses = parentClause ? this.shouldWrapClause(parentClause, clause) : false;
+    const wrapWithParentheses = !!parentClause && this.isBinaryLogicalClause(clause) && (parentClause.kind === NOT_CLAUSE_KIND || (this.isBinaryLogicalClause(parentClause) && parentClause.kind !== clause.kind));
     if (wrapWithParentheses) {
-      this.pushSummaryText(parts, this.summaryTokens.openParen);
+      this.appendSummaryText(parts, this.summaryTokens.openParen);
     }
-
     this.appendClauseContent(parts, clause);
-
     if (wrapWithParentheses) {
-      this.pushSummaryText(parts, this.summaryTokens.closeParen);
+      this.appendSummaryText(parts, this.summaryTokens.closeParen);
     }
   }
 
+  /**
+   * Checks if the given clause is a binary logical clause (AND, OR, XOR).
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to check.
+   * @returns {clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}>} `true` if the clause is a binary logical clause, `false` otherwise.
+   */
+  private isBinaryLogicalClause(clause: Clause<Tribe[]>): clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}> {
+    return clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND;
+  }
+
+  /**
+   * Appends the content of the given clause to the summary parts.
+   *
+   * @private
+   * @param {SummaryPart[]} parts summary parts to append to.
+   * @param {Clause<Tribe[]>} clause clause to summarize.
+   */
   private appendClauseContent(parts: SummaryPart[], clause: Clause<Tribe[]>): void {
     switch (clause.kind) {
       case EMPTY_CLAUSE_KIND:
-        this.pushSummaryText(parts, this.summaryTokens.empty);
+        this.appendSummaryText(parts, this.summaryTokens.empty);
         break;
       case IS_CLAUSE_KIND:
-        this.pushSummaryText(parts, 'is ');
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
-        break;
-      case COUNT_CLAUSE_KIND:
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
-        this.pushSummaryText(parts, ` ∈ [${clause.interval[0]},${clause.interval[1]}]`);
-        break;
       case NONE_CLAUSE_KIND:
-        this.pushSummaryText(parts, 'none of ');
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
+        this.appendSummaryText(parts, this.summaryTokens[clause.kind]);
+        this.appendTribeSummaryParts(parts, clause.tribes);
         break;
       case EXACTLY_CLAUSE_KIND:
-        this.pushSummaryText(parts, `exactly ${clause.value} `);
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
-        break;
       case MIN_CLAUSE_KIND:
-        this.pushSummaryText(parts, `min ${clause.value} `);
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
-        break;
       case MAX_CLAUSE_KIND:
-        this.pushSummaryText(parts, `max ${clause.value} `);
-        this.appendTribeSummaryParts(parts, clause.tribes as string[]);
+        this.appendSummaryText(parts, `${this.summaryTokens[clause.kind]}${clause.value} `);
+        this.appendTribeSummaryParts(parts, clause.tribes);
+        break;
+      case COUNT_CLAUSE_KIND:
+        this.appendTribeSummaryParts(parts, clause.tribes);
+        this.appendSummaryText(parts, ` ∈ [${clause.interval[0]},${clause.interval[1]}]`);
         break;
       case COMPARISON_CLAUSE_KIND: {
-        this.pushSummaryText(parts, this.summaryTokens.comparisonCountPrefix);
-        this.appendTribeSummaryParts(parts, clause.tribe1 as string[]);
-        this.pushSummaryText(parts, ` ${clause.operator} ${this.summaryTokens.comparisonCountPrefix}`);
-        this.appendTribeSummaryParts(parts, clause.tribe2 as string[]);
+        this.appendSummaryText(parts, this.summaryTokens.comparisonCountPrefix);
+        this.appendTribeSummaryParts(parts, clause.tribe1);
+        this.appendSummaryText(parts, ` ${clause.operator} ${this.summaryTokens.comparisonCountPrefix}`);
+        this.appendTribeSummaryParts(parts, clause.tribe2);
         const {margin = 0} = clause;
         if (margin !== 0) {
-          this.pushSummaryText(parts, margin >= 0 ? ` +${margin}` : ` -${Math.abs(margin)}`);
+          this.appendSummaryText(parts, margin >= 0 ? ` +${margin}` : ` -${Math.abs(margin)}`);
         }
         break;
       }
       case NOT_CLAUSE_KIND:
-        this.pushSummaryText(parts, this.summaryTokens.not);
+        this.appendSummaryText(parts, this.summaryTokens.not);
         this.appendClauseSummaryParts(parts, clause.clause, clause);
         break;
       case AND_CLAUSE_KIND:
       case XOR_CLAUSE_KIND:
       case OR_CLAUSE_KIND:
-        this.appendBinaryClauseSummaryParts(parts, clause);
+        const joiner = this.binaryClauseJoiners[clause.kind];
+        clause.clauses.forEach((sub, index) => {
+          if (index > 0) {
+            this.appendSummaryText(parts, joiner);
+          }
+          this.appendClauseSummaryParts(parts, sub, clause);
+        });
         break;
     }
   }
 
-  private appendBinaryClauseSummaryParts(parts: SummaryPart[], clause: Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}>): void {
-    const joiner = this.binaryClauseJoiners[clause.kind];
-    clause.clauses.forEach((sub, index) => {
-      if (index > 0) {
-        this.pushSummaryText(parts, joiner);
-      }
-      this.appendClauseSummaryParts(parts, sub, clause);
-    });
-  }
-
-  private shouldWrapClause(parentClause: Clause<Tribe[]>, childClause: Clause<Tribe[]>): boolean {
-    if (this.isBinaryLogicalClause(parentClause) && this.isBinaryLogicalClause(childClause)) {
-      return parentClause.kind !== childClause.kind;
-    }
-
-    return parentClause.kind === NOT_CLAUSE_KIND && this.isBinaryLogicalClause(childClause);
-  }
-
-  private isBinaryLogicalClause(clause: Clause<Tribe[]>): clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}> {
-    return clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND;
-  }
-
+  /**
+   * Appends the summary parts for the given tribe IDs.
+   *
+   * @private
+   * @param {SummaryPart[]} parts summary parts to append to.
+   * @param {string[]} tribeIds tribe IDs.
+   */
   private appendTribeSummaryParts(parts: SummaryPart[], tribeIds: string[]): void {
-    const normalized = this.normalizeTribeSelection(tribeIds);
-    if (normalized.kind === 'empty') {
-      return;
+    const normalized = this.normalizeTribeSelection(new Set(tribeIds));
+    switch (normalized.kind) {
+      case 'empty':
+        break;
+      case 'any':
+        this.appendSummaryText(parts, this.summaryTokens.any);
+        break;
+      case 'tribes':
+        const last = parts.at(-1);
+        if (last?.kind === 'tribes') {
+          last.tribes.push(...normalized.tribes);
+        } else {
+          parts.push({
+            kind: 'tribes',
+            tribes: normalized.tribes
+          });
+        }
+        break;
     }
-
-    if (normalized.kind === 'any') {
-      this.pushSummaryText(parts, this.summaryTokens.any);
-      return;
-    }
-
-    const last = parts.at(-1);
-    if (last?.kind === 'tribes') {
-      last.tribes.push(...normalized.tribes);
-      return;
-    }
-
-    parts.push({
-      kind: 'tribes',
-      tribes: normalized.tribes
-    });
   }
 
-  private normalizeTribeSelection(tribeIds: readonly string[]): {kind: 'empty'} | {kind: 'any'} | {kind: 'tribes'; tribes: string[]} {
-    const selected = new Set<string>();
-    for (const tribeId of tribeIds) {
-      if (!tribeId) {
-        continue;
-      }
-
-      if (tribeId === ANY_TRIBE_ID) {
+  /**
+   * Normalizes the given tribe selection.
+   *
+   * @private
+   * @param {ReadonlySet<string>} tribes tribe IDs to normalize.
+   * @returns {{kind: 'empty'} | {kind: 'any'} | {kind: 'tribes'; tribes: string[]}} normalized tribe selection.
+   */
+  private normalizeTribeSelection(tribes: ReadonlySet<string>): {kind: 'empty'} | {kind: 'any'} | {kind: 'tribes'; tribes: string[]} {
+    switch (true) {
+      case tribes.size === 0:
+        return {kind: 'empty'};
+      case tribes.has(ANY_TRIBE_ID) || (this.allTribeIds.size > 0 && this.allTribeIds.isSubsetOf(tribes)):
+        return {kind: 'any'};
+      default:
         return {
-          kind: 'any'
+          kind: 'tribes',
+          tribes: [...tribes]
         };
-      }
-
-      selected.add(tribeId);
     }
-
-    if (selected.size === 0) {
-      return {
-        kind: 'empty'
-      };
-    }
-
-    if (this.isAnyTribeSelection(selected)) {
-      return {
-        kind: 'any'
-      };
-    }
-
-    return {
-      kind: 'tribes',
-      tribes: [...selected]
-    };
   }
 
-  private isAnyTribeSelection(tribeIds: ReadonlySet<string>): boolean {
-    if (tribeIds.has(ANY_TRIBE_ID)) {
-      return true;
-    }
-
-    if (this.allTribeIds.size === 0) {
-      return false;
-    }
-
-    if (tribeIds.size < this.allTribeIds.size) {
-      return false;
-    }
-
-    for (const tribeId of this.allTribeIds) {
-      if (!tribeIds.has(tribeId)) {
-        return false;
+  /**
+   * Appends the given text to the summary parts.
+   *
+   * @private
+   * @param {SummaryPart[]} parts summary parts to append to.
+   * @param {string} text text to append.
+   */
+  private appendSummaryText(parts: SummaryPart[], text: string): void {
+    if (text) {
+      const last = parts.at(-1);
+      if (last?.kind === 'text') {
+        last.text += text;
+      } else {
+        parts.push({
+          kind: 'text',
+          text
+        });
       }
     }
-
-    return true;
-  }
-
-  private pushSummaryText(parts: SummaryPart[], text: string): void {
-    if (!text) {
-      return;
-    }
-
-    const last = parts.at(-1);
-    if (last?.kind === 'text') {
-      last.text = `${last.text ?? ''}${text}`;
-      return;
-    }
-
-    parts.push({
-      kind: 'text',
-      text
-    });
   }
 }

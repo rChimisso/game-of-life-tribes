@@ -1,37 +1,40 @@
-interface ClausePathEvent {
-  path: number[];
+import {Clause, Tribe} from './rule';
+
+/**
+ * Clause state change event.
+ *
+ * @export
+ * @interface ClauseStateChangeEvent
+ * @typedef {ClauseStateChangeEvent}
+ */
+export interface ClauseStateChangeEvent {
+  /**
+   * Whether the clause has been modified.
+   *
+   * @type {boolean}
+   */
+  dirty: boolean;
+  /**
+   * Whether the clause is in an invalid state.
+   *
+   * @type {boolean}
+   */
+  invalid: boolean;
 }
 
-interface ChangeClauseKindEvent extends ClausePathEvent {
-  newKind: string;
+/**
+ * Clause change event.
+ *
+ * @export
+ * @interface ClauseChangeEvent
+ * @typedef {ClauseChangeEvent}
+ * @extends {ClauseStateChangeEvent}
+ */
+export interface ClauseChangeEvent extends ClauseStateChangeEvent {
+  /**
+   * Changed clause.
+   *
+   * @type {Clause<Tribe[]>}
+   */
+  clause: Clause<Tribe[]>;
 }
-
-interface ToggleClauseTribeEvent extends ClausePathEvent {
-  tribeId: string;
-}
-
-interface ToggleClauseEqTribeEvent extends ClausePathEvent {
-  group: 1 | 2;
-  tribeId: string;
-}
-
-interface SetClauseIntervalEvent extends ClausePathEvent {
-  which: 0 | 1;
-  value: string;
-}
-
-interface SetClauseOperatorEvent extends ClausePathEvent {
-  operator: '=' | '!=' | '>' | '<' | '>=' | '<=';
-}
-
-interface SetClauseMarginEvent extends ClausePathEvent {
-  value: string;
-}
-
-export type {ClausePathEvent,
-  ChangeClauseKindEvent,
-  ToggleClauseTribeEvent,
-  ToggleClauseEqTribeEvent,
-  SetClauseIntervalEvent,
-  SetClauseOperatorEvent,
-  SetClauseMarginEvent};

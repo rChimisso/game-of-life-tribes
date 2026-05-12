@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
@@ -10,20 +9,21 @@ import {SelectOption} from '../../../../shared/component/select/model/select';
 import {SelectComponent} from '../../../../shared/component/select/select';
 import {SummaryComponent} from '../../../../shared/component/summary/summary';
 import {TribeSwatch} from '../../../../shared/component/tribe-swatch/tribe-swatch';
+import {ClauseChangeEvent, ClauseStateChangeEvent} from '../../model/clause-event';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../model/rule';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {Button} from '~gol/shared/component/button/button';
+import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
 
-interface ClauseStateChangeEvent {
-  dirty: boolean;
-  invalid: boolean;
-}
-
-interface ClauseChangeEvent extends ClauseStateChangeEvent {
-  clause: Clause<Tribe[]>;
-}
-
+/**
+ * Rule clause editor.
+ *
+ * @export
+ * @class RuleClause
+ * @typedef {RuleClause}
+ * @implements {OnChanges}
+ */
 @Component({
   selector: 'gol-rule-clause',
   standalone: true,
@@ -44,30 +44,87 @@ interface ClauseChangeEvent extends ClauseStateChangeEvent {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class RuleClause implements OnChanges {
+  /**
+   * Editable clause.
+   *
+   * @public
+   * @type {!Clause<Tribe[]>}
+   */
   @Input({required: true})
   public clause!: Clause<Tribe[]>;
 
+  /**
+   * Baseline clause used for dirty-state checks.
+   *
+   * @public
+   * @type {Clause<Tribe[]> | null}
+   */
   @Input()
   public baselineClause: Clause<Tribe[]> | null = null;
 
+  /**
+   * Available tribes for selection.
+   *
+   * @public
+   * @type {!EditableTribe[]}
+   */
   @Input({required: true})
   public editTribes!: EditableTribe[];
 
+  /**
+   * Current nesting depth.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public depth = 0;
 
+  /**
+   * Path to this clause in the tree.
+   *
+   * @public
+   * @type {number[]}
+   */
   @Input()
   public path: number[] = [];
 
+  /**
+   * Emits clause edits with derived state.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<ClauseChangeEvent>}
+   */
   @Output()
   public readonly clauseChange = new EventEmitter<ClauseChangeEvent>();
 
+  /**
+   * Emits dirty and invalid state changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<ClauseStateChangeEvent>}
+   */
   @Output()
   public readonly clauseStateChange = new EventEmitter<ClauseStateChangeEvent>();
 
+  /**
+   * Collapsed logical group keys.
+   *
+   * @public
+   * @type {Set<string>}
+   */
   public collapsedGroupKeys = new Set<string>();
 
-  public readonly clauseKindOptions: readonly SelectOption[] = [
+  /**
+   * Selectable clause kinds.
+   *
+   * @public
+   * @readonly
+   * @type {SelectOption[]}
+   */
+  public readonly clauseKindOptions: SelectOption[] = [
     {
       value: EMPTY_CLAUSE_KIND,
       label: 'EMPTY',
@@ -120,7 +177,14 @@ export class RuleClause implements OnChanges {
     }
   ];
 
-  public readonly comparisonOperatorOptions: readonly SelectOption[] = [
+  /**
+   * Selectable comparison operators.
+   *
+   * @public
+   * @readonly
+   * @type {SelectOption[]}
+   */
+  public readonly comparisonOperatorOptions: SelectOption[] = [
     {
       value: '=',
       label: '='
@@ -147,64 +211,56 @@ export class RuleClause implements OnChanges {
     }
   ];
 
+  /**
+   * @inheritdoc
+   */
   public ngOnChanges(changes: TypedChanges<RuleClause>): void {
     if (changes.clause || changes.baselineClause) {
       this.emitClauseState();
     }
   }
 
+  /**
+   * Replaces the clause at the given path with a new kind.
+   *
+   * @public
+   * @param {number[]} path path to the clause to replace.
+   * @param {string} newKind next clause kind.
+   */
   public emitChangeKind(path: number[], newKind: string): void {
-    const dt = this.defaultTribeId();
     let nextClause: Clause<Tribe[]> | null = null;
     switch (newKind) {
       case EMPTY_CLAUSE_KIND:
         nextClause = EMPTY_CLAUSE;
         break;
       case IS_CLAUSE_KIND:
+      case NONE_CLAUSE_KIND:
         nextClause = {
-          kind: IS_CLAUSE_KIND,
-          tribes: [dt]
+          kind: newKind,
+          tribes: [DEAD_TRIBE_ID]
+        };
+        break;
+      case EXACTLY_CLAUSE_KIND:
+      case MIN_CLAUSE_KIND:
+      case MAX_CLAUSE_KIND:
+        nextClause = {
+          kind: newKind,
+          tribes: [DEAD_TRIBE_ID],
+          value: 1
         };
         break;
       case COUNT_CLAUSE_KIND:
         nextClause = {
           kind: COUNT_CLAUSE_KIND,
-          tribes: [dt],
+          tribes: [DEAD_TRIBE_ID],
           interval: [0, 8]
-        };
-        break;
-      case NONE_CLAUSE_KIND:
-        nextClause = {
-          kind: NONE_CLAUSE_KIND,
-          tribes: [dt]
-        };
-        break;
-      case EXACTLY_CLAUSE_KIND:
-        nextClause = {
-          kind: EXACTLY_CLAUSE_KIND,
-          tribes: [dt],
-          value: 1
-        };
-        break;
-      case MIN_CLAUSE_KIND:
-        nextClause = {
-          kind: MIN_CLAUSE_KIND,
-          tribes: [dt],
-          value: 1
-        };
-        break;
-      case MAX_CLAUSE_KIND:
-        nextClause = {
-          kind: MAX_CLAUSE_KIND,
-          tribes: [dt],
-          value: 1
         };
         break;
       case COMPARISON_CLAUSE_KIND:
         nextClause = {
           kind: COMPARISON_CLAUSE_KIND,
-          tribe1: [dt],
-          tribe2: [dt],
+          tribe1: [DEAD_TRIBE_ID],
+          tribe2: [DEAD_TRIBE_ID],
           operator: '=',
           margin: 0
         };
@@ -216,20 +272,10 @@ export class RuleClause implements OnChanges {
         };
         break;
       case AND_CLAUSE_KIND:
-        nextClause = {
-          kind: AND_CLAUSE_KIND,
-          clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
-        };
-        break;
       case OR_CLAUSE_KIND:
-        nextClause = {
-          kind: OR_CLAUSE_KIND,
-          clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
-        };
-        break;
       case XOR_CLAUSE_KIND:
         nextClause = {
-          kind: XOR_CLAUSE_KIND,
+          kind: newKind,
           clauses: [EMPTY_CLAUSE, EMPTY_CLAUSE]
         };
         break;
@@ -237,12 +283,17 @@ export class RuleClause implements OnChanges {
         nextClause = null;
         break;
     }
-
-    if (nextClause !== null) {
+    if (nextClause) {
       this.updateClause(clauseRoot => this.setClauseAtPath(clauseRoot, path, nextClause));
     }
   }
 
+  /**
+   * Removes the child clause at the given path.
+   *
+   * @public
+   * @param {number[]} path path to the child clause to remove.
+   */
   public emitRemoveChild(path: number[]): void {
     this.updateClause(clauseRoot => {
       let updatedRoot = clauseRoot;
@@ -252,7 +303,7 @@ export class RuleClause implements OnChanges {
         const parentPath = path.slice(0, -1);
         const childIdx = path[path.length - 1]!;
         const parent = this.getClauseAtPath(clauseRoot, parentPath);
-        if (parent.kind === AND_CLAUSE_KIND || parent.kind === OR_CLAUSE_KIND || parent.kind === XOR_CLAUSE_KIND) {
+        if (isBinaryLogicalClause(parent)) {
           if (parent.clauses.length > 2) {
             (parent.clauses as Clause<Tribe[]>[]).splice(childIdx, 1);
           } else {
@@ -262,11 +313,17 @@ export class RuleClause implements OnChanges {
           parent.clause = EMPTY_CLAUSE;
         }
       }
-
       return updatedRoot;
     });
   }
 
+  /**
+   * Toggles a tribe in the selected clause.
+   *
+   * @public
+   * @param {number[]} path path to the clause to update.
+   * @param {string} tribeId tribe ID to toggle.
+   */
   public emitToggleTribe(path: number[], tribeId: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
@@ -280,11 +337,18 @@ export class RuleClause implements OnChanges {
           clause.tribes.push(tribeId);
         }
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Toggles a tribe in one comparison group.
+   *
+   * @public
+   * @param {number[]} path path to the comparison clause.
+   * @param {1 | 2} group comparison group to update.
+   * @param {string} tribeId tribe ID to toggle.
+   */
   public emitToggleEqTribe(path: number[], group: 1 | 2, tribeId: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
@@ -299,11 +363,18 @@ export class RuleClause implements OnChanges {
           target.push(tribeId);
         }
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Updates an interval or count value.
+   *
+   * @public
+   * @param {number[]} path path to the clause to update.
+   * @param {0 | 1} which interval index to update.
+   * @param {string} value next numeric value.
+   */
   public emitSetInterval(path: number[], which: 0 | 1, value: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
@@ -313,22 +384,34 @@ export class RuleClause implements OnChanges {
       } else if (clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
         clause.value = nextValue;
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Sets the comparison operator.
+   *
+   * @public
+   * @param {number[]} path path to the comparison clause.
+   * @param {Operator} operator comparison operator.
+   */
   public emitSetOperator(path: number[], operator: Operator): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
       if (clause.kind === COMPARISON_CLAUSE_KIND) {
         clause.operator = operator;
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Sets the comparison margin.
+   *
+   * @public
+   * @param {number[]} path path to the comparison clause.
+   * @param {string} value next margin value.
+   */
   public emitSetMargin(path: number[], value: string): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
@@ -336,30 +419,55 @@ export class RuleClause implements OnChanges {
         const parsed = +value;
         clause.margin = Math.max(-8, Math.min(8, Number.isNaN(parsed) ? 0 : parsed));
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Adds an empty child clause.
+   *
+   * @public
+   * @param {number[]} path path to the parent clause.
+   */
   public emitAddChild(path: number[]): void {
     this.updateClause(clauseRoot => {
       const clause = this.getClauseAtPath(clauseRoot, path);
-      if (clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND) {
+      if (isBinaryLogicalClause(clause)) {
         (clause.clauses as Clause<Tribe[]>[]).push(EMPTY_CLAUSE);
       }
-
       return clauseRoot;
     });
   }
 
+  /**
+   * Builds the path for a child clause.
+   *
+   * @public
+   * @param {number[]} path parent clause path.
+   * @param {number} index child clause index.
+   * @returns {number[]} path to the child clause.
+   */
   public childPath(path: number[], index: number): number[] {
     return path.concat(index);
   }
 
+  /**
+   * Builds the path for a NOT child clause.
+   *
+   * @public
+   * @param {number[]} path parent clause path.
+   * @returns {number[]} path to the NOT child clause.
+   */
   public childNotPath(path: number[]): number[] {
     return path.concat(0);
   }
 
+  /**
+   * Toggles collapsed state for a logical group.
+   *
+   * @public
+   * @param {number[]} path path to the logical group.
+   */
   public toggleGroupCollapse(path: number[]): void {
     const key = this.groupKey(path);
     if (this.collapsedGroupKeys.has(key)) {
@@ -369,10 +477,24 @@ export class RuleClause implements OnChanges {
     }
   }
 
+  /**
+   * Whether a logical group is collapsed.
+   *
+   * @public
+   * @param {number[]} path path to the logical group.
+   * @returns {boolean} `true` if the group is collapsed, `false` otherwise.
+   */
   public isGroupCollapsed(path: number[]): boolean {
     return this.collapsedGroupKeys.has(this.groupKey(path));
   }
 
+  /**
+   * Whether all selectable tribes are selected.
+   *
+   * @public
+   * @param {string[]} tribes selected tribe IDs.
+   * @returns {boolean} `true` if all selectable tribes are selected, `false` otherwise.
+   */
   public tribeSelectionState(tribes: string[]): boolean {
     const allIds = this.selectableTribeIds();
     let allSelected = false;
@@ -380,10 +502,17 @@ export class RuleClause implements OnChanges {
       const selectedCount = allIds.filter(id => tribes.includes(id)).length;
       allSelected = selectedCount === allIds.length;
     }
-
     return allSelected;
   }
 
+  /**
+   * Toggles all tribes for a clause selection.
+   *
+   * @public
+   * @param {number[]} path path to the clause to update.
+   * @param {string[]} tribes currently selected tribe IDs.
+   * @param {boolean} next next all-selected state.
+   */
   public onToggleAllClauseTribes(path: number[], tribes: string[], next: boolean): void {
     const allIds = this.selectableTribeIds();
     if (allIds.length > 0) {
@@ -395,13 +524,21 @@ export class RuleClause implements OnChanges {
         const keep = selected[0] ?? allIds[0]!;
         idsToToggle = selected.filter(id => id !== keep);
       }
-
       for (const id of idsToToggle) {
         this.emitToggleTribe(path, id);
       }
     }
   }
 
+  /**
+   * Toggles all tribes for one comparison group.
+   *
+   * @public
+   * @param {number[]} path path to the comparison clause.
+   * @param {1 | 2} group comparison group to update.
+   * @param {string[]} tribes currently selected tribe IDs.
+   * @param {boolean} next next all-selected state.
+   */
   public onToggleAllEqTribes(path: number[], group: 1 | 2, tribes: string[], next: boolean): void {
     const allIds = this.selectableTribeIds();
     if (allIds.length > 0) {
@@ -413,21 +550,39 @@ export class RuleClause implements OnChanges {
         const keep = selected[0] ?? allIds[0]!;
         idsToToggle = selected.filter(id => id !== keep);
       }
-
       for (const id of idsToToggle) {
         this.emitToggleEqTribe(path, group, id);
       }
     }
   }
 
+  /**
+   * Serializes a path into a group key.
+   *
+   * @private
+   * @param {number[]} path clause path.
+   * @returns {string} serialized group key.
+   */
   private groupKey(path: number[]): string {
     return path.join('.');
   }
 
+  /**
+   * Returns all selectable tribe ids.
+   *
+   * @private
+   * @returns {string[]} selectable tribe IDs.
+   */
   private selectableTribeIds(): string[] {
     return this.editTribes.map(t => t.id);
   }
 
+  /**
+   * Applies a clause mutation and emits updates.
+   *
+   * @private
+   * @param {(clauseRoot: Clause<Tribe[]>) => Clause<Tribe[]> | undefined} mutator mutation to apply.
+   */
   private updateClause(mutator: (clauseRoot: Clause<Tribe[]>) => Clause<Tribe[]> | undefined): void {
     const nextClause = structuredClone(this.clause);
     const updatedClause = mutator(nextClause);
@@ -439,6 +594,11 @@ export class RuleClause implements OnChanges {
     this.emitClauseChange();
   }
 
+  /**
+   * Emits the current clause and derived state.
+   *
+   * @private
+   */
   private emitClauseChange(): void {
     const dirty = this.isDirty();
     const invalid = this.isInvalid();
@@ -453,6 +613,11 @@ export class RuleClause implements OnChanges {
     });
   }
 
+  /**
+   * Emits the current clause state.
+   *
+   * @private
+   */
   private emitClauseState(): void {
     this.clauseStateChange.emit({
       dirty: this.isDirty(),
@@ -460,22 +625,36 @@ export class RuleClause implements OnChanges {
     });
   }
 
+  /**
+   * Whether the clause differs from its baseline.
+   *
+   * @private
+   * @returns {boolean} `true` if the clause differs from its baseline, `false` otherwise.
+   */
   private isDirty(): boolean {
     if (this.baselineClause) {
       return !this.clausesEqual(this.clause, this.baselineClause);
     }
-
     return true;
   }
 
+  /**
+   * Whether the clause contains empty placeholders.
+   *
+   * @private
+   * @returns {boolean} `true` if the clause contains empty placeholders, `false` otherwise.
+   */
   private isInvalid(): boolean {
     return this.containsEmptyClause(this.clause);
   }
 
-  private defaultTribeId(): string {
-    return this.editTribes.find(tribe => tribe.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID;
-  }
-
+  /**
+   * Whether a clause tree contains an empty clause.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @returns {boolean} `true` if the clause tree contains an empty clause, `false` otherwise.
+   */
   private containsEmptyClause(clause: Clause<Tribe[]>): boolean {
     switch (clause.kind) {
       case EMPTY_CLAUSE_KIND:
@@ -491,10 +670,18 @@ export class RuleClause implements OnChanges {
     }
   }
 
+  /**
+   * Looks up a clause by path.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} root clause tree root.
+   * @param {number[]} path path to the target clause.
+   * @returns {Clause<Tribe[]>} clause at the given path.
+   */
   private getClauseAtPath(root: Clause<Tribe[]>, path: number[]): Clause<Tribe[]> {
     let current: Clause<Tribe[]> = root;
     for (const idx of path) {
-      if (current.kind === AND_CLAUSE_KIND || current.kind === OR_CLAUSE_KIND || current.kind === XOR_CLAUSE_KIND) {
+      if (isBinaryLogicalClause(current)) {
         current = current.clauses[idx]!;
       } else if (current.kind === NOT_CLAUSE_KIND) {
         current = current.clause;
@@ -503,26 +690,48 @@ export class RuleClause implements OnChanges {
     return current;
   }
 
+  /**
+   * Replaces a clause by path.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} root clause tree root.
+   * @param {number[]} path path to the clause to replace.
+   * @param {Clause<Tribe[]>} nextClause replacement clause.
+   * @returns {Clause<Tribe[]>} updated clause tree root.
+   */
   private setClauseAtPath(root: Clause<Tribe[]>, path: number[], nextClause: Clause<Tribe[]>): Clause<Tribe[]> {
     if (path.length === 0) {
       return nextClause;
     }
-
     const parent = this.getClauseAtPath(root, path.slice(0, -1));
     const lastIdx = path[path.length - 1]!;
-    if (parent.kind === AND_CLAUSE_KIND || parent.kind === OR_CLAUSE_KIND || parent.kind === XOR_CLAUSE_KIND) {
+    if (isBinaryLogicalClause(parent)) {
       (parent.clauses as Clause<Tribe[]>[])[lastIdx] = nextClause;
     } else if (parent.kind === NOT_CLAUSE_KIND) {
       parent.clause = nextClause;
     }
-
     return root;
   }
 
+  /**
+   * Compares two clauses using editor normalization.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} editableClause editable clause.
+   * @param {Clause<Tribe[]>} baseClause baseline clause.
+   * @returns {boolean} `true` if the clauses are equivalent for the editor, `false` otherwise.
+   */
   private clausesEqual(editableClause: Clause<Tribe[]>, baseClause: Clause<Tribe[]>): boolean {
     return JSON.stringify(this.normalizeClauseForEditor(editableClause)) === JSON.stringify(this.normalizeClauseForEditor(baseClause));
   }
 
+  /**
+   * Normalizes a clause for editor equality checks.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to normalize.
+   * @returns {Clause<Tribe[]>} normalized clause.
+   */
   private normalizeClauseForEditor(clause: Clause<Tribe[]>): Clause<Tribe[]> {
     switch (clause.kind) {
       case EMPTY_CLAUSE_KIND:
@@ -539,21 +748,17 @@ export class RuleClause implements OnChanges {
         };
       case AND_CLAUSE_KIND:
       case OR_CLAUSE_KIND:
-      case XOR_CLAUSE_KIND: {
+      case XOR_CLAUSE_KIND:
         const normalizedClauses = clause.clauses.map(sub => this.normalizeClauseForEditor(sub));
         while (normalizedClauses.length < 2) {
           normalizedClauses.push(EMPTY_CLAUSE);
         }
-
         return {
           ...clause,
           clauses: normalizedClauses as [Clause<Tribe[]>, Clause<Tribe[]>, ...Clause<Tribe[]>[]]
         };
-      }
       default:
         return clause;
     }
   }
 }
-
-export type {ClauseChangeEvent, ClauseStateChangeEvent};

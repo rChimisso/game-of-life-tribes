@@ -1,5 +1,3 @@
-/* eslint-disable import/exports-last, jsdoc/require-jsdoc */
-
 export type BitsPerCell = 1 | 2 | 4 | 8 | 16 | 32;
 
 export interface GridFormatMetadata {

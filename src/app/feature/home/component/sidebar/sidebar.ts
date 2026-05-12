@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import {CdkDragDrop, DragDropModule, moveItemInArray} from '@angular/cdk/drag-drop';
 import {DecimalPipe} from '@angular/common';
 import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, ElementRef, NgZone} from '@angular/core';

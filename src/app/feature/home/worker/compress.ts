@@ -1,5 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 import {gridByteSize, GridFormatMetadata, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
 
 // ---------------------------------------------------------------------------

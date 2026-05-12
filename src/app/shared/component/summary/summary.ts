@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, Input, OnChanges} from '@angular/cor
 import {MatIconModule} from '@angular/material/icon';
 
 import {SummaryPart, SummaryTribeColor} from './model/summary';
+import {isBinaryLogicalClause} from './util/clause';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../../feature/home/model/rule';
 import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
@@ -179,7 +180,7 @@ export class SummaryComponent implements OnChanges {
    * @param {Clause<Tribe[]> | null} [parentClause=null] parent clause, if any.
    */
   private appendClauseSummaryParts(parts: SummaryPart[], clause: Clause<Tribe[]>, parentClause: Clause<Tribe[]> | null = null): void {
-    const wrapWithParentheses = !!parentClause && this.isBinaryLogicalClause(clause) && (parentClause.kind === NOT_CLAUSE_KIND || (this.isBinaryLogicalClause(parentClause) && parentClause.kind !== clause.kind));
+    const wrapWithParentheses = !!parentClause && isBinaryLogicalClause(clause) && (parentClause.kind === NOT_CLAUSE_KIND || (isBinaryLogicalClause(parentClause) && parentClause.kind !== clause.kind));
     if (wrapWithParentheses) {
       this.appendSummaryText(parts, this.summaryTokens.openParen);
     }
@@ -187,17 +188,6 @@ export class SummaryComponent implements OnChanges {
     if (wrapWithParentheses) {
       this.appendSummaryText(parts, this.summaryTokens.closeParen);
     }
-  }
-
-  /**
-   * Checks if the given clause is a binary logical clause (AND, OR, XOR).
-   *
-   * @private
-   * @param {Clause<Tribe[]>} clause clause to check.
-   * @returns {clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}>} `true` if the clause is a binary logical clause, `false` otherwise.
-   */
-  private isBinaryLogicalClause(clause: Clause<Tribe[]>): clause is Extract<Clause<Tribe[]>, {kind: typeof AND_CLAUSE_KIND | typeof OR_CLAUSE_KIND | typeof XOR_CLAUSE_KIND}> {
-    return clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND;
   }
 
   /**

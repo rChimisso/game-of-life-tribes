@@ -1,5 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
-
 import {alignPackedBytesToWords, chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
 import {RecordingManifest} from '../model/recording';
 import {DEAD_TRIBE_ID} from '../model/rule';

@@ -1,5 +1,4 @@
-﻿/* eslint-disable jsdoc/require-jsdoc */
-import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
+﻿import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {GridFormatMetadata} from '../../model/grid-format';
 import {Ruleset, Tribe} from '../../model/rule';

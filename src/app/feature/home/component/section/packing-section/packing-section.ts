@@ -3,13 +3,11 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {ExclusiveButtonGroup} from '../../../../../shared/component/exclusive-button-group/exclusive-button-group';
 import {BitsPerCell, SUPPORTED_SIMULATION_BITS_PER_CELL} from '../../../model/grid-format';
-import {formatBinaryBytes} from '../../../util/byte-format';
 import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '../../../util/grid-format';
-import {RECORDING_MAX_FRAME_BYTES} from '../../../worker/recording-limits';
+import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
-import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**
  * Simulation packing editor section.
@@ -22,7 +20,7 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
 @Component({
   selector: 'gol-packing-section',
   standalone: true,
-  imports: [ExclusiveButtonGroup, LabelValue, ApplyRestoreButtons],
+  imports: [ExclusiveButtonGroup, FrameSizeLimits, ApplyRestoreButtons],
   templateUrl: './packing-section.html',
   styleUrl: './packing-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -110,6 +108,14 @@ export class PackingSection implements OnChanges {
   public pendingSimulationBitsPerCell: BitsPerCell = 8;
 
   /**
+   * Whether pending packing exceeds the detected frame limit.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public pendingPackingOverAllowedFrameLimit = false;
+
+  /**
    * Packing button options.
    *
    * @public
@@ -142,69 +148,6 @@ export class PackingSection implements OnChanges {
    */
   public get pendingPackingFrameByteSize(): number {
     return gridByteSize({cols: this.gridCols, rows: this.gridRows}, gridFormatFromBits(this.pendingSimulationBitsPerCell));
-  }
-
-  /**
-   * Formatted pending packing frame size.
-   *
-   * @public
-   * @type {string}
-   */
-  public get pendingPackingFrameSizeFormatted(): string {
-    return formatBinaryBytes(this.pendingPackingFrameByteSize);
-  }
-
-  /**
-   * Whether pending packing exceeds the recording frame limit.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public get pendingPackingOverRecordingFrameLimit(): boolean {
-    return this.pendingPackingFrameByteSize > RECORDING_MAX_FRAME_BYTES;
-  }
-
-  /**
-   * Whether pending packing exceeds the detected frame limit.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public get pendingPackingOverAllowedFrameLimit(): boolean {
-    return Number.isFinite(this.maxBytes) && this.pendingPackingFrameByteSize > this.maxBytes;
-  }
-
-  /**
-   * Recording frame limit label.
-   *
-   * @public
-   * @type {string}
-   */
-  public get recordingFrameLimitLabel(): string {
-    return `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} (${RECORDING_MAX_FRAME_BYTES.toLocaleString()} bytes)`;
-  }
-
-  /**
-   * Detected frame limit label.
-   *
-   * @public
-   * @type {string}
-   */
-  public get allowedFrameLimitLabel(): string {
-    if (!Number.isFinite(this.maxBytes)) {
-      return 'Detecting…';
-    }
-    return `${formatBinaryBytes(this.maxBytes)} (${this.maxBytes.toLocaleString()} bytes)`;
-  }
-
-  /**
-   * Frame size tooltip.
-   *
-   * @public
-   * @type {string}
-   */
-  public get frameSizeTooltip(): string {
-    return `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} recording buget / ${formatBinaryBytes(this.maxBytes)} total buget`;
   }
 
   /**

@@ -4,13 +4,11 @@ import {FormsModule} from '@angular/forms';
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {InputComponent} from '../../../../../shared/component/input/input';
 import {BitsPerCell} from '../../../model/grid-format';
-import {formatBinaryBytes} from '../../../util/byte-format';
 import {gridByteSize, gridFormatFromBits} from '../../../util/grid-format';
-import {RECORDING_MAX_FRAME_BYTES} from '../../../worker/recording-limits';
+import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {Grid} from '~gol/core/model/grid';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**
  * Grid size editor section.
@@ -26,7 +24,7 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
   imports: [
     FormsModule,
     InputComponent,
-    LabelValue,
+    FrameSizeLimits,
     ApplyRestoreButtons
   ],
   templateUrl: './grid-size-section.html',
@@ -115,6 +113,14 @@ export class GridSizeSection implements OnChanges {
   public pendingRows = 0;
 
   /**
+   * Whether pending grid size exceeds the detected frame limit.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public pendingGridOverAllowedFrameLimit = false;
+
+  /**
    * Grid column validation message.
    *
    * @public
@@ -158,69 +164,6 @@ export class GridSizeSection implements OnChanges {
    */
   public get pendingGridFrameByteSize(): number {
     return gridByteSize({cols: +this.pendingCols, rows: +this.pendingRows}, gridFormatFromBits(this.simulationBitsPerCell));
-  }
-
-  /**
-   * Formatted pending grid frame size.
-   *
-   * @public
-   * @type {string}
-   */
-  public get pendingGridFrameSizeFormatted(): string {
-    return formatBinaryBytes(this.pendingGridFrameByteSize);
-  }
-
-  /**
-   * Whether pending grid size exceeds the recording frame limit.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public get pendingGridOverRecordingFrameLimit(): boolean {
-    return this.pendingGridFrameByteSize > RECORDING_MAX_FRAME_BYTES;
-  }
-
-  /**
-   * Whether pending grid size exceeds the detected frame limit.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public get pendingGridOverAllowedFrameLimit(): boolean {
-    return Number.isFinite(this.maxBytes) && this.pendingGridFrameByteSize > this.maxBytes;
-  }
-
-  /**
-   * Recording frame limit label.
-   *
-   * @public
-   * @type {string}
-   */
-  public get recordingFrameLimitLabel(): string {
-    return `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} (${RECORDING_MAX_FRAME_BYTES.toLocaleString()} bytes)`;
-  }
-
-  /**
-   * Detected frame limit label.
-   *
-   * @public
-   * @type {string}
-   */
-  public get allowedFrameLimitLabel(): string {
-    if (!Number.isFinite(this.maxBytes)) {
-      return 'Detecting…';
-    }
-    return `${formatBinaryBytes(this.maxBytes)} (${this.maxBytes.toLocaleString()} bytes)`;
-  }
-
-  /**
-   * Frame size tooltip.
-   *
-   * @public
-   * @type {string}
-   */
-  public get frameSizeTooltip(): string {
-    return `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} recording buget / ${formatBinaryBytes(this.maxBytes)} total buget`;
   }
 
   /**

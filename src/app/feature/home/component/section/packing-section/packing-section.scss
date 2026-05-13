@@ -8,19 +8,4 @@
     color: #888;
     text-align: center;
   }
-
-  .info-labels {
-    height: 40px;
-  }
-
-  .limits-labels {
-    height: 40px;
-    margin-bottom: 12px;
-  }
-
-  ::ng-deep .exclusive-button {
-    min-width: fit-content;
-    width: 32px;
-    font-variant-numeric: tabular-nums;
-  }
 }

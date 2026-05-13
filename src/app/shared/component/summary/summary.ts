@@ -266,10 +266,7 @@ export class SummaryComponent implements OnChanges {
         if (last?.kind === 'tribes') {
           last.tribes.push(...normalized.tribes);
         } else {
-          parts.push({
-            kind: 'tribes',
-            tribes: normalized.tribes
-          });
+          parts.push({kind: 'tribes', tribes: normalized.tribes});
         }
         break;
     }
@@ -289,10 +286,7 @@ export class SummaryComponent implements OnChanges {
       case tribes.has(ANY_TRIBE_ID) || (this.allTribeIds.size > 0 && this.allTribeIds.isSubsetOf(tribes)):
         return {kind: 'any'};
       default:
-        return {
-          kind: 'tribes',
-          tribes: [...tribes]
-        };
+        return {kind: 'tribes', tribes: [...tribes]};
     }
   }
 
@@ -309,10 +303,7 @@ export class SummaryComponent implements OnChanges {
       if (last?.kind === 'text') {
         last.text += text;
       } else {
-        parts.push({
-          kind: 'text',
-          text
-        });
+        parts.push({kind: 'text', text});
       }
     }
   }

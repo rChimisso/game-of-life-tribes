@@ -1,3 +1,5 @@
+import {Grid} from '~gol/core/model/grid';
+
 /**
  * Valid number for the count of a cell's neighbors.
  *
@@ -72,10 +74,7 @@ export const DEAD_TRIBE_ID = 'dead';
  *
  * @type {Tribe}
  */
-export const DEAD_TRIBE: Tribe<typeof DEAD_TRIBE_ID> = {
-  id: DEAD_TRIBE_ID,
-  color: '000000'
-};
+export const DEAD_TRIBE: Tribe<typeof DEAD_TRIBE_ID> = {id: DEAD_TRIBE_ID, color: '000000'};
 
 /**
  * Empty clause kind.
@@ -527,8 +526,9 @@ export interface Rule<T extends readonly Tribe[]> {
  * @export
  * @interface Ruleset
  * @typedef {Ruleset}
+ * @extends {Grid}
  */
-export interface Ruleset<T extends readonly Tribe[] = Tribe[]> {
+export interface Ruleset<T extends readonly Tribe[] = Tribe[]> extends Grid {
   /**
    * List of valid tribes.
    *
@@ -541,18 +541,6 @@ export interface Ruleset<T extends readonly Tribe[] = Tribe[]> {
    * @type {Rule<T>[]}
    */
   rules: Rule<T>[];
-  /**
-   * Grid columns.
-   *
-   * @type {number}
-   */
-  cols: number;
-  /**
-   * Grid rows.
-   *
-   * @type {number}
-   */
-  rows: number;
 }
 
 /**

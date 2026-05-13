@@ -22,18 +22,12 @@ export const appConfig: ApplicationConfig = {
     provideStore(),
     provideEffects(CoreEffects),
     provideAnimationsAsync(),
-    provideRouter(routes, withInMemoryScrolling({
-      scrollPositionRestoration: 'top',
-      anchorScrolling: 'enabled'
-    })),
+    provideRouter(routes, withInMemoryScrolling({scrollPositionRestoration: 'top', anchorScrolling: 'enabled'})),
     {
       provide: MAT_RIPPLE_GLOBAL_OPTIONS,
       useValue: {
         disabled: true,
-        animation: {
-          enterDuration: 0,
-          exitDuration: 0
-        }
+        animation: {enterDuration: 0, exitDuration: 0}
       }
     },
     {

@@ -1,0 +1,9 @@
+<div cdkDropList cdkDropListOrientation="vertical" class="rules-list" [cdkDropListData]="editRules" [class.dragging-list]="draggingRuleIndex !== null" (cdkDropListDropped)="onRuleDropped($event)">
+  @for (rule of editRules; track rule.key; let i = $index) {
+    <div cdkDrag cdkDragLockAxis="y" cdkDragPlaceholderClass="gol-rule-drag-placeholder" cdkDragPreviewClass="gol-rule-drag-preview" class="rule-list-item" [class.dragging-rule]="draggingRuleIndex === i" (cdkDragEnded)="onRuleDragEnded()" (cdkDragStarted)="onRuleDragStarted(i)">
+      <gol-rule-card [baselineRule]="baselineRule(i)" [expanded]="expandedRuleIndex === i" [rule]="rule" [ruleIndex]="i" [tribes]="tribes" (dragHandlePointerDown)="onRuleDragHandlePointerDown(i)" (duplicateRule)="onDuplicateRule($event)" (removeRule)="onRemoveRule($event)" (ruleChange)="onRuleChanged($event)" (ruleStateChange)="onRuleStateChanged($event)" (toggleExpand)="onToggleRuleExpand($event)" />
+    </div>
+  }
+</div>
+<gol-button icon="add" label="Add rule" title="Add a new rule" variant="stroked" (clicked)="onAddRule()" />
+<gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedRules || hasInvalidRules" [rightDisabled]="downloading || !hasUnappliedRules" (leftClick)="onApplyRules()" (rightClick)="onRestoreRules()" />

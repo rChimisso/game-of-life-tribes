@@ -1,0 +1,14 @@
+:host {
+  display: block;
+
+  .info-labels {
+    height: 40px;
+  }
+
+  .reset {
+    display: block;
+    margin: 6px auto 0;
+    min-width: 12rem;
+    width: 50%;
+  }
+}

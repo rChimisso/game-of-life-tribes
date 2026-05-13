@@ -11,10 +11,11 @@
 
 import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import renderWgsl from './render.wgsl';
-import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormat, GridFormatMetadata, GRID_FORMAT_8, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../model/grid-format';
+import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
+import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
+import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../util/grid-format';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -97,6 +98,7 @@ let tribeEverAlive: Set<number> = new Set();
 
 // Recording state
 let isRecording = false;
+let recordingAwaitingForward = false;
 let manifest: RecordingManifest = {
   chunks: [],
   generationStart: 0,
@@ -191,10 +193,7 @@ function workerErrorReason(error: unknown): string {
 
 function reportWorkerError(error: unknown): void {
   simulationRunning = false;
-  self.postMessage({
-    type: 'gpuError',
-    reason: workerErrorReason(error)
-  } satisfies GpuErrorMessage);
+  self.postMessage({type: 'gpuError', reason: workerErrorReason(error)});
 }
 
 self.addEventListener('error', event => {
@@ -312,10 +311,7 @@ function updateInflightSeals(delta: number): void {
   inflightSeals += delta;
   const isSaving = inflightSeals > 0;
   if (wasSaving !== isSaving) {
-    self.postMessage({
-      type: 'chunksSaving',
-      active: isSaving
-    });
+    self.postMessage({type: 'chunksSaving', active: isSaving});
   }
 }
 
@@ -323,10 +319,7 @@ function checkBackpressure(): void {
   if (chunkFrameCapacity < 1 || stagingRing.length === 0) {
     if (backpressureActive) {
       backpressureActive = false;
-      self.postMessage({
-        type: 'backpressure',
-        active: false
-      });
+      self.postMessage({type: 'backpressure', active: false});
     }
     return;
   }
@@ -344,10 +337,7 @@ function checkBackpressure(): void {
   }
   if (pressure !== backpressureActive) {
     backpressureActive = pressure;
-    self.postMessage({
-      type: 'backpressure',
-      active: pressure
-    });
+    self.postMessage({type: 'backpressure', active: pressure});
   }
 }
 
@@ -837,7 +827,7 @@ function writeUniforms(): void {
 // ---------------------------------------------------------------------------
 
 function gridBufferSize(): number {
-  return gridByteSize(cols, rows, gridFormat);
+  return gridByteSize({cols, rows}, gridFormat);
 }
 
 function currentGridFormatMetadata(): GridFormatMetadata {
@@ -847,16 +837,10 @@ function currentGridFormatMetadata(): GridFormatMetadata {
 async function createGridBuffers(): Promise<void> {
   const byteSize = gridBufferSize();
 
-  gridBufferA = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
-  });
+  gridBufferA = device.createBuffer({size: byteSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
   await trackMajorBufferAllocation(byteSize, gridBufferA);
 
-  gridBufferB = device.createBuffer({
-    size: byteSize,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
-  });
+  gridBufferB = device.createBuffer({size: byteSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
   await trackMajorBufferAllocation(byteSize, gridBufferB);
 
   // Dead tribe always maps to index 0 → packed representation is all-zero.
@@ -882,10 +866,7 @@ function createTribeColorBuffer(): void {
   if (tribeColorBuffer) {
     tribeColorBuffer.destroy();
   }
-  tribeColorBuffer = device.createBuffer({
-    size: data.byteLength,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-  });
+  tribeColorBuffer = device.createBuffer({size: data.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST});
   device.queue.writeBuffer(tribeColorBuffer, 0, data);
 }
 
@@ -907,10 +888,7 @@ function createRenderPipeline(): void {
 
   renderPipeline = device.createRenderPipeline({
     layout: 'auto',
-    vertex: {
-      module,
-      entryPoint: 'vs_main'
-    },
+    vertex: {module, entryPoint: 'vs_main'},
     fragment: {
       module,
       entryPoint: 'fs_main',
@@ -925,26 +903,12 @@ function createRenderPipeline(): void {
 function createRenderBindGroups(): void {
   renderBindGroupA = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: uniformBuffer} },
-      {binding: 1,
-        resource: {buffer: gridBufferA} },
-      {binding: 2,
-        resource: {buffer: tribeColorBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: uniformBuffer} }, {binding: 1, resource: {buffer: gridBufferA} }, {binding: 2, resource: {buffer: tribeColorBuffer} }]
   });
 
   renderBindGroupB = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: uniformBuffer} },
-      {binding: 1,
-        resource: {buffer: gridBufferB} },
-      {binding: 2,
-        resource: {buffer: tribeColorBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: uniformBuffer} }, {binding: 1, resource: {buffer: gridBufferB} }, {binding: 2, resource: {buffer: tribeColorBuffer} }]
   });
 }
 
@@ -954,30 +918,17 @@ function createComputePipeline(): void {
 
   computePipeline = device.createComputePipeline({
     layout: 'auto',
-    compute: {
-      module,
-      entryPoint: 'main'
-    }
+    compute: {module, entryPoint: 'main'}
   });
 
   computeBindGroupAtoB = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferA} },
-      {binding: 1,
-        resource: {buffer: gridBufferB} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: gridBufferB} }]
   });
 
   computeBindGroupBtoA = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferB} },
-      {binding: 1,
-        resource: {buffer: gridBufferA} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: gridBufferA} }]
   });
 }
 
@@ -1101,72 +1052,41 @@ function createMetricsPipelines(): void {
   const histModule = device.createShaderModule({code: generateHistogramWgsl()});
   histogramPipeline = device.createComputePipeline({
     layout: 'auto',
-    compute: {module: histModule,
-      entryPoint: 'main'}
+    compute: {module: histModule, entryPoint: 'main'}
   });
 
   histogramBuffer = device.createBuffer({
     size: HISTOGRAM_BUFFER_SIZE, // 256 tribes max
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
-  histogramReadBuffer = device.createBuffer({
-    size: HISTOGRAM_BUFFER_SIZE,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
+  histogramReadBuffer = device.createBuffer({size: HISTOGRAM_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
 
   histogramBindGroupA = device.createBindGroup({
     layout: histogramPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferA} },
-      {binding: 1,
-        resource: {buffer: histogramBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: histogramBuffer} }]
   });
   histogramBindGroupB = device.createBindGroup({
     layout: histogramPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferB} },
-      {binding: 1,
-        resource: {buffer: histogramBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: histogramBuffer} }]
   });
 
   // Boundary
   const boundaryModule = device.createShaderModule({code: generateBoundaryWgsl()});
   boundaryPipeline = device.createComputePipeline({
     layout: 'auto',
-    compute: {module: boundaryModule,
-      entryPoint: 'main'}
+    compute: {module: boundaryModule, entryPoint: 'main'}
   });
 
-  boundaryBuffer = device.createBuffer({
-    size: BOUNDARY_BUFFER_SIZE,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-  });
-  boundaryReadBuffer = device.createBuffer({
-    size: BOUNDARY_BUFFER_SIZE,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
+  boundaryBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST});
+  boundaryReadBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
 
   boundaryBindGroupA = device.createBindGroup({
     layout: boundaryPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferA} },
-      {binding: 1,
-        resource: {buffer: boundaryBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: boundaryBuffer} }]
   });
   boundaryBindGroupB = device.createBindGroup({
     layout: boundaryPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferB} },
-      {binding: 1,
-        resource: {buffer: boundaryBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: boundaryBuffer} }]
   });
 }
 
@@ -1309,34 +1229,20 @@ function createBrushPipeline(): void {
 
   brushPipeline = device.createComputePipeline({
     layout: 'auto',
-    compute: {module,
-      entryPoint: 'main'}
+    compute: {module, entryPoint: 'main'}
   });
 
   brushUniformBuffer?.destroy();
-  brushUniformBuffer = device.createBuffer({
-    size: BRUSH_UNIFORM_SIZE,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  });
+  brushUniformBuffer = device.createBuffer({size: BRUSH_UNIFORM_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
 
   brushBindGroupA = device.createBindGroup({
     layout: brushPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferA} },
-      {binding: 1,
-        resource: {buffer: brushUniformBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
   });
 
   brushBindGroupB = device.createBindGroup({
     layout: brushPipeline.getBindGroupLayout(0),
-    entries: [
-      {binding: 0,
-        resource: {buffer: gridBufferB} },
-      {binding: 1,
-        resource: {buffer: brushUniformBuffer} }
-    ]
+    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
   });
 }
 
@@ -1382,10 +1288,7 @@ function readbackGrid(): Promise<Uint32Array> {
 
   let readBuffer: GPUBuffer;
   try {
-    readBuffer = device.createBuffer({
-      size: byteSize,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-    });
+    readBuffer = device.createBuffer({size: byteSize, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
   } catch (e) {
     console.warn('GPU readback buffer allocation failed:', e);
     return Promise.reject(new Error(`Failed to allocate ${byteSize} byte readback buffer`));
@@ -1610,15 +1513,14 @@ async function resetRecording(startGen: number): Promise<void> {
   pendingOpfsWrites = 0;
   if (inflightSeals > 0) {
     inflightSeals = 0;
-    self.postMessage({type: 'chunksSaving',
-      active: false} satisfies ChunksSavingMessage);
+    self.postMessage({type: 'chunksSaving', active: false} satisfies ChunksSavingMessage);
   }
   if (backpressureActive) {
     backpressureActive = false;
-    self.postMessage({type: 'backpressure',
-      active: false});
+    self.postMessage({type: 'backpressure', active: false});
   }
   getRecordingPending = false;
+  recordingAwaitingForward = isRecording;
   manifest = {
     chunks: [],
     generationStart: startGen,
@@ -1690,8 +1592,7 @@ function sendRecordingManifest(): void {
   self.postMessage({
     type: 'recording',
     manifest: {
-      chunks: sealedChunks.map(c => ({...c,
-        generations: [...c.generations]})),
+      chunks: sealedChunks.map(c => ({...c, generations: [...c.generations]})),
       generationStart: manifest.generationStart,
       generationEnd: manifest.generationEnd,
       gridFormat: currentGridFormatMetadata()
@@ -1714,8 +1615,23 @@ function needsInitialCapture(): boolean {
   return true;
 }
 
-function captureCurrentGenerationIfNeeded(): void {
-  if (!isRecording || !needsInitialCapture() || !canRecord()) {
+function captureCurrentGenerationIfNeeded(markForwardProgress: boolean = false): void {
+  if (!isRecording) {
+    return;
+  }
+
+  if (markForwardProgress) {
+    if (recordingAwaitingForward) {
+      if (!canRecord()) {
+        return;
+      }
+      recordingAwaitingForward = false;
+    }
+  } else if (recordingAwaitingForward) {
+    return;
+  }
+
+  if (!needsInitialCapture() || !canRecord()) {
     return;
   }
   if (chunkFrameIndex >= chunkFrameCapacity) {
@@ -2069,10 +1985,7 @@ function mainLoop(now: number): void {
       if (stuck) {
         if (!backpressureActive) {
           backpressureActive = true;
-          self.postMessage({
-            type: 'backpressure',
-            active: true
-          });
+          self.postMessage({type: 'backpressure', active: true});
         }
         if (now - lastProgressTime >= 1000) {
           lastProgressTime = now;
@@ -2086,10 +1999,7 @@ function mainLoop(now: number): void {
       // No longer stuck — clear backpressure if it was set.
       if (backpressureActive) {
         backpressureActive = false;
-        self.postMessage({
-          type: 'backpressure',
-          active: false
-        });
+        self.postMessage({type: 'backpressure', active: false});
       }
     } else {
       // Non-recording: batch steps into a single GPU submit.
@@ -2112,10 +2022,7 @@ function mainLoop(now: number): void {
       lastProgressTime = 0;
       if (backpressureActive) {
         backpressureActive = false;
-        self.postMessage({
-          type: 'backpressure',
-          active: false
-        });
+        self.postMessage({type: 'backpressure', active: false});
       }
 
       // Update metrics and render.
@@ -2129,10 +2036,7 @@ function mainLoop(now: number): void {
         pendingMetricsRetry = true;
       }
       renderFrame();
-      self.postMessage({
-        type: 'stepping',
-        active: false
-      });
+      self.postMessage({type: 'stepping', active: false});
       self.requestAnimationFrame(mainLoop);
     } else if (isRecording) {
       // Recording skip: next frame via rAF (already yielded above when stuck).
@@ -2156,12 +2060,7 @@ function mainLoop(now: number): void {
   let shouldRunMetrics = false;
   if (simulationRunning) {
     // Capture current state before the first step (only when not yet recorded).
-    if (isRecording && needsInitialCapture() && canRecord()) {
-      if (chunkFrameIndex >= chunkFrameCapacity) {
-        sealCurrentChunk();
-      }
-      recordGeneration(genCounter);
-    }
+    captureCurrentGenerationIfNeeded(true);
 
     let didStep = false;
     if (lastFrameTime === 0) {
@@ -2192,8 +2091,7 @@ function mainLoop(now: number): void {
         if (stuck) {
           if (!backpressureActive) {
             backpressureActive = true;
-            self.postMessage({type: 'backpressure',
-              active: true} satisfies BackpressureMessage);
+            self.postMessage({type: 'backpressure', active: true} satisfies BackpressureMessage);
           }
           if (now - lastProgressTime >= 1000) {
             lastProgressTime = now;
@@ -2217,8 +2115,7 @@ function mainLoop(now: number): void {
         // No longer stuck — clear backpressure if it was set.
         if (backpressureActive) {
           backpressureActive = false;
-          self.postMessage({type: 'backpressure',
-            active: false} satisfies BackpressureMessage);
+          self.postMessage({type: 'backpressure', active: false} satisfies BackpressureMessage);
         }
       } else {
         // Non-recording: keep only one GPU batch in flight at a time.
@@ -2304,10 +2201,10 @@ function selectSimulationGridFormat(rs: Ruleset<readonly Tribe[]>, requested: Gr
   const maxBytes = device ? maxSimulationBufferBytes() : Number.POSITIVE_INFINITY;
   if (isSupportedBitsPerCell(requested.bitsPerCell) &&
       validatePackingAgainstStateCount(requested.bitsPerCell, rs.tribes.length) &&
-      fitsGridFormatInMaxBytes(rs.cols, rs.rows, gridFormatFromBits(requested.bitsPerCell), maxBytes)) {
+      fitsGridFormatInMaxBytes(rs, gridFormatFromBits(requested.bitsPerCell), maxBytes)) {
     return gridFormatFromBits(requested.bitsPerCell);
   }
-  return smallestValidSimulationGridFormat(rs.tribes.length, rs.cols, rs.rows, maxBytes);
+  return smallestValidSimulationGridFormat(rs.tribes.length, rs, maxBytes);
 }
 
 function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFormatMetadata): void {
@@ -2332,10 +2229,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   }
 
   device = await adapter.requestDevice({
-    requiredLimits: {
-      maxBufferSize: adapter.limits.maxBufferSize,
-      maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
-    }
+    requiredLimits: {maxBufferSize: adapter.limits.maxBufferSize, maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize}
   });
   deviceLost = false;
 
@@ -2344,10 +2238,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
-    self.postMessage({
-      type: 'deviceLost',
-      reason
-    });
+    self.postMessage({type: 'deviceLost', reason});
   });
 
   self.postMessage({
@@ -2384,19 +2275,13 @@ async function restoreWebGPUDevice(): Promise<boolean> {
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
-    self.postMessage({
-      type: 'deviceLost',
-      reason
-    });
+    self.postMessage({type: 'deviceLost', reason});
     return false;
   }
 }
 
 async function createChunkBuffer(): Promise<void> {
-  chunkGpuBuffer = device.createBuffer({
-    size: chunkFrameCapacity * frameByteSize,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
-  });
+  chunkGpuBuffer = device.createBuffer({size: chunkFrameCapacity * frameByteSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
   await trackMajorBufferAllocation(chunkFrameCapacity * frameByteSize, chunkGpuBuffer);
   chunkFrameIndex = 0;
   chunkGenerations = [];
@@ -2407,10 +2292,7 @@ async function createStagingRing(): Promise<void> {
   stagingRing = [];
   stagingAvailable = [];
   for (let i = 0; i < STAGING_RING_SIZE; i++) {
-    const stagingBuffer = device.createBuffer({
-      size,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-    });
+    const stagingBuffer = device.createBuffer({size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
     stagingRing.push(stagingBuffer);
     stagingAvailable.push(true);
     await trackMajorBufferAllocation(size, stagingBuffer);
@@ -2438,6 +2320,7 @@ async function buildPipelines(): Promise<void> {
   } else {
     destroyRecordingBuffers();
     isRecording = false;
+    recordingAwaitingForward = false;
   }
   await waitForTrackedBufferAllocations();
   postRecordingLimits();
@@ -2445,10 +2328,7 @@ async function buildPipelines(): Promise<void> {
 
 async function rebuildForNewRuleset(): Promise<boolean> {
   rebuilding = true;
-  self.postMessage({
-    type: 'rebuilding',
-    active: true
-  } satisfies RebuildingMessage);
+  self.postMessage({type: 'rebuilding', active: true} satisfies RebuildingMessage);
 
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
@@ -2483,6 +2363,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     } else {
       destroyRecordingBuffers();
       isRecording = false;
+      recordingAwaitingForward = false;
     }
     await waitForTrackedBufferAllocations();
     postRecordingLimits();
@@ -2491,10 +2372,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     // So mainLoop does not attempt GPU work, then attempt recovery without
     // Recording buffers.
     const reason = err instanceof Error ? err.message : String(err);
-    self.postMessage({
-      type: 'gpuError',
-      reason
-    });
+    self.postMessage({type: 'gpuError', reason});
     try {
       destroyRebuildableBuffers();
       createUniformBuffer();
@@ -2509,6 +2387,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
       createMetricsPipelines();
       // Disable recording since chunk/staging buffers failed.
       isRecording = false;
+      recordingAwaitingForward = false;
       frameByteSize = gridBufferSize();
       destroyRecordingBuffers();
       await waitForTrackedBufferAllocations();
@@ -2519,10 +2398,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     }
   }
   rebuilding = false;
-  self.postMessage({
-    type: 'rebuilding',
-    active: false
-  });
+  self.postMessage({type: 'rebuilding', active: false});
   return true;
 }
 
@@ -2535,9 +2411,18 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
   switch (m.type) {
     case 'init': {
       isRecording = m.recording;
+      recordingAwaitingForward = isRecording;
       initRuleset(m.ruleset, m.simulationGridFormat);
       await initWebGPU(m.canvas);
       await buildPipelines();
+      if (!metricsInFlight) {
+        const initEncoder = device.createCommandEncoder();
+        runMetricsGpu(initEncoder);
+        device.queue.submit([initEncoder.finish()]);
+        readMetricsAndPost();
+      } else {
+        pendingMetricsRetry = true;
+      }
       postStorageQuota();
 
       simulationRunning = m.running;
@@ -2595,8 +2480,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           pendingMetricsRetry = true;
         }
         renderFrame();
-        self.postMessage({type: 'stepping',
-          active: false} satisfies SteppingMessage);
+        self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
         break;
       }
       simulationRunning = m.running;
@@ -2695,7 +2579,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage, [grid.buffer]);
+        } satisfies SnapshotMessage);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
         const empty = new Uint32Array(0);
@@ -2714,13 +2598,13 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     case 'loadSnapshot': {
       const currentGrid = pingPong ? gridBufferB : gridBufferA;
       const incomingGridFormat = gridFormatFromMetadata(m.gridFormat);
-      const incomingSize = gridByteSize(cols, rows, incomingGridFormat);
+      const incomingSize = gridByteSize({cols, rows}, incomingGridFormat);
       if (m.grid.byteLength !== incomingSize) {
         break;
       }
       const gridData = incomingGridFormat.bitsPerCell === gridFormat.bitsPerCell ?
         m.grid :
-        packFrameToWords(unpackWordsToFrame(m.grid, cols, rows, incomingGridFormat), cols, rows, gridFormat);
+        packFrameToWords(unpackWordsToFrame(m.grid, {cols, rows}, incomingGridFormat), {cols, rows}, gridFormat);
       device.queue.writeBuffer(currentGrid, 0, gridData);
       genCounter = m.generation;
       await resetRecording(m.generation);
@@ -2730,7 +2614,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     case 'setRecording': {
       if (m.recording && recordingAvailableForCurrentFrame() && !isRecording) {
         isRecording = true;
-        captureCurrentGenerationIfNeeded();
+        recordingAwaitingForward = true;
         lastMetricsGen = -1;
         if (!metricsInFlight) {
           const encoder = device.createCommandEncoder();
@@ -2743,6 +2627,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         postStorageQuota();
       } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
         isRecording = false;
+        recordingAwaitingForward = false;
       }
       break;
     }
@@ -2754,7 +2639,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         break;
       }
       await waitForGpuQueueIdle();
-      captureCurrentGenerationIfNeeded();
+      captureCurrentGenerationIfNeeded(false);
       if (chunkFrameIndex > 0) {
         sealCurrentChunk();
       }
@@ -2826,7 +2711,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         const chunk = sealedChunks[targetSealedIdx]!;
         const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
         const storedChunkFormat = gridFormatFromMetadata(chunk.gridFormat);
-        const storedFrameByteSize = gridByteSize(cols, rows, storedChunkFormat);
+        const storedFrameByteSize = gridByteSize({cols, rows}, storedChunkFormat);
 
         // Load frames 0..frameInChunk into the GPU chunk buffer.
         if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
@@ -2837,8 +2722,8 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           for (let frameIndex = 0; frameIndex <= frameInChunk; frameIndex++) {
             const storedOffset = frameIndex * storedFrameByteSize;
             const packedFrame = new Uint8Array(chunkData, storedOffset, storedFrameByteSize);
-            const unpackedFrame = unpackPackedBytesToFrame(packedFrame, cols, rows, storedChunkFormat);
-            const repackedFrame = packFrameToWords(unpackedFrame, cols, rows, gridFormat);
+            const unpackedFrame = unpackPackedBytesToFrame(packedFrame, {cols, rows}, storedChunkFormat);
+            const repackedFrame = packFrameToWords(unpackedFrame, {cols, rows}, gridFormat);
             repackedPrefix.set(new Uint8Array(repackedFrame.buffer, repackedFrame.byteOffset, repackedFrame.byteLength), frameIndex * frameByteSize);
           }
           device.queue.writeBuffer(chunkGpuBuffer!, 0, repackedPrefix);
@@ -2881,12 +2766,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       applyPendingBrush();
       if (m.count === 1) {
         // Single step: immediate, with recording.
-        if (isRecording && needsInitialCapture() && canRecord()) {
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
-          }
-          recordGeneration(genCounter);
-        }
+        captureCurrentGenerationIfNeeded(true);
         stepSimulation();
         stepCount++;
         if (isRecording && canRecord()) {
@@ -2907,15 +2787,9 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         renderFrame();
       } else {
         // Multi-step: enter skip-forward mode (max speed, no rendering).
-        self.postMessage({type: 'stepping',
-          active: true} satisfies SteppingMessage);
+        self.postMessage({type: 'stepping', active: true} satisfies SteppingMessage);
 
-        if (isRecording && needsInitialCapture() && canRecord()) {
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
-          }
-          recordGeneration(genCounter);
-        }
+        captureCurrentGenerationIfNeeded(true);
         preSkipRunning = simulationRunning;
         preSkipStepDuration = targetStepDuration;
         skipTarget = genCounter + m.count;
@@ -2944,8 +2818,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           pendingMetricsRetry = true;
         }
         renderFrame();
-        self.postMessage({type: 'stepping',
-          active: false} satisfies SteppingMessage);
+        self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
       }
       break;
     }
@@ -2973,8 +2846,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           rawGridFormat: c.gridFormat,
           storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
         }));
-      self.postMessage({type: 'uncompressedChunks',
-        chunks: rawChunks});
+      self.postMessage({type: 'uncompressedChunks', chunks: rawChunks});
       break;
     }
   }

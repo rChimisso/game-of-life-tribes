@@ -1,0 +1,13 @@
+<div class="gol-grid-tiny">
+  <span class="input-label gol-cell-3">Bits/cell</span>
+  <gol-exclusive-button-group class="gol-cell-9" [options]="packingButtonOptions" [selectedValue]="pendingSimulationBitsPerCell" (selectedChange)="onPackingOptionChange($event)" />
+</div>
+<div class="info-labels gol-grid-tiny" [title]="pendingPackingFrameSizeFormatted + ' frame size'">
+  <gol-label-value class="gol-cell-6" label="Frame size" [value]="pendingPackingFrameSizeFormatted" />
+  <gol-label-value class="gol-cell-6" label="Bytes" [value]="pendingPackingFrameByteSize.toLocaleString()" />
+</div>
+<div class="limits-labels gol-grid-tiny" [title]="frameSizeTooltip">
+  <gol-label-value class="gol-cell-12" label="Max recording size" [type]="pendingPackingOverRecordingFrameLimit ? 'warning' : 'info'" [value]="recordingFrameLimitLabel" />
+  <gol-label-value class="gol-cell-12" label="Max supported size" [type]="pendingPackingOverAllowedFrameLimit ? 'error' : 'info'" [value]="allowedFrameLimitLabel" />
+</div>
+<gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedPacking || pendingPackingOverAllowedFrameLimit" [rightDisabled]="downloading || !hasUnappliedPacking" (leftClick)="onApplyPacking()" (rightClick)="restorePacking()" />

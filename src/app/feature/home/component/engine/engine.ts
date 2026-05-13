@@ -141,11 +141,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   public onPointerDown(ev: PointerEvent): void {
     ev.preventDefault();
+    (document.activeElement as HTMLElement)?.blur?.();
     (ev.target as Element).setPointerCapture(ev.pointerId);
-    this.pointers.set(ev.pointerId, {
-      x: ev.clientX,
-      y: ev.clientY
-    });
+    this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
     if (ev.button === 2) {
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
@@ -161,10 +159,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
     } else if (ev.pointerType === 'touch') {
-      this.touchPendingDraw = {
-        x: ev.clientX,
-        y: ev.clientY
-      };
+      this.touchPendingDraw = {x: ev.clientX, y: ev.clientY};
       this.primaryPointerId = ev.pointerId;
     } else {
       this.mode = 'draw';
@@ -178,10 +173,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       return;
     }
     const prev = this.pointers.get(ev.pointerId)!;
-    this.pointers.set(ev.pointerId, {
-      x: ev.clientX,
-      y: ev.clientY
-    });
+    this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
 
     if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
       const dx = ev.clientX - prev.x;
@@ -328,10 +320,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public setRecording(recording: boolean): void {
-    this.worker?.postMessage({
-      type: 'setRecording',
-      recording
-    });
+    this.worker?.postMessage({type: 'setRecording', recording});
   }
 
   public requestRecording(): void {
@@ -339,17 +328,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public stepBack(count: number): void {
-    this.worker?.postMessage({
-      type: 'stepBack',
-      count
-    });
+    this.worker?.postMessage({type: 'stepBack', count});
   }
 
   public stepForward(count: number): void {
-    this.worker?.postMessage({
-      type: 'stepForward',
-      count
-    });
+    this.worker?.postMessage({type: 'stepForward', count});
   }
 
   public cancelStepping(): void {
@@ -373,22 +356,13 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
     if (this.worker) {
       if (changes.state) {
-        this.worker.postMessage({
-          type: 'setRunning',
-          running: this.state === 'running'
-        });
+        this.worker.postMessage({type: 'setRunning', running: this.state === 'running'});
       }
       if (changes.isRecording) {
-        this.worker.postMessage({
-          type: 'setRecording',
-          recording: this.isRecording
-        });
+        this.worker.postMessage({type: 'setRecording', recording: this.isRecording});
       }
       if (changes.speed) {
-        this.worker.postMessage({
-          type: 'setSpeed',
-          speed: this.speed
-        });
+        this.worker.postMessage({type: 'setSpeed', speed: this.speed});
       }
       if (changes.ruleset || changes.simulationGridFormat) {
         this.worker.postMessage({

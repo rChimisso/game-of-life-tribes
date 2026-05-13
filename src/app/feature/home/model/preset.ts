@@ -6,93 +6,7 @@ interface Preset {
   readonly ruleset: Ruleset;
 }
 
-const conway: Preset = {
-  name: 'Conway',
-  description: 'Classic Game of Life',
-  ruleset: {
-    cols: 128,
-    rows: 128,
-    tribes: [
-      DEAD_TRIBE,
-      {
-        id: 'Alive',
-        color: 'ffffff'
-      }
-    ],
-    rules: [
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [0, 1],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [4, 8],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [3, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      }
-    ]
-  }
-};
-
-const ecosystem: Preset = {
+const ECOSYSTEM_PRESET: Preset = {
   name: 'Ecosystem',
   description: 'Grass, Rabbits, and Foxes',
   ruleset: {
@@ -309,6 +223,92 @@ const ecosystem: Preset = {
   }
 };
 
-export const PRESETS: readonly Preset[] = [conway, ecosystem];
+export const CONWAY_PRESET: Preset = {
+  name: 'Conway',
+  description: 'Classic Game of Life',
+  ruleset: {
+    cols: 128,
+    rows: 128,
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: 'Alive',
+        color: 'ffffff'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [0, 1],
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: DEAD_TRIBE_ID
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [2, 3],
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: 'Alive'
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [4, 8],
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: DEAD_TRIBE_ID
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [3, 3],
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: 'Alive'
+      }
+    ]
+  }
+};
+
+export const PRESETS: readonly Preset[] = [CONWAY_PRESET, ECOSYSTEM_PRESET];
 
 export type {Preset};

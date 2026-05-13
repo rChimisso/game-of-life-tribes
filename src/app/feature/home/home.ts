@@ -5,12 +5,26 @@ import {MatSnackBar, MatSnackBarConfig, MatSnackBarModule} from '@angular/materi
 import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
-import {Sidebar, SidebarEvent} from './component/sidebar/sidebar';
-import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, GridFormatMetadata, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, smallestValidSimulationGridFormat, unpackWordsToFrame, validatePackingAgainstStateCount} from './model/grid-format';
-import {Preset} from './model/preset';
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, Ruleset, Tribe} from './model/rule';
+import {Sidebar} from './component/sidebar/sidebar';
+import {BitsPerCell, GridFormatMetadata} from './model/grid-format';
+import {CONWAY_PRESET, Preset} from './model/preset';
+import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
+import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from './model/sidebar-event';
 import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
+import {buildGoltStateFile, parseGoltStateFile} from './util/golt-file';
+import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
+import {applyRuleTribeRenames} from './util/tribe-impact';
 
+import {Grid} from '~gol/core/model/grid';
+
+/**
+ * Home page component.
+ *
+ * @export
+ * @class HomePage
+ * @typedef {HomePage}
+ * @implements {OnDestroy}
+ */
 @Component({
   selector: 'gol-home',
   standalone: true,
@@ -28,87 +42,7 @@ import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage
 export class HomePage implements OnDestroy {
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
 
-  public ruleset: Ruleset = {
-    cols: 128,
-    rows: 128,
-    tribes: [
-      DEAD_TRIBE,
-      {
-        id: 'Alive',
-        color: 'ffffff'
-      }
-    ],
-    rules: [
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [0, 1],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [4, 8],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [3, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      }
-    ]
-  };
+  public ruleset: Ruleset = CONWAY_PRESET.ruleset;
 
   public state: 'running' | 'paused' = 'paused';
 
@@ -148,7 +82,7 @@ export class HomePage implements OnDestroy {
 
   public frameByteSize = 0;
 
-  public simulationGridFormat = gridFormatMetadata(smallestValidSimulationGridFormat(this.ruleset.tribes.length, this.ruleset.cols, this.ruleset.rows));
+  public simulationGridFormat = gridFormatMetadata(smallestValidSimulationGridFormat(this.ruleset.tribes.length, this.ruleset));
 
   public vramSimulationBytes = 0;
 
@@ -387,10 +321,7 @@ export class HomePage implements OnDestroy {
 
   public onUncompressedChunks(data: UncompressedChunksMessage): void {
     for (const chunk of data.chunks) {
-      this.onChunkSealed({
-        type: 'chunkSealed',
-        ...chunk
-      });
+      this.onChunkSealed({type: 'chunkSealed', ...chunk});
     }
   }
 
@@ -449,7 +380,7 @@ export class HomePage implements OnDestroy {
         }
         break;
       case 'setGridSize': {
-        const {cols, rows} = ev.value as {cols: number; rows: number};
+        const {cols, rows} = ev.value as Grid;
         this.rebuilding = true;
         this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, this.ruleset, cols, rows);
         this.ruleset = {
@@ -463,7 +394,7 @@ export class HomePage implements OnDestroy {
       }
       case 'setPacking': {
         this.rebuilding = true;
-        this.simulationGridFormat = this.resolveSimulationGridFormat(ev.value as GridFormatMetadata);
+        this.simulationGridFormat = this.resolveSimulationGridFormat({bitsPerCell: ev.value as BitsPerCell});
         this.latestMetrics = null;
         break;
       }
@@ -489,17 +420,22 @@ export class HomePage implements OnDestroy {
           this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
         break;
-      case 'updateRuleset': {
-        const newRuleset = ev.value as Ruleset;
-        this.rebuilding = true;
-        this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, newRuleset);
-        this.ruleset = newRuleset;
-        if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
-        }
-        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
-        this.latestMetrics = null;
-        this.clampBrushSize();
+      case 'updateTribes': {
+        const update = ev.value as UpdateTribesPayload;
+        const renamedRules = applyRuleTribeRenames(this.ruleset.rules, update.renamePairs);
+        this.applyCommittedRuleset({
+          ...this.ruleset,
+          tribes: update.tribes,
+          rules: renamedRules
+        });
+        break;
+      }
+      case 'updateRules': {
+        const update = ev.value as UpdateRulesPayload;
+        this.applyCommittedRuleset({
+          ...this.ruleset,
+          rules: update.rules
+        });
         break;
       }
       case 'stepBack':
@@ -527,18 +463,24 @@ export class HomePage implements OnDestroy {
         const newRuleset = structuredClone(preset.ruleset);
         newRuleset.cols = this.ruleset.cols;
         newRuleset.rows = this.ruleset.rows;
-        this.rebuilding = true;
-        this.simulationGridFormat = this.smallestSimulationGridFormatForRuleset(newRuleset);
-        this.ruleset = newRuleset;
-        if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-          this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
-        }
-        this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
-        this.latestMetrics = null;
-        this.clampBrushSize();
+        this.applyCommittedRuleset(newRuleset, true);
         break;
       }
     }
+  }
+
+  private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): void {
+    this.rebuilding = true;
+    this.simulationGridFormat = preferSmallestFormat ?
+      this.smallestSimulationGridFormatForRuleset(newRuleset) :
+      this.resolveSimulationGridFormat(this.simulationGridFormat, newRuleset);
+    this.ruleset = newRuleset;
+    if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
+      this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
+    }
+    this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
+    this.latestMetrics = null;
+    this.clampBrushSize();
   }
 
   private handleKeydown(ev: KeyboardEvent): void {
@@ -613,8 +555,7 @@ export class HomePage implements OnDestroy {
       case 'm':
         this.maxSpeed = !this.maxSpeed;
         break;
-      case '+':
-      case '=': {
+      case '+': {
         const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
         this.brushSize = Math.min(max, this.brushSize + 1);
         break;
@@ -670,13 +611,13 @@ export class HomePage implements OnDestroy {
   }
 
   private smallestSimulationGridFormatForRuleset(ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
-    return gridFormatMetadata(smallestValidSimulationGridFormat(ruleset.tribes.length, cols, rows, this.currentMaxBytes()));
+    return gridFormatMetadata(smallestValidSimulationGridFormat(ruleset.tribes.length, {cols, rows}, this.currentMaxBytes()));
   }
 
   private resolveSimulationGridFormat(preferred: GridFormatMetadata | null | undefined, ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
     if (preferred?.bitsPerCell !== undefined && isSupportedBitsPerCell(preferred.bitsPerCell) &&
         validatePackingAgainstStateCount(preferred.bitsPerCell, ruleset.tribes.length) &&
-        fitsGridFormatInMaxBytes(cols, rows, gridFormatFromBits(preferred.bitsPerCell), this.currentMaxBytes())) {
+        fitsGridFormatInMaxBytes({cols, rows}, gridFormatFromBits(preferred.bitsPerCell), this.currentMaxBytes())) {
       return gridFormatMetadata(gridFormatFromBits(preferred.bitsPerCell));
     }
     return this.smallestSimulationGridFormatForRuleset(ruleset, cols, rows);
@@ -860,10 +801,7 @@ export class HomePage implements OnDestroy {
             cols: rec.cols,
             rows: rec.rows
           } : null,
-          tribes: this.tribes.map(t => ({
-            id: t.id,
-            color: t.color
-          })),
+          tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
           rules: this.ruleset.rules,
           metricsHistory: []
         }, transferables);
@@ -923,100 +861,20 @@ export class HomePage implements OnDestroy {
   }
 
   private async buildGoltFile(snap: SnapshotMessage): Promise<Blob> {
-    const magic = new Uint8Array([
-      0x47,
-      0x6F,
-      0x4C,
-      0x54
-    ]); // "GoLT"
-    const storedGridFormat = chooseTightStorageGridFormat(this.tribes.length);
-    const sourceGridFormat = gridFormatFromMetadata(snap.gridFormat);
-    const packedGrid = sourceGridFormat.bitsPerCell === storedGridFormat.bitsPerCell ?
-      snap.grid :
-      packFrameToWords(unpackWordsToFrame(snap.grid, snap.cols, snap.rows, sourceGridFormat), snap.cols, snap.rows, storedGridFormat);
-    const header = JSON.stringify({
+    const file = await buildGoltStateFile({
       generation: snap.generation,
       cols: snap.cols,
       rows: snap.rows,
-      gridFormat: gridFormatMetadata(storedGridFormat),
-      tribes: this.tribes.map(t => ({
-        id: t.id,
-        color: t.color
-      })),
+      grid: snap.grid,
+      gridFormat: snap.gridFormat,
+      tribes: this.tribes,
       rules: this.ruleset.rules
     });
-    const headerBytes = new TextEncoder().encode(header);
-    const gridBytes = new Uint8Array(packedGrid.buffer, packedGrid.byteOffset, packedGrid.byteLength);
-
-    // Compress grid with deflate-raw
-    const cs = new CompressionStream('deflate-raw');
-    const writer = cs.writable.getWriter();
-    writer.write(gridBytes);
-    writer.close();
-    const compressedGrid = await new Response(cs.readable).arrayBuffer();
-
-    // Build: magic(4) + version(4) + headerLen(4) + header + compressed grid
-    const preambleSize = 4 + 4 + 4 + headerBytes.byteLength;
-    const preamble = new ArrayBuffer(preambleSize);
-    const view = new DataView(preamble);
-    const bytes = new Uint8Array(preamble);
-
-    bytes.set(magic, 0);
-    view.setUint32(4, 1, true); // Version 1
-    view.setUint32(8, headerBytes.byteLength, true);
-    bytes.set(headerBytes, 12);
-
-    return new Blob([preamble, compressedGrid], {type: 'application/octet-stream'});
+    return new Blob([file], {type: 'application/octet-stream'});
   }
 
   private async parseGoltFile(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata} | null> {
-    if (buffer.byteLength < 12) {
-      return null;
-    }
-    const view = new DataView(buffer);
-    // Check magic "GoLT"
-    if (view.getUint8(0) !== 0x47 || view.getUint8(1) !== 0x6F ||
-        view.getUint8(2) !== 0x4C || view.getUint8(3) !== 0x54) {
-      return null;
-    }
-    const version = view.getUint32(4, true);
-    if (version !== 1) {
-      return null;
-    }
-    const headerLen = view.getUint32(8, true);
-    if (12 + headerLen > buffer.byteLength) {
-      return null;
-    }
-    const headerJson = new TextDecoder().decode(new Uint8Array(buffer, 12, headerLen));
-    const header = JSON.parse(headerJson);
-    if (!header.cols || !header.rows) {
-      return null;
-    }
-    if (!isSupportedBitsPerCell(header.gridFormat?.bitsPerCell)) {
-      return null;
-    }
-    // Decompress grid with deflate-raw
-    const compressedGrid = buffer.slice(12 + headerLen);
-    const ds = new DecompressionStream('deflate-raw');
-    const writer = ds.writable.getWriter();
-    writer.write(new Uint8Array(compressedGrid));
-    writer.close();
-    const rawGrid = await new Response(ds.readable).arrayBuffer();
-
-    const decodedGridFormat = gridFormatFromMetadata(header.gridFormat);
-    const expectedGridBytes = gridByteSize(header.cols, header.rows, decodedGridFormat);
-    if (rawGrid.byteLength < expectedGridBytes) {
-      return null;
-    }
-    const grid = new Uint32Array(rawGrid.slice(0, expectedGridBytes));
-
-    return {
-      cols: header.cols,
-      rows: header.rows,
-      generation: header.generation ?? 0,
-      grid,
-      gridFormat: gridFormatMetadata(decodedGridFormat)
-    };
+    return parseGoltStateFile(buffer);
   }
 
   private downloadBlob(blob: Blob, filename: string): void {

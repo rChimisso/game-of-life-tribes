@@ -1,0 +1,16 @@
+<div class="tribe-list">
+  @for (tribe of editTribes; track tribe.key) {
+    @if (tribe.id !== "dead") {
+      <gol-tribe-entry [basicColors]="basicColors" [existingTribes]="editTribes" [title]="'Tribe ' + tribe.id" [tribe]="tribe" [tribeKey]="tribe.key" (remove)="onRemoveTribe($event)" (save)="onSaveTribe($event)" />
+    }
+  }
+  @if (showTribeAdder) {
+    <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [existingTribes]="editTribes" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (save)="onSaveTribe($event)" />
+  } @else {
+    <gol-button icon="add" label="Add tribe" title="Add a new tribe" variant="stroked" (clicked)="startAddTribe()" />
+    @if (tribeApplyErrorMessage) {
+      <span class="error-message tribe-impact-error">{{ tribeApplyErrorMessage }}</span>
+    }
+  }
+</div>
+<gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedTribes || editTribes.length <= 1 || tribeApplyBlocked" [rightDisabled]="downloading || !hasUnappliedTribes" (leftClick)="onApplyTribes()" (rightClick)="onRestoreTribes()" />

@@ -2,6 +2,8 @@ import {GridFormatMetadata} from './grid-format';
 import {RecordingManifest} from './recording';
 import {Ruleset, Tribe} from './rule';
 
+import {Grid} from '~gol/core/model/grid';
+
 export type BrushShape = 'square' | 'round' | 'diamond' | 'vline' | 'hline';
 
 export interface InitMessage {
@@ -93,15 +95,13 @@ export interface GetUncompressedChunksMessage {
 
 export interface UncompressedChunksMessage {
   type: 'uncompressedChunks';
-  chunks: {
+  chunks: (Grid & {
     filename: string;
     rawBytes: number;
     blockCount: number;
-    cols: number;
-    rows: number;
     rawGridFormat: GridFormatMetadata;
     storageGridFormat: GridFormatMetadata;
-  }[];
+  })[];
 }
 
 export interface MetricMessage {
@@ -119,20 +119,16 @@ export interface MetricMessage {
   recordingRawBytes: number;
 }
 
-export interface SnapshotMessage {
+export interface SnapshotMessage extends Grid {
   type: 'snapshot';
   grid: Uint32Array;
   generation: number;
-  cols: number;
-  rows: number;
   gridFormat: GridFormatMetadata;
 }
 
-export interface RecordingMessage {
+export interface RecordingMessage extends Grid {
   type: 'recording';
   manifest: RecordingManifest;
-  cols: number;
-  rows: number;
 }
 
 export interface LimitsMessage {
@@ -170,13 +166,11 @@ export interface StorageQuotaMessage {
   gpuBufferMarginBytes: number;
 }
 
-export interface ChunkSealedMessage {
+export interface ChunkSealedMessage extends Grid {
   type: 'chunkSealed';
   filename: string;
   rawBytes: number;
   blockCount: number;
-  cols: number;
-  rows: number;
   rawGridFormat: GridFormatMetadata;
   storageGridFormat: GridFormatMetadata;
 }

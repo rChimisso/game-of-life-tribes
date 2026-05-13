@@ -1,0 +1,28 @@
+<div class="tribe-picker">
+  @for (tribe of tribes; track tribe.id) {
+    @if (tribe.id !== "dead") {
+      <gol-tribe-swatch class="draw-swatch" size="md" [color]="tribe.color" [selected]="drawTribes.includes(tribe.id) && !deleteMode" [title]="tribe.id" (clicked)="tribeChange.emit(tribe.id)" />
+    }
+  }
+  <button class="delete-swatch" title="Delete" type="button" [class.active]="deleteMode" (click)="deleteModeToggle.emit()">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+<div class="gol-grid-small">
+  <div class="gol-cell-12 gol-grid-tiny" title="Brush size">
+    <span class="input-label gol-cell-2">Size</span>
+    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="brushSizeChange.emit($event)" />
+  </div>
+  <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
+    <span class="input-label gol-cell-2">Shape</span>
+    <gol-exclusive-button-group class="gol-cell-10" [options]="brushShapeOptions" [selectedValue]="brushShape" (selectedChange)="brushShapeChange.emit($event)" />
+  </div>
+  <div class="gol-cell-12 gol-grid-tiny" title="Brush fill mode">
+    <span class="input-label gol-cell-2">Mode</span>
+    <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="brushFillChange.emit($event)" />
+  </div>
+  <div class="gol-cell-12 gol-grid-tiny mobile-only">
+    <span class="input-label gol-cell-2">Touch</span>
+    <gol-exclusive-button-group class="gol-cell-10" [options]="touchModeOptions" [selectedValue]="touchMode" (selectedChange)="touchModeChange.emit($event)" />
+  </div>
+</div>

@@ -1,0 +1,21 @@
+:host {
+  display: block;
+
+  .tribe-list {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 18px;
+    gap: 8px;
+  }
+
+  .error-message {
+    font-size: 0.75rem;
+    color: #ff6b6b;
+    line-height: 1.3;
+  }
+
+  .tribe-impact-error {
+    display: block;
+    margin-top: 6px;
+  }
+}

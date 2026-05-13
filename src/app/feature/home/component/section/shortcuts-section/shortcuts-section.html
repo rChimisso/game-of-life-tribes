@@ -1,0 +1,8 @@
+@for (group of groups; track group.title) {
+  <h4 class="shortcuts-subheading">{{ group.title }}</h4>
+  <div class="shortcuts-grid">
+    @for (value of group.values; track value.code + ":" + value.label) {
+      <gol-code-label [code]="value.code" [label]="value.label" [tooltip]="value.tooltip ?? ''" />
+    }
+  </div>
+}

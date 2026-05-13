@@ -1,6 +1,10 @@
-import {alignPackedBytesToWords, chooseTightStorageGridFormat, GridFormatMetadata, gridByteSize, gridFormatFromMetadata, gridFormatMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
+import {GridFormatMetadata} from '../model/grid-format';
 import {RecordingManifest} from '../model/recording';
 import {DEAD_TRIBE_ID} from '../model/rule';
+import {buildGoltStateFile} from '../util/golt-file';
+import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata, unpackPackedBytesToFrame} from '../util/grid-format';
+
+import {Grid} from '~gol/core/model/grid';
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -22,8 +26,8 @@ interface DownloadRequest {
     bitrate: number;
     frameRange: {startFrame: number; endFrame: number} | null;
   };
-  snapshot: {generation: number; cols: number; rows: number; grid: Uint32Array | number[]; gridFormat: GridFormatMetadata};
-  recording: {manifest: RecordingManifest; cols: number; rows: number} | null;
+  snapshot: Grid & {generation: number; grid: Uint32Array | number[]; gridFormat: GridFormatMetadata};
+  recording: (Grid & {manifest: RecordingManifest}) | null;
   tribes: TribeInfo[];
   rules: unknown;
   metricsHistory: MetricEntry[];
@@ -772,10 +776,7 @@ async function createMp4StreamEncoder(
   const renderScale = vw / cols;
 
   const target = new bufferTargetCtor();
-  const output = new outputCtor({
-    format: new mp4OutputFormatCtor({fastStart: 'in-memory'}),
-    target
-  });
+  const output = new outputCtor({format: new mp4OutputFormatCtor({fastStart: 'in-memory'}), target});
 
   const videoSource = new encodedVideoPacketSourceCtor('avc');
   output.addVideoTrack(videoSource, {frameRate: fps});
@@ -792,7 +793,7 @@ async function createMp4StreamEncoder(
   encoder.configure(config);
 
   const colorMap = buildColorMap(tribes);
-  const frameDuration = 1_000_000 / fps;
+  const duration = 1_000_000 / fps;
 
   const offscreen = new OffscreenCanvas(vw, vh);
   const ctx = offscreen.getContext('2d')!;
@@ -811,20 +812,13 @@ async function createMp4StreamEncoder(
     async encodeFrame(frame: Uint8Array): Promise<void> {
       renderFrameToImageData(frame, cols, rows, colorMap, mp4ImageData, vw, vh, renderScale);
       ctx.putImageData(mp4ImageData, 0, 0);
-      const videoFrame = new VideoFrame(offscreen, {
-        timestamp: frameIndex * frameDuration,
-        duration: frameDuration
-      });
+      const videoFrame = new VideoFrame(offscreen, {timestamp: frameIndex * duration, duration});
       encoder.encode(videoFrame);
       videoFrame.close();
       frameIndex++;
       // Backpressure: wait for the encoder to drain when the queue is too deep.
       if (encoder.encodeQueueSize > 10) {
-        await new Promise<void>(resolve => {
-          encoder.ondequeue = () => {
-            resolve();
-          };
-        });
+        await new Promise<void>(resolve => (encoder.ondequeue = () => resolve()));
       }
     },
     async finalize(): Promise<ArrayBuffer | null> {
@@ -841,8 +835,8 @@ async function createMp4StreamEncoder(
 //  Frame unpacking
 // ---------------------------------------------------------------------------
 
-function unpackGridToFrame(packed: Uint8Array, frameCols: number, frameRows: number, gridFormat: GridFormatMetadata): Uint8Array {
-  return unpackPackedBytesToFrame(packed, frameCols, frameRows, gridFormatFromMetadata(gridFormat));
+function unpackGridToFrame(packed: Uint8Array, grid: Grid, gridFormat: GridFormatMetadata): Uint8Array {
+  return unpackPackedBytesToFrame(packed, grid, gridFormatFromMetadata(gridFormat));
 }
 
 const OPFS_DIR = 'gol-recording';
@@ -863,70 +857,6 @@ async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
 // ---------------------------------------------------------------------------
 
 const PART_SIZE_LIMIT = 2 * 1024 * 1024 * 1024;
-
-// ---------------------------------------------------------------------------
-//  State builder — produces .golt binary format (magic + version + JSON header
-//  + deflate-raw compressed grid).  Compatible with the save / load-state flow.
-// ---------------------------------------------------------------------------
-
-async function buildGoltState(
-  generation: number,
-  cols: number,
-  rows: number,
-  grid: Uint32Array | number[],
-  gridFormat: GridFormatMetadata,
-  tribes: TribeInfo[],
-  rules: unknown
-): Promise<Uint8Array> {
-  const magic = new Uint8Array([
-    0x47,
-    0x6F,
-    0x4C,
-    0x54
-  ]); // "GoLT"
-  const textEncoder = new TextEncoder();
-  const header = JSON.stringify({
-    generation,
-    cols,
-    rows,
-    gridFormat: gridFormatMetadata(chooseTightStorageGridFormat(tribes.length)),
-    tribes: tribes.map(t => ({id: t.id,
-      color: t.color})),
-    rules
-  });
-  const headerBytes = textEncoder.encode(header);
-  const sourceGridU32 = grid instanceof Uint32Array ? grid : new Uint32Array(grid);
-  const sourceFormat = gridFormatFromMetadata(gridFormat);
-  const targetFormat = chooseTightStorageGridFormat(tribes.length);
-  const targetGridU32 = sourceFormat.bitsPerCell === targetFormat.bitsPerCell ?
-    sourceGridU32 :
-    packFrameToWords(
-      unpackPackedBytesToFrame(new Uint8Array(sourceGridU32.buffer, sourceGridU32.byteOffset, sourceGridU32.byteLength), cols, rows, sourceFormat),
-      cols,
-      rows,
-      targetFormat
-    );
-  const gridBytes = new Uint8Array(targetGridU32.buffer, targetGridU32.byteOffset, targetGridU32.byteLength);
-
-  // Compress grid with deflate-raw
-  const cs = new CompressionStream(RAW_DEFLATE_CODEC);
-  const writer = cs.writable.getWriter();
-  writer.write(gridBytes);
-  writer.close();
-  const compressedGrid = new Uint8Array(await new Response(cs.readable).arrayBuffer());
-
-  // Build: magic(4) + version(4) + headerLen(4) + header + compressed grid
-  const preambleSize = 4 + 4 + 4 + headerBytes.byteLength;
-  const total = preambleSize + compressedGrid.byteLength;
-  const out = new Uint8Array(total);
-  const view = new DataView(out.buffer);
-  out.set(magic, 0);
-  view.setUint32(4, 1, true); // Version 1
-  view.setUint32(8, headerBytes.byteLength, true);
-  out.set(headerBytes, 12);
-  out.set(compressedGrid, preambleSize);
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 //  Main handler -- fully streaming, split-output aware
@@ -1066,7 +996,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
           continue;
         }
         const chunkGridFormat = gridFormatFromMetadata(chunkMeta.gridFormat);
-        const chunkFrameByteSz = gridByteSize(rec.cols, rec.rows, chunkGridFormat);
+        const chunkFrameByteSz = gridByteSize(rec, chunkGridFormat);
         chunksProcessed++;
         const pct = chunkProgressStart + ((chunksProcessed / Math.max(1, chunksToProcess)) * (chunkProgressEnd - chunkProgressStart));
         mainProgress(Math.round(pct), `Chunk ${chunksProcessed}/${Math.max(1, chunksToProcess)}`);
@@ -1130,7 +1060,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
             const byteOff = fi * chunkFrameByteSz;
             const packed = chunkData.subarray(byteOff, byteOff + chunkFrameByteSz);
-            const frame = unpackGridToFrame(packed, rec.cols, rec.rows, chunkMeta.gridFormat);
+            const frame = unpackGridToFrame(packed, rec, chunkMeta.gridFormat);
 
             // Capture the first selected frame exactly once.
             if (!firstFrame && frameGlobalIndex === selectedStartIndex) {
@@ -1156,8 +1086,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
             }
 
             if (pngEncoder && pngZip) {
-              pngFramesBatch.push({gen: frameGen,
-                frame});
+              pngFramesBatch.push({gen: frameGen, frame});
             }
           }
 
@@ -1209,7 +1138,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       const firstU32 = alignPackedBytesToWords(firstFrame.packed);
       summaryZip.addEntry(
         `state-first-gen${firstFrame.gen}.golt`,
-        await buildGoltState(firstFrame.gen, rec.cols, rec.rows, firstU32, firstFrame.gridFormat, tribes, rules)
+        await buildGoltStateFile({
+          generation: firstFrame.gen,
+          cols: rec.cols,
+          rows: rec.rows,
+          grid: firstU32,
+          gridFormat: firstFrame.gridFormat,
+          tribes,
+          rules
+        })
       );
 
       // Use snapshot grid for the last-gen state — it's the current GPU state in native format.
@@ -1217,7 +1154,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         subProgress(subStates + 10, 'Building last-gen state');
         summaryZip.addEntry(
           `state-last-gen${snapshot.generation}.golt`,
-          await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
+          await buildGoltStateFile({
+            generation: snapshot.generation,
+            cols: snapshot.cols,
+            rows: snapshot.rows,
+            grid: snapshot.grid,
+            gridFormat: snapshot.gridFormat,
+            tribes,
+            rules
+          })
         );
       }
     } else if (opts.saves) {
@@ -1226,7 +1171,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       subProgress(subStates, 'Building snapshot state');
       summaryZip.addEntry(
         `state-gen${snapshot.generation}.golt`,
-        await buildGoltState(snapshot.generation, snapshot.cols, snapshot.rows, snapshot.grid, snapshot.gridFormat, tribes, rules)
+        await buildGoltStateFile({
+          generation: snapshot.generation,
+          cols: snapshot.cols,
+          rows: snapshot.rows,
+          grid: snapshot.grid,
+          gridFormat: snapshot.gridFormat,
+          tribes,
+          rules
+        })
       );
     }
 
@@ -1269,7 +1222,6 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     self.postMessage({type: 'done'});
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    self.postMessage({type: 'error',
-      reason});
+    self.postMessage({type: 'error', reason});
   }
 };

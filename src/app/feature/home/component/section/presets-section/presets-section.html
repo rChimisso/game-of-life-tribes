@@ -1,0 +1,6 @@
+<div class="presets">
+  @for (preset of presets; track preset.name) {
+    <gol-preset-button [isSelected]="selectedPreset === preset" [preset]="preset" (click)="onPresetSelected(preset)" />
+  }
+</div>
+<gol-button-pair rightIcon="close" rightLabel="Cancel" [leftDisabled]="running || downloading || !selectedPreset" [rightDisabled]="downloading || !selectedPreset" (leftClick)="onApplyPreset()" (rightClick)="onRestorePreset()" />

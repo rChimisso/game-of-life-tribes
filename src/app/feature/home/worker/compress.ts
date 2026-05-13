@@ -1,4 +1,7 @@
-import {gridByteSize, GridFormatMetadata, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../model/grid-format';
+import {GridFormatMetadata} from '../model/grid-format';
+import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../util/grid-format';
+
+import {Grid} from '~gol/core/model/grid';
 
 // ---------------------------------------------------------------------------
 //  Background compression worker for OPFS recording chunks.
@@ -12,13 +15,11 @@ const OPFS_DIR = 'gol-recording';
 const MIN_SIZE_FOR_COMPRESS = 4096; // Skip chunks smaller than 4KB
 const COMPRESSION_THRESHOLD = 0.9; // Keep raw if compressed >= 90% of original
 
-interface CompressRequest {
+interface CompressRequest extends Grid {
   type: 'compress';
   filename: string;
   rawBytes: number;
   blockCount: number;
-  cols: number;
-  rows: number;
   rawGridFormat: GridFormatMetadata;
   storageGridFormat: GridFormatMetadata;
 }
@@ -140,8 +141,8 @@ function repackChunkPayload(job: CompressRequest, rawData: Uint8Array): Uint8Arr
 
   const rawFormat = gridFormatFromMetadata(job.rawGridFormat);
   const storageFormat = gridFormatFromMetadata(job.storageGridFormat);
-  const rawFrameBytes = gridByteSize(job.cols, job.rows, rawFormat);
-  const storageFrameBytes = gridByteSize(job.cols, job.rows, storageFormat);
+  const rawFrameBytes = gridByteSize(job, rawFormat);
+  const storageFrameBytes = gridByteSize(job, storageFormat);
   const expectedRawBytes = rawFrameBytes * job.blockCount;
 
   if (rawData.byteLength < expectedRawBytes) {
@@ -152,8 +153,8 @@ function repackChunkPayload(job: CompressRequest, rawData: Uint8Array): Uint8Arr
   for (let frameIndex = 0; frameIndex < job.blockCount; frameIndex++) {
     const rawOffset = frameIndex * rawFrameBytes;
     const rawFrame = rawData.subarray(rawOffset, rawOffset + rawFrameBytes);
-    const unpacked = unpackPackedBytesToFrame(rawFrame, job.cols, job.rows, rawFormat);
-    const packed = packFrameToWords(unpacked, job.cols, job.rows, storageFormat);
+    const unpacked = unpackPackedBytesToFrame(rawFrame, job, rawFormat);
+    const packed = packFrameToWords(unpacked, job, storageFormat);
     repacked.set(new Uint8Array(packed.buffer, packed.byteOffset, packed.byteLength), frameIndex * storageFrameBytes);
   }
   return repacked;

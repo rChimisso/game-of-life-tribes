@@ -1,0 +1,19 @@
+<div class="gol-cell-12 gol-grid-tiny" title="Grid columns">
+  <span class="input-label gol-cell-2">Cols</span>
+  <gol-input class="gol-cell-5" name="columns" regex="^[1-9][0-9]*$" [ngModel]="pendingCols" (ngModelChange)="onPendingColsChange($event)" />
+  <span class="gol-cell-5 error-message">{{ gridColsError }}</span>
+</div>
+<div class="gol-cell-12 gol-grid-tiny" title="Grid rows">
+  <span class="input-label gol-cell-2">Rows</span>
+  <gol-input class="gol-cell-5" name="rows" regex="^[1-9][0-9]*$" [ngModel]="pendingRows" (ngModelChange)="onPendingRowsChange($event)" />
+  <span class="gol-cell-5 error-message">{{ gridRowsError }}</span>
+</div>
+<div class="info-labels gol-cell-12 gol-grid-tiny" [title]="pendingGridFrameSizeFormatted + ' frame size'">
+  <gol-label-value class="gol-cell-6" label="Frame size" [value]="pendingGridFrameSizeFormatted" />
+  <gol-label-value class="gol-cell-6" label="Bytes" [value]="pendingGridFrameByteSize.toLocaleString()" />
+</div>
+<div class="limits-labels gol-cell-12 gol-grid-tiny" [title]="frameSizeTooltip">
+  <gol-label-value class="gol-cell-12" label="Max recording size" [type]="pendingGridOverRecordingFrameLimit ? 'warning' : 'info'" [value]="recordingFrameLimitLabel" />
+  <gol-label-value class="gol-cell-12" label="Max supported size" [type]="pendingGridOverAllowedFrameLimit ? 'error' : 'info'" [value]="allowedFrameLimitLabel" />
+</div>
+<gol-button-pair class="gol-cell-12" [leftDisabled]="running || downloading || !hasUnappliedGridSize || pendingGridOverAllowedFrameLimit || !!(gridColsError || gridRowsError)" [rightDisabled]="downloading || !hasUnappliedGridSize" (leftClick)="onApplyGridSize()" (rightClick)="restoreGridSize()" />

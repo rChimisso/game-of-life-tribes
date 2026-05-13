@@ -1,0 +1,51 @@
+:host {
+  display: block;
+
+  .rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    & + gol-button {
+      margin-bottom: 18px;
+    }
+  }
+
+  .rule-list-item {
+    display: block;
+    margin: 0;
+    max-width: 100%;
+    overflow: visible;
+
+    &.dragging-rule {
+      overflow: hidden;
+
+      .rule-card {
+        overflow: hidden;
+      }
+    }
+  }
+
+  .cdk-drop-list-dragging .rule-list-item:not(.cdk-drag-placeholder) {
+    transition: none;
+  }
+
+  .rules-list.dragging-list ::ng-deep .collapsible {
+    transition: none !important;
+  }
+
+  .cdk-drag-placeholder ::ng-deep .collapsible,
+  .cdk-drag-preview ::ng-deep .collapsible {
+    display: none !important;
+  }
+
+  .cdk-drag-placeholder {
+    opacity: 0.25;
+  }
+
+  .cdk-drag-preview {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+}

@@ -10,11 +10,14 @@
  */
 
 import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
+import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metrics/metrics-current';
+import {DEFAULT_INTERACTIVE_METRIC_SECTIONS} from './metrics/metrics-planner';
+import {InteractiveMetricsResources} from './metrics/metrics-types';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
+import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../util/grid-format';
 
 // ---------------------------------------------------------------------------
@@ -86,16 +89,7 @@ let brushSeedCounter = 0;
 let pendingBrush: {centerX: number; centerY: number; brushSize: number; shape: number; fill: number; tribeIds: number[]} | null = null;
 
 // Metrics: GPU histogram + boundary
-let histogramPipeline: GPUComputePipeline;
-let histogramBindGroupA: GPUBindGroup;
-let histogramBindGroupB: GPUBindGroup;
-let histogramBuffer: GPUBuffer; // Array<atomic<u32>, 256>
-let histogramReadBuffer: GPUBuffer;
-let boundaryPipeline: GPUComputePipeline;
-let boundaryBindGroupA: GPUBindGroup;
-let boundaryBindGroupB: GPUBindGroup;
-let boundaryBuffer: GPUBuffer; // Single atomic<u32>
-let boundaryReadBuffer: GPUBuffer;
+let metricsResources: InteractiveMetricsResources | null = null;
 let lastMetricsGen = -1;
 let metricsInFlight = false;
 let pendingMetricsRetry = false;
@@ -171,8 +165,6 @@ let sealEpoch = 0; // Incremented on rebuild; stale callbacks silently bail.
 
 const MAX_TRIBES = 256;
 const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
-const HISTOGRAM_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
-const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 
 // Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
 // Frames at or above this size fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
@@ -310,10 +302,8 @@ function destroyRecordingBuffers(): void {
 function destroyRebuildableBuffers(): void {
   gridBufferA?.destroy();
   gridBufferB?.destroy();
-  histogramBuffer?.destroy();
-  histogramReadBuffer?.destroy();
-  boundaryBuffer?.destroy();
-  boundaryReadBuffer?.destroy();
+  destroyInteractiveMetricsResources(metricsResources);
+  metricsResources = null;
   brushUniformBuffer?.destroy();
   destroyRecordingBuffers();
 }
@@ -1020,195 +1010,14 @@ function createComputePipeline(): void {
 //  Metrics compute pipelines (histogram + boundary)
 // ---------------------------------------------------------------------------
 
-function generateHistogramWgsl(): string {
-  const dispatchPlan = metricsDispatchPlan;
-  const dispatchConstants = dispatchPlan.remapped ? `
-const LOGICAL_WG_X: u32 = ${dispatchPlan.logicalWgX}u;
-const DISPATCH_WG_X: u32 = ${dispatchPlan.dispatchWgX}u;
-` : '';
-  const mainSignature = dispatchPlan.remapped ? `fn main(
-  @builtin(workgroup_id) workgroup_id: vec3u,
-  @builtin(local_invocation_id) local_invocation_id: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {` : `fn main(
-  @builtin(global_invocation_id) gid: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {`;
-  const coordinateWgsl = dispatchPlan.remapped ? `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
-  let logicalWgX = flatWg % LOGICAL_WG_X;
-  let logicalWgY = flatWg / LOGICAL_WG_X;
-
-  let x = logicalWgX * 16u + local_invocation_id.x;
-  let y = logicalWgY * 16u + local_invocation_id.y;` : `  let x = gid.x;
-  let y = gid.y;`;
-
-  return `
-@group(0) @binding(0) var<storage, read> grid: array<u32>;
-@group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;
-
-const COLS: u32 = ${cols}u;
-const ROWS: u32 = ${rows}u;
-const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
-const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
-const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
-const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
-const CELL_MASK: u32 = ${gridFormat.cellMask}u;
-const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
-${dispatchConstants}
-
-var<workgroup> localHist: array<atomic<u32>, 256>;
-
-fn readCell(x: u32, y: u32) -> u32 {
-  let wordIdx = y * PACKED_COLS + (x >> WORD_SHIFT);
-  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;
-  return (grid[wordIdx] >> shift) & CELL_MASK;
-}
-
-@compute @workgroup_size(16, 16)
-${mainSignature}
-  atomicStore(&localHist[lid], 0u);
-  workgroupBarrier();
-
-${coordinateWgsl}
-  if (x < COLS && y < ROWS) {
-    let tribe = readCell(x, y);
-    atomicAdd(&localHist[tribe], 1u);
-  }
-  workgroupBarrier();
-
-  let count = atomicLoad(&localHist[lid]);
-  if (count > 0u) {
-    atomicAdd(&hist[lid], count);
-  }
-}
-`;
-}
-
-function generateBoundaryWgsl(): string {
-  const dispatchPlan = metricsDispatchPlan;
-  const dispatchConstants = dispatchPlan.remapped ? `
-const LOGICAL_WG_X: u32 = ${dispatchPlan.logicalWgX}u;
-const DISPATCH_WG_X: u32 = ${dispatchPlan.dispatchWgX}u;
-` : '';
-  const mainSignature = dispatchPlan.remapped ? `fn main(
-  @builtin(workgroup_id) workgroup_id: vec3u,
-  @builtin(local_invocation_id) local_invocation_id: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {` : `fn main(
-  @builtin(global_invocation_id) gid: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {`;
-  const coordinateWgsl = dispatchPlan.remapped ? `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
-  let logicalWgX = flatWg % LOGICAL_WG_X;
-  let logicalWgY = flatWg / LOGICAL_WG_X;
-
-  let x = logicalWgX * 16u + local_invocation_id.x;
-  let y = logicalWgY * 16u + local_invocation_id.y;` : `  let x = gid.x;
-  let y = gid.y;`;
-
-  return `
-@group(0) @binding(0) var<storage, read> grid: array<u32>;
-@group(0) @binding(1) var<storage, read_write> boundary: atomic<u32>;
-
-const COLS: u32 = ${cols}u;
-const ROWS: u32 = ${rows}u;
-const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
-const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
-const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
-const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
-const CELL_MASK: u32 = ${gridFormat.cellMask}u;
-const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
-${dispatchConstants}
-
-var<workgroup> localCount: atomic<u32>;
-
-fn readCell(x: u32, y: u32) -> u32 {
-  let wordIdx = y * PACKED_COLS + (x >> WORD_SHIFT);
-  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;
-  return (grid[wordIdx] >> shift) & CELL_MASK;
-}
-
-@compute @workgroup_size(16, 16)
-${mainSignature}
-  if (lid == 0u) {
-    atomicStore(&localCount, 0u);
-  }
-  workgroupBarrier();
-
-${coordinateWgsl}
-  if (x < COLS && y < ROWS) {
-    var edges = 0u;
-    let self_tribe = readCell(x, y);
-
-    // Check right neighbor.
-    if (readCell((x + 1u) % COLS, y) != self_tribe) {
-      edges += 1u;
-    }
-
-    // Check bottom neighbor.
-    if (readCell(x, (y + 1u) % ROWS) != self_tribe) {
-      edges += 1u;
-    }
-
-    if (edges > 0u) {
-      atomicAdd(&localCount, edges);
-    }
-  }
-  workgroupBarrier();
-
-  // One thread flushes the workgroup sum to the global counter.
-  if (lid == 0u) {
-    let sum = atomicLoad(&localCount);
-    if (sum > 0u) {
-      atomicAdd(&boundary, sum);
-    }
-  }
-}
-`;
-}
-
 function createMetricsPipelines(): void {
   metricsDispatchPlan = createMetricsDispatchPlan();
-
-  // Histogram
-  const histModule = device.createShaderModule({code: generateHistogramWgsl()});
-  histogramPipeline = device.createComputePipeline({
-    layout: 'auto',
-    compute: {module: histModule, entryPoint: 'main'}
-  });
-
-  histogramBuffer = device.createBuffer({
-    size: HISTOGRAM_BUFFER_SIZE, // 256 tribes max
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-  });
-  histogramReadBuffer = device.createBuffer({size: HISTOGRAM_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
-
-  histogramBindGroupA = device.createBindGroup({
-    layout: histogramPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: histogramBuffer} }]
-  });
-  histogramBindGroupB = device.createBindGroup({
-    layout: histogramPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: histogramBuffer} }]
-  });
-
-  // Boundary
-  const boundaryModule = device.createShaderModule({code: generateBoundaryWgsl()});
-  boundaryPipeline = device.createComputePipeline({
-    layout: 'auto',
-    compute: {module: boundaryModule, entryPoint: 'main'}
-  });
-
-  boundaryBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST});
-  boundaryReadBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
-
-  boundaryBindGroupA = device.createBindGroup({
-    layout: boundaryPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: boundaryBuffer} }]
-  });
-  boundaryBindGroupB = device.createBindGroup({
-    layout: boundaryPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: boundaryBuffer} }]
+  metricsResources = createInteractiveMetricsResources({
+    device,
+    cols,
+    rows,
+    gridFormat,
+    dispatchPlan: metricsDispatchPlan
   });
 }
 
@@ -1812,119 +1621,52 @@ function totalRecordedFrames(): number {
 }
 
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
-  const plan = metricsDispatchPlan;
-
-  // Histogram pass (population + diversity metrics).
-  const zeros256 = new Uint32Array(256);
-  device.queue.writeBuffer(histogramBuffer, 0, zeros256);
-
-  const hp = encoder.beginComputePass();
-  hp.setPipeline(histogramPipeline);
-  hp.setBindGroup(0, pingPong ? histogramBindGroupB : histogramBindGroupA);
-  hp.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
-  hp.end();
-
-  encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
-
-  // Boundary pass (spatial metrics).
-  const zeros1 = new Uint32Array([0]);
-  device.queue.writeBuffer(boundaryBuffer, 0, zeros1);
-
-  const bp = encoder.beginComputePass();
-  bp.setPipeline(boundaryPipeline);
-  bp.setBindGroup(0, pingPong ? boundaryBindGroupB : boundaryBindGroupA);
-  bp.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
-  bp.end();
-
-  encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
+  if (!metricsResources) {
+    return;
+  }
+  encodeInteractiveMetrics({
+    device,
+    encoder,
+    resources: metricsResources,
+    sourceBuffer: pingPong ? gridBufferB : gridBufferA,
+    dispatchPlan: metricsDispatchPlan,
+    enabledSections: DEFAULT_INTERACTIVE_METRIC_SECTIONS
+  });
 }
 
 function readMetricsAndPost(): void {
   const gen = genCounter;
-  if (gen === lastMetricsGen || metricsInFlight) {
+  if (!metricsResources || gen === lastMetricsGen || metricsInFlight) {
     return;
   }
+  const resources = metricsResources;
   lastMetricsGen = gen;
   metricsInFlight = true;
 
-  // Map only the buffers we need (histogram + boundary).
-  const mapPromises: Promise<void>[] = [];
-  mapPromises.push(histogramReadBuffer.mapAsync(GPUMapMode.READ));
-  mapPromises.push(boundaryReadBuffer.mapAsync(GPUMapMode.READ));
-
-  Promise.all(mapPromises).then(() => {
+  readInteractiveMetrics({
+    resources,
+    enabledSections: DEFAULT_INTERACTIVE_METRIC_SECTIONS
+  }).then(readback => {
     const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
-
-    // Population + diversity metrics (derived from histogram — cheap).
-    const population: Record<string, number> = {};
-    let shannonEntropy = 0;
-    let simpsonSum = 0;
-    const extinctionTime: Record<string, number | null> = {};
-
-    const histData = new Uint32Array(histogramReadBuffer.getMappedRange().slice(0));
-    histogramReadBuffer.unmap();
-
-    let totalAlive = 0;
-    for (let i = 0; i < tribes.length; i++) {
-      const count = histData[i] ?? 0;
-      population[tribes[i]!.id] = count;
-      if (i !== deadIdx) {
-        totalAlive += count;
-        if (count > 0) {
-          tribeLastAliveGen.set(i, gen);
-          tribeEverAlive.add(i);
-        }
-      }
-    }
-
-    if (totalAlive > 0) {
-      for (let i = 0; i < tribes.length; i++) {
-        if (i === deadIdx) {
-          continue;
-        }
-        const p = (histData[i] ?? 0) / totalAlive;
-        if (p > 0) {
-          shannonEntropy -= p * Math.log2(p);
-          simpsonSum += p * p;
-        }
-      }
-    }
-
-    for (let i = 0; i < tribes.length; i++) {
-      if (i === deadIdx) {
-        continue;
-      }
-      const count = histData[i] ?? 0;
-      if (count > 0) {
-        extinctionTime[tribes[i]!.id] = null;
-      } else if (!tribeEverAlive.has(i)) {
-        extinctionTime[tribes[i]!.id] = 0;
-      } else {
-        extinctionTime[tribes[i]!.id] = tribeLastAliveGen.get(i) ?? 0;
-      }
-    }
-
-    // Boundary length (from GPU pass — free).
-    const bData = new Uint32Array(boundaryReadBuffer.getMappedRange().slice(0));
-    boundaryReadBuffer.unmap();
-    const boundaryLength = bData[0] ?? 0;
-
-    metricsInFlight = false;
-
-    self.postMessage({
-      type: 'metrics',
+    const totalFrames = totalRecordedFrames();
+    const message = buildInteractiveMetricMessage({
       generation: gen,
-      population,
-      shannonEntropy,
-      simpsonIndex: 1 - simpsonSum,
-      boundaryLength,
-      extinctionTime,
-      totalFrames: totalRecordedFrames(),
+      tribes,
+      deadTribeIndex: deadIdx,
+      state: {
+        tribeLastAliveGen,
+        tribeEverAlive
+      },
+      readback,
+      totalFrames,
       fps: currentFps,
-      canStepBack: totalRecordedFrames() > 1,
+      canStepBack: totalFrames > 1,
       recordingBytes: sealedChunks.reduce((sum, c) => sum + c.storedBytes, 0),
       recordingRawBytes: sealedChunks.reduce((sum, c) => sum + c.uncompressedBytes, 0)
-    } satisfies MetricMessage);
+    });
+
+    metricsInFlight = false;
+    self.postMessage(message);
 
     // Re-run if a step-back (or similar) requested metrics while we were in-flight.
     if (pendingMetricsRetry) {

@@ -73,8 +73,6 @@ let offsetY = 0;
 let simulationRunning = false;
 let rebuilding = false;
 let targetStepDuration = 100;
-let stepAccumulator = 0;
-let lastFrameTime = 0;
 let genCounter = 0;
 
 // Brush compute pipeline
@@ -119,31 +117,33 @@ let manifest: RecordingManifest = {
 let nextChunkId = 0;
 let sealedChunks: ChunkMeta[] = [];
 
-// Skip-forward state
-let skipTarget = -1;
-let preSkipRunning = false;
-let preSkipStepDuration = 100;
-let lastProgressTime = 0; // For periodic generation updates during skip & max speed
-let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max speed
-let maxSpeedGpuWorkPending = false; // Prevents queueing multiple max-speed batches at once
+type RunStopCondition = {kind: 'none'} | {kind: 'targetGeneration'; generation: number};
+type RunPacing = {kind: 'max'} | {kind: 'fixedGenPerSecond'; genPerSecond: number};
+type RunKind = 'nonRecording' | 'recording';
+type RunStopReason = 'manual' | 'targetReached' | 'cancelled' | 'restart' | 'rebuild' | 'deviceLost' | 'error';
 
-function inNonRecordingMaxSpeedMode(): boolean {
-  return simulationRunning && targetStepDuration <= 0 && skipTarget < 0 && !isRecording;
+interface RunRequest {
+  pacing: RunPacing;
+  stopCondition: RunStopCondition;
+  restoreAfterStop?: {
+    running: boolean;
+    targetStepDuration: number;
+  };
 }
 
-function resumeNonRecordingMaxSpeedLoop(): void {
-  if (rebuilding || deviceLost || maxSpeedGpuWorkPending || !inNonRecordingMaxSpeedMode()) {
-    return;
-  }
-  mainLoop(performance.now());
+interface RunState {
+  kind: RunKind;
+  request: RunRequest;
+  token: number;
+  pumpPending: boolean;
+  lastFrameTime: number;
+  stepAccumulator: number;
+  lastProgressTime: number;
 }
 
-function wakeRenderLoop(): void {
-  if (rebuilding || deviceLost) {
-    return;
-  }
-  self.requestAnimationFrame(mainLoop);
-}
+let activeRun: RunState | null = null;
+let nextRunToken = 0;
+let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max speed.
 
 // GPU chunk accumulation
 let chunkGpuBuffer: GPUBuffer | null = null;
@@ -203,6 +203,7 @@ function workerErrorReason(error: unknown): string {
 }
 
 function reportWorkerError(error: unknown): void {
+  stopRun('error', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
   simulationRunning = false;
   self.postMessage({type: 'gpuError', reason: workerErrorReason(error)});
 }
@@ -2060,14 +2061,9 @@ function renderFrame(): void {
 //  Main loop
 // ---------------------------------------------------------------------------
 
-function mainLoop(now: number): void {
-  // Skip all GPU work while buffers are being rebuilt or device is lost.
-  if (rebuilding || deviceLost) {
-    self.requestAnimationFrame(mainLoop);
-    return;
-  }
+type PumpSchedule = 'raf' | 'drain' | 'microtask';
 
-  // FPS tracking (shared across all modes).
+function updateFps(now: number): void {
   if (lastFpsTime === 0) {
     lastFpsTime = now;
   }
@@ -2077,236 +2073,386 @@ function mainLoop(now: number): void {
     stepCount = 0;
     lastFpsTime = now;
   }
+}
 
-  // -----------------------------------------------------------------------
-  //  Skip-forward mode: run at max speed without rendering.
-  // -----------------------------------------------------------------------
-  if (skipTarget >= 0) {
-    if (isRecording) {
-      // Recording: per-step with backpressure.  When recording cannot
-      // Proceed (staging + OPFS full), yield and wait for the GPU to finish
-      // So mapAsync callbacks can fire and free staging buffers.
-      let stuck = false;
-      const deadline = performance.now() + 14;
-      while (genCounter < skipTarget && performance.now() < deadline) {
-        if (!canRecord()) {
-          stuck = true;
-          break;
-        }
-        if (chunkFrameIndex >= chunkFrameCapacity) {
-          sealCurrentChunk();
-        }
-        stepSimulation();
-        stepCount++;
-        recordGeneration(genCounter);
-      }
-      if (stuck) {
-        if (!backpressureActive) {
-          backpressureActive = true;
-          self.postMessage({type: 'backpressure', active: true});
-        }
-        if (now - lastProgressTime >= 1000) {
-          lastProgressTime = now;
-          postGeneration();
-        }
-        device.queue.onSubmittedWorkDone().then(() => {
-          self.requestAnimationFrame(mainLoop);
-        });
-        return;
-      }
-      // No longer stuck — clear backpressure if it was set.
-      if (backpressureActive) {
-        backpressureActive = false;
-        self.postMessage({type: 'backpressure', active: false});
-      }
-    } else {
-      // Non-recording: batch steps into a single GPU submit.
-      const batch = Math.min(skipBatchSize(), skipTarget - genCounter);
-      batchStep(batch);
-    }
+function runKindForCurrentRecording(): RunKind {
+  return isRecording && recordingAvailableForCurrentFrame() ? 'recording' : 'nonRecording';
+}
 
-    // Periodic lightweight generation + fps update.
-    if (now - lastProgressTime >= 1000) {
-      lastProgressTime = now;
-      postGeneration();
-    }
-
-    if (genCounter >= skipTarget) {
-      skipTarget = -1;
-      simulationRunning = preSkipRunning;
-      targetStepDuration = preSkipStepDuration;
-      lastFrameTime = 0;
-      stepAccumulator = 0;
-      lastProgressTime = 0;
-      if (backpressureActive) {
-        backpressureActive = false;
-        self.postMessage({type: 'backpressure', active: false});
-      }
-
-      // Update metrics and render.
-      lastMetricsGen = -1;
-      if (!metricsInFlight) {
-        const encoder = device.createCommandEncoder();
-        runMetricsGpu(encoder);
-        device.queue.submit([encoder.finish()]);
-        readMetricsAndPost();
-      } else {
-        pendingMetricsRetry = true;
-      }
-      renderFrame();
-      self.postMessage({type: 'stepping', active: false});
-      self.requestAnimationFrame(mainLoop);
-    } else if (isRecording) {
-      // Recording skip: next frame via rAF (already yielded above when stuck).
-      self.requestAnimationFrame(mainLoop);
-    } else {
-      // Non-recording skip: wait for GPU to finish batch before queuing more.
-      device.queue.onSubmittedWorkDone().then(() => {
-        self.requestAnimationFrame(mainLoop);
-      });
-    }
-    return;
+function currentRunPacing(): RunPacing {
+  if (targetStepDuration <= 0) {
+    return {kind: 'max'};
   }
+  return {kind: 'fixedGenPerSecond', genPerSecond: 1000 / targetStepDuration};
+}
 
-  // -----------------------------------------------------------------------
-  //  Normal operation
-  // -----------------------------------------------------------------------
+function isTargetRun(run: RunState): boolean {
+  return run.request.stopCondition.kind === 'targetGeneration';
+}
 
-  // Apply coalesced brush draw (one per frame max).
-  applyPendingBrush();
+function runTargetReached(run: RunState): boolean {
+  return run.request.stopCondition.kind === 'targetGeneration' && genCounter >= run.request.stopCondition.generation;
+}
 
-  let shouldRunMetrics = false;
-  if (simulationRunning) {
-    // Capture current state before the first step (only when not yet recorded).
-    captureCurrentGenerationIfNeeded(true);
-
-    let didStep = false;
-    if (lastFrameTime === 0) {
-      lastFrameTime = now;
-    }
-    const delta = now - lastFrameTime;
-    lastFrameTime = now;
-
-    if (targetStepDuration <= 0) {
-      // Max speed mode.
-      if (isRecording) {
-        // Per-step with yield-on-stuck (like skip-forward).
-        let stuck = false;
-        const deadline = performance.now() + 14;
-        while (performance.now() < deadline) {
-          if (!canRecord()) {
-            stuck = true;
-            break;
-          }
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
-          }
-          stepSimulation();
-          stepCount++;
-          didStep = true;
-          recordGeneration(genCounter);
-        }
-        if (stuck) {
-          if (!backpressureActive) {
-            backpressureActive = true;
-            self.postMessage({type: 'backpressure', active: true} satisfies BackpressureMessage);
-          }
-          if (now - lastProgressTime >= 1000) {
-            lastProgressTime = now;
-            postGeneration();
-          }
-          if (didStep) {
-            const metricsElapsed = now - lastMetricsTime;
-            if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
-              lastMetricsTime = now;
-              const encoder = device.createCommandEncoder();
-              runMetricsGpu(encoder);
-              device.queue.submit([encoder.finish()]);
-              readMetricsAndPost();
-            }
-          }
-          device.queue.onSubmittedWorkDone().then(() => {
-            self.requestAnimationFrame(mainLoop);
-          });
-          return;
-        }
-        // No longer stuck — clear backpressure if it was set.
-        if (backpressureActive) {
-          backpressureActive = false;
-          self.postMessage({type: 'backpressure', active: false} satisfies BackpressureMessage);
-        }
-      } else {
-        // Non-recording: keep only one GPU batch in flight at a time.
-        // Large grids can make a single batch expensive enough that piling up
-        // Submits here keeps the GPU saturated long after pause.
-        if (!maxSpeedGpuWorkPending) {
-          const batchSize = skipBatchSize();
-          const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain();
-          for (let i = 0; i < batchesPerDrain; i++) {
-            batchStep(batchSize);
-            didStep = true;
-          }
-          maxSpeedGpuWorkPending = true;
-          device.queue.onSubmittedWorkDone().then(() => {
-            maxSpeedGpuWorkPending = false;
-            if (inNonRecordingMaxSpeedMode()) {
-              resumeNonRecordingMaxSpeedLoop();
-            } else {
-              wakeRenderLoop();
-            }
-          });
-        }
-      }
-
-      // Periodic lightweight generation + fps update during max speed.
-      if (now - lastProgressTime >= 1000) {
-        lastProgressTime = now;
-        postGeneration();
-      }
-    } else {
-      // Accumulate elapsed time and step as many times as needed.
-      stepAccumulator += delta;
-      while (stepAccumulator >= targetStepDuration) {
-        if (isRecording) {
-          if (!canRecord()) {
-            break;
-          }
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
-          }
-        }
-        stepSimulation();
-        stepCount++;
-        stepAccumulator -= targetStepDuration;
-        didStep = true;
-        if (isRecording) {
-          recordGeneration(genCounter);
-        }
-      }
-    }
-
-    if (didStep) {
-      // Full GPU metrics at most once per second.
-      const metricsElapsed = now - lastMetricsTime;
-      shouldRunMetrics = (metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight;
-    }
+function remainingTargetSteps(run: RunState): number {
+  if (run.request.stopCondition.kind !== 'targetGeneration') {
+    return Number.POSITIVE_INFINITY;
   }
+  return Math.max(0, run.request.stopCondition.generation - genCounter);
+}
 
-  // Render first so the visible frame is never behind the metrics pass.
-  if (targetStepDuration > 0 && !gpuCatchUpPending) {
-    renderFrame();
+function queueMetricsRefresh(force: boolean = false): void {
+  if (force) {
+    lastMetricsGen = -1;
   }
-
-  if (shouldRunMetrics) {
-    lastMetricsTime = now;
+  if (!metricsInFlight) {
     const encoder = device.createCommandEncoder();
     runMetricsGpu(encoder);
     device.queue.submit([encoder.finish()]);
     readMetricsAndPost();
+  } else {
+    pendingMetricsRetry = true;
+  }
+}
+
+function refreshMetricsAndRender(): void {
+  queueMetricsRefresh(true);
+  renderFrame();
+}
+
+function maybeRunPeriodicMetrics(now: number, didStep: boolean): void {
+  if (!didStep) {
+    return;
+  }
+  const metricsElapsed = now - lastMetricsTime;
+  if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
+    lastMetricsTime = now;
+    queueMetricsRefresh();
+  }
+}
+
+function maybePostRunProgress(run: RunState, now: number): void {
+  if (run.request.pacing.kind !== 'max' && !isTargetRun(run)) {
+    return;
+  }
+  if (now - run.lastProgressTime >= 1000) {
+    run.lastProgressTime = now;
+    postGeneration();
+  }
+}
+
+function clearRunBackpressure(): void {
+  if (backpressureActive) {
+    backpressureActive = false;
+    self.postMessage({type: 'backpressure', active: false} satisfies BackpressureMessage);
+  }
+}
+
+function markRunBackpressure(): void {
+  if (!backpressureActive) {
+    backpressureActive = true;
+    self.postMessage({type: 'backpressure', active: true} satisfies BackpressureMessage);
+  }
+}
+
+function prepareRecordingStep(): boolean {
+  if (!canRecord()) {
+    return false;
+  }
+  if (chunkFrameIndex >= chunkFrameCapacity) {
+    sealCurrentChunk();
+  }
+  return canRecord();
+}
+
+function scheduleIdleFrame(): void {
+  if (rebuilding || deviceLost || activeRun) {
+    return;
+  }
+  self.requestAnimationFrame(mainLoop);
+}
+
+function scheduleRunPump(schedule: PumpSchedule): void {
+  const run = activeRun;
+  if (!run || run.pumpPending || rebuilding || deviceLost) {
+    return;
+  }
+  const token = run.token;
+  run.pumpPending = true;
+  const pump = (): void => {
+    if (!activeRun || activeRun.token !== token) {
+      return;
+    }
+    activeRun.pumpPending = false;
+    pumpRun(performance.now());
+  };
+  if (schedule === 'raf') {
+    self.requestAnimationFrame(() => pump());
+  } else if (schedule === 'drain') {
+    device.queue.onSubmittedWorkDone().then(pump).catch(() => {
+      if (activeRun?.token === token) {
+        activeRun.pumpPending = false;
+      }
+    });
+  } else {
+    queueMicrotask(pump);
+  }
+}
+
+function startRun(kind: RunKind, request: RunRequest): void {
+  if (activeRun) {
+    stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+  }
+  activeRun = {
+    kind,
+    request,
+    token: ++nextRunToken,
+    pumpPending: false,
+    lastFrameTime: 0,
+    stepAccumulator: 0,
+    lastProgressTime: 0
+  };
+  scheduleRunPump(request.pacing.kind === 'fixedGenPerSecond' ? 'raf' : 'microtask');
+}
+
+function startContinuousRun(): void {
+  if (!simulationRunning) {
+    return;
+  }
+  startRun(runKindForCurrentRecording(), {
+    pacing: currentRunPacing(),
+    stopCondition: {kind: 'none'}
+  });
+}
+
+interface StopRunOptions {
+  render?: boolean;
+  postStepping?: boolean;
+  restore?: boolean;
+  restartRestoredRun?: boolean;
+}
+
+function stopRun(reason: RunStopReason, options: StopRunOptions = {}): void {
+  const run = activeRun;
+  if (!run) {
+    return;
+  }
+  activeRun = null;
+  nextRunToken++;
+
+  const targetRun = isTargetRun(run);
+  const shouldRestore = options.restore !== false && !!run.request.restoreAfterStop;
+  if (shouldRestore && run.request.restoreAfterStop) {
+    simulationRunning = run.request.restoreAfterStop.running;
+    targetStepDuration = run.request.restoreAfterStop.targetStepDuration;
   }
 
-  if (targetStepDuration <= 0 && !isRecording && simulationRunning) {
+  if (targetRun && options.postStepping !== false && (reason === 'targetReached' || reason === 'cancelled')) {
+    self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
+  }
+
+  if (targetRun || reason === 'cancelled') {
+    clearRunBackpressure();
+  } else if (backpressureActive) {
+    checkBackpressure();
+  }
+
+  if (options.render !== false && !rebuilding && !deviceLost) {
+    refreshMetricsAndRender();
+  }
+
+  if (options.restartRestoredRun !== false && shouldRestore && simulationRunning && !rebuilding && !deviceLost) {
+    startContinuousRun();
+  } else {
+    scheduleIdleFrame();
+  }
+}
+
+function cancelTargetRun(restoreRunning: boolean): void {
+  const run = activeRun;
+  if (!run || !isTargetRun(run)) {
     return;
+  }
+  if (run.request.restoreAfterStop) {
+    run.request.restoreAfterStop.running = restoreRunning;
+  }
+  stopRun('cancelled');
+}
+
+function restartActiveRunForRecordingChange(request: RunRequest): void {
+  stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+  startRun(runKindForCurrentRecording(), request);
+}
+
+function handleRecordingBlocked(run: RunState, now: number, didStep: boolean): void {
+  markRunBackpressure();
+  maybePostRunProgress(run, now);
+  maybeRunPeriodicMetrics(now, didStep);
+  scheduleRunPump('drain');
+}
+
+function pumpNonRecordingMaxRun(run: RunState, now: number): void {
+  const batchSize = skipBatchSize();
+  const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain();
+  let didStep = false;
+  for (let i = 0; i < batchesPerDrain; i++) {
+    const remaining = remainingTargetSteps(run);
+    if (remaining <= 0) {
+      break;
+    }
+    const batch = Math.min(batchSize, remaining);
+    batchStep(batch);
+    didStep = true;
+  }
+
+  maybePostRunProgress(run, now);
+  if (runTargetReached(run)) {
+    stopRun('targetReached');
+    return;
+  }
+  if (didStep) {
+    scheduleRunPump('drain');
+  } else {
+    scheduleRunPump('raf');
+  }
+}
+
+function pumpRecordingMaxRun(run: RunState, now: number): void {
+  captureCurrentGenerationIfNeeded(true);
+  let didStep = false;
+  const deadline = performance.now() + 14;
+  while (remainingTargetSteps(run) > 0 && performance.now() < deadline) {
+    if (!prepareRecordingStep()) {
+      handleRecordingBlocked(run, now, didStep);
+      return;
+    }
+    stepSimulation();
+    stepCount++;
+    didStep = true;
+    recordGeneration(genCounter);
+  }
+
+  clearRunBackpressure();
+  maybePostRunProgress(run, now);
+  maybeRunPeriodicMetrics(now, didStep);
+  if (runTargetReached(run)) {
+    stopRun('targetReached');
+    return;
+  }
+  scheduleRunPump('raf');
+}
+
+function pumpNonRecordingFixedRun(run: RunState, duration: number, now: number): void {
+  if (run.lastFrameTime === 0) {
+    run.lastFrameTime = now;
+  }
+  const delta = now - run.lastFrameTime;
+  run.lastFrameTime = now;
+  run.stepAccumulator += delta;
+
+  const dueSteps = Math.floor(run.stepAccumulator / duration);
+  const steps = Math.min(dueSteps, remainingTargetSteps(run));
+  const didStep = steps > 0;
+  if (didStep) {
+    batchStep(steps);
+    run.stepAccumulator -= duration * steps;
+  }
+
+  maybePostRunProgress(run, now);
+  if (runTargetReached(run)) {
+    stopRun('targetReached');
+    return;
+  }
+  if (!isTargetRun(run)) {
+    renderFrame();
+    maybeRunPeriodicMetrics(now, didStep);
+  }
+  scheduleRunPump('raf');
+}
+
+function pumpRecordingFixedRun(run: RunState, duration: number, now: number): void {
+  captureCurrentGenerationIfNeeded(true);
+  if (run.lastFrameTime === 0) {
+    run.lastFrameTime = now;
+  }
+  const delta = now - run.lastFrameTime;
+  run.lastFrameTime = now;
+  run.stepAccumulator += delta;
+
+  let didStep = false;
+  while (run.stepAccumulator >= duration && remainingTargetSteps(run) > 0) {
+    if (!prepareRecordingStep()) {
+      handleRecordingBlocked(run, now, didStep);
+      return;
+    }
+    stepSimulation();
+    stepCount++;
+    run.stepAccumulator -= duration;
+    didStep = true;
+    recordGeneration(genCounter);
+  }
+
+  clearRunBackpressure();
+  maybePostRunProgress(run, now);
+  if (runTargetReached(run)) {
+    stopRun('targetReached');
+    return;
+  }
+  if (!isTargetRun(run)) {
+    renderFrame();
+    maybeRunPeriodicMetrics(now, didStep);
+  }
+  scheduleRunPump('raf');
+}
+
+function pumpRun(now: number): void {
+  const run = activeRun;
+  if (!run) {
+    return;
+  }
+  if (rebuilding || deviceLost) {
+    return;
+  }
+  updateFps(now);
+  if (!isTargetRun(run)) {
+    applyPendingBrush();
+  }
+  if (runTargetReached(run)) {
+    stopRun('targetReached');
+    return;
+  }
+
+  if (run.request.pacing.kind === 'max') {
+    if (run.kind === 'recording') {
+      pumpRecordingMaxRun(run, now);
+    } else {
+      pumpNonRecordingMaxRun(run, now);
+    }
+    return;
+  }
+
+  const duration = 1000 / run.request.pacing.genPerSecond;
+  if (run.kind === 'recording') {
+    pumpRecordingFixedRun(run, duration, now);
+  } else {
+    pumpNonRecordingFixedRun(run, duration, now);
+  }
+}
+
+function mainLoop(now: number): void {
+  if (rebuilding || deviceLost) {
+    self.requestAnimationFrame(mainLoop);
+    return;
+  }
+
+  updateFps(now);
+  if (activeRun) {
+    return;
+  }
+
+  applyPendingBrush();
+  if (targetStepDuration > 0 && !gpuCatchUpPending) {
+    renderFrame();
   }
   self.requestAnimationFrame(mainLoop);
 }
@@ -2353,6 +2499,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
 
   device.lost.then(info => {
     const reason = info.message || info.reason || 'unknown';
+    stopRun('deviceLost', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
@@ -2390,6 +2537,7 @@ async function restoreWebGPUDevice(): Promise<boolean> {
     return true;
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
+    stopRun('deviceLost', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
@@ -2445,6 +2593,7 @@ async function buildPipelines(): Promise<void> {
 }
 
 async function rebuildForNewRuleset(): Promise<boolean> {
+  stopRun('rebuild', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
   rebuilding = true;
   self.postMessage({type: 'rebuilding', active: true} satisfies RebuildingMessage);
 
@@ -2545,14 +2694,16 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
       simulationRunning = m.running;
       targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      lastFrameTime = 0;
-      stepAccumulator = 0;
-
-      self.requestAnimationFrame(mainLoop);
+      if (simulationRunning) {
+        startContinuousRun();
+      } else {
+        scheduleIdleFrame();
+      }
       break;
     }
 
     case 'setRuleset': {
+      stopRun('rebuild', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
       initRuleset(m.ruleset, m.simulationGridFormat);
       const rebuilt = await rebuildForNewRuleset();
       if (!rebuilt) {
@@ -2561,6 +2712,11 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       genCounter = 0;
       lastMetricsGen = -1;
       await resetRecording(0);
+      if (simulationRunning) {
+        startContinuousRun();
+      } else {
+        scheduleIdleFrame();
+      }
       tribeLastAliveGen = new Map();
       tribeEverAlive = new Set();
       // Post initial metrics for the fresh (empty) grid.
@@ -2576,76 +2732,51 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'setRunning':
-      if (!m.running && skipTarget >= 0) {
-        // Abort active step-forward when pausing.
-        skipTarget = -1;
-        simulationRunning = false;
-        targetStepDuration = preSkipStepDuration;
-        lastFrameTime = 0;
-        stepAccumulator = 0;
-
-        if (backpressureActive) {
-          checkBackpressure();
-        }
-
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const stopEncoder = device.createCommandEncoder();
-          runMetricsGpu(stopEncoder);
-          device.queue.submit([stopEncoder.finish()]);
-          readMetricsAndPost();
-        } else {
-          pendingMetricsRetry = true;
-        }
-        renderFrame();
-        self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
-        break;
-      }
       simulationRunning = m.running;
       if (m.running) {
-        lastFrameTime = 0;
-        stepAccumulator = 0;
-        resumeNonRecordingMaxSpeedLoop();
+        if (!activeRun) {
+          startContinuousRun();
+        }
+        break;
+      }
+      if (activeRun && isTargetRun(activeRun)) {
+        cancelTargetRun(false);
+      } else if (activeRun) {
+        stopRun('manual');
       } else {
-        // Let backpressure drain naturally; just check if it can clear now.
         if (backpressureActive) {
           checkBackpressure();
         }
-        // Post updated metrics so the UI shows the actual genCounter.
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const stopEncoder = device.createCommandEncoder();
-          runMetricsGpu(stopEncoder);
-          device.queue.submit([stopEncoder.finish()]);
-          readMetricsAndPost();
-        } else {
-          pendingMetricsRetry = true;
-        }
-        if (targetStepDuration <= 0 && !isRecording && skipTarget < 0 && !maxSpeedGpuWorkPending) {
-          wakeRenderLoop();
-        }
+        refreshMetricsAndRender();
+        scheduleIdleFrame();
       }
       break;
 
     case 'setSpeed': {
       const wasMaxSpeed = targetStepDuration <= 0;
       const newDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      if (wasMaxSpeed && newDuration > 0) {
-        // Transitioning from max speed → normal: let GPU drain before rendering.
+      targetStepDuration = newDuration;
+      if (activeRun && !isTargetRun(activeRun) && simulationRunning) {
+        stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+        if (wasMaxSpeed && newDuration > 0) {
+          gpuCatchUpPending = true;
+          device.queue.onSubmittedWorkDone().then(() => {
+            gpuCatchUpPending = false;
+            renderFrame();
+            startContinuousRun();
+          });
+        } else {
+          startContinuousRun();
+        }
+      } else if (simulationRunning && !activeRun) {
+        startContinuousRun();
+      } else if (wasMaxSpeed && newDuration > 0) {
         gpuCatchUpPending = true;
         device.queue.onSubmittedWorkDone().then(() => {
           gpuCatchUpPending = false;
           renderFrame();
-          wakeRenderLoop();
+          scheduleIdleFrame();
         });
-      }
-      targetStepDuration = newDuration;
-      stepAccumulator = 0;
-      lastProgressTime = 0;
-      if (!wasMaxSpeed && newDuration <= 0) {
-        resumeNonRecordingMaxSpeedLoop();
-      } else if (wasMaxSpeed && newDuration > 0 && !maxSpeedGpuWorkPending) {
-        wakeRenderLoop();
       }
       break;
     }
@@ -2730,6 +2861,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'setRecording': {
+      const runToRestart = activeRun?.request;
       if (m.recording && recordingAvailableForCurrentFrame() && !isRecording) {
         isRecording = true;
         recordingAwaitingForward = true;
@@ -2746,6 +2878,11 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
         isRecording = false;
         recordingAwaitingForward = false;
+      }
+      if (runToRestart && activeRun) {
+        restartActiveRunForRecordingChange(runToRestart);
+      } else if (!activeRun && simulationRunning) {
+        startContinuousRun();
       }
       break;
     }
@@ -2904,40 +3041,23 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         }
         renderFrame();
       } else {
-        // Multi-step: enter skip-forward mode (max speed, no rendering).
+        // Multi-step: target-generation run, max speed, no rendering.
         self.postMessage({type: 'stepping', active: true} satisfies SteppingMessage);
-
         captureCurrentGenerationIfNeeded(true);
-        preSkipRunning = simulationRunning;
-        preSkipStepDuration = targetStepDuration;
-        skipTarget = genCounter + m.count;
-        simulationRunning = true;
-        targetStepDuration = 0;
-        lastProgressTime = 0;
+        startRun(runKindForCurrentRecording(), {
+          pacing: {kind: 'max'},
+          stopCondition: {kind: 'targetGeneration', generation: genCounter + m.count},
+          restoreAfterStop: {
+            running: simulationRunning,
+            targetStepDuration
+          }
+        });
       }
       break;
     }
 
     case 'cancelStepping': {
-      if (skipTarget >= 0) {
-        skipTarget = -1;
-        simulationRunning = preSkipRunning;
-        targetStepDuration = preSkipStepDuration;
-        lastFrameTime = 0;
-        stepAccumulator = 0;
-
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const encoder = device.createCommandEncoder();
-          runMetricsGpu(encoder);
-          device.queue.submit([encoder.finish()]);
-          readMetricsAndPost();
-        } else {
-          pendingMetricsRetry = true;
-        }
-        renderFrame();
-        self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
-      }
+      cancelTargetRun(activeRun?.request.restoreAfterStop?.running ?? simulationRunning);
       break;
     }
     case 'updateChunkCodec': {

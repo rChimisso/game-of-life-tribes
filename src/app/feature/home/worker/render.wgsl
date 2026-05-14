@@ -4,9 +4,10 @@
 
 struct Uniforms {
   canvas_size: vec2f,    // Canvas width, height in pixels.
-  grid_size: vec2f,      // Grid cols, rows.
   scale: f32,            // Pixels per cell.
-  offset: vec2f,         // Camera offset in cell units.
+  offset_frac: vec2f,    // Fractional camera offset in cell units.
+  grid_size: vec2u,      // Grid cols, rows.
+  offset_cell: vec2u,    // Integer camera offset in cell units.
   tribe_count: u32,      // Number of tribes.
 };
 
@@ -24,6 +25,14 @@ const WORD_SHIFT: u32 = __WORD_SHIFT__;
 const CELL_SHIFT: u32 = __CELL_SHIFT__;
 const CELL_INDEX_MASK: u32 = __CELL_INDEX_MASK__;
 const CELL_MASK: u32 = __CELL_MASK__;
+
+fn wrapAdd(base: u32, delta: u32, size: u32) -> u32 {
+  let rem = delta % size;
+  if (base >= size - rem) {
+    return base - (size - rem);
+  }
+  return base + rem;
+}
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
@@ -43,21 +52,16 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  // Convert pixel coordinate to world (cell) coordinate.
+  // Convert pixel coordinate to local cell offset. The large integer camera
+  // offset is applied separately to avoid f32 precision loss on wide grids.
   let px = in.uv * u.canvas_size;
-  let world = px / u.scale + u.offset;
+  let local = px / u.scale + u.offset_frac;
 
-  // Toroidal wrap.
-  let cols = u.grid_size.x;
-  let rows = u.grid_size.y;
-  let cx = ((world.x % cols) + cols) % cols;
-  let cy = ((world.y % rows) + rows) % rows;
-
-  let ix = u32(cx);
-  let iy = u32(cy);
+  let ix = wrapAdd(u.offset_cell.x, u32(local.x), u.grid_size.x);
+  let iy = wrapAdd(u.offset_cell.y, u32(local.y), u.grid_size.y);
 
   // Read tribe ID from the active packed grid buffer.
-  let packed_cols = (u32(cols) + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+  let packed_cols = (u.grid_size.x + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
   let word_idx = iy * packed_cols + (ix >> WORD_SHIFT);
   let shift = (ix & CELL_INDEX_MASK) << CELL_SHIFT;
   let tribe_id = (grid[word_idx] >> shift) & CELL_MASK;

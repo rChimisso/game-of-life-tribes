@@ -36,6 +36,17 @@ let gridFormat: GridFormat = GRID_FORMAT_8;
 let tribes: Tribe[] = [];
 const tribeIndex = new Map<string, number>();
 
+interface DispatchPlan2D {
+  logicalWgX: number;
+  logicalWgY: number;
+  dispatchWgX: number;
+  dispatchWgY: number;
+  remapped: boolean;
+}
+
+let simulationDispatchPlan: DispatchPlan2D;
+let metricsDispatchPlan: DispatchPlan2D;
+
 // GPU buffers
 let gridBufferA: GPUBuffer;
 let gridBufferB: GPUBuffer;
@@ -402,9 +413,53 @@ let stepCount = 0;
 let lastFpsTime = 0;
 let currentFps = 0;
 
+function plan2DDispatch(logicalWgX: number, logicalWgY: number, limit = device.limits.maxComputeWorkgroupsPerDimension): DispatchPlan2D {
+  if (logicalWgX <= limit && logicalWgY <= limit) {
+    return {
+      logicalWgX,
+      logicalWgY,
+      dispatchWgX: logicalWgX,
+      dispatchWgY: logicalWgY,
+      remapped: false
+    };
+  }
+
+  const totalLogicalWorkgroups = logicalWgX * logicalWgY;
+  const dispatchWgX = Math.min(totalLogicalWorkgroups, limit);
+  const dispatchWgY = Math.ceil(totalLogicalWorkgroups / dispatchWgX);
+
+  if (dispatchWgY > limit) {
+    throw new Error(`Grid requires ${logicalWgX}x${logicalWgY} logical workgroups, which cannot be remapped within the WebGPU per-dimension dispatch limit ${limit}.`);
+  }
+
+  return {
+    logicalWgX,
+    logicalWgY,
+    dispatchWgX,
+    dispatchWgY,
+    remapped: true
+  };
+}
+
+function createSimulationDispatchPlan(): DispatchPlan2D {
+  return plan2DDispatch(Math.ceil(packedCols / 16), Math.ceil(rows / 16));
+}
+
+function createMetricsDispatchPlan(): DispatchPlan2D {
+  return plan2DDispatch(Math.ceil(cols / 16), Math.ceil(rows / 16));
+}
+
 // ---------------------------------------------------------------------------
 //  Compute shader codegen
 // ---------------------------------------------------------------------------
+
+function pushDispatchPlanWgslConstants(lines: string[], plan: DispatchPlan2D): void {
+  if (!plan.remapped) {
+    return;
+  }
+  lines.push(`const LOGICAL_WG_X: u32 = ${plan.logicalWgX}u;`);
+  lines.push(`const DISPATCH_WG_X: u32 = ${plan.dispatchWgX}u;`);
+}
 
 function pushGridFormatWgslConstants(lines: string[]): void {
   lines.push(`const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;`);
@@ -422,9 +477,25 @@ function pushReadCellWgsl(lines: string[], storageVar: string, packedColsExpr: s
   lines.push('}');
 }
 
+function pushLogicalInvocation2DWgsl(lines: string[], plan: DispatchPlan2D, xName: string): void {
+  if (plan.remapped) {
+    lines.push('  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;');
+    lines.push('  let logicalWgX = flatWg % LOGICAL_WG_X;');
+    lines.push('  let logicalWgY = flatWg / LOGICAL_WG_X;');
+    lines.push('');
+    lines.push(`  let ${xName} = logicalWgX * 16u + local_invocation_id.x;`);
+    lines.push('  let y = logicalWgY * 16u + local_invocation_id.y;');
+    return;
+  }
+
+  lines.push(`  let ${xName} = gid.x;`);
+  lines.push('  let y = gid.y;');
+}
+
 function generateComputeWgsl(): string {
   const lines: string[] = [];
   const pc = packedCols;
+  const dispatchPlan = simulationDispatchPlan;
 
   lines.push('// Auto-generated simulation compute shader.');
   lines.push(`// Tribes: ${tribes.map(t => t.id).join(', ')}`);
@@ -436,6 +507,7 @@ function generateComputeWgsl(): string {
   lines.push(`const COLS: u32 = ${ cols }u;`);
   lines.push(`const ROWS: u32 = ${ rows }u;`);
   lines.push(`const PACKED_COLS: u32 = ${ pc }u;`);
+  pushDispatchPlanWgslConstants(lines, dispatchPlan);
   pushGridFormatWgslConstants(lines);
   lines.push('');
 
@@ -524,9 +596,12 @@ function generateComputeWgsl(): string {
 
   // Main compute function: each thread processes one packed u32 word.
   lines.push('@compute @workgroup_size(16, 16)');
-  lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
-  lines.push('  let px = gid.x;');
-  lines.push('  let y = gid.y;');
+  if (dispatchPlan.remapped) {
+    lines.push('fn main(@builtin(workgroup_id) workgroup_id: vec3u, @builtin(local_invocation_id) local_invocation_id: vec3u) {');
+  } else {
+    lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
+  }
+  pushLogicalInvocation2DWgsl(lines, dispatchPlan, 'px');
   lines.push('  if (px >= PACKED_COLS || y >= ROWS) { return; }');
   lines.push('');
   lines.push('  let baseX = px << WORD_SHIFT;');
@@ -786,12 +861,13 @@ function generateClauseExpr(
 //  Uniform layout (must match render.wgsl Uniforms struct)
 //
 //  Offset  0: canvas_size  vec2f    8 bytes
-//  Offset  8: grid_size    vec2f    8 bytes
-//  Offset 16: scale        f32      4 bytes
-//  Offset 20: pad                   4 bytes
-//  Offset 24: offset       vec2f    8 bytes
-//  Offset 32: tribe_count  u32      4 bytes
-//  Offset 36: pad                  12 bytes
+//  Offset  8: scale        f32      4 bytes
+//  Offset 12: pad                   4 bytes
+//  Offset 16: offset_frac  vec2f    8 bytes
+//  Offset 24: grid_size    vec2u    8 bytes
+//  Offset 32: offset_cell  vec2u    8 bytes
+//  Offset 40: tribe_count  u32      4 bytes
+//  Offset 44: pad                   4 bytes
 //  Total: 48 bytes
 // ---------------------------------------------------------------------------
 const UNIFORM_SIZE = 48;
@@ -808,16 +884,22 @@ function writeUniforms(): void {
   const data = new ArrayBuffer(UNIFORM_SIZE);
   const f32 = new Float32Array(data);
   const u32 = new Uint32Array(data);
+  const renderOffsetX = ((offsetX % cols) + cols) % cols;
+  const renderOffsetY = ((offsetY % rows) + rows) % rows;
+  const offsetCellX = Math.floor(renderOffsetX);
+  const offsetCellY = Math.floor(renderOffsetY);
 
   f32[0] = canvas.width;
   f32[1] = canvas.height;
-  f32[2] = cols;
-  f32[3] = rows;
-  f32[4] = scale;
-  // F32[5] = padding
-  f32[6] = offsetX;
-  f32[7] = offsetY;
-  u32[8] = tribes.length;
+  f32[2] = scale;
+  // F32[3] = padding
+  f32[4] = renderOffsetX - offsetCellX;
+  f32[5] = renderOffsetY - offsetCellY;
+  u32[6] = cols;
+  u32[7] = rows;
+  u32[8] = offsetCellX;
+  u32[9] = offsetCellY;
+  u32[10] = tribes.length;
 
   device.queue.writeBuffer(uniformBuffer, 0, data);
 }
@@ -913,6 +995,7 @@ function createRenderBindGroups(): void {
 }
 
 function createComputePipeline(): void {
+  simulationDispatchPlan = createSimulationDispatchPlan();
   const wgsl = generateComputeWgsl();
   const module = device.createShaderModule({code: wgsl});
 
@@ -937,6 +1020,27 @@ function createComputePipeline(): void {
 // ---------------------------------------------------------------------------
 
 function generateHistogramWgsl(): string {
+  const dispatchPlan = metricsDispatchPlan;
+  const dispatchConstants = dispatchPlan.remapped ? `
+const LOGICAL_WG_X: u32 = ${dispatchPlan.logicalWgX}u;
+const DISPATCH_WG_X: u32 = ${dispatchPlan.dispatchWgX}u;
+` : '';
+  const mainSignature = dispatchPlan.remapped ? `fn main(
+  @builtin(workgroup_id) workgroup_id: vec3u,
+  @builtin(local_invocation_id) local_invocation_id: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {` : `fn main(
+  @builtin(global_invocation_id) gid: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {`;
+  const coordinateWgsl = dispatchPlan.remapped ? `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
+  let logicalWgX = flatWg % LOGICAL_WG_X;
+  let logicalWgY = flatWg / LOGICAL_WG_X;
+
+  let x = logicalWgX * 16u + local_invocation_id.x;
+  let y = logicalWgY * 16u + local_invocation_id.y;` : `  let x = gid.x;
+  let y = gid.y;`;
+
   return `
 @group(0) @binding(0) var<storage, read> grid: array<u32>;
 @group(0) @binding(1) var<storage, read_write> hist: array<atomic<u32>>;
@@ -949,6 +1053,7 @@ const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
 const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
 const CELL_MASK: u32 = ${gridFormat.cellMask}u;
 const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+${dispatchConstants}
 
 var<workgroup> localHist: array<atomic<u32>, 256>;
 
@@ -959,15 +1064,11 @@ fn readCell(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(16, 16)
-fn main(
-  @builtin(global_invocation_id) gid: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {
+${mainSignature}
   atomicStore(&localHist[lid], 0u);
   workgroupBarrier();
 
-  let x = gid.x;
-  let y = gid.y;
+${coordinateWgsl}
   if (x < COLS && y < ROWS) {
     let tribe = readCell(x, y);
     atomicAdd(&localHist[tribe], 1u);
@@ -983,6 +1084,27 @@ fn main(
 }
 
 function generateBoundaryWgsl(): string {
+  const dispatchPlan = metricsDispatchPlan;
+  const dispatchConstants = dispatchPlan.remapped ? `
+const LOGICAL_WG_X: u32 = ${dispatchPlan.logicalWgX}u;
+const DISPATCH_WG_X: u32 = ${dispatchPlan.dispatchWgX}u;
+` : '';
+  const mainSignature = dispatchPlan.remapped ? `fn main(
+  @builtin(workgroup_id) workgroup_id: vec3u,
+  @builtin(local_invocation_id) local_invocation_id: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {` : `fn main(
+  @builtin(global_invocation_id) gid: vec3u,
+  @builtin(local_invocation_index) lid: u32
+) {`;
+  const coordinateWgsl = dispatchPlan.remapped ? `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
+  let logicalWgX = flatWg % LOGICAL_WG_X;
+  let logicalWgY = flatWg / LOGICAL_WG_X;
+
+  let x = logicalWgX * 16u + local_invocation_id.x;
+  let y = logicalWgY * 16u + local_invocation_id.y;` : `  let x = gid.x;
+  let y = gid.y;`;
+
   return `
 @group(0) @binding(0) var<storage, read> grid: array<u32>;
 @group(0) @binding(1) var<storage, read_write> boundary: atomic<u32>;
@@ -995,6 +1117,7 @@ const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
 const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
 const CELL_MASK: u32 = ${gridFormat.cellMask}u;
 const PACKED_COLS: u32 = (COLS + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+${dispatchConstants}
 
 var<workgroup> localCount: atomic<u32>;
 
@@ -1005,17 +1128,13 @@ fn readCell(x: u32, y: u32) -> u32 {
 }
 
 @compute @workgroup_size(16, 16)
-fn main(
-  @builtin(global_invocation_id) gid: vec3u,
-  @builtin(local_invocation_index) lid: u32
-) {
+${mainSignature}
   if (lid == 0u) {
     atomicStore(&localCount, 0u);
   }
   workgroupBarrier();
 
-  let x = gid.x;
-  let y = gid.y;
+${coordinateWgsl}
   if (x < COLS && y < ROWS) {
     var edges = 0u;
     let self_tribe = readCell(x, y);
@@ -1048,6 +1167,8 @@ fn main(
 }
 
 function createMetricsPipelines(): void {
+  metricsDispatchPlan = createMetricsDispatchPlan();
+
   // Histogram
   const histModule = device.createShaderModule({code: generateHistogramWgsl()});
   histogramPipeline = device.createComputePipeline({
@@ -1690,8 +1811,7 @@ function totalRecordedFrames(): number {
 }
 
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
-  const wgX = Math.ceil(cols / 16);
-  const wgY = Math.ceil(rows / 16);
+  const plan = metricsDispatchPlan;
 
   // Histogram pass (population + diversity metrics).
   const zeros256 = new Uint32Array(256);
@@ -1700,7 +1820,7 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
   const hp = encoder.beginComputePass();
   hp.setPipeline(histogramPipeline);
   hp.setBindGroup(0, pingPong ? histogramBindGroupB : histogramBindGroupA);
-  hp.dispatchWorkgroups(wgX, wgY);
+  hp.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
   hp.end();
 
   encoder.copyBufferToBuffer(histogramBuffer, 0, histogramReadBuffer, 0, 256 * 4);
@@ -1712,7 +1832,7 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
   const bp = encoder.beginComputePass();
   bp.setPipeline(boundaryPipeline);
   bp.setBindGroup(0, pingPong ? boundaryBindGroupB : boundaryBindGroupA);
-  bp.dispatchWorkgroups(wgX, wgY);
+  bp.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
   bp.end();
 
   encoder.copyBufferToBuffer(boundaryBuffer, 0, boundaryReadBuffer, 0, 4);
@@ -1860,14 +1980,13 @@ function batchStep(count: number): void {
   if (count <= 0) {
     return;
   }
-  const wgX = Math.ceil(packedCols / 16);
-  const wgY = Math.ceil(rows / 16);
+  const plan = simulationDispatchPlan;
   const encoder = device.createCommandEncoder();
   for (let i = 0; i < count; i++) {
     const pass = encoder.beginComputePass();
     pass.setPipeline(computePipeline);
     pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
-    pass.dispatchWorkgroups(wgX, wgY);
+    pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
     pass.end();
     pingPong = !pingPong;
     genCounter++;
@@ -1893,9 +2012,8 @@ function stepSimulation(): void {
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
 
-  const wgX = Math.ceil(packedCols / 16);
-  const wgY = Math.ceil(rows / 16);
-  pass.dispatchWorkgroups(wgX, wgY);
+  const plan = simulationDispatchPlan;
+  pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
   pass.end();
 
   device.queue.submit([encoder.finish()]);

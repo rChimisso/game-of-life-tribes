@@ -18,7 +18,7 @@ interface TribeInfo {
 interface DownloadRequest {
   type: 'download';
   opts: {
-    csv: boolean;
+    metrics: boolean;
     mp4: boolean;
     png: boolean;
     saves: boolean;
@@ -37,12 +37,61 @@ interface MetricEntry {
   type: 'metrics';
   generation: number;
   population: Record<string, number>;
+  populationDelta?: Record<string, number>;
+  aliveCells: number;
+  deadCells: number;
+  occupancy: number;
   shannonEntropy: number;
   simpsonIndex: number;
   boundaryLength: number;
+  sameStateContactEdges: number;
+  crossStateContactEdges: number;
+  sameStateContactFraction: number;
+  crossStateContactFraction: number;
+  changedCells: number | null;
+  changedFraction: number | null;
+  births: number | null;
+  deaths: number | null;
+  tribeSwitches: number | null;
+  netGrowth: number | null;
   frontierLength?: Record<string, number>;
   extinctionTime?: Record<string, number | null>;
   fps?: number;
+}
+
+interface AttractorEpisode {
+  periodicOrbitReached: boolean;
+  attractorClass: 'fixed' | 'periodic';
+  startGeneration: number;
+  firstRepeatGeneration: number;
+  endGeneration: number;
+  transientLength: number;
+  orbitPeriodLength: number;
+  exact: boolean;
+}
+
+interface PendingAttractorFrame {
+  generation: number;
+  frame: Uint8Array;
+}
+
+interface ActiveAttractor {
+  startGeneration: number;
+  firstRepeatGeneration: number;
+  orbitPeriodLength: number;
+  orbitFrames: Uint8Array[];
+  lastMatchingGeneration: number;
+  exact: boolean;
+}
+
+interface AttractorTracker {
+  generationStart: number | null;
+  lastGeneration: number | null;
+  generationGapCount: number;
+  candidatesByHash: Map<number, number[]>;
+  pendingFrames: PendingAttractorFrame[];
+  active: ActiveAttractor | null;
+  attractors: AttractorEpisode[];
 }
 
 type WorkerInput = DownloadRequest;
@@ -258,7 +307,8 @@ function computeFrameMetrics(
   frameRows: number,
   tribeList: readonly TribeInfo[],
   deadId: string,
-  generation: number
+  generation: number,
+  previous: {generation: number; frame: Uint8Array; population: Record<string, number>; aliveCells: number} | null
 ): MetricEntry {
   const total = frameCols * frameRows;
   const deadIdx = tribeList.findIndex(t => t.id === deadId);
@@ -275,6 +325,7 @@ function computeFrameMetrics(
       totalAlive += counts[t]!;
     }
   }
+  const deadCells = deadIdx >= 0 ? counts[deadIdx]! : 0;
 
   let shannonEntropy = 0;
   let simpsonSum = 0;
@@ -308,6 +359,42 @@ function computeFrameMetrics(
       }
     }
   }
+  const totalContactEdges = total * 2;
+  const sameStateContactEdges = Math.max(0, totalContactEdges - boundaryLength);
+
+  const exactTransition = !!previous && generation - previous.generation === 1;
+  const populationDelta: Record<string, number> = {};
+  if (previous) {
+    for (const tribe of tribeList) {
+      populationDelta[tribe.id] = (population[tribe.id] ?? 0) - (previous.population[tribe.id] ?? 0);
+    }
+  }
+
+  let changedCellsBetweenFrames: number | null = null;
+  let births: number | null = null;
+  let deaths: number | null = null;
+  let tribeSwitches: number | null = null;
+  if (previous) {
+    changedCellsBetweenFrames = 0;
+    births = 0;
+    deaths = 0;
+    tribeSwitches = 0;
+    for (let i = 0; i < total; i++) {
+      const prevTribe = previous.frame[i]!;
+      const tribe = frame[i]!;
+      if (prevTribe !== tribe) {
+        changedCellsBetweenFrames++;
+        if (prevTribe === deadIdx && tribe !== deadIdx) {
+          births++;
+        } else if (prevTribe !== deadIdx && tribe === deadIdx) {
+          deaths++;
+        } else if (prevTribe !== deadIdx && tribe !== deadIdx) {
+          tribeSwitches++;
+        }
+      }
+    }
+  }
+  const changedFraction = previous && total > 0 ? changedCellsBetweenFrames! / total : null;
 
   const frontierLength: Record<string, number> = {};
   for (let t = 0; t < tribeList.length; t++) {
@@ -320,11 +407,154 @@ function computeFrameMetrics(
     type: 'metrics',
     generation,
     population,
+    populationDelta: previous ? populationDelta : undefined,
+    aliveCells: totalAlive,
+    deadCells,
+    occupancy: total > 0 ? totalAlive / total : 0,
     shannonEntropy,
     simpsonIndex: 1 - simpsonSum,
     boundaryLength,
+    sameStateContactEdges,
+    crossStateContactEdges: boundaryLength,
+    sameStateContactFraction: totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
+    crossStateContactFraction: totalContactEdges > 0 ? boundaryLength / totalContactEdges : 0,
+    changedCells: exactTransition ? changedCellsBetweenFrames : null,
+    changedFraction: exactTransition ? changedFraction : null,
+    births: exactTransition ? births : null,
+    deaths: exactTransition ? deaths : null,
+    tribeSwitches: exactTransition ? tribeSwitches : null,
+    netGrowth: previous ? totalAlive - previous.aliveCells : null,
     frontierLength
   };
+}
+
+function createAttractorTracker(): AttractorTracker {
+  return {
+    generationStart: null,
+    lastGeneration: null,
+    generationGapCount: 0,
+    candidatesByHash: new Map(),
+    pendingFrames: [],
+    active: null,
+    attractors: []
+  };
+}
+
+function framesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+  for (let i = 0; i < a.byteLength; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function resetAttractorCandidates(tracker: AttractorTracker): void {
+  tracker.candidatesByHash = new Map();
+  tracker.pendingFrames = [];
+}
+
+function addAttractorCandidate(tracker: AttractorTracker, frame: Uint8Array, generation: number, hash: number): void {
+  const index = tracker.pendingFrames.length;
+  tracker.pendingFrames.push({generation, frame});
+  const candidates = tracker.candidatesByHash.get(hash) ?? [];
+  candidates.push(index);
+  tracker.candidatesByHash.set(hash, candidates);
+}
+
+function expectedAttractorPhase(active: ActiveAttractor, generation: number): number {
+  return (generation - active.startGeneration) % active.orbitPeriodLength;
+}
+
+function activeAttractorMatches(active: ActiveAttractor, frame: Uint8Array, generation: number): boolean {
+  const phase = expectedAttractorPhase(active, generation);
+  return phase >= 0 && framesEqual(active.orbitFrames[phase]!, frame);
+}
+
+function finalizeActiveAttractor(tracker: AttractorTracker): void {
+  const {active} = tracker;
+  if (!active) {
+    return;
+  }
+
+  const previousAttractor = tracker.attractors[tracker.attractors.length - 1] ?? null;
+  tracker.attractors.push({
+    periodicOrbitReached: active.orbitPeriodLength > 1,
+    attractorClass: active.orbitPeriodLength === 1 ? 'fixed' : 'periodic',
+    startGeneration: active.startGeneration,
+    firstRepeatGeneration: active.firstRepeatGeneration,
+    endGeneration: active.lastMatchingGeneration,
+    transientLength: previousAttractor ?
+      active.startGeneration - previousAttractor.endGeneration :
+      active.startGeneration,
+    orbitPeriodLength: active.orbitPeriodLength,
+    exact: active.exact
+  });
+  tracker.active = null;
+}
+
+function detectAttractor(tracker: AttractorTracker, frame: Uint8Array, generation: number, hash: number): boolean {
+  const candidates = tracker.candidatesByHash.get(hash) ?? [];
+  for (const candidateIndex of candidates) {
+    const candidate = tracker.pendingFrames[candidateIndex];
+    if (!candidate || !framesEqual(candidate.frame, frame)) {
+      continue;
+    }
+
+    const period = generation - candidate.generation;
+    const orbitFrames = tracker.pendingFrames.slice(candidateIndex).map(entry => entry.frame);
+    if (period <= 0 || period !== orbitFrames.length) {
+      continue;
+    }
+
+    tracker.active = {
+      startGeneration: candidate.generation,
+      firstRepeatGeneration: generation,
+      orbitPeriodLength: period,
+      orbitFrames,
+      lastMatchingGeneration: generation,
+      exact: true
+    };
+    resetAttractorCandidates(tracker);
+    return true;
+  }
+
+  return false;
+}
+
+function updateAttractorTracker(tracker: AttractorTracker, frame: Uint8Array, generation: number): void {
+  if (tracker.generationStart === null) {
+    tracker.generationStart = generation;
+  }
+  const gapAfterLastFrame = tracker.lastGeneration !== null && generation - tracker.lastGeneration !== 1;
+  if (gapAfterLastFrame) {
+    tracker.generationGapCount++;
+  }
+
+  if (tracker.active) {
+    if (activeAttractorMatches(tracker.active, frame, generation)) {
+      tracker.active.lastMatchingGeneration = generation;
+      if (gapAfterLastFrame) {
+        tracker.active.exact = false;
+      }
+      tracker.lastGeneration = generation;
+      return;
+    }
+
+    finalizeActiveAttractor(tracker);
+    resetAttractorCandidates(tracker);
+  } else if (gapAfterLastFrame) {
+    resetAttractorCandidates(tracker);
+  }
+
+  const hash = crc32(frame);
+  if (!detectAttractor(tracker, frame, generation, hash)) {
+    addAttractorCandidate(tracker, frame, generation, hash);
+  }
+  tracker.lastGeneration = generation;
 }
 
 // ---------------------------------------------------------------------------
@@ -655,21 +885,78 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
   const frCols = [...frontierKeys];
   const header = [
     'generation',
-    ...popCols.map(k => `pop_${k}`),
+    ...popCols,
+    ...popCols.map(k => `delta_${k}`),
+    'alive_cells',
+    'dead_cells',
+    'occupancy',
     'shannon_entropy',
     'simpson_index',
     'boundary_length',
+    'same_state_contact_edges',
+    'cross_state_contact_edges',
+    'same_state_contact_fraction',
+    'cross_state_contact_fraction',
+    'changed_cells',
+    'changed_fraction',
+    'births',
+    'deaths',
+    'tribe_switches',
+    'net_growth',
     ...frCols.map(k => `frontier_${k}`)
   ].join(',');
   const rows = metrics.map(m => [
     m.generation,
     ...popCols.map(k => m.population[k] ?? 0),
+    ...popCols.map(k => m.populationDelta?.[k] ?? ''),
+    m.aliveCells,
+    m.deadCells,
+    m.occupancy,
     m.shannonEntropy,
     m.simpsonIndex,
     m.boundaryLength,
+    m.sameStateContactEdges,
+    m.crossStateContactEdges,
+    m.sameStateContactFraction,
+    m.crossStateContactFraction,
+    csvValue(m.changedCells),
+    csvValue(m.changedFraction),
+    csvValue(m.births),
+    csvValue(m.deaths),
+    csvValue(m.tribeSwitches),
+    csvValue(m.netGrowth),
     ...frCols.map(k => m.frontierLength?.[k] ?? 0)
   ].join(','));
   return [header, ...rows].join('\n');
+}
+
+function csvValue(value: number | null | undefined): string | number {
+  return value ?? '';
+}
+
+function buildMetricsJson(metrics: MetricEntry[], metadata: {
+  cols: number;
+  rows: number;
+  selectedStartFrame: number;
+  selectedEndFrame: number;
+  selectedFrameCount: number;
+  generationGapCount: number;
+  attractors: AttractorEpisode[];
+}): string {
+  const first = metrics[0] ?? null;
+  const last = metrics[metrics.length - 1] ?? null;
+  return JSON.stringify({
+    generationStart: first?.generation ?? null,
+    generationEnd: last?.generation ?? null,
+    frameCount: metrics.length,
+    cols: metadata.cols,
+    rows: metadata.rows,
+    selectedStartFrame: metadata.selectedStartFrame,
+    selectedEndFrame: metadata.selectedEndFrame,
+    selectedFrameCount: metadata.selectedFrameCount,
+    generationGapCount: metadata.generationGapCount,
+    attractors: metadata.attractors
+  }, null, 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -883,7 +1170,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
       });
 
     const hasRecording = rec !== null && rec.manifest.chunks.length > 0;
-    const needMetrics = opts.csv;
+    const needMetrics = opts.metrics;
 
     // -- Preflight ---------------------------------------------------------
     mainProgress(0, 'Preflight');
@@ -943,6 +1230,8 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     // -- Metrics accumulator -----------------------------------------------
     const allMetrics: MetricEntry[] = [];
     const deadId = hasRecording ? tribes.find(t => t.id === DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID : DEAD_TRIBE_ID;
+    let previousMetricFrame: {generation: number; frame: Uint8Array; population: Record<string, number>; aliveCells: number} | null = null;
+    const attractorTracker = createAttractorTracker();
 
     // OPFS dir handle (opened once).
     let opfsDir: FileSystemDirectoryHandle | null = null;
@@ -1072,7 +1361,15 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
             }
 
             if (needMetrics) {
-              allMetrics.push(computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen));
+              const metrics = computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen, previousMetricFrame);
+              updateAttractorTracker(attractorTracker, frame, frameGen);
+              allMetrics.push(metrics);
+              previousMetricFrame = {
+                generation: frameGen,
+                frame,
+                population: metrics.population,
+                aliveCells: metrics.aliveCells
+              };
             }
 
             if (mp4Encoder) {
@@ -1186,9 +1483,28 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     // Metrics.
     subProgress(subMetrics, 'Writing metrics');
     if (needMetrics && allMetrics.length > 0) {
+      finalizeActiveAttractor(attractorTracker);
       summaryZip.addEntry('metrics.csv', textEncoder.encode(buildCsvFromMetrics(allMetrics)));
+      summaryZip.addEntry('metrics.json', textEncoder.encode(buildMetricsJson(allMetrics, {
+        cols: rec.cols,
+        rows: rec.rows,
+        selectedStartFrame: selectedStartIndex + 1,
+        selectedEndFrame: selectedEndIndex + 1,
+        selectedFrameCount,
+        generationGapCount: attractorTracker.generationGapCount,
+        attractors: attractorTracker.attractors
+      })));
     } else if (needMetrics && metricsHistory.length > 0) {
       summaryZip.addEntry('metrics.csv', textEncoder.encode(buildCsvFromMetrics(metricsHistory)));
+      summaryZip.addEntry('metrics.json', textEncoder.encode(buildMetricsJson(metricsHistory, {
+        cols: snapshot.cols,
+        rows: snapshot.rows,
+        selectedStartFrame: 1,
+        selectedEndFrame: metricsHistory.length,
+        selectedFrameCount: metricsHistory.length,
+        generationGapCount: metricsHistory.filter((m, i) => i > 0 && m.generation - metricsHistory[i - 1]!.generation !== 1).length,
+        attractors: []
+      })));
     }
 
     // MP4.

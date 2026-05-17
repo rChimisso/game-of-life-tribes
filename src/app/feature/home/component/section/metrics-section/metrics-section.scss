@@ -1,0 +1,32 @@
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  font-size: 0.8rem;
+}
+
+.metric-label {
+  color: #888;
+}
+
+.metric-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-note,
+.muted {
+  margin: 4px 0;
+  color: #888;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.subsection-title {
+  margin: 8px 0 2px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+}

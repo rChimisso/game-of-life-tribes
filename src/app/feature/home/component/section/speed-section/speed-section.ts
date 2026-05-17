@@ -66,6 +66,15 @@ export class SpeedSection {
   public recording = false;
 
   /**
+   * Whether live metrics are enabled.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public liveMetricsEnabled = true;
+
+  /**
    * Emitter for speed changes.
    *
    * @public
@@ -96,6 +105,16 @@ export class SpeedSection {
   public readonly recordingChange = new EventEmitter<boolean>();
 
   /**
+   * Emitter for live metrics changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<boolean>}
+   */
+  @Output()
+  public readonly liveMetricsEnabledChange = new EventEmitter<boolean>();
+
+  /**
    * Whether recording control is disabled.
    *
    * @public
@@ -112,9 +131,17 @@ export class SpeedSection {
    * @type {string}
    */
   public get recordingGateMessage(): string {
-    if (this.recordingAvailable) {
-      return 'Recording slows down the simulation.';
-    }
-    return 'Grid is too large for recording.';
+    return this.recordingAvailable ? 'Recording slows down the simulation.' : 'Grid is too large for recording.';
+  }
+
+  /**
+   * Live metrics availability message.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get liveMetricsMessage(): string {
+    return this.liveMetricsEnabled ? 'Live metrics slow down the simulation.' : 'Live metrics are disabled.';
   }
 }

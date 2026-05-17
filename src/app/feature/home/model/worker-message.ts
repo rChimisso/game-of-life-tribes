@@ -1,4 +1,5 @@
 import {GridFormatMetadata} from './grid-format';
+import {LiveInterfaceMetrics, LiveMetricsSettings, MetricAvailability} from './metrics';
 import {RecordingManifest} from './recording';
 import {Ruleset, Tribe} from './rule';
 
@@ -14,6 +15,7 @@ export interface InitMessage {
   recording: boolean;
   speed: number;
   running: boolean;
+  liveMetrics: LiveMetricsSettings;
 }
 
 export interface SetRulesetMessage {
@@ -71,6 +73,11 @@ export interface SetRecordingMessage {
   recording: boolean;
 }
 
+export interface SetLiveMetricsMessage {
+  type: 'setLiveMetrics';
+  liveMetrics: LiveMetricsSettings;
+}
+
 export interface GetRecordingMessage {
   type: 'getRecording';
 }
@@ -108,9 +115,14 @@ export interface MetricMessage {
   type: 'metrics';
   generation: number;
   population: Record<string, number>;
+  aliveCells?: number;
+  deadCells?: number;
+  occupancy?: number;
   shannonEntropy: number;
   simpsonIndex: number;
   boundaryLength: number;
+  interfaces?: LiveInterfaceMetrics;
+  metricsAvailability?: MetricAvailability;
   extinctionTime: Record<string, number | null>;
   totalFrames: number;
   fps: number;
@@ -215,6 +227,7 @@ export type WorkerMessage =
   | GetSnapshotMessage
   | LoadSnapshotMessage
   | SetRecordingMessage
+  | SetLiveMetricsMessage
   | GetRecordingMessage
   | StepBackMessage
   | StepForwardMessage

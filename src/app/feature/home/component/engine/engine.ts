@@ -1,8 +1,10 @@
 ﻿import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
 import {GridFormatMetadata} from '../../model/grid-format';
+import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {Ruleset, Tribe} from '../../model/rule';
 import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
+import {normalizeLiveMetricsSettings} from '../../util/metric-settings';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -39,6 +41,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   @Input()
   public isRecording = false;
+
+  @Input()
+  public liveMetrics: LiveMetricsSettings = DEFAULT_LIVE_METRICS_SETTINGS;
 
   @Input()
   public drawTribes: string[] = [];
@@ -300,7 +305,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       simulationGridFormat: this.simulationGridFormat,
       recording: this.isRecording,
       speed: this.speed,
-      running: this.state === 'running'
+      running: this.state === 'running',
+      liveMetrics: normalizeLiveMetricsSettings(this.liveMetrics)
     }, [offscreen]);
 
     this.resetCamera();
@@ -321,6 +327,10 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   public setRecording(recording: boolean): void {
     this.worker?.postMessage({type: 'setRecording', recording});
+  }
+
+  public setRunning(running: boolean): void {
+    this.worker?.postMessage({type: 'setRunning', running});
   }
 
   public requestRecording(): void {
@@ -363,6 +373,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       }
       if (changes.speed) {
         this.worker.postMessage({type: 'setSpeed', speed: this.speed});
+      }
+      if (changes.liveMetrics) {
+        this.worker.postMessage({
+          type: 'setLiveMetrics',
+          liveMetrics: normalizeLiveMetricsSettings(this.liveMetrics)
+        });
       }
       if (changes.ruleset || changes.simulationGridFormat) {
         this.worker.postMessage({

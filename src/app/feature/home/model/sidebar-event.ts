@@ -13,6 +13,7 @@ export interface SidebarEvent {
     | 'setSpeed'
     | 'setMaxSpeed'
     | 'setRecording'
+    | 'setLiveMetrics'
     | 'setGridSize'
     | 'download'
     | 'saveState'

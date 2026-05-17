@@ -1,9 +1,10 @@
 import {GridFormat} from '../../model/grid-format';
+import {LiveMetricSectionSettings, MetricAvailability} from '../../model/metrics';
 import {Tribe} from '../../model/rule';
 
 import {MetricMessage} from '../../model/worker-message';
 
-export type InteractiveMetricSection = 'population' | 'diversity' | 'boundary';
+export type InteractiveMetricSection = 'population' | 'diversity' | 'interfaces';
 
 export interface MetricsDispatchPlan2D {
   logicalWgX: number;
@@ -58,8 +59,12 @@ export interface BuildMetricMessageRequest {
   generation: number;
   tribes: readonly Tribe[];
   deadTribeIndex: number;
-  state: InteractiveMetricsState;
   readback: InteractiveMetricsReadback;
+  enabledSections: readonly InteractiveMetricSection[];
+  availability: MetricAvailability;
+  liveMetricSettings: LiveMetricSectionSettings;
+  cols: number;
+  rows: number;
   totalFrames: number;
   fps: number;
   canStepBack: boolean;

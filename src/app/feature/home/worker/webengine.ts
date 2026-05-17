@@ -11,14 +11,16 @@
 
 import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metrics/metrics-current';
-import {DEFAULT_INTERACTIVE_METRIC_SECTIONS} from './metrics/metrics-planner';
-import {InteractiveMetricsResources} from './metrics/metrics-types';
+import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metrics/metrics-planner';
+import {InteractiveMetricSection, InteractiveMetricsResources} from './metrics/metrics-types';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
+import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
 import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../util/grid-format';
+import {normalizeLiveMetricsSettings} from '../util/metric-settings';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -94,10 +96,8 @@ let lastMetricsGen = -1;
 let metricsInFlight = false;
 let pendingMetricsRetry = false;
 let lastMetricsTime = 0;
-
-// Extinction tracking: per-tribe last generation seen alive
-let tribeLastAliveGen: Map<number, number> = new Map();
-let tribeEverAlive: Set<number> = new Set();
+let liveMetrics: LiveMetricsSettings = DEFAULT_LIVE_METRICS_SETTINGS;
+let lastEncodedMetricSections: InteractiveMetricSection[] = [];
 
 // Recording state
 let isRecording = false;
@@ -1620,8 +1620,20 @@ function totalRecordedFrames(): number {
   return count;
 }
 
+function currentMetricAvailability() {
+  return planInteractiveMetricAvailability(cols, rows, liveMetrics.enabled, liveMetrics.sections);
+}
+
+function currentMetricSections(): InteractiveMetricSection[] {
+  return activeInteractiveMetricSections(currentMetricAvailability());
+}
+
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
+  lastEncodedMetricSections = currentMetricSections();
   if (!metricsResources) {
+    return;
+  }
+  if (lastEncodedMetricSections.length === 0) {
     return;
   }
   encodeInteractiveMetrics({
@@ -1630,7 +1642,7 @@ function runMetricsGpu(encoder: GPUCommandEncoder): void {
     resources: metricsResources,
     sourceBuffer: pingPong ? gridBufferB : gridBufferA,
     dispatchPlan: metricsDispatchPlan,
-    enabledSections: DEFAULT_INTERACTIVE_METRIC_SECTIONS
+    enabledSections: lastEncodedMetricSections
   });
 }
 
@@ -1640,12 +1652,14 @@ function readMetricsAndPost(): void {
     return;
   }
   const resources = metricsResources;
+  const encodedSections = [...lastEncodedMetricSections];
+  const availability = currentMetricAvailability();
   lastMetricsGen = gen;
   metricsInFlight = true;
 
   readInteractiveMetrics({
     resources,
-    enabledSections: DEFAULT_INTERACTIVE_METRIC_SECTIONS
+    enabledSections: encodedSections
   }).then(readback => {
     const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
     const totalFrames = totalRecordedFrames();
@@ -1653,11 +1667,12 @@ function readMetricsAndPost(): void {
       generation: gen,
       tribes,
       deadTribeIndex: deadIdx,
-      state: {
-        tribeLastAliveGen,
-        tribeEverAlive
-      },
       readback,
+      enabledSections: encodedSections,
+      availability,
+      liveMetricSettings: liveMetrics.sections,
+      cols,
+      rows,
       totalFrames,
       fps: currentFps,
       canStepBack: totalFrames > 1,
@@ -2420,6 +2435,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
   switch (m.type) {
     case 'init': {
       isRecording = m.recording;
+      liveMetrics = normalizeLiveMetricsSettings(m.liveMetrics);
       recordingAwaitingForward = isRecording;
       initRuleset(m.ruleset, m.simulationGridFormat);
       await initWebGPU(m.canvas);
@@ -2444,6 +2460,13 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       break;
     }
 
+    case 'setLiveMetrics': {
+      liveMetrics = normalizeLiveMetricsSettings(m.liveMetrics);
+      lastMetricsGen = -1;
+      queueMetricsRefresh(true);
+      break;
+    }
+
     case 'setRuleset': {
       stopRun('rebuild', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
       initRuleset(m.ruleset, m.simulationGridFormat);
@@ -2459,8 +2482,6 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       } else {
         scheduleIdleFrame();
       }
-      tribeLastAliveGen = new Map();
-      tribeEverAlive = new Set();
       // Post initial metrics for the fresh (empty) grid.
       if (!metricsInFlight) {
         const resetEncoder = device.createCommandEncoder();

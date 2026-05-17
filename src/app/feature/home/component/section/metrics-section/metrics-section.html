@@ -1,0 +1,74 @@
+<mat-expansion-panel>
+  <mat-expansion-panel-header>
+    <mat-panel-title>Population</mat-panel-title>
+  </mat-expansion-panel-header>
+  <gol-checkbox label="Population" [disabled]="!liveMetricsEnabled" [ngModel]="sectionEnabled('population')" (ngModelChange)="setSection('population', $event)" />
+  @if (statusText('population')) {
+    <p class="metric-note">{{ statusText("population") }}</p>
+  }
+  @if (metrics && sectionAvailable("population")) {
+    <div class="metrics-grid">
+      <span class="metric-label">Alive</span>
+      <span class="metric-value">{{ (metrics.aliveCells ?? 0) | number }}</span>
+      <span class="metric-label">Dead</span>
+      <span class="metric-value">{{ (metrics.deadCells ?? 0) | number }}</span>
+      <span class="metric-label">Occupancy</span>
+      <span class="metric-value">{{ (metrics.occupancy ?? 0) | percent: "1.0-2" }}</span>
+    </div>
+    <h4 class="subsection-title">Tribes</h4>
+    <div class="metrics-grid">
+      @for (tribe of tribes; track tribe.id) {
+        <span class="metric-label">{{ tribe.id }}</span>
+        <span class="metric-value">{{ (metrics.population[tribe.id] ?? 0) | number }}</span>
+      }
+    </div>
+  } @else if (!statusText("population")) {
+    <p class="muted">No data yet</p>
+  }
+</mat-expansion-panel>
+
+<mat-expansion-panel>
+  <mat-expansion-panel-header>
+    <mat-panel-title>Diversity</mat-panel-title>
+  </mat-expansion-panel-header>
+  <gol-checkbox label="Diversity" [disabled]="!liveMetricsEnabled" [ngModel]="sectionEnabled('diversity')" (ngModelChange)="setSection('diversity', $event)" />
+  @if (statusText("diversity")) {
+    <p class="metric-note">{{ statusText("diversity") }}</p>
+  }
+  @if (metrics && sectionAvailable("diversity")) {
+    <div class="metrics-grid">
+      <span class="metric-label">Shannon entropy</span>
+      <span class="metric-value">{{ metrics.shannonEntropy | number: "1.0-4" }}</span>
+      <span class="metric-label">Simpson index</span>
+      <span class="metric-value">{{ metrics.simpsonIndex | number: "1.0-4" }}</span>
+    </div>
+  } @else if (!statusText("diversity")) {
+    <p class="muted">No data yet</p>
+  }
+</mat-expansion-panel>
+
+<mat-expansion-panel>
+  <mat-expansion-panel-header>
+    <mat-panel-title>Interfaces</mat-panel-title>
+  </mat-expansion-panel-header>
+  <gol-checkbox label="Interfaces" [disabled]="!liveMetricsEnabled" [ngModel]="sectionEnabled('interfaces')" (ngModelChange)="setSection('interfaces', $event)" />
+  @if (statusText("interfaces")) {
+    <p class="metric-note">{{ statusText("interfaces") }}</p>
+  }
+  @if (metrics && sectionAvailable("interfaces")) {
+    <div class="metrics-grid">
+      <span class="metric-label">Boundary length</span>
+      <span class="metric-value">{{ (metrics.interfaces?.boundaryLength ?? metrics.boundaryLength) | number }}</span>
+      <span class="metric-label">Same-state edges</span>
+      <span class="metric-value">{{ (metrics.interfaces?.sameStateContactEdges ?? 0) | number }}</span>
+      <span class="metric-label">Cross-state edges</span>
+      <span class="metric-value">{{ (metrics.interfaces?.crossStateContactEdges ?? 0) | number }}</span>
+      <span class="metric-label">Same-state fraction</span>
+      <span class="metric-value">{{ (metrics.interfaces?.sameStateContactFraction ?? 0) | percent: "1.0-2" }}</span>
+      <span class="metric-label">Cross-state fraction</span>
+      <span class="metric-value">{{ (metrics.interfaces?.crossStateContactFraction ?? 0) | percent: "1.0-2" }}</span>
+    </div>
+  } @else if (!statusText("interfaces")) {
+    <p class="muted">No data yet</p>
+  }
+</mat-expansion-panel>

@@ -4,4 +4,6 @@
   <gol-checkbox class="gol-cell-5" label="Max" title="Toggle max speed" [disabled]="downloading" [ngModel]="maxSpeed" (ngModelChange)="maxSpeedChange.emit($event)" />
   <span class="warning-message gol-cell-7" title="">{{ recordingGateMessage }}</span>
   <gol-checkbox class="gol-cell-5" label="Rec" title="Toggle recording" [disabled]="recordingDisabled" [ngModel]="recording" (ngModelChange)="recordingChange.emit($event)" />
+  <span class="warning-message gol-cell-7" title="">{{ liveMetricsMessage }}</span>
+  <gol-checkbox class="gol-cell-5" label="Metrics" title="Toggle live metrics" [disabled]="downloading" [ngModel]="liveMetricsEnabled" (ngModelChange)="liveMetricsEnabledChange.emit($event)" />
 </div>

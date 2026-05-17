@@ -12,14 +12,17 @@ import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox'
 import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
+import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
 import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {BrushShape, MetricMessage} from '../../model/worker-message';
 import {formatBinaryBytes, formatDecimalBytes} from '../../util/byte-format';
+import {normalizeLiveMetricSectionSettings} from '../../util/metric-settings';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
 import {GridSizeSection} from '../section/grid-size-section/grid-size-section';
+import {MetricsSection} from '../section/metrics-section/metrics-section';
 import {PackingSection} from '../section/packing-section/packing-section';
 import {PlaybackSection} from '../section/playback-section/playback-section';
 import {PresetsSection} from '../section/presets-section/presets-section';
@@ -49,6 +52,7 @@ interface DownloadFrameRange {
     SpeedSection,
     DrawSection,
     GridSizeSection,
+    MetricsSection,
     PackingSection,
     PresetsSection,
     TribesSection,
@@ -111,6 +115,12 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   @Input()
   public metrics: MetricMessage | null = null;
+
+  @Input()
+  public liveMetricsEnabled = true;
+
+  @Input()
+  public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
 
   @Input()
   public chunksSaving = false;
@@ -186,7 +196,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public collapsed = true;
 
-  public downloadCsv = true;
+  public downloadMetrics = true;
 
   public downloadSaves = true;
 
@@ -251,7 +261,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public get downloadButtonDisabled(): boolean {
-    return this.downloadProgress >= 0 || this.chunksSaving || !!this.downloadFrameRangeError || (!this.downloadCsv && !this.downloadSaves && !this.downloadMp4 && !this.downloadPng);
+    return this.downloadProgress >= 0 || this.chunksSaving || !!this.downloadFrameRangeError || (!this.downloadMetrics && !this.downloadSaves && !this.downloadMp4 && !this.downloadPng);
   }
 
   public get recordingSize(): string {
@@ -424,7 +434,6 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
-    this.loadPrefs();
     if (typeof window !== 'undefined' && 'matchMedia' in window) {
       this.mobileLayoutQuery = window.matchMedia('(max-width: 640px)');
       this.mobileLayoutQuery.addEventListener('change', () => {
@@ -435,6 +444,7 @@ export class Sidebar implements OnChanges, OnDestroy {
         signal: this.mobileLayoutListenerController.signal
       });
     }
+    this.loadPrefs();
   }
 
   public ngOnDestroy(): void {
@@ -480,6 +490,22 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.emit('setRecording', checked);
   }
 
+  public onLiveMetricsEnabledChange(checked: boolean): void {
+    this.liveMetricsEnabled = checked;
+    this.emit('setLiveMetrics', {
+      enabled: this.liveMetricsEnabled,
+      sections: this.liveMetricSettings
+    });
+  }
+
+  public onLiveMetricSettingsChange(settings: LiveMetricSectionSettings): void {
+    this.liveMetricSettings = normalizeLiveMetricSectionSettings(settings);
+    this.emit('setLiveMetrics', {
+      enabled: this.liveMetricsEnabled,
+      sections: this.liveMetricSettings
+    });
+  }
+
   public onGridSizeApply(value: Grid): void {
     this.emit('setGridSize', value);
   }
@@ -490,7 +516,7 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public onDownload(): void {
     this.emit('download', {
-      csv: this.downloadCsv,
+      metrics: this.downloadMetrics,
       mp4: this.downloadMp4 && !this.mp4GateMessage,
       png: this.downloadPng,
       saves: this.downloadSaves,
@@ -679,6 +705,9 @@ export class Sidebar implements OnChanges, OnDestroy {
       document.body.style.userSelect = '';
       panel?.classList.remove('resizing');
       handle?.releasePointerCapture?.(event.pointerId);
+      if (this.isDesktopLayout()) {
+        this.savePrefs();
+      }
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
@@ -710,7 +739,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   public savePrefs(): void {
     try {
       const existing = JSON.parse(localStorage.getItem(Sidebar.prefsKey) ?? '{}');
-      localStorage.setItem(Sidebar.prefsKey, JSON.stringify({
+      const prefs = {
         ...existing,
         shortcutsExpanded: this.shortcutsExpanded,
         presetsExpanded: this.presetsExpanded,
@@ -718,7 +747,7 @@ export class Sidebar implements OnChanges, OnDestroy {
         tribesExpanded: this.tribesExpanded,
         rulesExpanded: this.rulesExpanded,
         metricsExpanded: this.metricsExpanded,
-        downloadCsv: this.downloadCsv,
+        downloadMetrics: this.downloadMetrics,
         downloadSaves: this.downloadSaves,
         downloadMp4: this.downloadMp4,
         downloadPng: this.downloadPng,
@@ -728,7 +757,11 @@ export class Sidebar implements OnChanges, OnDestroy {
         mp4SettingsExpanded: this.mp4SettingsExpanded,
         downloadSelectionExpanded: this.downloadSelectionExpanded,
         skipAmount: +this.skipAmount
-      }));
+      };
+      if (this.isDesktopLayout()) {
+        Object.assign(prefs, {sidebarWidth: this.sidebarWidth});
+      }
+      localStorage.setItem(Sidebar.prefsKey, JSON.stringify(prefs));
     } catch (e) {
       console.warn('Failed to save sidebar preferences:', e);
     }
@@ -749,6 +782,10 @@ export class Sidebar implements OnChanges, OnDestroy {
         this.cdr.markForCheck();
       });
     });
+  }
+
+  private isDesktopLayout(): boolean {
+    return !this.mobileLayoutQuery?.matches;
   }
 
   private clearPendingTransitionReset(): void {
@@ -831,8 +868,11 @@ export class Sidebar implements OnChanges, OnDestroy {
       if (typeof p.metricsExpanded === 'boolean') {
         this.metricsExpanded = p.metricsExpanded;
       }
-      if (typeof p.downloadCsv === 'boolean') {
-        this.downloadCsv = p.downloadCsv;
+      if (this.isDesktopLayout() && typeof p.sidebarWidth === 'number' && p.sidebarWidth >= 300 && p.sidebarWidth <= 600) {
+        this.sidebarWidth = p.sidebarWidth;
+      }
+      if (typeof p.downloadMetrics === 'boolean') {
+        this.downloadMetrics = p.downloadMetrics;
       }
       if (typeof p.downloadSaves === 'boolean') {
         this.downloadSaves = p.downloadSaves;

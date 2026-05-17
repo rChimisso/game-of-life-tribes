@@ -16,7 +16,7 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Tune how quickly the simulation runs" title="Speed" [collapsible]="false">
-      <gol-speed-section [downloading]="downloading" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [speed]="speed" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
+      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="liveMetricsEnabled" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [speed]="speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
@@ -45,67 +45,7 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." title="Metrics" [expanded]="metricsExpanded" (expandedChange)="onSectionExpandedChange('metrics', $event)">
-      <mat-expansion-panel>
-        <mat-expansion-panel-header>
-          <mat-panel-title>Population</mat-panel-title>
-        </mat-expansion-panel-header>
-        @if (metrics) {
-          <h4 class="subsection-title">Cells</h4>
-          <div class="metrics-grid">
-            @for (tribe of tribes; track tribe.id) {
-              <span class="metric-label">{{ tribe.id }}</span>
-              <span class="metric-value">{{ metrics.population[tribe.id] | number }}</span>
-            }
-          </div>
-          @if (metrics.extinctionTime) {
-            <h4 class="subsection-title">Extinction time</h4>
-            <div class="metrics-grid">
-              @for (tribe of tribes; track tribe.id) {
-                @if (tribe.id !== "dead" && metrics.extinctionTime[tribe.id] !== undefined) {
-                  <span class="metric-label">{{ tribe.id }}</span>
-                  <span class="metric-value">
-                    @if (metrics.extinctionTime[tribe.id] === null) {
-                      &mdash;
-                    } @else {
-                      {{ metrics.extinctionTime[tribe.id] | number }}
-                    }
-                  </span>
-                }
-              }
-            </div>
-          }
-        } @else {
-          <p class="muted">No data yet</p>
-        }
-      </mat-expansion-panel>
-      <mat-expansion-panel>
-        <mat-expansion-panel-header>
-          <mat-panel-title>Diversity</mat-panel-title>
-        </mat-expansion-panel-header>
-        @if (metrics) {
-          <div class="metrics-grid">
-            <span class="metric-label">Shannon entropy</span>
-            <span class="metric-value">{{ metrics.shannonEntropy | number: "1.0-4" }}</span>
-            <span class="metric-label">Simpson index</span>
-            <span class="metric-value">{{ metrics.simpsonIndex | number: "1.0-4" }}</span>
-          </div>
-        } @else {
-          <p class="muted">No data yet</p>
-        }
-      </mat-expansion-panel>
-      <mat-expansion-panel>
-        <mat-expansion-panel-header>
-          <mat-panel-title>Spatial</mat-panel-title>
-        </mat-expansion-panel-header>
-        @if (metrics) {
-          <div class="metrics-grid">
-            <span class="metric-label">Boundary length</span>
-            <span class="metric-value">{{ metrics.boundaryLength | number }}</span>
-          </div>
-        } @else {
-          <p class="muted">No data yet</p>
-        }
-      </mat-expansion-panel>
+      <gol-metrics-section [liveMetricsEnabled]="liveMetricsEnabled" [liveMetricSettings]="liveMetricSettings" [metrics]="metrics" [tribes]="tribes" (settingsChange)="onLiveMetricSettingsChange($event)" />
     </gol-home-section>
     <hr class="divider" />
 
@@ -114,7 +54,7 @@
       <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
       <div class="download-checks">
         <gol-checkbox label="Saves" [disabled]="downloading" [(ngModel)]="downloadSaves" (ngModelChange)="savePrefs()" />
-        <gol-checkbox label="CSV" [disabled]="downloading" [(ngModel)]="downloadCsv" (ngModelChange)="savePrefs()" />
+        <gol-checkbox label="Metrics" [disabled]="downloading" [(ngModel)]="downloadMetrics" (ngModelChange)="savePrefs()" />
         <gol-checkbox label="PNG" [disabled]="downloading" [(ngModel)]="downloadPng" (ngModelChange)="savePrefs()" />
         <gol-checkbox label="MP4" [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()" />
       </div>

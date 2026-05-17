@@ -233,29 +233,6 @@
   overflow: hidden;
 }
 
-// Metrics
-.metrics-grid {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 12px;
-  font-size: 0.8rem;
-}
-
-.metric-label {
-  color: #888;
-}
-
-.metric-value {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.muted {
-  color: #666;
-  font-size: 0.8rem;
-  font-style: italic;
-}
-
 .download-checks {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -274,19 +251,6 @@
   gap: 4px;
   cursor: pointer;
   user-select: none;
-}
-
-// FPS label for MP4 input
-.mp4-fps-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.fps-text {
-  font-size: 0.8rem;
-  color: #888;
-  white-space: nowrap;
 }
 
 // MP4 settings subsection
@@ -348,14 +312,4 @@ mat-progress-bar.sub-progress {
     content: "";
     animation: dots 1.5s steps(4, end) infinite;
   }
-}
-
-// Subsection title (e.g. inside metrics panels)
-.subsection-title {
-  margin: 8px 0 2px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #666;
 }

@@ -7,12 +7,14 @@ import {RouterModule} from '@angular/router';
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
 import {BitsPerCell, GridFormatMetadata} from './model/grid-format';
+import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
 import {CONWAY_PRESET, Preset} from './model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from './model/sidebar-event';
 import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {buildGoltStateFile, parseGoltStateFile} from './util/golt-file';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
+import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {applyRuleTribeRenames} from './util/tribe-impact';
 
 import {Grid} from '~gol/core/model/grid';
@@ -59,6 +61,15 @@ export class HomePage implements OnDestroy {
   public panMode = false;
 
   public latestMetrics: MetricMessage | null = null;
+
+  public liveMetricsEnabled = true;
+
+  public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
+
+  public liveMetrics: LiveMetricsSettings = {
+    enabled: this.liveMetricsEnabled,
+    sections: this.liveMetricSettings
+  };
 
   public brushSize = 1;
 
@@ -170,9 +181,17 @@ export class HomePage implements OnDestroy {
         type: 'metrics',
         generation: data.generation,
         population: {},
+        aliveCells: 0,
+        deadCells: 0,
+        occupancy: 0,
         shannonEntropy: 0,
         simpsonIndex: 0,
         boundaryLength: 0,
+        metricsAvailability: {
+          population: this.liveMetricsEnabled && this.liveMetricSettings.population ? 'ok' : 'disabled',
+          diversity: this.liveMetricsEnabled && this.liveMetricSettings.diversity ? 'ok' : 'disabled',
+          interfaces: this.liveMetricsEnabled && this.liveMetricSettings.interfaces ? 'ok' : 'disabled'
+        },
         extinctionTime: {},
         totalFrames: 0,
         fps: data.fps,
@@ -379,6 +398,14 @@ export class HomePage implements OnDestroy {
           this.initCompressPool();
         }
         break;
+      case 'setLiveMetrics': {
+        const next = ev.value as {enabled: boolean; sections: LiveMetricSectionSettings};
+        this.liveMetricsEnabled = next.enabled;
+        this.liveMetricSettings = normalizeLiveMetricSectionSettings(next.sections);
+        this.syncLiveMetrics();
+        this.savePrefs();
+        break;
+      }
       case 'setGridSize': {
         const {cols, rows} = ev.value as Grid;
         this.rebuilding = true;
@@ -399,7 +426,7 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'download':
-        this.downloadZip(ev.value as {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null});
+        this.downloadZip(ev.value as {metrics: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null});
         break;
       case 'cancelDownload':
         this.cancelDownload();
@@ -653,6 +680,13 @@ export class HomePage implements OnDestroy {
     }
   }
 
+  private syncLiveMetrics(): void {
+    this.liveMetrics = {
+      enabled: this.liveMetricsEnabled,
+      sections: this.liveMetricSettings
+    };
+  }
+
   private initCompressPool(): void {
     const poolSize = Math.max(1, (navigator.hardwareConcurrency ?? 4) - 2);
     for (let i = 0; i < poolSize; i++) {
@@ -712,12 +746,13 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  private downloadZip(opts: {csv: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null}): void {
-    const needFrames = opts.mp4 || opts.png || opts.csv || opts.saves;
+  private downloadZip(opts: {metrics: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null}): void {
+    const needFrames = opts.mp4 || opts.png || opts.metrics || opts.saves;
 
     // Pause the simulation so the download captures a consistent state.
     if (this.state === 'running') {
       this.state = 'paused';
+      this.engine.setRunning(false);
     }
 
     this.downloadProgress = 0;
@@ -899,6 +934,11 @@ export class HomePage implements OnDestroy {
       if (typeof p.recording === 'boolean') {
         this.recording = p.recording;
       }
+      if (typeof p.liveMetricsEnabled === 'boolean') {
+        this.liveMetricsEnabled = p.liveMetricsEnabled;
+      }
+      this.liveMetricSettings = normalizeLiveMetricSectionSettings(p.liveMetricSettings);
+      this.syncLiveMetrics();
       if ([
         'square',
         'round',
@@ -923,6 +963,8 @@ export class HomePage implements OnDestroy {
         ...existing,
         speed: this.speed,
         recording: this.recording,
+        liveMetricsEnabled: this.liveMetricsEnabled,
+        liveMetricSettings: this.liveMetricSettings,
         brushShape: this.brushShape,
         brushFill: this.brushFill
       }));

@@ -209,7 +209,7 @@ export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsReques
     encoder.copyBufferToBuffer(resources.histogramBuffer, 0, resources.histogramReadBuffer, 0, HISTOGRAM_BUFFER_SIZE);
   }
 
-  if (hasInteractiveMetricSection(enabledSections, 'boundary')) {
+  if (hasInteractiveMetricSection(enabledSections, 'interfaces')) {
     const zeros1 = new Uint32Array([0]);
     device.queue.writeBuffer(resources.boundaryBuffer, 0, zeros1);
     const bindGroup = device.createBindGroup({
@@ -228,7 +228,7 @@ export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsReques
 export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequest): Promise<InteractiveMetricsReadback> {
   const {resources, enabledSections} = request;
   const needsHistogram = hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity');
-  const needsBoundary = hasInteractiveMetricSection(enabledSections, 'boundary');
+  const needsBoundary = hasInteractiveMetricSection(enabledSections, 'interfaces');
   const mapPromises: Promise<void>[] = [];
   if (needsHistogram) {
     mapPromises.push(resources.histogramReadBuffer.mapAsync(GPUMapMode.READ));
@@ -254,26 +254,35 @@ export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequ
 }
 
 export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
-  const {generation, tribes, deadTribeIndex, state, readback, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
+  const {generation, tribes, deadTribeIndex, readback, enabledSections, availability, liveMetricSettings, cols, rows, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
+  const populationEnabled = hasInteractiveMetricSection(enabledSections, 'population') && liveMetricSettings.population;
+  const diversityEnabled = hasInteractiveMetricSection(enabledSections, 'diversity') && liveMetricSettings.diversity;
+  const interfacesEnabled = hasInteractiveMetricSection(enabledSections, 'interfaces') && liveMetricSettings.interfaces;
   const population: Record<string, number> = {};
   let shannonEntropy = 0;
   let simpsonSum = 0;
   const extinctionTime: Record<string, number | null> = {};
   let totalAlive = 0;
+  const totalCells = cols * rows;
 
   for (let i = 0; i < tribes.length; i++) {
-    const count = readback.histogram[i] ?? 0;
+    const count = populationEnabled ? readback.histogram[i] ?? 0 : 0;
     population[tribes[i]!.id] = count;
     if (i !== deadTribeIndex) {
       totalAlive += count;
-      if (count > 0) {
-        state.tribeLastAliveGen.set(i, generation);
-        state.tribeEverAlive.add(i);
+    }
+  }
+
+  if (diversityEnabled) {
+    totalAlive = 0;
+    for (let i = 0; i < tribes.length; i++) {
+      if (i !== deadTribeIndex) {
+        totalAlive += readback.histogram[i] ?? 0;
       }
     }
   }
 
-  if (totalAlive > 0) {
+  if (diversityEnabled && totalAlive > 0) {
     for (let i = 0; i < tribes.length; i++) {
       if (i === deadTribeIndex) {
         continue;
@@ -290,23 +299,34 @@ export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest
     if (i === deadTribeIndex) {
       continue;
     }
-    const count = readback.histogram[i] ?? 0;
-    if (count > 0) {
-      extinctionTime[tribes[i]!.id] = null;
-    } else if (!state.tribeEverAlive.has(i)) {
-      extinctionTime[tribes[i]!.id] = 0;
-    } else {
-      extinctionTime[tribes[i]!.id] = state.tribeLastAliveGen.get(i) ?? 0;
-    }
+    extinctionTime[tribes[i]!.id] = 0;
   }
+
+  const deadCells = populationEnabled ? population[tribes[deadTribeIndex]?.id ?? ''] ?? 0 : 0;
+  const aliveCells = populationEnabled ? Math.max(0, totalCells - deadCells) : 0;
+  const totalContactEdges = totalCells * 2;
+  const crossStateContactEdges = interfacesEnabled ? readback.boundaryLength : 0;
+  const sameStateContactEdges = interfacesEnabled ? Math.max(0, totalContactEdges - crossStateContactEdges) : 0;
+  const interfaces = {
+    boundaryLength: crossStateContactEdges,
+    sameStateContactEdges,
+    crossStateContactEdges,
+    sameStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
+    crossStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? crossStateContactEdges / totalContactEdges : 0
+  };
 
   return {
     type: 'metrics',
     generation,
     population,
+    aliveCells,
+    deadCells,
+    occupancy: populationEnabled && totalCells > 0 ? aliveCells / totalCells : 0,
     shannonEntropy,
-    simpsonIndex: 1 - simpsonSum,
-    boundaryLength: readback.boundaryLength,
+    simpsonIndex: diversityEnabled ? 1 - simpsonSum : 0,
+    boundaryLength: interfaces.boundaryLength,
+    interfaces,
+    metricsAvailability: availability,
     extinctionTime,
     totalFrames,
     fps,

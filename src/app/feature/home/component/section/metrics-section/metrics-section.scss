@@ -1,32 +1,44 @@
-.metrics-grid {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 12px;
-  font-size: 0.8rem;
-}
+:host {
+  .section-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 2px 0 6px;
+  }
 
-.metric-label {
-  color: #888;
-}
+  .section-toggle-label {
+    min-width: 0;
+    color: #888;
+    font-size: 0.75rem;
+  }
 
-.metric-value {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
+  gol-toggle-button {
+    flex: 0 0 auto;
+    width: auto;
+  }
 
-.metric-note,
-.muted {
-  margin: 4px 0;
-  color: #888;
-  font-size: 0.8rem;
-  font-style: italic;
-}
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    font-size: 0.8rem;
+  }
 
-.subsection-title {
-  margin: 8px 0 2px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #666;
+  .metric-note,
+  .muted {
+    margin: 4px 0;
+    color: #888;
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+
+  .subsection-title {
+    margin: 8px 0 2px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #666;
+  }
 }

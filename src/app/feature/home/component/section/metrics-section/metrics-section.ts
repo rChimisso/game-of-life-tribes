@@ -1,12 +1,12 @@
-import {DecimalPipe, PercentPipe} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
-import {MatExpansionModule} from '@angular/material/expansion';
 
+import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
 import {ToggleButtonComponent} from '../../../../../shared/component/toggle-button/toggle-button';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '../../../model/metrics';
 import {DEAD_TRIBE_ID, Tribe} from '../../../model/rule';
 import {MetricMessage} from '../../../model/worker-message';
+import {MetricRow} from '../../element/metric-row/metric-row';
 
 /**
  * Live metrics section.
@@ -20,10 +20,9 @@ import {MetricMessage} from '../../../model/worker-message';
   standalone: true,
   imports: [
     FormsModule,
-    MatExpansionModule,
+    SubsectionComponent,
     ToggleButtonComponent,
-    DecimalPipe,
-    PercentPipe
+    MetricRow
   ],
   templateUrl: './metrics-section.html',
   styleUrl: './metrics-section.scss',
@@ -77,6 +76,30 @@ export class MetricsSection {
   public readonly settingsChange = new EventEmitter<LiveMetricSectionSettings>();
 
   /**
+   * Whether the population subsection is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public populationExpanded = true;
+
+  /**
+   * Whether the diversity subsection is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public diversityExpanded = true;
+
+  /**
+   * Whether the interfaces subsection is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public interfacesExpanded = true;
+
+  /**
    * Tribes shown in the population subsection.
    *
    * @public
@@ -113,6 +136,17 @@ export class MetricsSection {
   }
 
   /**
+   * Toggle label for a live metric section.
+   *
+   * @public
+   * @param {LiveMetricSection} section
+   * @returns {('Enable' | 'Disable')}
+   */
+  public sectionToggleLabel(section: LiveMetricSection): 'Enable' | 'Disable' {
+    return this.sectionEnabled(section) ? 'Disable' : 'Enable';
+  }
+
+  /**
    * Current availability status for a live metric section.
    *
    * @public
@@ -120,38 +154,21 @@ export class MetricsSection {
    * @returns {MetricAvailabilityStatus}
    */
   public sectionStatus(section: LiveMetricSection): MetricAvailabilityStatus {
-    if (!this.liveMetricsEnabled || !this.liveMetricSettings[section]) {
-      return 'disabled';
-    }
-    return this.metrics?.metricsAvailability?.[section] ?? 'ok';
+    return !this.liveMetricsEnabled || !this.liveMetricSettings[section] ? 'disabled' : this.metrics?.metricsAvailability?.[section] ?? 'ok';
   }
 
   /**
-   * Whether a section has data available for display.
-   *
-   * @public
-   * @param {LiveMetricSection} section
-   * @returns {boolean}
-   */
-  public sectionAvailable(section: LiveMetricSection): boolean {
-    return this.sectionStatus(section) === 'ok';
-  }
-
-  /**
-   * Human-readable availability message for a section.
+   * Value text to show when a metric cannot be displayed.
    *
    * @public
    * @param {LiveMetricSection} section
    * @returns {(string | null)}
    */
-  public statusText(section: LiveMetricSection): string | null {
-    const status = this.sectionStatus(section);
-    if (status === 'disabled') {
-      return this.liveMetricsEnabled ? 'Disabled' : 'Live metrics disabled';
-    }
-    if (status === 'tooLarge') {
-      return 'Grid is too large for this metric';
-    }
-    return null;
+  public metricDisabledText(section: LiveMetricSection): string | null {
+    return {
+      disabled: 'disabled',
+      ok: null,
+      tooLarge: 'unavailable'
+    }[this.sectionStatus(section)];
   }
 }

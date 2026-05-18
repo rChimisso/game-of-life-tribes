@@ -1,0 +1,20 @@
+<span class="metric-label" [title]="title || label">{{ label }}</span>
+<span class="metric-value" [title]="title || label">
+  @if (disabledText) {
+    {{ disabledText }}
+  } @else if (value === null || value === undefined) {
+    {{ fallback }}
+  } @else {
+    @switch (format) {
+      @case ("percent") {
+        {{ value | percent: digits }}
+      }
+      @case ("decimal") {
+        {{ value | number: digits }}
+      }
+      @default {
+        {{ value | number: digits }}
+      }
+    }
+  }
+</span>

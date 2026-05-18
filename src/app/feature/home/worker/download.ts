@@ -43,7 +43,6 @@ interface MetricEntry {
   occupancy: number;
   shannonEntropy: number;
   simpsonIndex: number;
-  boundaryLength: number;
   sameStateContactEdges: number;
   crossStateContactEdges: number;
   sameStateContactFraction: number;
@@ -342,25 +341,25 @@ function computeFrameMetrics(
     }
   }
 
-  let boundaryLength = 0;
+  let crossStateContactEdges = 0;
   const frontierCounts = new Array<number>(tribeList.length).fill(0);
   for (let y = 0; y < frameRows; y++) {
     for (let x = 0; x < frameCols; x++) {
       const selfTribe = frame[y * frameCols + x]!;
       const right = frame[y * frameCols + ((x + 1) % frameCols)]!;
       if (right !== selfTribe) {
-        boundaryLength++;
+        crossStateContactEdges++;
         frontierCounts[selfTribe]!++;
       }
       const bottom = frame[((y + 1) % frameRows) * frameCols + x]!;
       if (bottom !== selfTribe) {
-        boundaryLength++;
+        crossStateContactEdges++;
         frontierCounts[selfTribe]!++;
       }
     }
   }
   const totalContactEdges = total * 2;
-  const sameStateContactEdges = Math.max(0, totalContactEdges - boundaryLength);
+  const sameStateContactEdges = Math.max(0, totalContactEdges - crossStateContactEdges);
 
   const exactTransition = !!previous && generation - previous.generation === 1;
   const populationDelta: Record<string, number> = {};
@@ -413,11 +412,10 @@ function computeFrameMetrics(
     occupancy: total > 0 ? totalAlive / total : 0,
     shannonEntropy,
     simpsonIndex: 1 - simpsonSum,
-    boundaryLength,
     sameStateContactEdges,
-    crossStateContactEdges: boundaryLength,
+    crossStateContactEdges,
     sameStateContactFraction: totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
-    crossStateContactFraction: totalContactEdges > 0 ? boundaryLength / totalContactEdges : 0,
+    crossStateContactFraction: totalContactEdges > 0 ? crossStateContactEdges / totalContactEdges : 0,
     changedCells: exactTransition ? changedCellsBetweenFrames : null,
     changedFraction: exactTransition ? changedFraction : null,
     births: exactTransition ? births : null,
@@ -892,7 +890,6 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
     'occupancy',
     'shannon_entropy',
     'simpson_index',
-    'boundary_length',
     'same_state_contact_edges',
     'cross_state_contact_edges',
     'same_state_contact_fraction',
@@ -914,7 +911,6 @@ function buildCsvFromMetrics(metrics: MetricEntry[]): string {
     m.occupancy,
     m.shannonEntropy,
     m.simpsonIndex,
-    m.boundaryLength,
     m.sameStateContactEdges,
     m.crossStateContactEdges,
     m.sameStateContactFraction,

@@ -81,12 +81,6 @@ export interface LiveMetricsSettings {
  */
 export interface LiveInterfaceMetrics {
   /**
-   * Number of cross-state neighbor edges.
-   *
-   * @type {number}
-   */
-  boundaryLength: number;
-  /**
    * Number of same-state contact edges.
    *
    * @type {number}

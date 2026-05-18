@@ -219,20 +219,6 @@
 }
 
 // ── Collapsible animation ──
-.collapsible {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
-
-  &.open {
-    grid-template-rows: 1fr;
-  }
-}
-
-.collapsible-inner {
-  overflow: hidden;
-}
-
 .download-checks {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -242,27 +228,6 @@
 
 .mp4-fps-input-control {
   width: 50px;
-}
-
-// Shortcuts
-.shortcuts-toggle {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  user-select: none;
-}
-
-// MP4 settings subsection
-.mp4-settings-section {
-  margin-top: 6px;
-}
-
-.mp4-settings-title {
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin: 0;
-  color: #bbb;
 }
 
 .mp4-settings-grid {

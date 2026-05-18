@@ -194,7 +194,6 @@ export class HomePage implements OnDestroy {
         occupancy: 0,
         shannonEntropy: 0,
         simpsonIndex: 0,
-        boundaryLength: 0,
         metricsAvailability: {
           population: this.liveMetricsEnabled && this.liveMetricSettings.population ? 'ok' : 'disabled',
           diversity: this.liveMetricsEnabled && this.liveMetricSettings.diversity ? 'ok' : 'disabled',

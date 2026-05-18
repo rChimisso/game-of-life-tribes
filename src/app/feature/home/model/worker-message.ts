@@ -120,7 +120,6 @@ export interface MetricMessage {
   occupancy?: number;
   shannonEntropy: number;
   simpsonIndex: number;
-  boundaryLength: number;
   interfaces?: LiveInterfaceMetrics;
   metricsAvailability?: MetricAvailability;
   extinctionTime: Record<string, number | null>;

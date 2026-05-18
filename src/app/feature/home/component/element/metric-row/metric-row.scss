@@ -1,0 +1,12 @@
+:host {
+  display: contents;
+
+  > .metric-label {
+    color: #888;
+  }
+
+  > .metric-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}

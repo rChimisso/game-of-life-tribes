@@ -218,7 +218,8 @@ a {
       selected-pressed-state-layer-opacity: 0,
       unselected-hover-state-layer-opacity: 0,
       unselected-focus-state-layer-opacity: 0,
-      unselected-pressed-state-layer-opacity: 0
+      unselected-pressed-state-layer-opacity: 0,
+      disabled-label-text-color: color-mix(in srgb, #d0d0d0 33%, transparent)
     )
   );
 
@@ -252,6 +253,27 @@ a {
     .mdc-switch,
     .mdc-label {
       filter: brightness(1.3);
+    }
+  }
+
+  &.size-sm {
+    @include mat.slide-toggle-overrides(
+      (
+        track-height: 18px,
+        touch-target-size: 26px,
+        state-layer-size: 26px,
+        track-width: 38px,
+        handle-width: 18px,
+        handle-height: 18px,
+        selected-handle-size: 18px,
+        unselected-handle-size: 18px,
+        with-icon-handle-size: 18px,
+        pressed-handle-size: 18px
+      )
+    );
+
+    .mdc-label {
+      font-size: 0.75rem;
     }
   }
 }

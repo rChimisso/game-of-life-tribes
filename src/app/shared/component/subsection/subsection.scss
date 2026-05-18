@@ -1,0 +1,40 @@
+:host {
+  margin-top: 6px;
+  display: block;
+
+  > .subsection-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    color: #bbb;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+
+    &.disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+
+    > .expand-icon {
+      flex: 0 0 auto;
+    }
+  }
+
+  > .subsection-collapsible {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+    padding: 4px 16px;
+
+    &.open {
+      grid-template-rows: 1fr;
+    }
+
+    > .subsection-inner {
+      overflow: hidden;
+    }
+  }
+}

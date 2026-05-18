@@ -244,13 +244,13 @@ export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequ
     resources.histogramReadBuffer.unmap();
   }
 
-  let boundaryLength = 0;
+  let crossStateContactEdges = 0;
   if (needsBoundary) {
     const bData = new Uint32Array(resources.boundaryReadBuffer.getMappedRange().slice(0));
     resources.boundaryReadBuffer.unmap();
-    boundaryLength = bData[0] ?? 0;
+    crossStateContactEdges = bData[0] ?? 0;
   }
-  return {histogram, boundaryLength};
+  return {histogram, crossStateContactEdges};
 }
 
 export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
@@ -305,10 +305,9 @@ export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest
   const deadCells = populationEnabled ? population[tribes[deadTribeIndex]?.id ?? ''] ?? 0 : 0;
   const aliveCells = populationEnabled ? Math.max(0, totalCells - deadCells) : 0;
   const totalContactEdges = totalCells * 2;
-  const crossStateContactEdges = interfacesEnabled ? readback.boundaryLength : 0;
+  const crossStateContactEdges = interfacesEnabled ? readback.crossStateContactEdges : 0;
   const sameStateContactEdges = interfacesEnabled ? Math.max(0, totalContactEdges - crossStateContactEdges) : 0;
   const interfaces = {
-    boundaryLength: crossStateContactEdges,
     sameStateContactEdges,
     crossStateContactEdges,
     sameStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
@@ -324,7 +323,6 @@ export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest
     occupancy: populationEnabled && totalCells > 0 ? aliveCells / totalCells : 0,
     shannonEntropy,
     simpsonIndex: diversityEnabled ? 1 - simpsonSum : 0,
-    boundaryLength: interfaces.boundaryLength,
     interfaces,
     metricsAvailability: availability,
     extinctionTime,

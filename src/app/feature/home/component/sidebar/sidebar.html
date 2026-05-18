@@ -58,58 +58,42 @@
         <gol-checkbox label="PNG" [disabled]="downloading" [(ngModel)]="downloadPng" (ngModelChange)="savePrefs()" />
         <gol-checkbox label="MP4" [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()" />
       </div>
-      <div class="mp4-settings-section">
-        <h4 class="mp4-settings-title shortcuts-toggle" (click)="toggleSection('downloadSelection')">
-          <mat-icon class="expand-icon">{{ downloadSelectionExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
-          Selection
-        </h4>
-        <div class="collapsible" [class.open]="downloadSelectionExpanded">
-          <div class="collapsible-inner">
-            <gol-checkbox label="All recorded frames" [disabled]="downloading" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)" />
-            <div class="mp4-settings-grid">
-              <div class="mp4-setting-label">
-                <span class="mp4-setting-text">Start frame</span>
-                <gol-input class="mp4-fps-input-control" name="startFrame" regex="^[0-9]+$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)" />
-              </div>
-              <div class="mp4-setting-label">
-                <span class="mp4-setting-text">End frame</span>
-                <gol-input class="mp4-fps-input-control" name="endFrame" regex="^[1-9][0-9]*$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)" />
-              </div>
-            </div>
-            <div class="generation-display">
-              <span class="gen-label">Recorded</span>
-              <span class="gen-value">{{ totalRecordedFrames | number }}</span>
-              <span class="gen-label">Selected</span>
-              <span class="gen-value">{{ normalizedDownloadFrameRange ? (normalizedDownloadFrameRange.endFrame - normalizedDownloadFrameRange.startFrame + 1 | number) : (totalRecordedFrames | number) }}</span>
-            </div>
-            @if (!hasRecordedFrames) {
-              <span class="recording-gate-warning">No recorded frames are available yet.</span>
-            } @else if (downloadFrameRangeError) {
-              <span class="recording-gate-warning">{{ downloadFrameRangeError }}</span>
-            }
+      <gol-subsection title="Selection" [expanded]="downloadSelectionExpanded" (expandedChange)="onSectionExpandedChange('downloadSelection', $event)">
+        <gol-checkbox label="All recorded frames" [disabled]="downloading" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)" />
+        <div class="mp4-settings-grid">
+          <div class="mp4-setting-label">
+            <span class="mp4-setting-text">Start frame</span>
+            <gol-input class="mp4-fps-input-control" name="startFrame" regex="^[0-9]+$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)" />
+          </div>
+          <div class="mp4-setting-label">
+            <span class="mp4-setting-text">End frame</span>
+            <gol-input class="mp4-fps-input-control" name="endFrame" regex="^[1-9][0-9]*$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)" />
           </div>
         </div>
-      </div>
-      <div class="mp4-settings-section">
-        <h4 class="mp4-settings-title shortcuts-toggle" (click)="toggleSection('mp4Settings')">
-          <mat-icon class="expand-icon">{{ mp4SettingsExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
-          MP4 Settings
-        </h4>
-        <div class="collapsible" [class.open]="mp4SettingsExpanded">
-          <div class="collapsible-inner">
-            <div class="mp4-settings-grid">
-              <div class="mp4-setting-label">
-                <span class="mp4-setting-text">FPS</span>
-                <gol-input class="mp4-fps-input-control" name="fps" regex="^[1-9][0-9]*$" [disabled]="downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
-              </div>
-              <div class="mp4-setting-label">
-                <span class="mp4-setting-text">Bitrate (Mbps)</span>
-                <gol-input class="mp4-fps-input-control" name="bitrate" type="number" [disabled]="downloading" [(ngModel)]="mp4BitrateMbps" (ngModelChange)="savePrefs()" />
-              </div>
-            </div>
+        <div class="generation-display">
+          <span class="gen-label">Recorded</span>
+          <span class="gen-value">{{ totalRecordedFrames | number }}</span>
+          <span class="gen-label">Selected</span>
+          <span class="gen-value">{{ normalizedDownloadFrameRange ? (normalizedDownloadFrameRange.endFrame - normalizedDownloadFrameRange.startFrame + 1 | number) : (totalRecordedFrames | number) }}</span>
+        </div>
+        @if (!hasRecordedFrames) {
+          <span class="recording-gate-warning">No recorded frames are available yet.</span>
+        } @else if (downloadFrameRangeError) {
+          <span class="recording-gate-warning">{{ downloadFrameRangeError }}</span>
+        }
+      </gol-subsection>
+      <gol-subsection title="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSectionExpandedChange('mp4Settings', $event)">
+        <div class="mp4-settings-grid">
+          <div class="mp4-setting-label">
+            <span class="mp4-setting-text">FPS</span>
+            <gol-input class="mp4-fps-input-control" name="fps" regex="^[1-9][0-9]*$" [disabled]="downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
+          </div>
+          <div class="mp4-setting-label">
+            <span class="mp4-setting-text">Bitrate (Mbps)</span>
+            <gol-input class="mp4-fps-input-control" name="bitrate" type="number" [disabled]="downloading" [(ngModel)]="mp4BitrateMbps" (ngModelChange)="savePrefs()" />
           </div>
         </div>
-      </div>
+      </gol-subsection>
       @if (downloadMp4 && mp4GateMessage) {
         <span class="recording-gate-warning">{{ mp4GateMessage }}</span>
       }

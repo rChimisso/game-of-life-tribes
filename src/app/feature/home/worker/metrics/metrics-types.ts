@@ -52,7 +52,7 @@ export interface ReadInteractiveMetricsRequest {
 
 export interface InteractiveMetricsReadback {
   histogram: Uint32Array;
-  boundaryLength: number;
+  crossStateContactEdges: number;
 }
 
 export interface BuildMetricMessageRequest {

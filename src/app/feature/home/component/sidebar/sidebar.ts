@@ -2,7 +2,6 @@ import {DecimalPipe} from '@angular/common';
 import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, ElementRef, NgZone} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
-import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
@@ -11,6 +10,7 @@ import {Button} from '../../../../shared/component/button/button';
 import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
 import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
+import {SubsectionComponent} from '../../../../shared/component/subsection/subsection';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
 import {Preset} from '../../model/preset';
@@ -58,11 +58,11 @@ interface DownloadFrameRange {
     TribesSection,
     RulesSection,
     StorageBar,
+    SubsectionComponent,
     Button,
     InputComponent,
     CheckboxComponent,
     MatButtonModule,
-    MatExpansionModule,
     MatIconModule,
     MatProgressBarModule,
     DecimalPipe,

@@ -1,3 +1,4 @@
+@use "@angular/material" as mat;
 @use "variables" as *;
 @use "grids" as *;
 
@@ -83,6 +84,175 @@ a {
   }
   75% {
     content: "...";
+  }
+}
+
+.gol-material-theme {
+  color-scheme: dark;
+
+  @include mat.theme(
+    (
+      color: (
+        theme-type: dark,
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: (
+        plain-family: (
+          Lexend,
+          Roboto,
+          "Helvetica Neue",
+          sans-serif,
+        ),
+        brand-family: (
+          Lexend,
+          Roboto,
+          "Helvetica Neue",
+          sans-serif,
+        ),
+        regular-weight: 400,
+        medium-weight: 500,
+        bold-weight: 700,
+      ),
+      density: 0,
+    ),
+    $overrides: (
+      surface: #000000,
+      surface-container-lowest: #000000,
+      surface-container-low: #000000,
+      surface-container: #000000,
+      surface-container-high: #0a0a1e,
+      surface-container-highest: #101024,
+
+      on-surface: #e0e0e0,
+      on-surface-variant: #d0d0d0,
+      outline: #d0d0d0,
+      outline-variant: #888888,
+
+      primary: #68b0f3,
+      on-primary: #000000,
+      primary-container: #08233f,
+      on-primary-container: #b9dcff,
+
+      secondary: #d0d0d0,
+      on-secondary: #000000,
+      secondary-container: #333333,
+      on-secondary-container: #ededed,
+
+      tertiary: #6a8fff,
+      on-tertiary: #000000,
+      tertiary-container: #101a4a,
+      on-tertiary-container: #dbe4ff,
+
+      error: #ef9a9a,
+      on-error: #000000,
+      error-container: #c62828,
+      on-error-container: #ffffff
+    )
+  );
+}
+
+.gol-slide-toggle {
+  --gol-slide-toggle-transition: 250ms ease;
+
+  @include mat.slide-toggle-overrides(
+    (
+      // Size
+      track-height: 24px,
+      touch-target-size: 32px,
+      state-layer-size: 32px,
+      track-width: 52px,
+
+      // Make the knob fill the track height
+      handle-width: 24px,
+      handle-height: 24px,
+      selected-handle-size: 24px,
+      unselected-handle-size: 24px,
+      with-icon-handle-size: 24px,
+      pressed-handle-size: 24px,
+
+      // Remove Material's built-in horizontal inset
+      selected-handle-horizontal-margin: 0,
+      unselected-handle-horizontal-margin: 0,
+      selected-with-icon-handle-horizontal-margin: 0,
+      unselected-with-icon-handle-horizontal-margin: 0,
+      selected-pressed-handle-horizontal-margin: 0,
+      unselected-pressed-handle-horizontal-margin: 0,
+
+      // Checked track/surface
+      selected-track-color: #ededed,
+      selected-hover-track-color: #ededed,
+      selected-focus-track-color: #ededed,
+      selected-pressed-track-color: #ededed,
+
+      // Unchecked track/surface
+      unselected-track-color: #00000099,
+      unselected-hover-track-color: #00000099,
+      unselected-focus-track-color: #00000099,
+      unselected-pressed-track-color: #00000099,
+
+      // Unchecked border
+      track-outline-color: #d0d0d0,
+      track-outline-width: 2px,
+      selected-track-outline-color: transparent,
+
+      // Unchecked knob
+      unselected-handle-color: #d0d0d0,
+      unselected-hover-handle-color: #d0d0d0,
+      unselected-focus-handle-color: #d0d0d0,
+      unselected-pressed-handle-color: #d0d0d0,
+
+      // Checked knob
+      selected-handle-color: #111111,
+      selected-hover-handle-color: #111111,
+      selected-focus-handle-color: #111111,
+      selected-pressed-handle-color: #111111,
+
+      // Knob line/icon
+      unselected-icon-color: #000000,
+      selected-icon-color: #ededed,
+
+      // Remove Material state-layer glow/ripple-like overlay
+      selected-hover-state-layer-opacity: 0,
+      selected-focus-state-layer-opacity: 0,
+      selected-pressed-state-layer-opacity: 0,
+      unselected-hover-state-layer-opacity: 0,
+      unselected-focus-state-layer-opacity: 0,
+      unselected-pressed-state-layer-opacity: 0
+    )
+  );
+
+  .mdc-switch__handle-track {
+    transition: transform var(--gol-slide-toggle-transition);
+  }
+
+  .mdc-switch__track::before,
+  .mdc-switch__track::after {
+    transition: background-color var(--gol-slide-toggle-transition) !important;
+  }
+
+  .mdc-switch--unselected .mdc-switch__track::after {
+    background-color: transparent !important;
+  }
+
+  .mdc-switch--selected .mdc-switch__track::after {
+    border: 2px solid #ededed !important;
+  }
+
+  .mdc-switch--selected .mdc-switch__track::before {
+    background-color: #ededed !important;
+  }
+
+  .mdc-switch,
+  .mdc-label {
+    transition: filter var(--gol-slide-toggle-transition);
+  }
+
+  &:hover:has(.mdc-switch:enabled) {
+    .mdc-switch,
+    .mdc-label {
+      filter: brightness(1.3);
+    }
   }
 }
 

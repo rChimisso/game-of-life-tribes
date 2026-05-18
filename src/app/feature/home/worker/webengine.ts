@@ -9,10 +9,11 @@
  * - Toroidal: world wraps in both axes.
  */
 
-import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
+import {GPU_LABELS} from './gpu-labels';
 import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metrics/metrics-current';
 import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metrics/metrics-planner';
 import {InteractiveMetricSection, InteractiveMetricsResources} from './metrics/metrics-types';
+import {RECORDING_MAX_FRAME_BYTES} from './recording-limits';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
@@ -195,7 +196,10 @@ function workerErrorReason(error: unknown): string {
 }
 
 function reportWorkerError(error: unknown): void {
-  stopRun('error', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+  console.error('[GOLT worker] Worker GPU error:', error);
+  stopRun('error', {
+    render: false, postStepping: false, restore: false, restartRestoredRun: false
+  });
   simulationRunning = false;
   self.postMessage({type: 'gpuError', reason: workerErrorReason(error)});
 }
@@ -224,7 +228,7 @@ async function waitForTrackedBufferAllocations(): Promise<void> {
   if (rebuildPendingAllocationBuffers.length === 0) {
     return;
   }
-  const encoder = device.createCommandEncoder();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.trackedAllocationClearEncoder});
   for (const buffer of rebuildPendingAllocationBuffers) {
     encoder.clearBuffer(buffer);
   }
@@ -866,6 +870,7 @@ const UNIFORM_SIZE = 48;
 function createUniformBuffer(): void {
   uniformBuffer?.destroy();
   uniformBuffer = device.createBuffer({
+    label: GPU_LABELS.uniformBuffer,
     size: UNIFORM_SIZE,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
   });
@@ -910,15 +915,23 @@ function currentGridFormatMetadata(): GridFormatMetadata {
 async function createGridBuffers(): Promise<void> {
   const byteSize = gridBufferSize();
 
-  gridBufferA = device.createBuffer({size: byteSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
+  gridBufferA = device.createBuffer({
+    label: GPU_LABELS.gridBufferA,
+    size: byteSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+  });
   await trackMajorBufferAllocation(byteSize, gridBufferA);
 
-  gridBufferB = device.createBuffer({size: byteSize, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
+  gridBufferB = device.createBuffer({
+    label: GPU_LABELS.gridBufferB,
+    size: byteSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+  });
   await trackMajorBufferAllocation(byteSize, gridBufferB);
 
   // Dead tribe always maps to index 0 → packed representation is all-zero.
   // GPU clearBuffer zeroes the buffers with no JS heap allocation.
-  const enc = device.createCommandEncoder();
+  const enc = device.createCommandEncoder({label: GPU_LABELS.gridClearEncoder});
   enc.clearBuffer(gridBufferA);
   enc.clearBuffer(gridBufferB);
   device.queue.submit([enc.finish()]);
@@ -939,7 +952,11 @@ function createTribeColorBuffer(): void {
   if (tribeColorBuffer) {
     tribeColorBuffer.destroy();
   }
-  tribeColorBuffer = device.createBuffer({size: data.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST});
+  tribeColorBuffer = device.createBuffer({
+    label: GPU_LABELS.tribeColorBuffer,
+    size: data.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+  });
   device.queue.writeBuffer(tribeColorBuffer, 0, data);
 }
 
@@ -957,9 +974,10 @@ function generateRenderWgsl(): string {
 // ---------------------------------------------------------------------------
 
 function createRenderPipeline(): void {
-  const module = device.createShaderModule({code: generateRenderWgsl()});
+  const module = device.createShaderModule({label: GPU_LABELS.renderShaderModule, code: generateRenderWgsl()});
 
   renderPipeline = device.createRenderPipeline({
+    label: GPU_LABELS.renderPipeline,
     layout: 'auto',
     vertex: {module, entryPoint: 'vs_main'},
     fragment: {
@@ -988,9 +1006,10 @@ function createRenderBindGroups(): void {
 function createComputePipeline(): void {
   simulationDispatchPlan = createSimulationDispatchPlan();
   const wgsl = generateComputeWgsl();
-  const module = device.createShaderModule({code: wgsl});
+  const module = device.createShaderModule({label: GPU_LABELS.simulationShaderModule, code: wgsl});
 
   computePipeline = device.createComputePipeline({
+    label: GPU_LABELS.simulationPipeline,
     layout: 'auto',
     compute: {module, entryPoint: 'main'}
   });
@@ -1156,15 +1175,20 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 }
 
 function createBrushPipeline(): void {
-  const module = device.createShaderModule({code: generateBrushWgsl()});
+  const module = device.createShaderModule({label: GPU_LABELS.brushShaderModule, code: generateBrushWgsl()});
 
   brushPipeline = device.createComputePipeline({
+    label: GPU_LABELS.brushPipeline,
     layout: 'auto',
     compute: {module, entryPoint: 'main'}
   });
 
   brushUniformBuffer?.destroy();
-  brushUniformBuffer = device.createBuffer({size: BRUSH_UNIFORM_SIZE, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+  brushUniformBuffer = device.createBuffer({
+    label: GPU_LABELS.brushUniformBuffer,
+    size: BRUSH_UNIFORM_SIZE,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
 
   brushBindGroupA = device.createBindGroup({
     layout: brushPipeline.getBindGroupLayout(0),
@@ -1202,7 +1226,7 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
   device.queue.writeBuffer(brushUniformBuffer, 0, data);
 
   const wgBrush = Math.ceil(brushSize / 8);
-  const pass = encoder.beginComputePass();
+  const pass = encoder.beginComputePass({label: GPU_LABELS.brushPass});
   pass.setPipeline(brushPipeline);
   pass.setBindGroup(0, pingPong ? brushBindGroupB : brushBindGroupA);
   pass.dispatchWorkgroups(wgBrush, wgBrush);
@@ -1219,13 +1243,17 @@ function readbackGrid(): Promise<Uint32Array> {
 
   let readBuffer: GPUBuffer;
   try {
-    readBuffer = device.createBuffer({size: byteSize, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
+    readBuffer = device.createBuffer({
+      label: GPU_LABELS.gridReadbackBuffer,
+      size: byteSize,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    });
   } catch (e) {
     console.warn('GPU readback buffer allocation failed:', e);
     return Promise.reject(new Error(`Failed to allocate ${byteSize} byte readback buffer`));
   }
 
-  const encoder = device.createCommandEncoder();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.gridReadbackEncoder});
   encoder.copyBufferToBuffer(currentGrid, 0, readBuffer, 0, byteSize);
   device.queue.submit([encoder.finish()]);
 
@@ -1304,7 +1332,7 @@ function recordGeneration(gen: number): void {
   }
   const currentGrid = pingPong ? gridBufferB : gridBufferA;
   const offset = chunkFrameIndex * frameByteSize;
-  const enc = device.createCommandEncoder();
+  const enc = device.createCommandEncoder({label: GPU_LABELS.recordingFrameCopyEncoder});
   enc.copyBufferToBuffer(currentGrid, 0, chunkGpuBuffer, offset, frameByteSize);
   device.queue.submit([enc.finish()]);
   chunkGenerations.push(gen);
@@ -1337,7 +1365,7 @@ function sealCurrentChunk(): void {
   const filename = `chunk-${String(chunkId).padStart(6, '0')}.bin`;
   const blockCount = chunkFrameIndex;
 
-  const enc = device.createCommandEncoder();
+  const enc = device.createCommandEncoder({label: GPU_LABELS.recordingSealCopyEncoder});
   enc.copyBufferToBuffer(chunkGpuBuffer, 0, stagingBuf, 0, byteLen);
   device.queue.submit([enc.finish()]);
 
@@ -1580,7 +1608,7 @@ function applyPendingBrush(): void {
   }
   const b = pendingBrush;
   pendingBrush = null;
-  const encoder = device.createCommandEncoder();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.brushEncoder});
   dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
   device.queue.submit([encoder.finish()]);
 
@@ -1687,7 +1715,7 @@ function readMetricsAndPost(): void {
     if (pendingMetricsRetry) {
       pendingMetricsRetry = false;
       lastMetricsGen = -1;
-      const retryEncoder = device.createCommandEncoder();
+      const retryEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
       runMetricsGpu(retryEncoder);
       device.queue.submit([retryEncoder.finish()]);
       readMetricsAndPost();
@@ -1739,9 +1767,9 @@ function batchStep(count: number): void {
     return;
   }
   const plan = simulationDispatchPlan;
-  const encoder = device.createCommandEncoder();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationBatchEncoder});
   for (let i = 0; i < count; i++) {
-    const pass = encoder.beginComputePass();
+    const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
     pass.setPipeline(computePipeline);
     pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
     pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
@@ -1765,8 +1793,8 @@ function postGeneration(): void {
 }
 
 function stepSimulation(): void {
-  const encoder = device.createCommandEncoder();
-  const pass = encoder.beginComputePass();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationSingleStepEncoder});
+  const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
 
@@ -1789,8 +1817,9 @@ function renderFrame(): void {
 
   const textureView = context.getCurrentTexture().createView();
 
-  const encoder = device.createCommandEncoder();
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.renderEncoder});
   const pass = encoder.beginRenderPass({
+    label: GPU_LABELS.renderPass,
     colorAttachments: [
       {
         view: textureView,
@@ -1863,7 +1892,7 @@ function queueMetricsRefresh(force: boolean = false): void {
     lastMetricsGen = -1;
   }
   if (!metricsInFlight) {
-    const encoder = device.createCommandEncoder();
+    const encoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
     runMetricsGpu(encoder);
     device.queue.submit([encoder.finish()]);
     readMetricsAndPost();
@@ -1934,7 +1963,7 @@ function scheduleRunPump(schedule: PumpSchedule): void {
   if (!run || run.pumpPending || rebuilding || deviceLost) {
     return;
   }
-  const token = run.token;
+  const {token} = run;
   run.pumpPending = true;
   const pump = (): void => {
     if (!activeRun || activeRun.token !== token) {
@@ -1958,7 +1987,12 @@ function scheduleRunPump(schedule: PumpSchedule): void {
 
 function startRun(kind: RunKind, request: RunRequest): void {
   if (activeRun) {
-    stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+    stopRun('restart', {
+      render: false,
+      postStepping: false,
+      restore: false,
+      restartRestoredRun: false
+    });
   }
   activeRun = {
     kind,
@@ -2037,7 +2071,12 @@ function cancelTargetRun(restoreRunning: boolean): void {
 }
 
 function restartActiveRunForRecordingChange(request: RunRequest): void {
-  stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+  stopRun('restart', {
+    render: false,
+    postStepping: false,
+    restore: false,
+    restartRestoredRun: false
+  });
   startRun(runKindForCurrentRecording(), request);
 }
 
@@ -2242,10 +2281,12 @@ function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFo
 }
 
 async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
+  console.log('[GOLT worker] Initializing WebGPU');
   canvas = offscreen;
 
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) {
+    console.error('[GOLT worker] WebGPU adapter not available');
     throw new Error('WebGPU adapter not available');
   }
 
@@ -2256,7 +2297,13 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
 
   device.lost.then(info => {
     const reason = info.message || info.reason || 'unknown';
-    stopRun('deviceLost', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+    console.error('[GOLT worker] GPU device lost:', reason);
+    stopRun('deviceLost', {
+      render: false,
+      postStepping: false,
+      restore: false,
+      restartRestoredRun: false
+    });
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
@@ -2286,15 +2333,28 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     format: canvasFormat,
     alphaMode: 'opaque'
   });
+  console.log('[GOLT worker] WebGPU initialized', {
+    canvasFormat,
+    maxBufferSize: device.limits.maxBufferSize,
+    maxStorageBufferBindingSize: device.limits.maxStorageBufferBindingSize
+  });
 }
 
 async function restoreWebGPUDevice(): Promise<boolean> {
   try {
+    console.log('[GOLT worker] Restoring WebGPU device');
     await initWebGPU(canvas);
+    console.log('[GOLT worker] WebGPU device restored');
     return true;
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    stopRun('deviceLost', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+    console.error('[GOLT worker] WebGPU device restore failed:', reason);
+    stopRun('deviceLost', {
+      render: false,
+      postStepping: false,
+      restore: false,
+      restartRestoredRun: false
+    });
     deviceLost = true;
     simulationRunning = false;
     rebuilding = true;
@@ -2304,7 +2364,11 @@ async function restoreWebGPUDevice(): Promise<boolean> {
 }
 
 async function createChunkBuffer(): Promise<void> {
-  chunkGpuBuffer = device.createBuffer({size: chunkFrameCapacity * frameByteSize, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC});
+  chunkGpuBuffer = device.createBuffer({
+    label: GPU_LABELS.recordingChunkBuffer,
+    size: chunkFrameCapacity * frameByteSize,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+  });
   await trackMajorBufferAllocation(chunkFrameCapacity * frameByteSize, chunkGpuBuffer);
   chunkFrameIndex = 0;
   chunkGenerations = [];
@@ -2315,7 +2379,11 @@ async function createStagingRing(): Promise<void> {
   stagingRing = [];
   stagingAvailable = [];
   for (let i = 0; i < STAGING_RING_SIZE; i++) {
-    const stagingBuffer = device.createBuffer({size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
+    const stagingBuffer = device.createBuffer({
+      label: `${GPU_LABELS.recordingStagingBuffer} ${i}`,
+      size,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    });
     stagingRing.push(stagingBuffer);
     stagingAvailable.push(true);
     await trackMajorBufferAllocation(size, stagingBuffer);
@@ -2327,6 +2395,12 @@ async function initOpfs(): Promise<void> {
 }
 
 async function buildPipelines(): Promise<void> {
+  console.log('[GOLT worker] Building GPU resources', {
+    cols,
+    rows,
+    bitsPerCell: gridFormat.bitsPerCell,
+    recordingAvailable: recordingAvailableForCurrentFrame()
+  });
   createUniformBuffer();
   computeChunkCapacity();
   await createGridBuffers();
@@ -2341,16 +2415,31 @@ async function buildPipelines(): Promise<void> {
     await createChunkBuffer();
     await createStagingRing();
   } else {
+    console.warn('[GOLT worker] Recording buffers disabled for current frame size', {
+      frameByteSize,
+      maxRecordingBufferBytes: maxRecordingBufferBytes()
+    });
     destroyRecordingBuffers();
     isRecording = false;
     recordingAwaitingForward = false;
   }
   await waitForTrackedBufferAllocations();
   postRecordingLimits();
+  console.log('[GOLT worker] GPU resources ready');
 }
 
 async function rebuildForNewRuleset(): Promise<boolean> {
-  stopRun('rebuild', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+  console.log('[GOLT worker] Rebuild started', {
+    cols,
+    rows,
+    bitsPerCell: gridFormat.bitsPerCell
+  });
+  stopRun('rebuild', {
+    render: false,
+    postStepping: false,
+    restore: false,
+    restartRestoredRun: false
+  });
   rebuilding = true;
   self.postMessage({type: 'rebuilding', active: true} satisfies RebuildingMessage);
 
@@ -2396,6 +2485,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     // So mainLoop does not attempt GPU work, then attempt recovery without
     // Recording buffers.
     const reason = err instanceof Error ? err.message : String(err);
+    console.error('[GOLT worker] GPU rebuild failed:', reason);
     self.postMessage({type: 'gpuError', reason});
     try {
       destroyRebuildableBuffers();
@@ -2414,15 +2504,20 @@ async function rebuildForNewRuleset(): Promise<boolean> {
       recordingAwaitingForward = false;
       frameByteSize = gridBufferSize();
       destroyRecordingBuffers();
+      console.warn('[GOLT worker] GPU rebuild recovered with recording disabled');
       await waitForTrackedBufferAllocations();
       postRecordingLimits();
     } catch (e) {
-      console.warn('GPU recovery also failed, device may be lost:', e);
+      console.error('[GOLT worker] GPU rebuild recovery failed:', e);
       return false;
     }
   }
   rebuilding = false;
   self.postMessage({type: 'rebuilding', active: false});
+  console.log('[GOLT worker] Rebuild completed', {
+    recordingAvailable: recordingAvailableForCurrentFrame(),
+    frameByteSize
+  });
   return true;
 }
 
@@ -2434,6 +2529,13 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
   const m = ev.data;
   switch (m.type) {
     case 'init': {
+      console.log('[GOLT worker] Init message received', {
+        cols: m.ruleset.cols,
+        rows: m.ruleset.rows,
+        recording: m.recording,
+        running: m.running,
+        speed: m.speed
+      });
       isRecording = m.recording;
       liveMetrics = normalizeLiveMetricsSettings(m.liveMetrics);
       recordingAwaitingForward = isRecording;
@@ -2441,7 +2543,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       await initWebGPU(m.canvas);
       await buildPipelines();
       if (!metricsInFlight) {
-        const initEncoder = device.createCommandEncoder();
+        const initEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
         runMetricsGpu(initEncoder);
         device.queue.submit([initEncoder.finish()]);
         readMetricsAndPost();
@@ -2468,7 +2570,17 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
     }
 
     case 'setRuleset': {
-      stopRun('rebuild', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+      console.log('[GOLT worker] Ruleset update received', {
+        cols: m.ruleset.cols,
+        rows: m.ruleset.rows,
+        tribes: m.ruleset.tribes.length
+      });
+      stopRun('rebuild', {
+        render: false,
+        postStepping: false,
+        restore: false,
+        restartRestoredRun: false
+      });
       initRuleset(m.ruleset, m.simulationGridFormat);
       const rebuilt = await rebuildForNewRuleset();
       if (!rebuilt) {
@@ -2484,7 +2596,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       }
       // Post initial metrics for the fresh (empty) grid.
       if (!metricsInFlight) {
-        const resetEncoder = device.createCommandEncoder();
+        const resetEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
         runMetricsGpu(resetEncoder);
         device.queue.submit([resetEncoder.finish()]);
         readMetricsAndPost();
@@ -2520,7 +2632,12 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       const newDuration = m.speed < 0 ? 0 : 1000 / m.speed;
       targetStepDuration = newDuration;
       if (activeRun && !isTargetRun(activeRun) && simulationRunning) {
-        stopRun('restart', {render: false, postStepping: false, restore: false, restartRestoredRun: false});
+        stopRun('restart', {
+          render: false,
+          postStepping: false,
+          restore: false,
+          restartRestoredRun: false
+        });
         if (wasMaxSpeed && newDuration > 0) {
           gpuCatchUpPending = true;
           device.queue.onSubmittedWorkDone().then(() => {
@@ -2630,7 +2747,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         recordingAwaitingForward = true;
         lastMetricsGen = -1;
         if (!metricsInFlight) {
-          const encoder = device.createCommandEncoder();
+          const encoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
           runMetricsGpu(encoder);
           device.queue.submit([encoder.finish()]);
           readMetricsAndPost();
@@ -2639,6 +2756,12 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         }
         postStorageQuota();
       } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
+        if (m.recording && !recordingAvailableForCurrentFrame()) {
+          console.warn('[GOLT worker] Recording requested but unavailable for current frame size', {
+            frameByteSize,
+            maxRecordingBufferBytes: maxRecordingBufferBytes()
+          });
+        }
         isRecording = false;
         recordingAwaitingForward = false;
       }
@@ -2691,7 +2814,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         chunkGenerations.length = chunkFrameIndex;
         genCounter = chunkGenerations[frameInChunk]!;
 
-        const bEnc = device.createCommandEncoder();
+        const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
         bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
         device.queue.submit([bEnc.finish()]);
       } else {
@@ -2753,7 +2876,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
         if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
           // Copy target frame to the grid.
-          const bEnc = device.createCommandEncoder();
+          const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
           bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
           device.queue.submit([bEnc.finish()]);
         }
@@ -2769,7 +2892,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
       lastMetricsGen = -1;
       if (!metricsInFlight) {
-        const bEncoder = device.createCommandEncoder();
+        const bEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
         runMetricsGpu(bEncoder);
         device.queue.submit([bEncoder.finish()]);
         readMetricsAndPost();
@@ -2795,7 +2918,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         }
         lastMetricsGen = -1;
         if (!metricsInFlight) {
-          const fEncoder = device.createCommandEncoder();
+          const fEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
           runMetricsGpu(fEncoder);
           device.queue.submit([fEncoder.finish()]);
           readMetricsAndPost();

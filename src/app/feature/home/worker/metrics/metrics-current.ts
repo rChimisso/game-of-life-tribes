@@ -8,6 +8,7 @@ import {
   MetricsDispatchPlan2D,
   ReadInteractiveMetricsRequest
 } from './metrics-types';
+import {GPU_LABELS} from '../gpu-labels';
 import {hasInteractiveMetricSection} from './metrics-planner';
 
 export const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
@@ -156,24 +157,39 @@ ${metricsCoordinateWgsl(dispatchPlan)}
 
 export function createInteractiveMetricsResources(request: CreateInteractiveMetricsResourcesRequest): InteractiveMetricsResources {
   const {device} = request;
-  const histModule = device.createShaderModule({code: generateHistogramWgsl(request)});
+  const histModule = device.createShaderModule({label: GPU_LABELS.histogramMetricsShaderModule, code: generateHistogramWgsl(request)});
   const histogramPipeline = device.createComputePipeline({
+    label: GPU_LABELS.histogramMetricsPipeline,
     layout: 'auto',
     compute: {module: histModule, entryPoint: 'main'}
   });
   const histogramBuffer = device.createBuffer({
+    label: GPU_LABELS.histogramMetricsBuffer,
     size: HISTOGRAM_BUFFER_SIZE,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   });
-  const histogramReadBuffer = device.createBuffer({size: HISTOGRAM_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
+  const histogramReadBuffer = device.createBuffer({
+    label: GPU_LABELS.histogramMetricsReadBuffer,
+    size: HISTOGRAM_BUFFER_SIZE,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
 
-  const boundaryModule = device.createShaderModule({code: generateBoundaryWgsl(request)});
+  const boundaryModule = device.createShaderModule({label: GPU_LABELS.interfaceMetricsShaderModule, code: generateBoundaryWgsl(request)});
   const boundaryPipeline = device.createComputePipeline({
+    label: GPU_LABELS.interfaceMetricsPipeline,
     layout: 'auto',
     compute: {module: boundaryModule, entryPoint: 'main'}
   });
-  const boundaryBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST});
-  const boundaryReadBuffer = device.createBuffer({size: BOUNDARY_BUFFER_SIZE, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
+  const boundaryBuffer = device.createBuffer({
+    label: GPU_LABELS.interfaceMetricsBuffer,
+    size: BOUNDARY_BUFFER_SIZE,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  });
+  const boundaryReadBuffer = device.createBuffer({
+    label: GPU_LABELS.interfaceMetricsReadBuffer,
+    size: BOUNDARY_BUFFER_SIZE,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
 
   return {
     histogramPipeline,
@@ -201,7 +217,7 @@ export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsReques
       layout: resources.histogramPipeline.getBindGroupLayout(0),
       entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.histogramBuffer} }]
     });
-    const pass = encoder.beginComputePass();
+    const pass = encoder.beginComputePass({label: GPU_LABELS.histogramMetricsPass});
     pass.setPipeline(resources.histogramPipeline);
     pass.setBindGroup(0, bindGroup);
     pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);
@@ -216,7 +232,7 @@ export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsReques
       layout: resources.boundaryPipeline.getBindGroupLayout(0),
       entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.boundaryBuffer} }]
     });
-    const pass = encoder.beginComputePass();
+    const pass = encoder.beginComputePass({label: GPU_LABELS.interfaceMetricsPass});
     pass.setPipeline(resources.boundaryPipeline);
     pass.setBindGroup(0, bindGroup);
     pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);

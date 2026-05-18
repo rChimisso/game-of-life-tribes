@@ -156,6 +156,7 @@ export class HomePage implements OnDestroy {
   }
 
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
+    console.log('[GOLT] Home page initialized');
     this.loadPrefs();
     document.addEventListener('keydown', ev => this.handleKeydown(ev), {
       capture: true,
@@ -167,6 +168,7 @@ export class HomePage implements OnDestroy {
   }
 
   public ngOnDestroy(): void {
+    console.log('[GOLT] Home page destroyed');
     this.keydownListenerController.abort();
     this.terminateCompressWorker();
     this.releaseWakeLock();
@@ -242,6 +244,7 @@ export class HomePage implements OnDestroy {
   }
 
   public onRebuilding(data: RebuildingMessage): void {
+    console.log(`[GOLT] Engine rebuild ${data.active ? 'started' : 'completed'}`);
     this.rebuilding = data.active;
     if (!data.active) {
       this.gpuErrorMessage = null;
@@ -256,6 +259,7 @@ export class HomePage implements OnDestroy {
   }
 
   public onDeviceLost(data: DeviceLostMessage): void {
+    console.error('[GOLT] GPU device lost:', data.reason);
     this.setRunState('paused');
     this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
     this.openSnack('GPU device lost — simulation stopped. Try resetting to a smaller grid or reloading the page.', 'error', 0);
@@ -263,6 +267,7 @@ export class HomePage implements OnDestroy {
   }
 
   public onGpuError(data: GpuErrorMessage): void {
+    console.error('[GOLT] GPU error:', data.reason);
     this.setRunState('paused');
     this.gpuErrorMessage = data.reason;
     this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
@@ -394,13 +399,16 @@ export class HomePage implements OnDestroy {
       case 'setSpeed':
         this.speed = ev.value as number;
         this.maxSpeed = false;
+        console.log('[GOLT] Fixed speed selected', {speed: this.speed});
         this.savePrefs();
         break;
       case 'setMaxSpeed':
         this.maxSpeed = ev.value as boolean;
+        console.log(`[GOLT] Max speed ${this.maxSpeed ? 'enabled' : 'disabled'}`);
         break;
       case 'setRecording':
         this.recording = ev.value as boolean;
+        console.log(`[GOLT] Recording ${this.recording ? 'enabled' : 'disabled'}`);
         this.savePrefs();
         if (this.recording && this.compressPool.length === 0) {
           this.initCompressPool();
@@ -410,6 +418,9 @@ export class HomePage implements OnDestroy {
         const next = ev.value as {enabled: boolean; sections: LiveMetricSectionSettings};
         this.liveMetricsEnabled = next.enabled;
         this.liveMetricSettings = normalizeLiveMetricSectionSettings(next.sections);
+        console.log(`[GOLT] Live metrics ${this.liveMetricsEnabled ? 'enabled' : 'disabled'}`, {
+          sections: this.liveMetricSettings
+        });
         this.syncLiveMetrics();
         this.savePrefs();
         break;
@@ -642,6 +653,9 @@ export class HomePage implements OnDestroy {
   }
 
   private setRunState(state: 'running' | 'paused'): void {
+    if (this.state !== state) {
+      console.log(`[GOLT] Simulation ${state}`);
+    }
     this.state = state;
     this.syncWakeLock();
   }
@@ -659,6 +673,7 @@ export class HomePage implements OnDestroy {
       return;
     }
     if (!('wakeLock' in navigator)) {
+      console.warn('[GOLT] Screen Wake Lock API is unavailable');
       return;
     }
     this.wakeLockRequestPending = true;
@@ -668,8 +683,10 @@ export class HomePage implements OnDestroy {
         return;
       }
       this.wakeLock = lock;
+      console.log('[GOLT] Screen wake lock acquired');
       lock.addEventListener('release', () => {
         if (this.wakeLock === lock) {
+          console.log('[GOLT] Screen wake lock released by browser');
           this.wakeLock = null;
           this.syncWakeLock();
         }
@@ -686,6 +703,7 @@ export class HomePage implements OnDestroy {
     if (!lock) {
       return;
     }
+    console.log('[GOLT] Screen wake lock released');
     lock.release().catch(error => console.warn('Failed to release screen wake lock:', error));
   }
 
@@ -761,6 +779,7 @@ export class HomePage implements OnDestroy {
   }
 
   private cancelDownload(): void {
+    console.log('[GOLT] Download cancelled');
     if (this.downloadWorker) {
       this.downloadWorker.terminate();
       this.downloadWorker = null;
@@ -777,6 +796,7 @@ export class HomePage implements OnDestroy {
   }
 
   private restart(): void {
+    console.log('[GOLT] Restart requested');
     this.snackBar.dismiss();
     this.setRunState('paused');
     this.terminateCompressWorker();
@@ -808,6 +828,13 @@ export class HomePage implements OnDestroy {
 
   private downloadZip(opts: {metrics: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null}): void {
     const needFrames = opts.mp4 || opts.png || opts.metrics || opts.saves;
+    console.log('[GOLT] Download started', {
+      metrics: opts.metrics,
+      mp4: opts.mp4,
+      png: opts.png,
+      saves: opts.saves,
+      frameRange: opts.frameRange
+    });
 
     // Pause the simulation so the download captures a consistent state.
     if (this.state === 'running') {
@@ -839,6 +866,7 @@ export class HomePage implements OnDestroy {
         this.downloadWorker = worker;
 
         const cleanupDownload = () => {
+          console.log('[GOLT] Download worker cleaned up');
           this.downloadProgress = -1;
           this.downloadSubProgress = -1;
           this.downloadStatus = '';
@@ -851,6 +879,7 @@ export class HomePage implements OnDestroy {
         };
 
         worker.onerror = () => {
+          console.error('[GOLT] Download worker failed unexpectedly');
           this.openSnack('Download failed unexpectedly. Try again.', 'error', 0);
           cleanupDownload();
         };
@@ -865,13 +894,16 @@ export class HomePage implements OnDestroy {
             this.downloadStatus = e.data.status ?? '';
             this.cdr.markForCheck();
           } else if (e.data.type === 'done-part') {
+            console.log('[GOLT] Download part ready:', e.data.filename);
             this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
           } else if (e.data.type === 'error') {
             const reason = e.data.reason ?? 'Unknown error';
+            console.error('[GOLT] Download error:', reason);
             const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
             this.openSnack(`Download error: ${reason}${suggestion}`, 'error', 0);
             cleanupDownload();
           } else if (e.data.type === 'done') {
+            console.log('[GOLT] Download completed');
             cleanupDownload();
           }
         };
@@ -902,6 +934,7 @@ export class HomePage implements OnDestroy {
         }, transferables);
       });
     }).catch(() => {
+      console.error('[GOLT] Download preparation failed while waiting for compression data');
       this.openSnack('Download failed while preparing compression data. Try again.', 'error', 0);
       this.resumeCompressionPool();
       this.downloadProgress = -1;

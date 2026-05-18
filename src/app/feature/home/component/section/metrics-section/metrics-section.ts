@@ -3,9 +3,9 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@
 import {FormsModule} from '@angular/forms';
 import {MatExpansionModule} from '@angular/material/expansion';
 
-import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
+import {ToggleButtonComponent} from '../../../../../shared/component/toggle-button/toggle-button';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '../../../model/metrics';
-import {Tribe} from '../../../model/rule';
+import {DEAD_TRIBE_ID, Tribe} from '../../../model/rule';
 import {MetricMessage} from '../../../model/worker-message';
 
 /**
@@ -21,7 +21,7 @@ import {MetricMessage} from '../../../model/worker-message';
   imports: [
     FormsModule,
     MatExpansionModule,
-    CheckboxComponent,
+    ToggleButtonComponent,
     DecimalPipe,
     PercentPipe
   ],
@@ -75,6 +75,17 @@ export class MetricsSection {
    */
   @Output()
   public readonly settingsChange = new EventEmitter<LiveMetricSectionSettings>();
+
+  /**
+   * Tribes shown in the population subsection.
+   *
+   * @public
+   * @readonly
+   * @type {readonly Tribe[]}
+   */
+  public get populationTribes(): readonly Tribe[] {
+    return this.tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID);
+  }
 
   /**
    * Whether a section is enabled by user settings.

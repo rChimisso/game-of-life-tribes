@@ -143,6 +143,10 @@ export class HomePage implements OnDestroy {
 
   private readonly keydownListenerController = new AbortController();
 
+  private wakeLock: WakeLockSentinel | null = null;
+
+  private wakeLockRequestPending = false;
+
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
@@ -157,11 +161,15 @@ export class HomePage implements OnDestroy {
       capture: true,
       signal: this.keydownListenerController.signal
     });
+    document.addEventListener('visibilitychange', () => this.onVisibilityChange(), {
+      signal: this.keydownListenerController.signal
+    });
   }
 
   public ngOnDestroy(): void {
     this.keydownListenerController.abort();
     this.terminateCompressWorker();
+    this.releaseWakeLock();
   }
 
   public onMetrics(data: MetricMessage): void {
@@ -249,13 +257,14 @@ export class HomePage implements OnDestroy {
   }
 
   public onDeviceLost(data: DeviceLostMessage): void {
-    this.state = 'paused';
+    this.setRunState('paused');
     this.gpuErrorMessage = `GPU device lost: ${data.reason}`;
     this.openSnack('GPU device lost — simulation stopped. Try resetting to a smaller grid or reloading the page.', 'error', 0);
     this.cdr.markForCheck();
   }
 
   public onGpuError(data: GpuErrorMessage): void {
+    this.setRunState('paused');
     this.gpuErrorMessage = data.reason;
     this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
     this.cdr.markForCheck();
@@ -304,13 +313,13 @@ export class HomePage implements OnDestroy {
         if (this.stepping) {
           this.cancelStepping();
         }
-        this.state = 'paused';
+        this.setRunState('paused');
       } else if (level === 100) {
         this.openSnack(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'error', 0);
         if (this.stepping) {
           this.cancelStepping();
         }
-        this.state = 'paused';
+        this.setRunState('paused');
         this.recording = false;
       }
     } else if (level < this.quotaWarningLevel) {
@@ -626,11 +635,63 @@ export class HomePage implements OnDestroy {
       this.cancelStepping();
       return;
     }
-    this.state = this.state === 'paused' ? 'running' : 'paused';
+    this.setRunState(this.state === 'paused' ? 'running' : 'paused');
   }
 
   private cancelStepping(): void {
     this.engine.cancelStepping();
+  }
+
+  private setRunState(state: 'running' | 'paused'): void {
+    this.state = state;
+    this.syncWakeLock();
+  }
+
+  private syncWakeLock(): void {
+    if (this.state === 'running' && document.visibilityState === 'visible') {
+      this.requestWakeLock();
+    } else {
+      this.releaseWakeLock();
+    }
+  }
+
+  private requestWakeLock(): void {
+    if (this.wakeLock || this.wakeLockRequestPending || document.visibilityState !== 'visible') {
+      return;
+    }
+    if (!('wakeLock' in navigator)) {
+      return;
+    }
+    this.wakeLockRequestPending = true;
+    navigator.wakeLock.request('screen').then(lock => {
+      if (this.state !== 'running' || document.visibilityState !== 'visible') {
+        lock.release().catch(error => console.warn('Failed to release unused wake lock:', error));
+        return;
+      }
+      this.wakeLock = lock;
+      lock.addEventListener('release', () => {
+        if (this.wakeLock === lock) {
+          this.wakeLock = null;
+          this.syncWakeLock();
+        }
+      });
+    }).catch(error => console.warn('Failed to request screen wake lock:', error))
+      .finally(() => {
+        this.wakeLockRequestPending = false;
+      });
+  }
+
+  private releaseWakeLock(): void {
+    const lock = this.wakeLock;
+    this.wakeLock = null;
+    if (!lock) {
+      return;
+    }
+    lock.release().catch(error => console.warn('Failed to release screen wake lock:', error));
+  }
+
+  private onVisibilityChange(): void {
+    this.syncWakeLock();
   }
 
   private currentMaxBytes(): number {
@@ -718,7 +779,7 @@ export class HomePage implements OnDestroy {
 
   private restart(): void {
     this.snackBar.dismiss();
-    this.state = 'paused';
+    this.setRunState('paused');
     this.terminateCompressWorker();
     this.storagePendingRawBytes = 0;
     this.storageCompressedBytes = 0;
@@ -751,7 +812,7 @@ export class HomePage implements OnDestroy {
 
     // Pause the simulation so the download captures a consistent state.
     if (this.state === 'running') {
-      this.state = 'paused';
+      this.setRunState('paused');
       this.engine.setRunning(false);
     }
 

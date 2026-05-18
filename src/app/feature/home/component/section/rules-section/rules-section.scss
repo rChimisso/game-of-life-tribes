@@ -31,15 +31,6 @@
     transition: none;
   }
 
-  .rules-list.dragging-list ::ng-deep .collapsible {
-    transition: none !important;
-  }
-
-  .cdk-drag-placeholder ::ng-deep .collapsible,
-  .cdk-drag-preview ::ng-deep .collapsible {
-    display: none !important;
-  }
-
   .cdk-drag-placeholder {
     opacity: 0.25;
   }

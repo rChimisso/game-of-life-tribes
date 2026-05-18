@@ -45,7 +45,7 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." title="Metrics" [expanded]="metricsExpanded" (expandedChange)="onSectionExpandedChange('metrics', $event)">
-      <gol-metrics-section [liveMetricsEnabled]="liveMetricsEnabled" [liveMetricSettings]="liveMetricSettings" [metrics]="metrics" [tribes]="tribes" (settingsChange)="onLiveMetricSettingsChange($event)" />
+      <gol-metrics-section [liveMetricSettings]="liveMetricSettings" [liveMetricsEnabled]="liveMetricsEnabled" [metrics]="metrics" [tribes]="tribes" (settingsChange)="onLiveMetricSettingsChange($event)" />
     </gol-home-section>
     <hr class="divider" />
 

@@ -1,33 +1,33 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
-import {MatCheckboxChange, MatCheckboxModule} from '@angular/material/checkbox';
+import {MatSlideToggleChange, MatSlideToggleModule} from '@angular/material/slide-toggle';
 
 import {CvaComponent} from '~gol/core/abstract/cva-component';
 
 /**
- * Checkbox.
+ * Toggle button.
  *
  * @export
- * @class CheckboxComponent
- * @typedef {CheckboxComponent}
+ * @class ToggleButtonComponent
+ * @typedef {ToggleButtonComponent}
  * @extends {CvaComponent<boolean>}
  */
 @Component({
-  selector: 'gol-checkbox',
+  selector: 'gol-toggle-button',
   standalone: true,
-  imports: [MatCheckboxModule],
-  templateUrl: './checkbox.html',
-  styleUrl: './checkbox.scss',
+  imports: [MatSlideToggleModule],
+  templateUrl: './toggle-button.html',
+  styleUrl: './toggle-button.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => CheckboxComponent),
+      useExisting: forwardRef(() => ToggleButtonComponent),
       multi: true
     }
   ]
 })
-export class CheckboxComponent extends CvaComponent<boolean> {
+export class ToggleButtonComponent extends CvaComponent<boolean> {
   /**
    * Label.
    *
@@ -38,7 +38,16 @@ export class CheckboxComponent extends CvaComponent<boolean> {
   public label = '';
 
   /**
-   * Checkbox size.
+   * Button title.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public title = '';
+
+  /**
+   * Button size.
    *
    * @public
    * @type {'sm' | 'md'}
@@ -47,17 +56,17 @@ export class CheckboxComponent extends CvaComponent<boolean> {
   public size: 'sm' | 'md' = 'md';
 
   /**
-   * Emitter for the checked change event.
+   * Emitter for the toggled change event.
    *
    * @public
    * @readonly
    * @type {EventEmitter<boolean>}
    */
   @Output()
-  public readonly checkedChange = new EventEmitter<boolean>();
+  public readonly toggledChange = new EventEmitter<boolean>();
 
   /**
-   * Whether it's checked.
+   * Whether it's active.
    *
    * @public
    * @type {boolean}
@@ -65,14 +74,16 @@ export class CheckboxComponent extends CvaComponent<boolean> {
   public value = false;
 
   /**
-   * Handles the checkbox change event.
+   * Handles the slide toggle change event.
    *
    * @public
-   * @param {MatCheckboxChange} event 
+   * @param {MatSlideToggleChange} event
    */
-  public onCheckboxChange(event: MatCheckboxChange): void {
-    this.setValue(event.checked);
-    this.checkedChange.emit(this.value);
+  public onToggleChange(event: MatSlideToggleChange): void {
+    if (!this.disabled) {
+      this.setValue(event.checked);
+      this.toggledChange.emit(this.value);
+    }
   }
 
   /**

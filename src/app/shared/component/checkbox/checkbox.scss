@@ -5,12 +5,3 @@
     color: #ededed;
   }
 }
-
-.checkbox.size-sm {
-  font-size: 0.75rem;
-
-  ::ng-deep .mdc-checkbox {
-    transform: scale(0.85);
-    transform-origin: left center;
-  }
-}

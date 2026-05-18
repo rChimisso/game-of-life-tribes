@@ -143,6 +143,15 @@ mat-checkbox.mat-mdc-checkbox {
   background-color: #00000099;
   padding-right: 10px;
   border-radius: 4px;
+
+  &.size-sm {
+    font-size: 0.75rem;
+
+    .mdc-checkbox {
+      transform: scale(0.85);
+      transform-origin: left center;
+    }
+  }
 }
 
 mat-checkbox.mat-mdc-checkbox.mat-mdc-checkbox-disabled {
@@ -180,6 +189,15 @@ mat-expansion-panel {
 
 .gol-rule-drag-preview .collapsible,
 .gol-rule-drag-placeholder .collapsible {
+  display: none !important;
+}
+
+.rules-list.dragging-list .collapsible {
+  transition: none !important;
+}
+
+.cdk-drag-placeholder .collapsible,
+.cdk-drag-preview .collapsible {
   display: none !important;
 }
 

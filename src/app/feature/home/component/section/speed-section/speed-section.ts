@@ -1,8 +1,8 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
 import {InputComponent} from '../../../../../shared/component/input/input';
+import {ToggleButtonComponent} from '../../../../../shared/component/toggle-button/toggle-button';
 
 /**
  * Speed and recording section.
@@ -14,7 +14,7 @@ import {InputComponent} from '../../../../../shared/component/input/input';
 @Component({
   selector: 'gol-speed-section',
   standalone: true,
-  imports: [FormsModule, InputComponent, CheckboxComponent],
+  imports: [FormsModule, InputComponent, ToggleButtonComponent],
   templateUrl: './speed-section.html',
   styleUrl: './speed-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

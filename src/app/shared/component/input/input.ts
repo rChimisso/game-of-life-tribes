@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
-import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
+import {NG_VALUE_ACCESSOR} from '@angular/forms';
 
+import {CvaComponent} from '~gol/core/abstract/cva-component';
 import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 
 /**
@@ -9,7 +10,7 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
  * @export
  * @class InputComponent
  * @typedef {InputComponent}
- * @implements {ControlValueAccessor}
+ * @extends {CvaComponent<string | number>}
  */
 @Component({
   selector: 'gol-input',
@@ -26,7 +27,7 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
   ],
   imports: [CharFilterDirective]
 })
-export class InputComponent implements ControlValueAccessor {
+export class InputComponent extends CvaComponent<string | number> {
   /**
    * Input name.
    *
@@ -64,15 +65,6 @@ export class InputComponent implements ControlValueAccessor {
   public placeholder = '';
 
   /**
-   * Whether it's disabled.
-   *
-   * @public
-   * @type {boolean}
-   */
-  @Input()
-  public disabled = false;
-
-  /**
    * Emitter for the value change event.
    *
    * @public
@@ -88,7 +80,7 @@ export class InputComponent implements ControlValueAccessor {
    * @public
    * @type {string}
    */
-  public value = '';
+  public override value: string | number = '';
 
   /**
    * Allowed input types.
@@ -102,71 +94,25 @@ export class InputComponent implements ControlValueAccessor {
   }
 
   /**
-   * @inheritdoc
-   */
-  public writeValue(value: string | number | null): void {
-    if (value === null || value === undefined) {
-      this.value = '';
-      return;
-    }
-
-    this.value = String(value);
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public registerOnChange(fn: (value: string | number) => void): void {
-    this.onChange = fn;
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public setDisabledState(disabled: boolean): void {
-    this.disabled = disabled;
-  }
-
-  /**
    * Handles the input event.
    *
    * @public
    * @param {string} rawValue 
    */
   public onInput(rawValue: string): void {
-    this.value = rawValue;
     const parsed = this.type === 'number' ? +rawValue : rawValue;
-    this.onChange(parsed);
+    this.setValue(parsed);
     this.valueChange.emit(parsed);
   }
 
   /**
-   * Handles the blur event.
-   *
-   * @public
+   * @inheritdoc
    */
-  public touch(): void {
-    this.onTouched();
+  protected override normalizeValue(value: string | number | null): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    return String(value);
   }
-
-  /**
-   * Change callback.
-   *
-   * @returns {(value: boolean) => void} 
-   */
-  private onChange: (value: string | number) => void = () => undefined;
-
-  /**
-   * Touch callback.
-   *
-   * @returns {() => void} 
-   */
-  private onTouched: () => void = () => undefined;
 }

@@ -2,19 +2,13 @@ import {BrushFill, BrushShape} from './draw-mode';
 import {LiveMetricSectionSettings} from './metrics';
 
 /**
- * Sidebar preferences.
+ * Home preferences.
  *
  * @export
- * @interface SidebarPreferences
- * @typedef {SidebarPreferences}
+ * @interface HomePreferences
+ * @typedef {HomePreferences}
  */
-export interface SidebarPreferences {
-  /**
-   * Desktop sidebar width.
-   *
-   * @type {number}
-   */
-  sidebarWidth: number;
+export interface HomePreferences {
   /**
    * Draw section preferences.
    *
@@ -33,6 +27,22 @@ export interface SidebarPreferences {
    * @type {MetricsSectionPreferences}
    */
   metrics: MetricsSectionPreferences;
+}
+
+/**
+ * Sidebar preferences.
+ *
+ * @export
+ * @interface SidebarPreferences
+ * @typedef {SidebarPreferences}
+ */
+export interface SidebarPreferences {
+  /**
+   * Desktop sidebar width.
+   *
+   * @type {number}
+   */
+  sidebarWidth: number;
 }
 
 /**
@@ -200,4 +210,24 @@ export const DEFAULT_METRICS_SECTION_PREFERENCES: MetricsSectionPreferences = {
   populationExpanded: true,
   diversityExpanded: true,
   interfacesExpanded: true
+};
+
+/**
+ * Default home preferences.
+ *
+ * @type {HomePreferences}
+ */
+export const DEFAULT_HOME_PREFERENCES: HomePreferences = {
+  draw: DEFAULT_DRAW_SECTION_PREFERENCES,
+  speed: DEFAULT_SPEED_SECTION_PREFERENCES,
+  metrics: DEFAULT_METRICS_SECTION_PREFERENCES
+};
+
+/**
+ * Default sidebar preferences.
+ *
+ * @type {SidebarPreferences}
+ */
+export const DEFAULT_SIDEBAR_PREFERENCES: SidebarPreferences = {
+  sidebarWidth: 300
 };

@@ -20,6 +20,9 @@ export type SidebarEvent =
   | {action: 'setMaxSpeed'; value: boolean}
   | {action: 'setRecording'; value: boolean}
   | {action: 'setLiveMetrics'; value: {enabled: boolean; sections: LiveMetricSectionSettings}}
+  | {action: 'setPopulationExpanded'; value: boolean}
+  | {action: 'setDiversityExpanded'; value: boolean}
+  | {action: 'setInterfacesExpanded'; value: boolean}
   | {action: 'setGridSize'; value: Grid}
   | {action: 'download'; value: DownloadRequestPayload}
   | {action: 'saveState'}

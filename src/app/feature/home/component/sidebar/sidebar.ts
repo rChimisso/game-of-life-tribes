@@ -1,20 +1,19 @@
-import {afterNextRender, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
 import {PersistedPreferencesComponent} from '../../../../core/abstract/persisted-preferences-component';
 import {Button} from '../../../../shared/component/button/button';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
-import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
+import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
-import {DEFAULT_DRAW_SECTION_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, DEFAULT_SPEED_SECTION_PREFERENCES, DrawSectionPreferences, MetricsSectionPreferences, SidebarPreferences, SpeedSectionPreferences} from '../../model/preferences';
+import {DEFAULT_SIDEBAR_PREFERENCES, SidebarPreferences} from '../../model/preferences';
 import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
 import {formatBinaryBytes} from '../../util/byte-format';
-import {normalizeLiveMetricSectionSettings} from '../../util/metric-settings';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
@@ -30,7 +29,6 @@ import {SnapshotSection} from '../section/snapshot-section/snapshot-section';
 import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
-import {TypedChanges} from '~gol/core/model/typed-change';
 import {Grid} from '~gol/feature/home/model/grid';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
@@ -64,7 +62,7 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
     '(contextmenu)': '$event.preventDefault()'
   }
 })
-export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> implements OnChanges, OnDestroy {
+export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> implements OnDestroy {
   @Input()
   public tribes: readonly Tribe[] = [];
 
@@ -109,6 +107,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   @Input()
   public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
+
+  @Input()
+  public populationExpanded = true;
+
+  @Input()
+  public diversityExpanded = true;
+
+  @Input()
+  public interfacesExpanded = true;
 
   @Input()
   public chunksSaving = false;
@@ -179,15 +186,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
-  public drawSectionPreferences: DrawSectionPreferences = {...DEFAULT_DRAW_SECTION_PREFERENCES};
-
-  public speedSectionPreferences: SpeedSectionPreferences = {...DEFAULT_SPEED_SECTION_PREFERENCES};
-
-  public metricsSectionPreferences: MetricsSectionPreferences = {
-    ...DEFAULT_METRICS_SECTION_PREFERENCES,
-    liveMetricSettings: {...DEFAULT_METRICS_SECTION_PREFERENCES.liveMetricSettings}
-  };
-
   public collapsed = true;
 
   // Sidebar resize
@@ -206,8 +204,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   private readonly mobileLayoutListenerController = new AbortController();
 
-  private initialPreferencesSynced = false;
-
   /**
    * Default preferences.
    *
@@ -215,12 +211,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @readonly
    * @type {SidebarPreferences}
    */
-  protected override readonly defaultPreferences: SidebarPreferences = {
-    sidebarWidth: 300,
-    draw: DEFAULT_DRAW_SECTION_PREFERENCES,
-    speed: DEFAULT_SPEED_SECTION_PREFERENCES,
-    metrics: DEFAULT_METRICS_SECTION_PREFERENCES
-  };
+  protected override readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
 
   public get generationCounter(): number {
     return this.metrics?.generation ?? 0;
@@ -300,108 +291,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
       });
     }
     this.restorePreferences();
-    afterNextRender(() => {
-      this.emitInitialSectionPreferences();
-      this.initialPreferencesSynced = true;
-    });
-  }
-
-  public ngOnChanges(changes: TypedChanges<Sidebar>): void {
-    let shouldSavePreferences = false;
-
-    if (changes.gridCols || changes.gridRows) {
-      const clampedBrushSize = this.clampBrushSize(this.drawSectionPreferences.brushSize);
-      if (clampedBrushSize !== this.drawSectionPreferences.brushSize) {
-        this.drawSectionPreferences = {
-          ...this.drawSectionPreferences,
-          brushSize: clampedBrushSize
-        };
-        shouldSavePreferences = true;
-        if (this.initialPreferencesSynced) {
-          this.emit('setBrushSize', clampedBrushSize);
-        }
-      }
-    }
-
-    if (this.initialPreferencesSynced) {
-      if (changes.brushSize) {
-        const nextBrushSize = this.clampBrushSize(this.brushSize);
-        if (nextBrushSize !== this.drawSectionPreferences.brushSize) {
-          this.drawSectionPreferences = {
-            ...this.drawSectionPreferences,
-            brushSize: nextBrushSize
-          };
-          shouldSavePreferences = true;
-        }
-      }
-
-      if (changes.brushShape && this.brushShape !== this.drawSectionPreferences.brushShape) {
-        this.drawSectionPreferences = {
-          ...this.drawSectionPreferences,
-          brushShape: this.brushShape
-        };
-        shouldSavePreferences = true;
-      }
-
-      if (changes.brushFill && this.brushFill !== this.drawSectionPreferences.brushFill) {
-        this.drawSectionPreferences = {
-          ...this.drawSectionPreferences,
-          brushFill: this.brushFill
-        };
-        shouldSavePreferences = true;
-      }
-
-      if (changes.speed && this.speed !== this.speedSectionPreferences.speed) {
-        this.speedSectionPreferences = {
-          ...this.speedSectionPreferences,
-          speed: this.speed
-        };
-        shouldSavePreferences = true;
-      }
-
-      if (changes.maxSpeed && this.maxSpeed !== this.speedSectionPreferences.maxSpeed) {
-        this.speedSectionPreferences = {
-          ...this.speedSectionPreferences,
-          maxSpeed: this.maxSpeed
-        };
-        shouldSavePreferences = true;
-      }
-
-      if (changes.recording || changes.recordingAvailable) {
-        const nextRecording = this.recording && this.recordingAvailable;
-        if (nextRecording !== this.speedSectionPreferences.recording) {
-          this.speedSectionPreferences = {
-            ...this.speedSectionPreferences,
-            recording: nextRecording
-          };
-          shouldSavePreferences = true;
-        }
-      }
-
-      if (changes.liveMetricsEnabled && this.liveMetricsEnabled !== this.speedSectionPreferences.liveMetricsEnabled) {
-        this.speedSectionPreferences = {
-          ...this.speedSectionPreferences,
-          liveMetricsEnabled: this.liveMetricsEnabled
-        };
-        shouldSavePreferences = true;
-      }
-
-      if (changes.liveMetricSettings) {
-        const nextLiveMetricSettings = normalizeLiveMetricSectionSettings(this.liveMetricSettings);
-        if (JSON.stringify(nextLiveMetricSettings) !== JSON.stringify(this.metricsSectionPreferences.liveMetricSettings)) {
-          this.metricsSectionPreferences = {
-            ...this.metricsSectionPreferences,
-            liveMetricSettings: nextLiveMetricSettings
-          };
-          shouldSavePreferences = true;
-        }
-      }
-    }
-
-    if (shouldSavePreferences) {
-      this.savePreferences();
-      this.cdr.markForCheck();
-    }
   }
 
   public ngOnDestroy(): void {
@@ -429,61 +318,29 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public onSpeedChange(value: string): void {
     const n = +value;
     if (n > 0) {
-      this.speedSectionPreferences = {
-        ...this.speedSectionPreferences,
-        speed: n,
-        maxSpeed: false
-      };
-      this.savePreferences();
-      this.cdr.markForCheck();
       this.emit('setSpeed', n);
     }
   }
 
   public onMaxSpeedChange(checked: boolean): void {
-    this.speedSectionPreferences = {
-      ...this.speedSectionPreferences,
-      maxSpeed: checked
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
     this.emit('setMaxSpeed', checked);
   }
 
   public onRecordingChange(checked: boolean): void {
-    const nextRecording = checked && this.recordingAvailable;
-    this.speedSectionPreferences = {
-      ...this.speedSectionPreferences,
-      recording: nextRecording
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
-    this.emit('setRecording', nextRecording);
+    this.emit('setRecording', checked && this.recordingAvailable);
   }
 
   public onLiveMetricsEnabledChange(checked: boolean): void {
-    this.speedSectionPreferences = {
-      ...this.speedSectionPreferences,
-      liveMetricsEnabled: checked
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
     this.emit('setLiveMetrics', {
-      enabled: this.speedSectionPreferences.liveMetricsEnabled,
-      sections: this.metricsSectionPreferences.liveMetricSettings
+      enabled: checked,
+      sections: this.liveMetricSettings
     });
   }
 
   public onLiveMetricSettingsChange(settings: LiveMetricSectionSettings): void {
-    this.metricsSectionPreferences = {
-      ...this.metricsSectionPreferences,
-      liveMetricSettings: normalizeLiveMetricSectionSettings(settings)
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
     this.emit('setLiveMetrics', {
-      enabled: this.speedSectionPreferences.liveMetricsEnabled,
-      sections: this.metricsSectionPreferences.liveMetricSettings
+      enabled: this.liveMetricsEnabled,
+      sections: settings
     });
   }
 
@@ -498,58 +355,28 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public onBrushSizeChange(value: string): void {
     const n = Math.min(Math.max(1, +value || 1), this.brushMaxSize);
     if (n > 0) {
-      this.drawSectionPreferences = {
-        ...this.drawSectionPreferences,
-        brushSize: n
-      };
-      this.savePreferences();
-      this.cdr.markForCheck();
       this.emit('setBrushSize', n);
     }
   }
 
   public onBrushShapeChange(shape: BrushShape): void {
-    this.drawSectionPreferences = {
-      ...this.drawSectionPreferences,
-      brushShape: shape
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
     this.emit('setBrushShape', shape);
   }
 
   public onBrushFillChange(fill: BrushFill): void {
-    this.drawSectionPreferences = {
-      ...this.drawSectionPreferences,
-      brushFill: fill
-    };
-    this.savePreferences();
-    this.cdr.markForCheck();
     this.emit('setBrushFill', fill);
   }
 
   public onPopulationExpandedChange(expanded: boolean): void {
-    this.metricsSectionPreferences = {
-      ...this.metricsSectionPreferences,
-      populationExpanded: expanded
-    };
-    this.savePreferences();
+    this.emit('setPopulationExpanded', expanded);
   }
 
   public onDiversityExpandedChange(expanded: boolean): void {
-    this.metricsSectionPreferences = {
-      ...this.metricsSectionPreferences,
-      diversityExpanded: expanded
-    };
-    this.savePreferences();
+    this.emit('setDiversityExpanded', expanded);
   }
 
   public onInterfacesExpandedChange(expanded: boolean): void {
-    this.metricsSectionPreferences = {
-      ...this.metricsSectionPreferences,
-      interfacesExpanded: expanded
-    };
-    this.savePreferences();
+    this.emit('setInterfacesExpanded', expanded);
   }
 
   public onTouchModeChange(mode: TouchMode): void {
@@ -681,13 +508,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   protected override collectPreferences(): SidebarPreferences {
     return {
-      sidebarWidth: this.sidebarWidth,
-      draw: {...this.drawSectionPreferences},
-      speed: {...this.speedSectionPreferences},
-      metrics: {
-        ...this.metricsSectionPreferences,
-        liveMetricSettings: {...this.metricsSectionPreferences.liveMetricSettings}
-      }
+      sidebarWidth: this.sidebarWidth
     };
   }
 
@@ -701,12 +522,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     if (this.isDesktopLayout()) {
       this.sidebarWidth = preferences.sidebarWidth;
     }
-    this.drawSectionPreferences = {...preferences.draw};
-    this.speedSectionPreferences = {...preferences.speed};
-    this.metricsSectionPreferences = {
-      ...preferences.metrics,
-      liveMetricSettings: {...preferences.metrics.liveMetricSettings}
-    };
   }
 
   /**
@@ -719,11 +534,18 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   protected override normalizePreferences(stored: Partial<SidebarPreferences>, defaults: SidebarPreferences): SidebarPreferences {
     return {
-      sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= 300 && stored.sidebarWidth <= 600 ? stored.sidebarWidth : defaults.sidebarWidth,
-      draw: this.normalizeDrawSectionPreferences(stored.draw, defaults.draw),
-      speed: this.normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
-      metrics: this.normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
+      sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= 300 && stored.sidebarWidth <= 600 ? stored.sidebarWidth : defaults.sidebarWidth
     };
+  }
+
+  /**
+   * Whether preferences should be saved.
+   *
+   * @protected
+   * @returns {boolean}
+   */
+  protected override shouldSavePreferences(): boolean {
+    return this.isDesktopLayout();
   }
 
   private handleMobileLayoutChange(): void {
@@ -777,49 +599,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     return [...current, id];
   }
 
-  private emitInitialSectionPreferences(): void {
-    this.emit('setBrushSize', this.drawSectionPreferences.brushSize);
-    this.emit('setBrushShape', this.drawSectionPreferences.brushShape);
-    this.emit('setBrushFill', this.drawSectionPreferences.brushFill);
-    this.emit('setSpeed', this.speedSectionPreferences.speed);
-    this.emit('setMaxSpeed', this.speedSectionPreferences.maxSpeed);
-    this.emit('setRecording', this.speedSectionPreferences.recording && this.recordingAvailable);
-    this.emit('setLiveMetrics', {
-      enabled: this.speedSectionPreferences.liveMetricsEnabled,
-      sections: this.metricsSectionPreferences.liveMetricSettings
-    });
-  }
-
   private clampBrushSize(size: number): number {
     return Math.min(Math.max(1, Math.floor(+size || 1)), this.brushMaxSize);
-  }
-
-  private normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {
-    const normalizedStored = stored ?? {};
-    return {
-      brushSize: typeof normalizedStored.brushSize === 'number' && normalizedStored.brushSize >= 1 ? Math.floor(normalizedStored.brushSize) : defaults.brushSize,
-      brushShape: normalizedStored.brushShape && BRUSH_SHAPE_VALUES.includes(normalizedStored.brushShape) ? normalizedStored.brushShape : defaults.brushShape,
-      brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill
-    };
-  }
-
-  private normalizeSpeedSectionPreferences(stored: Partial<SpeedSectionPreferences> | undefined, defaults: SpeedSectionPreferences): SpeedSectionPreferences {
-    const normalizedStored = stored ?? {};
-    return {
-      speed: typeof normalizedStored.speed === 'number' && normalizedStored.speed >= 1 ? Math.floor(normalizedStored.speed) : defaults.speed,
-      maxSpeed: typeof normalizedStored.maxSpeed === 'boolean' ? normalizedStored.maxSpeed : defaults.maxSpeed,
-      recording: typeof normalizedStored.recording === 'boolean' ? normalizedStored.recording : defaults.recording,
-      liveMetricsEnabled: typeof normalizedStored.liveMetricsEnabled === 'boolean' ? normalizedStored.liveMetricsEnabled : defaults.liveMetricsEnabled
-    };
-  }
-
-  private normalizeMetricsSectionPreferences(stored: Partial<MetricsSectionPreferences> | undefined, defaults: MetricsSectionPreferences): MetricsSectionPreferences {
-    const normalizedStored = stored ?? {};
-    return {
-      liveMetricSettings: normalizeLiveMetricSectionSettings(normalizedStored.liveMetricSettings ?? defaults.liveMetricSettings),
-      populationExpanded: typeof normalizedStored.populationExpanded === 'boolean' ? normalizedStored.populationExpanded : defaults.populationExpanded,
-      diversityExpanded: typeof normalizedStored.diversityExpanded === 'boolean' ? normalizedStored.diversityExpanded : defaults.diversityExpanded,
-      interfacesExpanded: typeof normalizedStored.interfacesExpanded === 'boolean' ? normalizedStored.interfacesExpanded : defaults.interfacesExpanded
-    };
   }
 }

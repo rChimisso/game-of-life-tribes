@@ -10,6 +10,7 @@ import {DownloadRequestPayload} from './model/download';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
 import {GridFormatMetadata} from './model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
+import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, DrawSectionPreferences, HomePreferences, MetricsSectionPreferences, SpeedSectionPreferences} from './model/preferences';
 import {CONWAY_PRESET} from './model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
@@ -18,6 +19,7 @@ import {buildGoltStateFile, parseGoltStateFile} from './util/golt-file';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {applyRuleTribeRenames} from './util/tribe-impact';
+import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 
 /**
  * Home page component.
@@ -41,7 +43,7 @@ import {applyRuleTribeRenames} from './util/tribe-impact';
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
-export class HomePage implements OnDestroy {
+export class HomePage extends PersistedPreferencesComponent<HomePreferences> implements OnDestroy {
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
 
   /**
@@ -74,6 +76,12 @@ export class HomePage implements OnDestroy {
   public liveMetricsEnabled = true;
 
   public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
+
+  public populationExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.populationExpanded;
+
+  public diversityExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.diversityExpanded;
+
+  public interfacesExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.interfacesExpanded;
 
   public liveMetrics: LiveMetricsSettings = {
     enabled: this.liveMetricsEnabled,
@@ -152,6 +160,15 @@ export class HomePage implements OnDestroy {
 
   private wakeLockRequestPending = false;
 
+  /**
+   * Default preferences.
+   *
+   * @protected
+   * @readonly
+   * @type {HomePreferences}
+   */
+  protected override readonly defaultPreferences: HomePreferences = DEFAULT_HOME_PREFERENCES;
+
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
@@ -161,7 +178,9 @@ export class HomePage implements OnDestroy {
   }
 
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
+    super('golt-home-prefs');
     console.log('[GOLT] Home page initialized');
+    this.restorePreferences();
     document.addEventListener('keydown', ev => this.handleKeydown(ev), {
       capture: true,
       signal: this.keydownListenerController.signal
@@ -228,6 +247,7 @@ export class HomePage implements OnDestroy {
     this.recordingAvailable = data.recordingAvailable;
     if (!data.recordingAvailable && this.recording) {
       this.recording = false;
+      this.savePreferences();
     }
     this.cdr.markForCheck();
   }
@@ -329,7 +349,10 @@ export class HomePage implements OnDestroy {
           this.cancelStepping();
         }
         this.setRunState('paused');
-        this.recording = false;
+        if (this.recording) {
+          this.recording = false;
+          this.savePreferences();
+        }
       }
     } else if (level < this.quotaWarningLevel) {
       this.quotaWarningLevel = level;
@@ -382,6 +405,8 @@ export class HomePage implements OnDestroy {
   }
 
   public onSidebarEvent(ev: SidebarEvent): void {
+    let shouldSavePreferences = false;
+
     switch (ev.action) {
       case 'toggleRun':
         this.toggleRun();
@@ -405,10 +430,12 @@ export class HomePage implements OnDestroy {
         this.speed = ev.value;
         this.maxSpeed = false;
         console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
+        shouldSavePreferences = true;
         break;
       case 'setMaxSpeed':
         this.maxSpeed = ev.value;
         console.log(`[GOLT] Max speed ${this.toggleStateLabel(this.maxSpeed)}`);
+        shouldSavePreferences = true;
         break;
       case 'setRecording':
         this.recording = ev.value;
@@ -416,6 +443,7 @@ export class HomePage implements OnDestroy {
         if (this.recording && this.compressPool.length === 0) {
           this.initCompressPool();
         }
+        shouldSavePreferences = true;
         break;
       case 'setLiveMetrics': {
         const next = ev.value;
@@ -425,8 +453,21 @@ export class HomePage implements OnDestroy {
           sections: this.liveMetricSettings
         });
         this.syncLiveMetrics();
+        shouldSavePreferences = true;
         break;
       }
+      case 'setPopulationExpanded':
+        this.populationExpanded = ev.value;
+        shouldSavePreferences = true;
+        break;
+      case 'setDiversityExpanded':
+        this.diversityExpanded = ev.value;
+        shouldSavePreferences = true;
+        break;
+      case 'setInterfacesExpanded':
+        this.interfacesExpanded = ev.value;
+        shouldSavePreferences = true;
+        break;
       case 'setGridSize': {
         const {cols, rows} = ev.value;
         this.rebuilding = true;
@@ -437,7 +478,7 @@ export class HomePage implements OnDestroy {
           rows
         };
         this.latestMetrics = null;
-        this.clampBrushSize();
+        shouldSavePreferences = this.clampBrushSize();
         break;
       }
       case 'setPacking': {
@@ -471,7 +512,7 @@ export class HomePage implements OnDestroy {
       case 'updateTribes': {
         const update = ev.value;
         const renamedRules = applyRuleTribeRenames(this.ruleset.rules, update.renamePairs);
-        this.applyCommittedRuleset({
+        shouldSavePreferences = this.applyCommittedRuleset({
           ...this.ruleset,
           tribes: update.tribes,
           rules: renamedRules
@@ -480,7 +521,7 @@ export class HomePage implements OnDestroy {
       }
       case 'updateRules': {
         const update = ev.value;
-        this.applyCommittedRuleset({
+        shouldSavePreferences = this.applyCommittedRuleset({
           ...this.ruleset,
           rules: update.rules
         });
@@ -497,25 +538,98 @@ export class HomePage implements OnDestroy {
         break;
       case 'setBrushSize':
         this.brushSize = ev.value;
+        shouldSavePreferences = true;
         break;
       case 'setBrushShape':
         this.brushShape = ev.value;
+        shouldSavePreferences = true;
         break;
       case 'setBrushFill':
         this.brushFill = ev.value;
+        shouldSavePreferences = true;
         break;
       case 'applyPreset': {
         const preset = ev.value;
         const newRuleset = structuredClone(preset.ruleset);
         newRuleset.cols = this.ruleset.cols;
         newRuleset.rows = this.ruleset.rows;
-        this.applyCommittedRuleset(newRuleset, true);
+        shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
         break;
       }
     }
+
+    if (shouldSavePreferences) {
+      this.savePreferences();
+    }
   }
 
-  private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): void {
+  /**
+   * Collects current preferences.
+   *
+   * @protected
+   * @returns {HomePreferences}
+   */
+  protected override collectPreferences(): HomePreferences {
+    return {
+      draw: {
+        brushSize: this.brushSize,
+        brushShape: this.brushShape,
+        brushFill: this.brushFill
+      },
+      speed: {
+        speed: this.speed,
+        maxSpeed: this.maxSpeed,
+        recording: this.recording,
+        liveMetricsEnabled: this.liveMetricsEnabled
+      },
+      metrics: {
+        liveMetricSettings: {...this.liveMetricSettings},
+        populationExpanded: this.populationExpanded,
+        diversityExpanded: this.diversityExpanded,
+        interfacesExpanded: this.interfacesExpanded
+      }
+    };
+  }
+
+  /**
+   * Applies restored preferences.
+   *
+   * @protected
+   * @param {HomePreferences} preferences
+   */
+  protected override applyPreferences(preferences: HomePreferences): void {
+    this.brushSize = preferences.draw.brushSize;
+    this.brushShape = preferences.draw.brushShape;
+    this.brushFill = preferences.draw.brushFill;
+    this.speed = preferences.speed.speed;
+    this.maxSpeed = preferences.speed.maxSpeed;
+    this.recording = preferences.speed.recording;
+    this.liveMetricsEnabled = preferences.speed.liveMetricsEnabled;
+    this.liveMetricSettings = {...preferences.metrics.liveMetricSettings};
+    this.populationExpanded = preferences.metrics.populationExpanded;
+    this.diversityExpanded = preferences.metrics.diversityExpanded;
+    this.interfacesExpanded = preferences.metrics.interfacesExpanded;
+    this.clampBrushSize();
+    this.syncLiveMetrics();
+  }
+
+  /**
+   * Normalizes stored preferences.
+   *
+   * @protected
+   * @param {Partial<HomePreferences>} stored
+   * @param {HomePreferences} defaults
+   * @returns {HomePreferences}
+   */
+  protected override normalizePreferences(stored: Partial<HomePreferences>, defaults: HomePreferences): HomePreferences {
+    return {
+      draw: this.normalizeDrawSectionPreferences(stored.draw, defaults.draw),
+      speed: this.normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
+      metrics: this.normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
+    };
+  }
+
+  private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): boolean {
     this.rebuilding = true;
     this.simulationGridFormat = preferSmallestFormat ?
       this.smallestSimulationGridFormatForRuleset(newRuleset) :
@@ -526,7 +640,7 @@ export class HomePage implements OnDestroy {
     }
     this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
     this.latestMetrics = null;
-    this.clampBrushSize();
+    return this.clampBrushSize();
   }
 
   private handleKeydown(ev: KeyboardEvent): void {
@@ -544,57 +658,35 @@ export class HomePage implements OnDestroy {
       }
       return;
     }
-    const active = document.activeElement;
-    if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
+    if (this.activeElementBlocksShortcut(document.activeElement)) {
       return;
     }
-    if (active instanceof HTMLInputElement) {
-      const t = active.type;
-      if (t !== 'checkbox' && t !== 'radio') {
-        return;
-      }
+    let shortcut = this.handlePlaybackShortcut(ev.key);
+    if (!shortcut.handled) {
+      shortcut = this.handleSelectionShortcut(ev.key);
     }
-    let handled = true;
-    switch (ev.key) {
+    if (!shortcut.handled) {
+      shortcut = this.handleBrushShortcut(ev.key);
+    }
+    if (shortcut.handled) {
+      if (shortcut.shouldSavePreferences) {
+        this.savePreferences();
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      (document.activeElement as HTMLElement)?.blur?.();
+      this.cdr.markForCheck();
+    }
+  }
+
+  private handlePlaybackShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
+    switch (key) {
       case ' ':
         this.toggleRun();
-        break;
-      case 'ArrowUp':
-        this.speed += 1;
-        this.maxSpeed = false;
-        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
-        break;
-      case 'ArrowDown':
-        this.speed = Math.max(1, this.speed - 1);
-        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
-        break;
-      case 'ArrowRight':
-        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
-        if (this.drawTribeIndex === 0) {
-          this.drawTribeIndex = 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        break;
-      case 'ArrowLeft':
-        this.drawTribeIndex -= 1;
-        if (this.drawTribeIndex <= 0) {
-          this.drawTribeIndex = this.tribes.length - 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        break;
+        return {handled: true, shouldSavePreferences: false};
       case 'r':
         this.restart();
-        break;
-      case 'd':
-        this.deleteMode = !this.deleteMode;
-        if (this.deleteMode) {
-          this.drawTribes = [DEAD_TRIBE_ID];
-        } else {
-          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        }
-        break;
+        return {handled: true, shouldSavePreferences: false};
       case 'e':
         if (this.recordingAvailable) {
           this.recording = !this.recording;
@@ -602,48 +694,99 @@ export class HomePage implements OnDestroy {
           if (this.recording && this.compressPool.length === 0) {
             this.initCompressPool();
           }
+          return {handled: true, shouldSavePreferences: true};
         }
-        break;
+        return {handled: true, shouldSavePreferences: false};
       case 'm':
         this.maxSpeed = !this.maxSpeed;
         console.log(`[GOLT] Max speed ${this.toggleStateLabel(this.maxSpeed)}`);
-        break;
+        return {handled: true, shouldSavePreferences: true};
       case 'w':
-      case 'W':
         this.liveMetricsEnabled = !this.liveMetricsEnabled;
         console.log(`[GOLT] Live metrics ${this.toggleStateLabel(this.liveMetricsEnabled)}`, {
           sections: this.liveMetricSettings
         });
         this.syncLiveMetrics();
-        break;
+        return {handled: true, shouldSavePreferences: true};
+      default:
+        return {handled: false, shouldSavePreferences: false};
+    }
+  }
+
+  private handleSelectionShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
+    switch (key) {
+      case 'ArrowUp':
+        this.speed += 1;
+        this.maxSpeed = false;
+        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
+        return {handled: true, shouldSavePreferences: true};
+      case 'ArrowDown':
+        this.speed = Math.max(1, this.speed - 1);
+        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
+        return {handled: true, shouldSavePreferences: true};
+      case 'ArrowRight':
+        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
+        if (this.drawTribeIndex === 0) {
+          this.drawTribeIndex = 1;
+        }
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        this.deleteMode = false;
+        return {handled: true, shouldSavePreferences: false};
+      case 'ArrowLeft':
+        this.drawTribeIndex -= 1;
+        if (this.drawTribeIndex <= 0) {
+          this.drawTribeIndex = this.tribes.length - 1;
+        }
+        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        this.deleteMode = false;
+        return {handled: true, shouldSavePreferences: false};
+      case 'd':
+        this.deleteMode = !this.deleteMode;
+        if (this.deleteMode) {
+          this.drawTribes = [DEAD_TRIBE_ID];
+        } else {
+          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
+        }
+        return {handled: true, shouldSavePreferences: false};
+      default:
+        return {handled: false, shouldSavePreferences: false};
+    }
+  }
+
+  private handleBrushShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
+    switch (key) {
       case '+': {
         const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
         this.brushSize = Math.min(max, this.brushSize + 1);
-        break;
+        return {handled: true, shouldSavePreferences: true};
       }
-      case '-': {
+      case '-':
         this.brushSize = Math.max(1, this.brushSize - 1);
-        break;
-      }
+        return {handled: true, shouldSavePreferences: true};
       case 'b': {
         const idx = BRUSH_SHAPE_VALUES.indexOf(this.brushShape);
         this.brushShape = BRUSH_SHAPE_VALUES[(idx + 1) % BRUSH_SHAPE_VALUES.length]!;
-        break;
+        return {handled: true, shouldSavePreferences: true};
       }
       case 'f': {
         const idx = BRUSH_FILL_VALUES.indexOf(this.brushFill);
         this.brushFill = BRUSH_FILL_VALUES[(idx + 1) % BRUSH_FILL_VALUES.length]!;
-        break;
+        return {handled: true, shouldSavePreferences: true};
       }
       default:
-        handled = false;
+        return {handled: false, shouldSavePreferences: false};
     }
-    if (handled) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      (document.activeElement as HTMLElement)?.blur?.();
-      this.cdr.markForCheck();
+  }
+
+  private activeElementBlocksShortcut(active: Element | null): boolean {
+    if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
+      return true;
     }
+    if (active instanceof HTMLInputElement) {
+      const t = active.type;
+      return t !== 'checkbox' && t !== 'radio';
+    }
+    return false;
   }
 
   private toggleRun(): void {
@@ -836,11 +979,12 @@ export class HomePage implements OnDestroy {
     this.snackBar.open(message, 'Dismiss', config);
   }
 
-  private clampBrushSize(): void {
+  private clampBrushSize(): boolean {
     const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
-    if (this.brushSize > max) {
-      this.brushSize = max;
-    }
+    const nextBrushSize = Math.min(this.brushSize, max);
+    const changed = nextBrushSize !== this.brushSize;
+    this.brushSize = nextBrushSize;
+    return changed;
   }
 
   private downloadZip(opts: DownloadRequestPayload): void {
@@ -989,7 +1133,9 @@ export class HomePage implements OnDestroy {
             rows
           };
         }
-        this.clampBrushSize();
+        if (this.clampBrushSize()) {
+          this.savePreferences();
+        }
       } else {
         this.engine.loadSnapshot(grid, generation, gridFormat);
         this.latestMetrics = null;
@@ -1029,5 +1175,34 @@ export class HomePage implements OnDestroy {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  private normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      brushSize: typeof normalizedStored.brushSize === 'number' && normalizedStored.brushSize >= 1 ? Math.floor(normalizedStored.brushSize) : defaults.brushSize,
+      brushShape: normalizedStored.brushShape && BRUSH_SHAPE_VALUES.includes(normalizedStored.brushShape) ? normalizedStored.brushShape : defaults.brushShape,
+      brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill
+    };
+  }
+
+  private normalizeSpeedSectionPreferences(stored: Partial<SpeedSectionPreferences> | undefined, defaults: SpeedSectionPreferences): SpeedSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      speed: typeof normalizedStored.speed === 'number' && normalizedStored.speed >= 1 ? Math.floor(normalizedStored.speed) : defaults.speed,
+      maxSpeed: typeof normalizedStored.maxSpeed === 'boolean' ? normalizedStored.maxSpeed : defaults.maxSpeed,
+      recording: typeof normalizedStored.recording === 'boolean' ? normalizedStored.recording : defaults.recording,
+      liveMetricsEnabled: typeof normalizedStored.liveMetricsEnabled === 'boolean' ? normalizedStored.liveMetricsEnabled : defaults.liveMetricsEnabled
+    };
+  }
+
+  private normalizeMetricsSectionPreferences(stored: Partial<MetricsSectionPreferences> | undefined, defaults: MetricsSectionPreferences): MetricsSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      liveMetricSettings: normalizeLiveMetricSectionSettings(normalizedStored.liveMetricSettings ?? defaults.liveMetricSettings),
+      populationExpanded: typeof normalizedStored.populationExpanded === 'boolean' ? normalizedStored.populationExpanded : defaults.populationExpanded,
+      diversityExpanded: typeof normalizedStored.diversityExpanded === 'boolean' ? normalizedStored.diversityExpanded : defaults.diversityExpanded,
+      interfacesExpanded: typeof normalizedStored.interfacesExpanded === 'boolean' ? normalizedStored.interfacesExpanded : defaults.interfacesExpanded
+    };
   }
 }

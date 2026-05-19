@@ -16,11 +16,11 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Tune how quickly the simulation runs" title="Speed" [collapsible]="false">
-      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="speedSectionPreferences.liveMetricsEnabled" [maxSpeed]="speedSectionPreferences.maxSpeed" [recording]="speedSectionPreferences.recording" [recordingAvailable]="recordingAvailable" [speed]="speedSectionPreferences.speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
+      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="liveMetricsEnabled" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [speed]="speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
-      <gol-draw-section [brushFill]="drawSectionPreferences.brushFill" [brushMaxSize]="brushMaxSize" [brushShape]="drawSectionPreferences.brushShape" [brushSize]="drawSectionPreferences.brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit('deleteMode')" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
+      <gol-draw-section [brushFill]="brushFill" [brushMaxSize]="brushMaxSize" [brushShape]="brushShape" [brushSize]="brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit('deleteMode')" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Set the grid size and monitor VRAM usage." title="Grid size" [collapsible]="false" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
@@ -28,24 +28,24 @@
       <gol-grid-size-section [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" (applyGridSize)="onGridSizeApply($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." title="Packing" preferenceKey="golt-home-section-packing-expanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'">
+    <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." preferenceKey="golt-home-section-packing-expanded" title="Packing" [info]="simulationGridFormat.bitsPerCell + ' bit active'">
       <gol-packing-section [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" [tribeCount]="ruleset.tribes.length" (applyPacking)="onPackingApply($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Explore preset rules that showcase the simulation's capabilities and interesting setups." title="Presets" preferenceKey="golt-home-section-presets-expanded">
+    <gol-home-section description="Explore preset rules that showcase the simulation's capabilities and interesting setups." preferenceKey="golt-home-section-presets-expanded" title="Presets">
       <gol-presets-section [downloading]="downloading" [running]="running" (applyPreset)="applyPreset($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Add, edit and remove tribes." title="Tribes" preferenceKey="golt-home-section-tribes-expanded">
+    <gol-home-section description="Add, edit and remove tribes." preferenceKey="golt-home-section-tribes-expanded" title="Tribes">
       <gol-tribes-section [committedRules]="ruleset.rules" [committedTribes]="ruleset.tribes" [downloading]="downloading" [running]="running" (applyTribes)="applyTribes($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." title="Rules" preferenceKey="golt-home-section-rules-expanded">
+    <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." preferenceKey="golt-home-section-rules-expanded" title="Rules">
       <gol-rules-section [committedRules]="ruleset.rules" [downloading]="downloading" [running]="running" [tribes]="ruleset.tribes" (applyRules)="applyRules($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." title="Metrics" preferenceKey="golt-home-section-metrics-expanded">
-      <gol-metrics-section [diversityExpanded]="metricsSectionPreferences.diversityExpanded" [interfacesExpanded]="metricsSectionPreferences.interfacesExpanded" [liveMetricSettings]="metricsSectionPreferences.liveMetricSettings" [liveMetricsEnabled]="speedSectionPreferences.liveMetricsEnabled" [metrics]="metrics" [populationExpanded]="metricsSectionPreferences.populationExpanded" [tribes]="tribes" (diversityExpandedChange)="onDiversityExpandedChange($event)" (interfacesExpandedChange)="onInterfacesExpandedChange($event)" (populationExpandedChange)="onPopulationExpandedChange($event)" (settingsChange)="onLiveMetricSettingsChange($event)" />
+    <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." preferenceKey="golt-home-section-metrics-expanded" title="Metrics">
+      <gol-metrics-section [diversityExpanded]="diversityExpanded" [interfacesExpanded]="interfacesExpanded" [liveMetricSettings]="liveMetricSettings" [liveMetricsEnabled]="liveMetricsEnabled" [metrics]="metrics" [populationExpanded]="populationExpanded" [tribes]="tribes" (diversityExpandedChange)="onDiversityExpandedChange($event)" (interfacesExpandedChange)="onInterfacesExpandedChange($event)" (populationExpandedChange)="onPopulationExpandedChange($event)" (settingsChange)="onLiveMetricSettingsChange($event)" />
     </gol-home-section>
     <hr class="divider" />
 
@@ -62,7 +62,7 @@
     </gol-home-section>
 
     <hr class="divider shortcuts-divider" />
-    <gol-home-section class="shortcuts-section" description="Keyboard and mouse shortcuts for controlling and interacting with the simulation." title="Shortcuts" preferenceKey="golt-home-section-shortcuts-expanded">
+    <gol-home-section class="shortcuts-section" description="Keyboard and mouse shortcuts for controlling and interacting with the simulation." preferenceKey="golt-home-section-shortcuts-expanded" title="Shortcuts">
       <gol-shortcuts-section />
     </gol-home-section>
   </div>

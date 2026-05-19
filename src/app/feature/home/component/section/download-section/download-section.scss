@@ -1,0 +1,61 @@
+:host {
+  display: contents;
+
+  .download-checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .mp4-fps-input-control {
+    width: 50px;
+  }
+
+  .mp4-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  .mp4-setting-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mp4-setting-text {
+    font-size: 0.8rem;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  mat-progress-bar {
+    margin: 4px 0;
+
+    &.sub-progress {
+      margin: 0 0 2px;
+      transform: scaleY(0.5);
+      transform-origin: top;
+      opacity: 0.7;
+    }
+  }
+
+  .download-status {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .download-status-text {
+    font-size: 0.75rem;
+    color: #888;
+    font-style: italic;
+
+    .dots::after {
+      content: "";
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+  }
+}

@@ -54,6 +54,11 @@ export class ShortcutsSection {
           code: 'E',
           label: 'Toggle recording',
           tooltip: 'Press E to toggle recording'
+        },
+        {
+          code: 'W',
+          label: 'Toggle live metrics',
+          tooltip: 'Press W to toggle live metrics'
         }
       ]
     },

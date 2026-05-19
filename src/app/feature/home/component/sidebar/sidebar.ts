@@ -1,24 +1,21 @@
-import {DecimalPipe} from '@angular/common';
-import {ChangeDetectorRef, Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnChanges, OnDestroy, ElementRef, NgZone} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {afterNextRender, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
 
-import {ApplyRestoreButtons} from '../../../../shared/component/apply-restore/button-pair';
+import {PersistedPreferencesComponent} from '../../../../core/abstract/persisted-preferences-component';
 import {Button} from '../../../../shared/component/button/button';
-import {CheckboxComponent} from '../../../../shared/component/checkbox/checkbox';
-import {InputComponent} from '../../../../shared/component/input/input';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
-import {SubsectionComponent} from '../../../../shared/component/subsection/subsection';
+import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
+import {DEFAULT_DRAW_SECTION_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, DEFAULT_SPEED_SECTION_PREFERENCES, DrawSectionPreferences, MetricsSectionPreferences, SidebarPreferences, SpeedSectionPreferences} from '../../model/preferences';
 import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
-import {BrushShape, MetricMessage} from '../../model/worker-message';
-import {formatBinaryBytes, formatDecimalBytes} from '../../util/byte-format';
+import {MetricMessage} from '../../model/worker-message';
+import {formatBinaryBytes} from '../../util/byte-format';
 import {normalizeLiveMetricSectionSettings} from '../../util/metric-settings';
+import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
 import {GridSizeSection} from '../section/grid-size-section/grid-size-section';
@@ -29,43 +26,34 @@ import {PresetsSection} from '../section/presets-section/presets-section';
 import {RulesSection} from '../section/rules-section/rules-section';
 import {HomeSection} from '../section/section';
 import {ShortcutsSection} from '../section/shortcuts-section/shortcuts-section';
+import {SnapshotSection} from '../section/snapshot-section/snapshot-section';
 import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
-import {Grid} from '~gol/core/model/grid';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {Grid} from '~gol/feature/home/model/grid';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
-
-interface DownloadFrameRange {
-  startFrame: number;
-  endFrame: number;
-}
 
 @Component({
   selector: 'gol-sidebar',
   standalone: true,
   imports: [
-    FormsModule,
-    ApplyRestoreButtons,
     HomeSection,
     PlaybackSection,
     SpeedSection,
     DrawSection,
     GridSizeSection,
     MetricsSection,
+    DownloadSection,
+    SnapshotSection,
     PackingSection,
     PresetsSection,
     TribesSection,
     RulesSection,
     StorageBar,
-    SubsectionComponent,
     Button,
-    InputComponent,
-    CheckboxComponent,
     MatButtonModule,
     MatIconModule,
-    MatProgressBarModule,
-    DecimalPipe,
     HomeFooter,
     ShortcutsSection
   ],
@@ -76,7 +64,7 @@ interface DownloadFrameRange {
     '(contextmenu)': '$event.preventDefault()'
   }
 })
-export class Sidebar implements OnChanges, OnDestroy {
+export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> implements OnChanges, OnDestroy {
   @Input()
   public tribes: readonly Tribe[] = [];
 
@@ -147,10 +135,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   public brushShape: BrushShape = 'square';
 
   @Input()
-  public brushFill: 'full' | 'spray' | 'outline' = 'full';
-
-  @Input()
-  public skipAmount = 1;
+  public brushFill: BrushFill = 'full';
 
   @Input()
   public downloadProgress = -1;
@@ -194,25 +179,16 @@ export class Sidebar implements OnChanges, OnDestroy {
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
+  public drawSectionPreferences: DrawSectionPreferences = {...DEFAULT_DRAW_SECTION_PREFERENCES};
+
+  public speedSectionPreferences: SpeedSectionPreferences = {...DEFAULT_SPEED_SECTION_PREFERENCES};
+
+  public metricsSectionPreferences: MetricsSectionPreferences = {
+    ...DEFAULT_METRICS_SECTION_PREFERENCES,
+    liveMetricSettings: {...DEFAULT_METRICS_SECTION_PREFERENCES.liveMetricSettings}
+  };
+
   public collapsed = true;
-
-  public downloadMetrics = true;
-
-  public downloadSaves = true;
-
-  public downloadMp4 = false;
-
-  public downloadPng = false;
-
-  public downloadAllFrames = true;
-
-  public downloadStartFrame = 1;
-
-  public downloadEndFrame = 1;
-
-  public mp4Fps = 12;
-
-  public mp4BitrateMbps = 2;
 
   // Sidebar resize
   public sidebarWidth = 300;
@@ -222,28 +198,6 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   public suppressClosedTransition = false;
 
-  // Shortcuts
-  public shortcutsExpanded = false;
-
-  // Section collapse state
-  public presetsExpanded = true;
-
-  public tribesExpanded = true;
-
-  public rulesExpanded = true;
-
-  public metricsExpanded = true;
-
-  public packingExpanded = true;
-
-  public mp4SettingsExpanded = false;
-
-  public downloadSelectionExpanded = true;
-
-  private static readonly prefsKey = 'golt-simfs';
-
-  private downloadFrameRangeTouched = false;
-
   private readonly mobileLayoutQuery: MediaQueryList | null = null;
 
   private transitionResetFrame: number | null = null;
@@ -252,60 +206,28 @@ export class Sidebar implements OnChanges, OnDestroy {
 
   private readonly mobileLayoutListenerController = new AbortController();
 
+  private initialPreferencesSynced = false;
+
+  /**
+   * Default preferences.
+   *
+   * @protected
+   * @readonly
+   * @type {SidebarPreferences}
+   */
+  protected override readonly defaultPreferences: SidebarPreferences = {
+    sidebarWidth: 300,
+    draw: DEFAULT_DRAW_SECTION_PREFERENCES,
+    speed: DEFAULT_SPEED_SECTION_PREFERENCES,
+    metrics: DEFAULT_METRICS_SECTION_PREFERENCES
+  };
+
   public get generationCounter(): number {
     return this.metrics?.generation ?? 0;
   }
 
   public get downloading(): boolean {
     return this.downloadProgress >= 0;
-  }
-
-  public get downloadButtonDisabled(): boolean {
-    return this.downloadProgress >= 0 || this.chunksSaving || !!this.downloadFrameRangeError || (!this.downloadMetrics && !this.downloadSaves && !this.downloadMp4 && !this.downloadPng);
-  }
-
-  public get recordingSize(): string {
-    const total = this.storagePendingRawBytes + this.storageCompressedBytes;
-    if (total <= 0) {
-      return '0 B';
-    }
-    const parts: string[] = [];
-    if (this.storagePendingRawBytes > 0) {
-      parts.push(`${formatDecimalBytes(this.storagePendingRawBytes)} pending`);
-    }
-    if (this.storageCompressedBytes > 0) {
-      parts.push(`${formatDecimalBytes(this.storageCompressedBytes)} compressed`);
-    }
-    return `${formatDecimalBytes(total)} (${parts.join(', ')})`;
-  }
-
-  public get storageTitleSize(): string {
-    const total = this.storagePendingRawBytes + this.storageCompressedBytes;
-    return formatDecimalBytes(total);
-  }
-
-  public get storageQuotaFormatted(): string {
-    return formatBinaryBytes(this.storageQuotaBytes);
-  }
-
-  public get storagePendingFormatted(): string {
-    return formatDecimalBytes(this.storagePendingRawBytes);
-  }
-
-  public get storageCompressedFormatted(): string {
-    return formatDecimalBytes(this.storageCompressedBytes);
-  }
-
-  public get storageCompressedPct(): number {
-    return this.storageQuotaBytes > 0 ? (this.storageCompressedBytes / this.storageQuotaBytes) * 100 : 0;
-  }
-
-  public get storagePendingPct(): number {
-    return this.storageQuotaBytes > 0 ? (this.storagePendingRawBytes / this.storageQuotaBytes) * 100 : 0;
-  }
-
-  public get storageBarTooltip(): string {
-    return `${formatDecimalBytes(this.storagePendingRawBytes)} pending / ${formatDecimalBytes(this.storageCompressedBytes)} compressed / ${formatBinaryBytes(this.storageQuotaBytes)} quota`;
   }
 
   public get vramTitleSize(): string {
@@ -361,79 +283,12 @@ export class Sidebar implements OnChanges, OnDestroy {
     ];
   }
 
-  public get storageSegments(): StorageBarSegment[] {
-    return [
-      {
-        label: 'pending',
-        value: this.storagePendingRawBytes,
-        formatted: this.storagePendingFormatted,
-        color: '#f59e0b'
-      },
-      {
-        label: 'compressed',
-        value: this.storageCompressedBytes,
-        formatted: this.storageCompressedFormatted,
-        color: '#e91e8a'
-      }
-    ];
-  }
-
-  public get mp4GateMessage(): string | null {
-    const frames = this.metrics?.totalFrames || 0;
-    if (frames === 0) {
-      return null;
-    }
-    const bitrateBps = this.mp4BitrateMbps * 1_000_000;
-    const overheadMultiplier = 1.1; // 10% safety margin for muxer overhead
-    const estimatedBytes = (frames / this.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
-    const twoGb = 2 * 1024 * 1024 * 1024;
-    if (estimatedBytes > twoGb) {
-      return `Estimated MP4 size (${formatBinaryBytes(estimatedBytes)}) exceeds the 2 GB memory limit — MP4 will be skipped. Increase FPS, lower bitrate, or record fewer frames`;
-    }
-    return null;
-  }
-
   public get brushMaxSize(): number {
     return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
   }
 
-  public get totalRecordedFrames(): number {
-    return Math.max(0, this.metrics?.totalFrames ?? 0);
-  }
-
-  public get hasRecordedFrames(): boolean {
-    return this.totalRecordedFrames > 0;
-  }
-
-  public get normalizedDownloadFrameRange(): DownloadFrameRange | null {
-    if (this.downloadAllFrames || !this.hasRecordedFrames) {
-      return null;
-    }
-    const startFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), this.totalRecordedFrames);
-    const endFrame = Math.min(Math.max(startFrame, Math.floor(this.downloadEndFrame || startFrame)), this.totalRecordedFrames);
-    return {startFrame, endFrame};
-  }
-
-  public get downloadFrameRangeError(): string | null {
-    if (this.downloadAllFrames || !this.hasRecordedFrames) {
-      return null;
-    }
-    if (!Number.isFinite(this.downloadStartFrame) || !Number.isFinite(this.downloadEndFrame)) {
-      return 'Frame range must use whole numbers.';
-    }
-    if (this.downloadStartFrame < 1 || this.downloadEndFrame < 1) {
-      return 'Frame range must start at frame 1 or later.';
-    }
-    if (this.downloadStartFrame > this.totalRecordedFrames || this.downloadEndFrame > this.totalRecordedFrames) {
-      return `Recorded frames currently range from 1 to ${this.totalRecordedFrames.toLocaleString()}.`;
-    }
-    if (this.downloadStartFrame > this.downloadEndFrame) {
-      return 'Start frame must be less than or equal to end frame.';
-    }
-    return null;
-  }
-
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
+    super('golt-sidebar-prefs');
     if (typeof window !== 'undefined' && 'matchMedia' in window) {
       this.mobileLayoutQuery = window.matchMedia('(max-width: 640px)');
       this.mobileLayoutQuery.addEventListener('change', () => {
@@ -444,18 +299,114 @@ export class Sidebar implements OnChanges, OnDestroy {
         signal: this.mobileLayoutListenerController.signal
       });
     }
-    this.loadPrefs();
+    this.restorePreferences();
+    afterNextRender(() => {
+      this.emitInitialSectionPreferences();
+      this.initialPreferencesSynced = true;
+    });
+  }
+
+  public ngOnChanges(changes: TypedChanges<Sidebar>): void {
+    let shouldSavePreferences = false;
+
+    if (changes.gridCols || changes.gridRows) {
+      const clampedBrushSize = this.clampBrushSize(this.drawSectionPreferences.brushSize);
+      if (clampedBrushSize !== this.drawSectionPreferences.brushSize) {
+        this.drawSectionPreferences = {
+          ...this.drawSectionPreferences,
+          brushSize: clampedBrushSize
+        };
+        shouldSavePreferences = true;
+        if (this.initialPreferencesSynced) {
+          this.emit('setBrushSize', clampedBrushSize);
+        }
+      }
+    }
+
+    if (this.initialPreferencesSynced) {
+      if (changes.brushSize) {
+        const nextBrushSize = this.clampBrushSize(this.brushSize);
+        if (nextBrushSize !== this.drawSectionPreferences.brushSize) {
+          this.drawSectionPreferences = {
+            ...this.drawSectionPreferences,
+            brushSize: nextBrushSize
+          };
+          shouldSavePreferences = true;
+        }
+      }
+
+      if (changes.brushShape && this.brushShape !== this.drawSectionPreferences.brushShape) {
+        this.drawSectionPreferences = {
+          ...this.drawSectionPreferences,
+          brushShape: this.brushShape
+        };
+        shouldSavePreferences = true;
+      }
+
+      if (changes.brushFill && this.brushFill !== this.drawSectionPreferences.brushFill) {
+        this.drawSectionPreferences = {
+          ...this.drawSectionPreferences,
+          brushFill: this.brushFill
+        };
+        shouldSavePreferences = true;
+      }
+
+      if (changes.speed && this.speed !== this.speedSectionPreferences.speed) {
+        this.speedSectionPreferences = {
+          ...this.speedSectionPreferences,
+          speed: this.speed
+        };
+        shouldSavePreferences = true;
+      }
+
+      if (changes.maxSpeed && this.maxSpeed !== this.speedSectionPreferences.maxSpeed) {
+        this.speedSectionPreferences = {
+          ...this.speedSectionPreferences,
+          maxSpeed: this.maxSpeed
+        };
+        shouldSavePreferences = true;
+      }
+
+      if (changes.recording || changes.recordingAvailable) {
+        const nextRecording = this.recording && this.recordingAvailable;
+        if (nextRecording !== this.speedSectionPreferences.recording) {
+          this.speedSectionPreferences = {
+            ...this.speedSectionPreferences,
+            recording: nextRecording
+          };
+          shouldSavePreferences = true;
+        }
+      }
+
+      if (changes.liveMetricsEnabled && this.liveMetricsEnabled !== this.speedSectionPreferences.liveMetricsEnabled) {
+        this.speedSectionPreferences = {
+          ...this.speedSectionPreferences,
+          liveMetricsEnabled: this.liveMetricsEnabled
+        };
+        shouldSavePreferences = true;
+      }
+
+      if (changes.liveMetricSettings) {
+        const nextLiveMetricSettings = normalizeLiveMetricSectionSettings(this.liveMetricSettings);
+        if (JSON.stringify(nextLiveMetricSettings) !== JSON.stringify(this.metricsSectionPreferences.liveMetricSettings)) {
+          this.metricsSectionPreferences = {
+            ...this.metricsSectionPreferences,
+            liveMetricSettings: nextLiveMetricSettings
+          };
+          shouldSavePreferences = true;
+        }
+      }
+    }
+
+    if (shouldSavePreferences) {
+      this.savePreferences();
+      this.cdr.markForCheck();
+    }
   }
 
   public ngOnDestroy(): void {
     this.mobileLayoutListenerController.abort();
     this.clearPendingTransitionReset();
-  }
-
-  public ngOnChanges(changes: TypedChanges<Sidebar>): void {
-    if (changes.metrics) {
-      this.syncDownloadFrameRange();
-    }
   }
 
   public toggle(): void {
@@ -468,7 +419,7 @@ export class Sidebar implements OnChanges, OnDestroy {
   }
 
   public emit(action: SidebarEvent['action'], value?: unknown): void {
-    this.sidebarEvent.emit({action, value});
+    this.sidebarEvent.emit(value === undefined ? {action} as SidebarEvent : {action, value} as SidebarEvent);
   }
 
   public onTribeChange(id: string): void {
@@ -478,31 +429,61 @@ export class Sidebar implements OnChanges, OnDestroy {
   public onSpeedChange(value: string): void {
     const n = +value;
     if (n > 0) {
+      this.speedSectionPreferences = {
+        ...this.speedSectionPreferences,
+        speed: n,
+        maxSpeed: false
+      };
+      this.savePreferences();
+      this.cdr.markForCheck();
       this.emit('setSpeed', n);
     }
   }
 
   public onMaxSpeedChange(checked: boolean): void {
+    this.speedSectionPreferences = {
+      ...this.speedSectionPreferences,
+      maxSpeed: checked
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
     this.emit('setMaxSpeed', checked);
   }
 
   public onRecordingChange(checked: boolean): void {
-    this.emit('setRecording', checked);
+    const nextRecording = checked && this.recordingAvailable;
+    this.speedSectionPreferences = {
+      ...this.speedSectionPreferences,
+      recording: nextRecording
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
+    this.emit('setRecording', nextRecording);
   }
 
   public onLiveMetricsEnabledChange(checked: boolean): void {
-    this.liveMetricsEnabled = checked;
+    this.speedSectionPreferences = {
+      ...this.speedSectionPreferences,
+      liveMetricsEnabled: checked
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
     this.emit('setLiveMetrics', {
-      enabled: this.liveMetricsEnabled,
-      sections: this.liveMetricSettings
+      enabled: this.speedSectionPreferences.liveMetricsEnabled,
+      sections: this.metricsSectionPreferences.liveMetricSettings
     });
   }
 
   public onLiveMetricSettingsChange(settings: LiveMetricSectionSettings): void {
-    this.liveMetricSettings = normalizeLiveMetricSectionSettings(settings);
+    this.metricsSectionPreferences = {
+      ...this.metricsSectionPreferences,
+      liveMetricSettings: normalizeLiveMetricSectionSettings(settings)
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
     this.emit('setLiveMetrics', {
-      enabled: this.liveMetricsEnabled,
-      sections: this.liveMetricSettings
+      enabled: this.speedSectionPreferences.liveMetricsEnabled,
+      sections: this.metricsSectionPreferences.liveMetricSettings
     });
   }
 
@@ -514,83 +495,67 @@ export class Sidebar implements OnChanges, OnDestroy {
     this.emit('setPacking', value);
   }
 
-  public onDownload(): void {
-    this.emit('download', {
-      metrics: this.downloadMetrics,
-      mp4: this.downloadMp4 && !this.mp4GateMessage,
-      png: this.downloadPng,
-      saves: this.downloadSaves,
-      fps: this.mp4Fps,
-      bitrate: this.mp4BitrateMbps * 1_000_000,
-      frameRange: this.normalizedDownloadFrameRange
-    });
-  }
-
-  public onDownloadAllFramesChange(checked: boolean): void {
-    this.downloadAllFrames = checked;
-    this.downloadFrameRangeTouched = false;
-    this.syncDownloadFrameRange();
-    this.savePrefs();
-  }
-
-  public onDownloadStartFrameChange(value: number): void {
-    this.downloadStartFrame = value;
-    this.downloadFrameRangeTouched = true;
-  }
-
-  public onDownloadEndFrameChange(value: number): void {
-    this.downloadEndFrame = value;
-    this.downloadFrameRangeTouched = true;
-  }
-
-  public onStepBack(): void {
-    this.emit('stepBack', +this.skipAmount);
-  }
-
-  public onStepForward(): void {
-    this.emit('stepForward', +this.skipAmount);
-  }
-
-  public onSkipAmountChange(value: number): void {
-    this.skipAmount = value;
-    this.savePrefs();
-  }
-
   public onBrushSizeChange(value: string): void {
     const n = Math.min(Math.max(1, +value || 1), this.brushMaxSize);
     if (n > 0) {
+      this.drawSectionPreferences = {
+        ...this.drawSectionPreferences,
+        brushSize: n
+      };
+      this.savePreferences();
+      this.cdr.markForCheck();
       this.emit('setBrushSize', n);
     }
   }
 
   public onBrushShapeChange(shape: BrushShape): void {
+    this.drawSectionPreferences = {
+      ...this.drawSectionPreferences,
+      brushShape: shape
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
     this.emit('setBrushShape', shape);
   }
 
-  public onBrushFillChange(fill: 'full' | 'spray' | 'outline'): void {
+  public onBrushFillChange(fill: BrushFill): void {
+    this.drawSectionPreferences = {
+      ...this.drawSectionPreferences,
+      brushFill: fill
+    };
+    this.savePreferences();
+    this.cdr.markForCheck();
     this.emit('setBrushFill', fill);
   }
 
-  public onTouchModeChange(mode: 'draw' | 'pan'): void {
+  public onPopulationExpandedChange(expanded: boolean): void {
+    this.metricsSectionPreferences = {
+      ...this.metricsSectionPreferences,
+      populationExpanded: expanded
+    };
+    this.savePreferences();
+  }
+
+  public onDiversityExpandedChange(expanded: boolean): void {
+    this.metricsSectionPreferences = {
+      ...this.metricsSectionPreferences,
+      diversityExpanded: expanded
+    };
+    this.savePreferences();
+  }
+
+  public onInterfacesExpandedChange(expanded: boolean): void {
+    this.metricsSectionPreferences = {
+      ...this.metricsSectionPreferences,
+      interfacesExpanded: expanded
+    };
+    this.savePreferences();
+  }
+
+  public onTouchModeChange(mode: TouchMode): void {
     if ((mode === 'pan') !== this.panMode) {
       this.emit('togglePanMode');
     }
-  }
-
-  public onFileSelect(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result instanceof ArrayBuffer) {
-        this.emit('loadState', reader.result);
-      }
-      input.value = '';
-    };
-    reader.readAsArrayBuffer(file);
   }
 
   public applyTribes(payload: UpdateTribesPayload): void {
@@ -633,34 +598,30 @@ export class Sidebar implements OnChanges, OnDestroy {
     };
 
     const onMove = (e: PointerEvent) => {
-      if (e.pointerId !== event.pointerId) {
-        return;
+      if (e.pointerId === event.pointerId) {
+        e.preventDefault();
+        const dy = e.clientY - startY;
+        const newTranslate = Math.max(0, currentTranslateY + dy);
+        this.sheetTranslate = `${newTranslate}px`;
+        this.cdr.detectChanges();
       }
-
-      e.preventDefault();
-      const dy = e.clientY - startY;
-      const newTranslate = Math.max(0, currentTranslateY + dy);
-      this.sheetTranslate = `${newTranslate}px`;
-      this.cdr.detectChanges();
     };
 
     const onEnd = (e: PointerEvent) => {
-      if (e.pointerId !== event.pointerId) {
-        return;
+      if (e.pointerId === event.pointerId) {
+        const dy = e.clientY - startY;
+        const finalTranslate = Math.max(0, currentTranslateY + dy);
+        // If dragged down more than 50% of the panel height, close.
+        if (finalTranslate > panelHeight * 0.5) {
+          this.collapsed = true;
+          this.sheetTranslate = '0px';
+        } else {
+          // Stay at dragged position.
+          this.sheetTranslate = `${finalTranslate}px`;
+        }
+        this.cdr.detectChanges();
+        cleanup();
       }
-
-      const dy = e.clientY - startY;
-      const finalTranslate = Math.max(0, currentTranslateY + dy);
-      // If dragged down more than 50% of the panel height, close.
-      if (finalTranslate > panelHeight * 0.5) {
-        this.collapsed = true;
-        this.sheetTranslate = '0px';
-      } else {
-        // Stay at dragged position.
-        this.sheetTranslate = `${finalTranslate}px`;
-      }
-      this.cdr.detectChanges();
-      cleanup();
     };
 
     document.addEventListener('pointermove', onMove);
@@ -685,32 +646,26 @@ export class Sidebar implements OnChanges, OnDestroy {
     panel?.classList.add('resizing');
 
     const onMove = (e: PointerEvent) => {
-      if (e.pointerId !== event.pointerId) {
-        return;
+      if (e.pointerId === event.pointerId) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
+        this.cdr.detectChanges();
       }
-
-      e.preventDefault();
-      e.stopPropagation();
-      this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
-      this.cdr.detectChanges();
     };
 
     const onUp = (e: PointerEvent) => {
-      if (e.pointerId !== event.pointerId) {
-        return;
+      if (e.pointerId === event.pointerId) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.body.style.userSelect = '';
+        panel?.classList.remove('resizing');
+        handle?.releasePointerCapture?.(event.pointerId);
+        this.savePreferences();
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
       }
-
-      e.preventDefault();
-      e.stopPropagation();
-      document.body.style.userSelect = '';
-      panel?.classList.remove('resizing');
-      handle?.releasePointerCapture?.(event.pointerId);
-      if (this.isDesktopLayout()) {
-        this.savePrefs();
-      }
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      document.removeEventListener('pointercancel', onUp);
     };
 
     document.addEventListener('pointermove', onMove);
@@ -718,70 +673,73 @@ export class Sidebar implements OnChanges, OnDestroy {
     document.addEventListener('pointercancel', onUp);
   }
 
-  public toggleSection(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection'): void {
-    this.onSectionExpandedChange(section, !this[`${section}Expanded`]);
-  }
-
-  public onSectionExpandedChange(section: 'presets' | 'packing' | 'tribes' | 'rules' | 'metrics' | 'shortcuts' | 'mp4Settings' | 'downloadSelection', expanded: boolean): void {
-    switch (section) {
-      case 'presets': this.presetsExpanded = expanded; break;
-      case 'packing': this.packingExpanded = expanded; break;
-      case 'tribes': this.tribesExpanded = expanded; break;
-      case 'rules': this.rulesExpanded = expanded; break;
-      case 'metrics': this.metricsExpanded = expanded; break;
-      case 'shortcuts': this.shortcutsExpanded = expanded; break;
-      case 'mp4Settings': this.mp4SettingsExpanded = expanded; break;
-      case 'downloadSelection': this.downloadSelectionExpanded = expanded; break;
-    }
-    this.savePrefs();
-  }
-
-  public savePrefs(): void {
-    try {
-      const existing = JSON.parse(localStorage.getItem(Sidebar.prefsKey) ?? '{}');
-      const prefs = {
-        ...existing,
-        shortcutsExpanded: this.shortcutsExpanded,
-        presetsExpanded: this.presetsExpanded,
-        packingExpanded: this.packingExpanded,
-        tribesExpanded: this.tribesExpanded,
-        rulesExpanded: this.rulesExpanded,
-        metricsExpanded: this.metricsExpanded,
-        downloadMetrics: this.downloadMetrics,
-        downloadSaves: this.downloadSaves,
-        downloadMp4: this.downloadMp4,
-        downloadPng: this.downloadPng,
-        downloadAllFrames: this.downloadAllFrames,
-        mp4Fps: this.mp4Fps,
-        mp4BitrateMbps: this.mp4BitrateMbps,
-        mp4SettingsExpanded: this.mp4SettingsExpanded,
-        downloadSelectionExpanded: this.downloadSelectionExpanded,
-        skipAmount: +this.skipAmount
-      };
-      if (this.isDesktopLayout()) {
-        Object.assign(prefs, {sidebarWidth: this.sidebarWidth});
+  /**
+   * Collects current preferences.
+   *
+   * @protected
+   * @returns {SidebarPreferences}
+   */
+  protected override collectPreferences(): SidebarPreferences {
+    return {
+      sidebarWidth: this.sidebarWidth,
+      draw: {...this.drawSectionPreferences},
+      speed: {...this.speedSectionPreferences},
+      metrics: {
+        ...this.metricsSectionPreferences,
+        liveMetricSettings: {...this.metricsSectionPreferences.liveMetricSettings}
       }
-      localStorage.setItem(Sidebar.prefsKey, JSON.stringify(prefs));
-    } catch (e) {
-      console.warn('Failed to save sidebar preferences:', e);
+    };
+  }
+
+  /**
+   * Applies restored preferences.
+   *
+   * @protected
+   * @param {SidebarPreferences} preferences
+   */
+  protected override applyPreferences(preferences: SidebarPreferences): void {
+    if (this.isDesktopLayout()) {
+      this.sidebarWidth = preferences.sidebarWidth;
     }
+    this.drawSectionPreferences = {...preferences.draw};
+    this.speedSectionPreferences = {...preferences.speed};
+    this.metricsSectionPreferences = {
+      ...preferences.metrics,
+      liveMetricSettings: {...preferences.metrics.liveMetricSettings}
+    };
+  }
+
+  /**
+   * Normalizes stored preferences.
+   *
+   * @protected
+   * @param {Partial<SidebarPreferences>} stored
+   * @param {SidebarPreferences} defaults
+   * @returns {SidebarPreferences}
+   */
+  protected override normalizePreferences(stored: Partial<SidebarPreferences>, defaults: SidebarPreferences): SidebarPreferences {
+    return {
+      sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= 300 && stored.sidebarWidth <= 600 ? stored.sidebarWidth : defaults.sidebarWidth,
+      draw: this.normalizeDrawSectionPreferences(stored.draw, defaults.draw),
+      speed: this.normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
+      metrics: this.normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
+    };
   }
 
   private handleMobileLayoutChange(): void {
-    if (!this.collapsed) {
-      return;
-    }
-    this.suppressClosedTransition = true;
-    this.cdr.markForCheck();
-    this.clearPendingTransitionReset();
-    this.transitionResetFrame = requestAnimationFrame(() => {
-      this.transitionResetFrame = null;
-      this.transitionResetCleanupFrame = requestAnimationFrame(() => {
-        this.transitionResetCleanupFrame = null;
-        this.suppressClosedTransition = false;
-        this.cdr.markForCheck();
+    if (this.collapsed) {
+      this.suppressClosedTransition = true;
+      this.cdr.markForCheck();
+      this.clearPendingTransitionReset();
+      this.transitionResetFrame = requestAnimationFrame(() => {
+        this.transitionResetFrame = null;
+        this.transitionResetCleanupFrame = requestAnimationFrame(() => {
+          this.transitionResetCleanupFrame = null;
+          this.suppressClosedTransition = false;
+          this.cdr.markForCheck();
+        });
       });
-    });
+    }
   }
 
   private isDesktopLayout(): boolean {
@@ -819,96 +777,49 @@ export class Sidebar implements OnChanges, OnDestroy {
     return [...current, id];
   }
 
-  private syncDownloadFrameRange(): void {
-    const totalFrames = this.totalRecordedFrames;
-    if (totalFrames <= 0) {
-      this.downloadStartFrame = 1;
-      this.downloadEndFrame = 1;
-      return;
-    }
-
-    if (this.downloadAllFrames) {
-      this.downloadStartFrame = 1;
-      this.downloadEndFrame = totalFrames;
-      return;
-    }
-
-    if (!this.downloadFrameRangeTouched) {
-      this.downloadStartFrame = 1;
-      this.downloadEndFrame = totalFrames;
-      return;
-    }
-
-    this.downloadStartFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), totalFrames);
-    this.downloadEndFrame = Math.min(Math.max(this.downloadStartFrame, Math.floor(this.downloadEndFrame || this.downloadStartFrame)), totalFrames);
+  private emitInitialSectionPreferences(): void {
+    this.emit('setBrushSize', this.drawSectionPreferences.brushSize);
+    this.emit('setBrushShape', this.drawSectionPreferences.brushShape);
+    this.emit('setBrushFill', this.drawSectionPreferences.brushFill);
+    this.emit('setSpeed', this.speedSectionPreferences.speed);
+    this.emit('setMaxSpeed', this.speedSectionPreferences.maxSpeed);
+    this.emit('setRecording', this.speedSectionPreferences.recording && this.recordingAvailable);
+    this.emit('setLiveMetrics', {
+      enabled: this.speedSectionPreferences.liveMetricsEnabled,
+      sections: this.metricsSectionPreferences.liveMetricSettings
+    });
   }
 
-  private loadPrefs(): void {
-    try {
-      const raw = localStorage.getItem(Sidebar.prefsKey);
-      if (!raw) {
-        return;
-      }
-      const p = JSON.parse(raw);
-      if (typeof p.shortcutsExpanded === 'boolean') {
-        this.shortcutsExpanded = p.shortcutsExpanded;
-      }
-      if (typeof p.presetsExpanded === 'boolean') {
-        this.presetsExpanded = p.presetsExpanded;
-      }
-      if (typeof p.packingExpanded === 'boolean') {
-        this.packingExpanded = p.packingExpanded;
-      }
-      if (typeof p.tribesExpanded === 'boolean') {
-        this.tribesExpanded = p.tribesExpanded;
-      }
-      if (typeof p.rulesExpanded === 'boolean') {
-        this.rulesExpanded = p.rulesExpanded;
-      }
-      if (typeof p.metricsExpanded === 'boolean') {
-        this.metricsExpanded = p.metricsExpanded;
-      }
-      if (this.isDesktopLayout() && typeof p.sidebarWidth === 'number' && p.sidebarWidth >= 300 && p.sidebarWidth <= 600) {
-        this.sidebarWidth = p.sidebarWidth;
-      }
-      if (typeof p.downloadMetrics === 'boolean') {
-        this.downloadMetrics = p.downloadMetrics;
-      }
-      if (typeof p.downloadSaves === 'boolean') {
-        this.downloadSaves = p.downloadSaves;
-      }
-      if (typeof p.downloadMp4 === 'boolean') {
-        this.downloadMp4 = p.downloadMp4;
-      }
-      if (typeof p.downloadPng === 'boolean') {
-        this.downloadPng = p.downloadPng;
-      }
-      if (typeof p.downloadAllFrames === 'boolean') {
-        this.downloadAllFrames = p.downloadAllFrames;
-      }
-      if (typeof p.mp4Fps === 'number' && p.mp4Fps >= 1 && p.mp4Fps <= 60) {
-        this.mp4Fps = p.mp4Fps;
-      }
-      if (typeof p.mp4BitrateMbps === 'number' && p.mp4BitrateMbps >= 0.5 && p.mp4BitrateMbps <= 50) {
-        this.mp4BitrateMbps = p.mp4BitrateMbps;
-      }
-      if (typeof p.mp4SettingsExpanded === 'boolean') {
-        this.mp4SettingsExpanded = p.mp4SettingsExpanded;
-      }
-      if (typeof p.mp4BitrateMbps === 'number' && p.mp4BitrateMbps >= 0.5 && p.mp4BitrateMbps <= 50) {
-        this.mp4BitrateMbps = p.mp4BitrateMbps;
-      }
-      if (typeof p.mp4SettingsExpanded === 'boolean') {
-        this.mp4SettingsExpanded = p.mp4SettingsExpanded;
-      }
-      if (typeof p.downloadSelectionExpanded === 'boolean') {
-        this.downloadSelectionExpanded = p.downloadSelectionExpanded;
-      }
-      if (typeof p.skipAmount === 'number' && p.skipAmount >= 1) {
-        this.skipAmount = p.skipAmount;
-      }
-    } catch (e) {
-      console.warn('Failed to load sidebar preferences:', e);
-    }
+  private clampBrushSize(size: number): number {
+    return Math.min(Math.max(1, Math.floor(+size || 1)), this.brushMaxSize);
+  }
+
+  private normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      brushSize: typeof normalizedStored.brushSize === 'number' && normalizedStored.brushSize >= 1 ? Math.floor(normalizedStored.brushSize) : defaults.brushSize,
+      brushShape: normalizedStored.brushShape && BRUSH_SHAPE_VALUES.includes(normalizedStored.brushShape) ? normalizedStored.brushShape : defaults.brushShape,
+      brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill
+    };
+  }
+
+  private normalizeSpeedSectionPreferences(stored: Partial<SpeedSectionPreferences> | undefined, defaults: SpeedSectionPreferences): SpeedSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      speed: typeof normalizedStored.speed === 'number' && normalizedStored.speed >= 1 ? Math.floor(normalizedStored.speed) : defaults.speed,
+      maxSpeed: typeof normalizedStored.maxSpeed === 'boolean' ? normalizedStored.maxSpeed : defaults.maxSpeed,
+      recording: typeof normalizedStored.recording === 'boolean' ? normalizedStored.recording : defaults.recording,
+      liveMetricsEnabled: typeof normalizedStored.liveMetricsEnabled === 'boolean' ? normalizedStored.liveMetricsEnabled : defaults.liveMetricsEnabled
+    };
+  }
+
+  private normalizeMetricsSectionPreferences(stored: Partial<MetricsSectionPreferences> | undefined, defaults: MetricsSectionPreferences): MetricsSectionPreferences {
+    const normalizedStored = stored ?? {};
+    return {
+      liveMetricSettings: normalizeLiveMetricSectionSettings(normalizedStored.liveMetricSettings ?? defaults.liveMetricSettings),
+      populationExpanded: typeof normalizedStored.populationExpanded === 'boolean' ? normalizedStored.populationExpanded : defaults.populationExpanded,
+      diversityExpanded: typeof normalizedStored.diversityExpanded === 'boolean' ? normalizedStored.diversityExpanded : defaults.diversityExpanded,
+      interfacesExpanded: typeof normalizedStored.interfacesExpanded === 'boolean' ? normalizedStored.interfacesExpanded : defaults.interfacesExpanded
+    };
   }
 }

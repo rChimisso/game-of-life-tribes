@@ -6,18 +6,18 @@ import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
-import {BitsPerCell, GridFormatMetadata} from './model/grid-format';
+import {DownloadRequestPayload} from './model/download';
+import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
+import {GridFormatMetadata} from './model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
-import {CONWAY_PRESET, Preset} from './model/preset';
+import {CONWAY_PRESET} from './model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
-import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from './model/sidebar-event';
-import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
+import {SidebarEvent} from './model/sidebar-event';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {buildGoltStateFile, parseGoltStateFile} from './util/golt-file';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {applyRuleTribeRenames} from './util/tribe-impact';
-
-import {Grid} from '~gol/core/model/grid';
 
 /**
  * Home page component.
@@ -43,6 +43,15 @@ import {Grid} from '~gol/core/model/grid';
 })
 export class HomePage implements OnDestroy {
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
+
+  /**
+   * Fixed-speed log message.
+   *
+   * @private
+   * @readonly
+   * @type {string}
+   */
+  private static readonly fixedSpeedLogMessage = '[GOLT] Fixed speed selected';
 
   public ruleset: Ruleset = CONWAY_PRESET.ruleset;
 
@@ -75,9 +84,7 @@ export class HomePage implements OnDestroy {
 
   public brushShape: BrushShape = 'square';
 
-  public brushFill: 'full' | 'spray' | 'outline' = 'full';
-
-  public skipAmount = 1;
+  public brushFill: BrushFill = 'full';
 
   public downloadProgress = -1;
 
@@ -135,8 +142,6 @@ export class HomePage implements OnDestroy {
 
   private drawTribeIndex = 1;
 
-  private static readonly prefsKey = 'golt-sim-prefs';
-
   private pendingSnapshotResolve: ((snap: SnapshotMessage) => void) | null = null;
 
   private pendingRecordingResolve: ((rec: RecordingMessage) => void) | null = null;
@@ -157,7 +162,6 @@ export class HomePage implements OnDestroy {
 
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
     console.log('[GOLT] Home page initialized');
-    this.loadPrefs();
     document.addEventListener('keydown', ev => this.handleKeydown(ev), {
       capture: true,
       signal: this.keydownListenerController.signal
@@ -270,6 +274,7 @@ export class HomePage implements OnDestroy {
     console.error('[GOLT] GPU error:', data.reason);
     this.setRunState('paused');
     this.gpuErrorMessage = data.reason;
+    this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
     this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
     this.cdr.markForCheck();
   }
@@ -386,47 +391,44 @@ export class HomePage implements OnDestroy {
         break;
       case 'selectTribe':
         this.deleteMode = false;
-        this.drawTribes = [ev.value as string];
-        this.drawTribeIndex = this.tribes.findIndex(t => t.id === (ev.value as string));
+        this.drawTribes = [ev.value];
+        this.drawTribeIndex = this.tribes.findIndex(t => t.id === ev.value);
         break;
       case 'selectTribes':
-        this.drawTribes = ev.value as string[];
+        this.drawTribes = ev.value;
         this.deleteMode = this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID;
         if (!this.deleteMode && this.drawTribes.length === 1) {
           this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribes[0]);
         }
         break;
       case 'setSpeed':
-        this.speed = ev.value as number;
+        this.speed = ev.value;
         this.maxSpeed = false;
-        console.log('[GOLT] Fixed speed selected', {speed: this.speed});
-        this.savePrefs();
+        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
         break;
       case 'setMaxSpeed':
-        this.maxSpeed = ev.value as boolean;
-        console.log(`[GOLT] Max speed ${this.maxSpeed ? 'enabled' : 'disabled'}`);
+        this.maxSpeed = ev.value;
+        console.log(`[GOLT] Max speed ${this.toggleStateLabel(this.maxSpeed)}`);
         break;
       case 'setRecording':
-        this.recording = ev.value as boolean;
-        console.log(`[GOLT] Recording ${this.recording ? 'enabled' : 'disabled'}`);
-        this.savePrefs();
+        this.recording = ev.value;
+        console.log(`[GOLT] Recording ${this.toggleStateLabel(this.recording)}`);
         if (this.recording && this.compressPool.length === 0) {
           this.initCompressPool();
         }
         break;
       case 'setLiveMetrics': {
-        const next = ev.value as {enabled: boolean; sections: LiveMetricSectionSettings};
+        const next = ev.value;
         this.liveMetricsEnabled = next.enabled;
         this.liveMetricSettings = normalizeLiveMetricSectionSettings(next.sections);
-        console.log(`[GOLT] Live metrics ${this.liveMetricsEnabled ? 'enabled' : 'disabled'}`, {
+        console.log(`[GOLT] Live metrics ${this.toggleStateLabel(this.liveMetricsEnabled)}`, {
           sections: this.liveMetricSettings
         });
         this.syncLiveMetrics();
-        this.savePrefs();
         break;
       }
       case 'setGridSize': {
-        const {cols, rows} = ev.value as Grid;
+        const {cols, rows} = ev.value;
         this.rebuilding = true;
         this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, this.ruleset, cols, rows);
         this.ruleset = {
@@ -440,12 +442,12 @@ export class HomePage implements OnDestroy {
       }
       case 'setPacking': {
         this.rebuilding = true;
-        this.simulationGridFormat = this.resolveSimulationGridFormat({bitsPerCell: ev.value as BitsPerCell});
+        this.simulationGridFormat = this.resolveSimulationGridFormat({bitsPerCell: ev.value});
         this.latestMetrics = null;
         break;
       }
       case 'download':
-        this.downloadZip(ev.value as {metrics: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null});
+        this.downloadZip(ev.value);
         break;
       case 'cancelDownload':
         this.cancelDownload();
@@ -456,7 +458,7 @@ export class HomePage implements OnDestroy {
         this.engine.requestSnapshot();
         break;
       case 'loadState':
-        this.loadState(ev.value as ArrayBuffer);
+        this.loadState(ev.value);
         break;
       case 'deleteMode':
         this.deleteMode = !this.deleteMode;
@@ -467,7 +469,7 @@ export class HomePage implements OnDestroy {
         }
         break;
       case 'updateTribes': {
-        const update = ev.value as UpdateTribesPayload;
+        const update = ev.value;
         const renamedRules = applyRuleTribeRenames(this.ruleset.rules, update.renamePairs);
         this.applyCommittedRuleset({
           ...this.ruleset,
@@ -477,7 +479,7 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'updateRules': {
-        const update = ev.value as UpdateRulesPayload;
+        const update = ev.value;
         this.applyCommittedRuleset({
           ...this.ruleset,
           rules: update.rules
@@ -485,27 +487,25 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'stepBack':
-        this.engine.stepBack(ev.value as number);
+        this.engine.stepBack(ev.value);
         break;
       case 'stepForward':
-        this.engine.stepForward(ev.value as number);
+        this.engine.stepForward(ev.value);
         break;
       case 'togglePanMode':
         this.panMode = !this.panMode;
         break;
       case 'setBrushSize':
-        this.brushSize = ev.value as number;
+        this.brushSize = ev.value;
         break;
       case 'setBrushShape':
-        this.brushShape = ev.value as BrushShape;
-        this.savePrefs();
+        this.brushShape = ev.value;
         break;
       case 'setBrushFill':
-        this.brushFill = ev.value as 'full' | 'spray' | 'outline';
-        this.savePrefs();
+        this.brushFill = ev.value;
         break;
       case 'applyPreset': {
-        const preset = ev.value as Preset;
+        const preset = ev.value;
         const newRuleset = structuredClone(preset.ruleset);
         newRuleset.cols = this.ruleset.cols;
         newRuleset.rows = this.ruleset.rows;
@@ -562,9 +562,11 @@ export class HomePage implements OnDestroy {
       case 'ArrowUp':
         this.speed += 1;
         this.maxSpeed = false;
+        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
         break;
       case 'ArrowDown':
         this.speed = Math.max(1, this.speed - 1);
+        console.log(HomePage.fixedSpeedLogMessage, {speed: this.speed});
         break;
       case 'ArrowRight':
         this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
@@ -596,13 +598,26 @@ export class HomePage implements OnDestroy {
       case 'e':
         if (this.recordingAvailable) {
           this.recording = !this.recording;
+          console.log(`[GOLT] Recording ${this.toggleStateLabel(this.recording)}`);
+          if (this.recording && this.compressPool.length === 0) {
+            this.initCompressPool();
+          }
         }
         break;
       case 'm':
         this.maxSpeed = !this.maxSpeed;
+        console.log(`[GOLT] Max speed ${this.toggleStateLabel(this.maxSpeed)}`);
+        break;
+      case 'w':
+      case 'W':
+        this.liveMetricsEnabled = !this.liveMetricsEnabled;
+        console.log(`[GOLT] Live metrics ${this.toggleStateLabel(this.liveMetricsEnabled)}`, {
+          sections: this.liveMetricSettings
+        });
+        this.syncLiveMetrics();
         break;
       case '+': {
-        const max = Math.max(1, Math.floor(Math.max(this.ruleset.cols, this.ruleset.rows) / 4));
+        const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
         this.brushSize = Math.min(max, this.brushSize + 1);
         break;
       }
@@ -611,21 +626,13 @@ export class HomePage implements OnDestroy {
         break;
       }
       case 'b': {
-        const shapes: BrushShape[] = [
-          'square',
-          'round',
-          'diamond',
-          'vline',
-          'hline'
-        ];
-        const idx = shapes.indexOf(this.brushShape);
-        this.brushShape = shapes[(idx + 1) % shapes.length]!;
+        const idx = BRUSH_SHAPE_VALUES.indexOf(this.brushShape);
+        this.brushShape = BRUSH_SHAPE_VALUES[(idx + 1) % BRUSH_SHAPE_VALUES.length]!;
         break;
       }
       case 'f': {
-        const fills: ('full' | 'spray' | 'outline')[] = ['full', 'spray', 'outline'];
-        const idx = fills.indexOf(this.brushFill);
-        this.brushFill = fills[(idx + 1) % fills.length]!;
+        const idx = BRUSH_FILL_VALUES.indexOf(this.brushFill);
+        this.brushFill = BRUSH_FILL_VALUES[(idx + 1) % BRUSH_FILL_VALUES.length]!;
         break;
       }
       default:
@@ -635,7 +642,6 @@ export class HomePage implements OnDestroy {
       ev.preventDefault();
       ev.stopPropagation();
       (document.activeElement as HTMLElement)?.blur?.();
-      this.savePrefs();
       this.cdr.markForCheck();
     }
   }
@@ -758,6 +764,17 @@ export class HomePage implements OnDestroy {
     }
   }
 
+  /**
+   * Formats a boolean toggle state for logs.
+   *
+   * @private
+   * @param {boolean} enabled
+   * @returns {string}
+   */
+  private toggleStateLabel(enabled: boolean): string {
+    return enabled ? 'enabled' : 'disabled';
+  }
+
   private syncLiveMetrics(): void {
     this.liveMetrics = {
       enabled: this.liveMetricsEnabled,
@@ -826,7 +843,7 @@ export class HomePage implements OnDestroy {
     }
   }
 
-  private downloadZip(opts: {metrics: boolean; mp4: boolean; png: boolean; saves: boolean; fps: number; bitrate: number; frameRange: {startFrame: number; endFrame: number} | null}): void {
+  private downloadZip(opts: DownloadRequestPayload): void {
     const needFrames = opts.mp4 || opts.png || opts.metrics || opts.saves;
     console.log('[GOLT] Download started', {
       metrics: opts.metrics,
@@ -1012,57 +1029,5 @@ export class HomePage implements OnDestroy {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-  }
-
-  private loadPrefs(): void {
-    try {
-      const raw = localStorage.getItem(HomePage.prefsKey);
-      if (!raw) {
-        return;
-      }
-      const p = JSON.parse(raw);
-      if (typeof p.speed === 'number' && p.speed >= 1) {
-        this.speed = p.speed;
-      }
-      if (typeof p.recording === 'boolean') {
-        this.recording = p.recording;
-      }
-      if (typeof p.liveMetricsEnabled === 'boolean') {
-        this.liveMetricsEnabled = p.liveMetricsEnabled;
-      }
-      this.liveMetricSettings = normalizeLiveMetricSectionSettings(p.liveMetricSettings);
-      this.syncLiveMetrics();
-      if ([
-        'square',
-        'round',
-        'diamond',
-        'vline',
-        'hline'
-      ].includes(p.brushShape)) {
-        this.brushShape = p.brushShape;
-      }
-      if (['full', 'spray', 'outline'].includes(p.brushFill)) {
-        this.brushFill = p.brushFill;
-      }
-    } catch (e) {
-      console.warn('Failed to load home preferences:', e);
-    }
-  }
-
-  private savePrefs(): void {
-    try {
-      const existing = JSON.parse(localStorage.getItem(HomePage.prefsKey) ?? '{}');
-      localStorage.setItem(HomePage.prefsKey, JSON.stringify({
-        ...existing,
-        speed: this.speed,
-        recording: this.recording,
-        liveMetricsEnabled: this.liveMetricsEnabled,
-        liveMetricSettings: this.liveMetricSettings,
-        brushShape: this.brushShape,
-        brushFill: this.brushFill
-      }));
-    } catch (e) {
-      console.warn('Failed to save home preferences:', e);
-    }
   }
 }

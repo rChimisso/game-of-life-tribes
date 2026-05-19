@@ -1,6 +1,6 @@
 import {BitsPerCell, GridFormat, GRID_FORMATS, GRID_FORMAT_32, GridFormatMetadata, SUPPORTED_SIMULATION_BITS_PER_CELL} from '../model/grid-format';
 
-import {Grid} from '~gol/core/model/grid';
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Checks whether a number is a supported bits per cell value.

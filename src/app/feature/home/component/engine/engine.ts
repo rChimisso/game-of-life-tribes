@@ -1,9 +1,10 @@
 ﻿import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
+import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {Ruleset, Tribe} from '../../model/rule';
-import {BackpressureMessage, BrushShape, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
 import {normalizeLiveMetricsSettings} from '../../util/metric-settings';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -58,7 +59,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public brushShape: BrushShape = 'square';
 
   @Input()
-  public brushFill: 'full' | 'spray' | 'outline' = 'full';
+  public brushFill: BrushFill = 'full';
 
   @Output()
   public readonly metrics = new EventEmitter<MetricMessage>();
@@ -118,7 +119,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private readonly pointers = new Map<number, {x: number; y: number}>();
 
-  private mode: 'idle' | 'draw' | 'pan' | 'pinch' = 'idle';
+  private mode: 'idle' | TouchMode | 'pinch' = 'idle';
 
   private primaryPointerId = -1;
 

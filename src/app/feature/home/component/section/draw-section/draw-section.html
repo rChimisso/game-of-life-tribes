@@ -11,15 +11,15 @@
 <div class="gol-grid-small">
   <div class="gol-cell-12 gol-grid-tiny" title="Brush size">
     <span class="input-label gol-cell-2">Size</span>
-    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="brushSizeChange.emit($event)" />
+    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)" />
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
     <span class="input-label gol-cell-2">Shape</span>
-    <gol-exclusive-button-group class="gol-cell-10" [options]="brushShapeOptions" [selectedValue]="brushShape" (selectedChange)="brushShapeChange.emit($event)" />
+    <gol-exclusive-button-group class="gol-cell-10" [options]="brushShapeOptions" [selectedValue]="brushShape" (selectedChange)="onBrushShapeChange($event)" />
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush fill mode">
     <span class="input-label gol-cell-2">Mode</span>
-    <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="brushFillChange.emit($event)" />
+    <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="onBrushFillChange($event)" />
   </div>
   <div class="gol-cell-12 gol-grid-tiny mobile-only">
     <span class="input-label gol-cell-2">Touch</span>

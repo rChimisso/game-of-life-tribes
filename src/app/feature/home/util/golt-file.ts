@@ -2,7 +2,7 @@ import {chooseTightStorageGridFormat, gridByteSize, gridFormatFromMetadata, grid
 import {GridFormatMetadata} from '../model/grid-format';
 import {Tribe} from '../model/rule';
 
-import {Grid} from '~gol/core/model/grid';
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Data used to build a `.golt` state file.

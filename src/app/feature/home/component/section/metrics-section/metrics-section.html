@@ -1,4 +1,4 @@
-<gol-subsection title="Population" [expanded]="populationExpanded" (expandedChange)="populationExpanded = $event">
+<gol-subsection title="Population" [expanded]="populationExpanded" (expandedChange)="onSubsectionExpandedChange('population', $event)">
   <div class="section-toggle-row" title="Enable or disable the live population metrics.">
     <span class="section-toggle-label">Toggle these metrics</span>
     <gol-toggle-button size="sm" title="Enable or disable the live population metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('population')" [ngModel]="sectionEnabled('population')" (ngModelChange)="setSection('population', $event)" />
@@ -18,7 +18,7 @@
   }
 </gol-subsection>
 
-<gol-subsection title="Diversity" [expanded]="diversityExpanded" (expandedChange)="diversityExpanded = $event">
+<gol-subsection title="Diversity" [expanded]="diversityExpanded" (expandedChange)="onSubsectionExpandedChange('diversity', $event)">
   <div class="section-toggle-row" title="Enable or disable the live diversity metrics.">
     <span class="section-toggle-label">Toggle these metrics</span>
     <gol-toggle-button size="sm" title="Enable or disable the live diversity metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('diversity')" [ngModel]="sectionEnabled('diversity')" (ngModelChange)="setSection('diversity', $event)" />
@@ -29,7 +29,7 @@
   </div>
 </gol-subsection>
 
-<gol-subsection title="Interfaces" [expanded]="interfacesExpanded" (expandedChange)="interfacesExpanded = $event">
+<gol-subsection title="Interfaces" [expanded]="interfacesExpanded" (expandedChange)="onSubsectionExpandedChange('interfaces', $event)">
   <div class="section-toggle-row" title="Enable or disable the live interface metrics.">
     <span class="section-toggle-label">Toggle these metrics</span>
     <gol-toggle-button size="sm" title="Enable or disable the live interface metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('interfaces')" [ngModel]="sectionEnabled('interfaces')" (ngModelChange)="setSection('interfaces', $event)" />

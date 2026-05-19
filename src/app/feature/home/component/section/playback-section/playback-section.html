@@ -1,8 +1,8 @@
 <div class="gol-grid-tiny">
   <gol-button class="gol-cell-4" variant="flat" [disabled]="runDisabled" [icon]="canPause ? 'pause' : 'play_arrow'" [label]="canPause ? 'Pause' : 'Run'" (clicked)="toggleRun.emit()" />
-  <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [disabled]="stepBackDisabled" [title]="stepBackTooltip" (clicked)="stepBack.emit()" />
-  <gol-input class="gol-cell-4" name="skipAmount" regex="^[1-9][0-9]*$" title="Skip amount" [disabled]="isBusy" [ngModel]="skipAmount" (ngModelChange)="skipAmountChange.emit($event)" />
-  <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [disabled]="stepForwardDisabled" [title]="stepForwardTooltip" (clicked)="stepForward.emit()" />
+  <gol-button class="gol-cell-2" icon="skip_previous" label="Step back" variant="icon" [disabled]="stepBackDisabled" [title]="stepBackTooltip" (clicked)="onStepBack()" />
+  <gol-input class="gol-cell-4" name="skipAmount" regex="^[1-9][0-9]*$" title="Skip amount" [disabled]="isBusy" [ngModel]="skipAmount" (ngModelChange)="onSkipAmountChange($event)" />
+  <gol-button class="gol-cell-2" icon="skip_next" label="Step forward" variant="icon" [disabled]="stepForwardDisabled" [title]="stepForwardTooltip" (clicked)="onStepForward()" />
   <div class="info-labels gol-cell-12 gol-grid-tiny">
     <gol-label-value class="gol-cell-6" label="Generation" title="Generation counter" [value]="generationCounter.toLocaleString()" />
     <gol-label-value class="gol-cell-6" label="Gen/s" title="Generations per second" [value]="metricsFps.toLocaleString(undefined, { maximumFractionDigits: 0 })" />

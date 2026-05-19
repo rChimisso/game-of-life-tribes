@@ -1,4 +1,4 @@
-import {Grid} from '~gol/core/model/grid';
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Valid number for the count of a cell's neighbors.

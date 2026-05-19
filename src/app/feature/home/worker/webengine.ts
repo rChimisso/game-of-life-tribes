@@ -1715,10 +1715,14 @@ function readMetricsAndPost(): void {
     if (pendingMetricsRetry) {
       pendingMetricsRetry = false;
       lastMetricsGen = -1;
-      const retryEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-      runMetricsGpu(retryEncoder);
-      device.queue.submit([retryEncoder.finish()]);
-      readMetricsAndPost();
+      if (canEncodeInteractiveMetrics()) {
+        const retryEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
+        runMetricsGpu(retryEncoder);
+        device.queue.submit([retryEncoder.finish()]);
+        readMetricsAndPost();
+      } else {
+        pendingMetricsRetry = true;
+      }
     }
   }).catch(() => {
     // Buffer destroyed during rebuild — just mark metrics as no longer in-flight.
@@ -1887,11 +1891,17 @@ function remainingTargetSteps(run: RunState): number {
   return Math.max(0, run.request.stopCondition.generation - genCounter);
 }
 
+function canEncodeInteractiveMetrics(): boolean {
+  return Boolean(device && metricsResources && !rebuilding && !deviceLost);
+}
+
 function queueMetricsRefresh(force: boolean = false): void {
   if (force) {
     lastMetricsGen = -1;
   }
-  if (!metricsInFlight) {
+  if (!canEncodeInteractiveMetrics()) {
+    pendingMetricsRetry = true;
+  } else if (!metricsInFlight) {
     const encoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
     runMetricsGpu(encoder);
     device.queue.submit([encoder.finish()]);

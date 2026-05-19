@@ -144,4 +144,51 @@ export class SpeedSection {
   public get liveMetricsMessage(): string {
     return this.liveMetricsEnabled ? 'Live metrics slow down the simulation.' : 'Live metrics are disabled.';
   }
+
+  /**
+   * Handles speed changes.
+   *
+   * @public
+   * @param {string} value
+   */
+  public onSpeedChange(value: string): void {
+    const speed = Math.max(1, Math.floor(+value || 1));
+    this.speed = speed;
+    this.maxSpeed = false;
+    this.speedChange.emit(String(speed));
+    this.maxSpeedChange.emit(false);
+  }
+
+  /**
+   * Handles max-speed changes.
+   *
+   * @public
+   * @param {boolean} checked
+   */
+  public onMaxSpeedChange(checked: boolean): void {
+    this.maxSpeed = checked;
+    this.maxSpeedChange.emit(checked);
+  }
+
+  /**
+   * Handles recording changes.
+   *
+   * @public
+   * @param {boolean} checked
+   */
+  public onRecordingChange(checked: boolean): void {
+    this.recording = checked;
+    this.recordingChange.emit(checked);
+  }
+
+  /**
+   * Handles live metrics changes.
+   *
+   * @public
+   * @param {boolean} checked
+   */
+  public onLiveMetricsEnabledChange(checked: boolean): void {
+    this.liveMetricsEnabled = checked;
+    this.liveMetricsEnabledChange.emit(checked);
+  }
 }

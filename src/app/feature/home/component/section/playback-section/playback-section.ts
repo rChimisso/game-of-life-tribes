@@ -1,8 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
+import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
 import {Button} from '../../../../../shared/component/button/button';
 import {InputComponent} from '../../../../../shared/component/input/input';
+import {PlaybackSectionPreferences} from '../../../model/preferences';
 
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
@@ -26,7 +28,7 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
   styleUrl: './playback-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PlaybackSection {
+export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSectionPreferences> {
   /**
    * Whether the simulation is running.
    *
@@ -82,15 +84,6 @@ export class PlaybackSection {
   public stepBackBaseDisabled = false;
 
   /**
-   * Number of generations to step.
-   *
-   * @public
-   * @type {number}
-   */
-  @Input({required: true})
-  public skipAmount = 1;
-
-  /**
    * Current generation counter.
    *
    * @public
@@ -123,30 +116,20 @@ export class PlaybackSection {
    *
    * @public
    * @readonly
-   * @type {EventEmitter<void>}
-   */
-  @Output()
-  public readonly stepBack = new EventEmitter<void>();
-
-  /**
-   * Emitter for skip amount changes.
-   *
-   * @public
-   * @readonly
    * @type {EventEmitter<number>}
    */
   @Output()
-  public readonly skipAmountChange = new EventEmitter<number>();
+  public readonly stepBack = new EventEmitter<number>();
 
   /**
    * Emitter for forward step actions.
    *
    * @public
    * @readonly
-   * @type {EventEmitter<void>}
+   * @type {EventEmitter<number>}
    */
   @Output()
-  public readonly stepForward = new EventEmitter<void>();
+  public readonly stepForward = new EventEmitter<number>();
 
   /**
    * Emitter for restart actions.
@@ -157,6 +140,25 @@ export class PlaybackSection {
    */
   @Output()
   public readonly restart = new EventEmitter<void>();
+
+  /**
+   * Default preferences.
+   *
+   * @protected
+   * @readonly
+   * @type {PlaybackSectionPreferences}
+   */
+  protected override readonly defaultPreferences: PlaybackSectionPreferences = {
+    skipAmount: 1
+  };
+
+  /**
+   * Number of generations to step.
+   *
+   * @public
+   * @type {number}
+   */
+  public skipAmount = this.defaultPreferences.skipAmount;
 
   /**
    * Whether the run button is disabled.
@@ -235,5 +237,81 @@ export class PlaybackSection {
       return 'Busy';
     }
     return `Skip to generation #${+this.skipAmount + this.generationCounter}`;
+  }
+
+  /**
+   * Creates the playback section.
+   *
+   * @public
+   * @constructor
+   */
+  public constructor() {
+    super('golt-playback-section-prefs');
+    this.restorePreferences();
+  }
+
+  /**
+   * Handles skip amount changes.
+   *
+   * @public
+   * @param {number} value
+   */
+  public onSkipAmountChange(value: number): void {
+    this.skipAmount = Math.max(1, Math.floor(+value || 1));
+    this.savePreferences();
+  }
+
+  /**
+   * Emits a backward step request.
+   *
+   * @public
+   */
+  public onStepBack(): void {
+    this.stepBack.emit(+this.skipAmount);
+  }
+
+  /**
+   * Emits a forward step request.
+   *
+   * @public
+   */
+  public onStepForward(): void {
+    this.stepForward.emit(+this.skipAmount);
+  }
+
+  /**
+   * Collects current preferences.
+   *
+   * @protected
+   * @returns {PlaybackSectionPreferences}
+   */
+  protected override collectPreferences(): PlaybackSectionPreferences {
+    return {
+      skipAmount: +this.skipAmount
+    };
+  }
+
+  /**
+   * Applies restored preferences.
+   *
+   * @protected
+   * @param {PlaybackSectionPreferences} preferences
+   */
+  protected override applyPreferences(preferences: PlaybackSectionPreferences): void {
+    this.skipAmount = Math.max(1, Math.floor(+preferences.skipAmount || 1));
+  }
+
+  /**
+   * Normalizes stored preferences.
+   *
+   * @protected
+   * @param {Partial<PlaybackSectionPreferences>} stored
+   * @param {PlaybackSectionPreferences} defaults
+   * @returns {PlaybackSectionPreferences}
+   */
+  protected override normalizePreferences(stored: Partial<PlaybackSectionPreferences>, defaults: PlaybackSectionPreferences): PlaybackSectionPreferences {
+    return {
+      skipAmount: typeof stored.skipAmount === 'number' && stored.skipAmount >= 1 ? stored.skipAmount : defaults.skipAmount
+    };
   }
 }

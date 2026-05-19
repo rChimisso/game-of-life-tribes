@@ -1,0 +1,10 @@
+@if (savingState || loadingState) {
+  <div class="snapshot-progress">
+    <mat-icon>{{ savingState ? "save" : "upload_file" }}</mat-icon>
+    <span>{{ savingState ? "Saving..." : "Loading..." }}</span>
+    <mat-progress-bar mode="indeterminate" />
+  </div>
+} @else {
+  <gol-button-pair leftIcon="save" leftLabel="Save" rightIcon="upload_file" rightLabel="Load" [leftDisabled]="downloading" [rightDisabled]="downloading" (leftClick)="saveState.emit()" (rightClick)="fileInput.click()" />
+  <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
+}

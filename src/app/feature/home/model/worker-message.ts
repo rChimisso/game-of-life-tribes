@@ -1,11 +1,10 @@
+import {BrushFill, BrushShape} from './draw-mode';
 import {GridFormatMetadata} from './grid-format';
 import {LiveInterfaceMetrics, LiveMetricsSettings, MetricAvailability} from './metrics';
 import {RecordingManifest} from './recording';
 import {Ruleset, Tribe} from './rule';
 
-import {Grid} from '~gol/core/model/grid';
-
-export type BrushShape = 'square' | 'round' | 'diamond' | 'vline' | 'hline';
+import {Grid} from '~gol/feature/home/model/grid';
 
 export interface InitMessage {
   type: 'init';
@@ -40,7 +39,7 @@ export interface DrawMessage {
   y: number;
   size: number;
   shape: BrushShape;
-  fill: 'full' | 'spray' | 'outline';
+  fill: BrushFill;
   tribes: string[];
 }
 

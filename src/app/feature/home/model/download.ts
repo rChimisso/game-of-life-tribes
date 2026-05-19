@@ -1,0 +1,137 @@
+/**
+ * Download frame range.
+ *
+ * @export
+ * @interface DownloadFrameRange
+ * @typedef {DownloadFrameRange}
+ */
+export interface DownloadFrameRange {
+  /**
+   * First selected frame.
+   *
+   * @type {number}
+   */
+  startFrame: number;
+  /**
+   * Last selected frame.
+   *
+   * @type {number}
+   */
+  endFrame: number;
+}
+
+/**
+ * Download request payload.
+ *
+ * @export
+ * @interface DownloadRequestPayload
+ * @typedef {DownloadRequestPayload}
+ */
+export interface DownloadRequestPayload {
+  /**
+   * Whether metrics are included.
+   *
+   * @type {boolean}
+   */
+  metrics: boolean;
+  /**
+   * Whether MP4 output is included.
+   *
+   * @type {boolean}
+   */
+  mp4: boolean;
+  /**
+   * Whether PNG frames are included.
+   *
+   * @type {boolean}
+   */
+  png: boolean;
+  /**
+   * Whether save files are included.
+   *
+   * @type {boolean}
+   */
+  saves: boolean;
+  /**
+   * MP4 frames per second.
+   *
+   * @type {number}
+   */
+  fps: number;
+  /**
+   * MP4 bitrate in bits per second.
+   *
+   * @type {number}
+   */
+  bitrate: number;
+  /**
+   * Selected frame range, or null for all frames.
+   *
+   * @type {(DownloadFrameRange | null)}
+   */
+  frameRange: DownloadFrameRange | null;
+}
+
+/**
+ * Download section preferences.
+ *
+ * @export
+ * @interface DownloadSectionPreferences
+ * @typedef {DownloadSectionPreferences}
+ */
+export interface DownloadSectionPreferences {
+  /**
+   * Whether metrics are selected.
+   *
+   * @type {boolean}
+   */
+  metrics: boolean;
+  /**
+   * Whether save files are selected.
+   *
+   * @type {boolean}
+   */
+  saves: boolean;
+  /**
+   * Whether MP4 output is selected.
+   *
+   * @type {boolean}
+   */
+  mp4: boolean;
+  /**
+   * Whether PNG output is selected.
+   *
+   * @type {boolean}
+   */
+  png: boolean;
+  /**
+   * Whether all recorded frames are selected.
+   *
+   * @type {boolean}
+   */
+  allFrames: boolean;
+  /**
+   * MP4 frames per second.
+   *
+   * @type {number}
+   */
+  mp4Fps: number;
+  /**
+   * MP4 bitrate in megabits per second.
+   *
+   * @type {number}
+   */
+  mp4BitrateMbps: number;
+  /**
+   * Whether the MP4 settings subsection is expanded.
+   *
+   * @type {boolean}
+   */
+  mp4SettingsExpanded: boolean;
+  /**
+   * Whether the selection subsection is expanded.
+   *
+   * @type {boolean}
+   */
+  selectionExpanded: boolean;
+}

@@ -4,7 +4,7 @@ import {DEAD_TRIBE_ID} from '../model/rule';
 import {buildGoltStateFile} from '../util/golt-file';
 import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata, unpackPackedBytesToFrame} from '../util/grid-format';
 
-import {Grid} from '~gol/core/model/grid';
+import {Grid} from '~gol/feature/home/model/grid';
 
 // ---------------------------------------------------------------------------
 //  Types

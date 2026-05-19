@@ -76,11 +76,42 @@ export class MetricsSection {
   public readonly settingsChange = new EventEmitter<LiveMetricSectionSettings>();
 
   /**
+   * Emitter for population subsection expansion changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<boolean>}
+   */
+  @Output()
+  public readonly populationExpandedChange = new EventEmitter<boolean>();
+
+  /**
+   * Emitter for diversity subsection expansion changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<boolean>}
+   */
+  @Output()
+  public readonly diversityExpandedChange = new EventEmitter<boolean>();
+
+  /**
+   * Emitter for interfaces subsection expansion changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<boolean>}
+   */
+  @Output()
+  public readonly interfacesExpandedChange = new EventEmitter<boolean>();
+
+  /**
    * Whether the population subsection is expanded.
    *
    * @public
    * @type {boolean}
    */
+  @Input({required: true})
   public populationExpanded = true;
 
   /**
@@ -89,6 +120,7 @@ export class MetricsSection {
    * @public
    * @type {boolean}
    */
+  @Input({required: true})
   public diversityExpanded = true;
 
   /**
@@ -97,6 +129,7 @@ export class MetricsSection {
    * @public
    * @type {boolean}
    */
+  @Input({required: true})
   public interfacesExpanded = true;
 
   /**
@@ -129,10 +162,11 @@ export class MetricsSection {
    * @param {boolean} enabled
    */
   public setSection(section: LiveMetricSection, enabled: boolean): void {
-    this.settingsChange.emit({
+    this.liveMetricSettings = {
       ...this.liveMetricSettings,
       [section]: enabled
-    });
+    };
+    this.settingsChange.emit(this.liveMetricSettings);
   }
 
   /**
@@ -170,5 +204,29 @@ export class MetricsSection {
       ok: null,
       tooLarge: 'unavailable'
     }[this.sectionStatus(section)];
+  }
+
+  /**
+   * Persists subsection expansion changes.
+   *
+   * @public
+   * @param {LiveMetricSection} section
+   * @param {boolean} expanded
+   */
+  public onSubsectionExpandedChange(section: LiveMetricSection, expanded: boolean): void {
+    switch (section) {
+      case 'population':
+        this.populationExpanded = expanded;
+        this.populationExpandedChange.emit(expanded);
+        break;
+      case 'diversity':
+        this.diversityExpanded = expanded;
+        this.diversityExpandedChange.emit(expanded);
+        break;
+      case 'interfaces':
+        this.interfacesExpanded = expanded;
+        this.interfacesExpandedChange.emit(expanded);
+        break;
+    }
   }
 }

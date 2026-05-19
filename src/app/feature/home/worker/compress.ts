@@ -1,7 +1,7 @@
 import {GridFormatMetadata} from '../model/grid-format';
 import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../util/grid-format';
 
-import {Grid} from '~gol/core/model/grid';
+import {Grid} from '~gol/feature/home/model/grid';
 
 // ---------------------------------------------------------------------------
 //  Background compression worker for OPFS recording chunks.

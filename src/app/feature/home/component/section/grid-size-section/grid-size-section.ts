@@ -7,8 +7,8 @@ import {BitsPerCell} from '../../../model/grid-format';
 import {gridByteSize, gridFormatFromBits} from '../../../util/grid-format';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
-import {Grid} from '~gol/core/model/grid';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Grid size editor section.

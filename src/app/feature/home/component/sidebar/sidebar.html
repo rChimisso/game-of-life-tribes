@@ -12,15 +12,15 @@
   <hr class="divider sidebar-divider" />
   <div class="sidebar-content">
     <gol-home-section description="Manage the simulation over time." title="Playback" [collapsible]="false">
-      <gol-playback-section [backpressure]="backpressure" [downloading]="downloading" [generationCounter]="generationCounter" [metricsFps]="metrics?.fps ?? 0" [rebuilding]="rebuilding" [running]="running" [skipAmount]="skipAmount" [stepBackBaseDisabled]="chunksSaving || !metrics?.canStepBack" [stepping]="stepping" (restart)="emit('restart')" (skipAmountChange)="onSkipAmountChange($event)" (stepBack)="onStepBack()" (stepForward)="onStepForward()" (toggleRun)="emit('toggleRun')" />
+      <gol-playback-section [backpressure]="backpressure" [downloading]="downloading" [generationCounter]="generationCounter" [metricsFps]="metrics?.fps ?? 0" [rebuilding]="rebuilding" [running]="running" [stepBackBaseDisabled]="chunksSaving || !metrics?.canStepBack" [stepping]="stepping" (restart)="emit('restart')" (stepBack)="emit('stepBack', $event)" (stepForward)="emit('stepForward', $event)" (toggleRun)="emit('toggleRun')" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Tune how quickly the simulation runs" title="Speed" [collapsible]="false">
-      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="liveMetricsEnabled" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [speed]="speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
+      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="speedSectionPreferences.liveMetricsEnabled" [maxSpeed]="speedSectionPreferences.maxSpeed" [recording]="speedSectionPreferences.recording" [recordingAvailable]="recordingAvailable" [speed]="speedSectionPreferences.speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
-      <gol-draw-section [brushFill]="brushFill" [brushShape]="brushShape" [brushSize]="brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit('deleteMode')" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
+      <gol-draw-section [brushFill]="drawSectionPreferences.brushFill" [brushMaxSize]="brushMaxSize" [brushShape]="drawSectionPreferences.brushShape" [brushSize]="drawSectionPreferences.brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit('deleteMode')" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Set the grid size and monitor VRAM usage." title="Grid size" [collapsible]="false" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
@@ -28,110 +28,41 @@
       <gol-grid-size-section [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" (applyGridSize)="onGridSizeApply($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." title="Packing" [expanded]="packingExpanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'" (expandedChange)="onSectionExpandedChange('packing', $event)">
+    <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." title="Packing" preferenceKey="golt-home-section-packing-expanded" [info]="simulationGridFormat.bitsPerCell + ' bit active'">
       <gol-packing-section [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" [tribeCount]="ruleset.tribes.length" (applyPacking)="onPackingApply($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Explore preset rules that showcase the simulation's capabilities and interesting setups." title="Presets" [expanded]="presetsExpanded" (expandedChange)="onSectionExpandedChange('presets', $event)">
+    <gol-home-section description="Explore preset rules that showcase the simulation's capabilities and interesting setups." title="Presets" preferenceKey="golt-home-section-presets-expanded">
       <gol-presets-section [downloading]="downloading" [running]="running" (applyPreset)="applyPreset($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Add, edit and remove tribes." title="Tribes" [expanded]="tribesExpanded" (expandedChange)="onSectionExpandedChange('tribes', $event)">
+    <gol-home-section description="Add, edit and remove tribes." title="Tribes" preferenceKey="golt-home-section-tribes-expanded">
       <gol-tribes-section [committedRules]="ruleset.rules" [committedTribes]="ruleset.tribes" [downloading]="downloading" [running]="running" (applyTribes)="applyTribes($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." title="Rules" [expanded]="rulesExpanded" (expandedChange)="onSectionExpandedChange('rules', $event)">
+    <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." title="Rules" preferenceKey="golt-home-section-rules-expanded">
       <gol-rules-section [committedRules]="ruleset.rules" [downloading]="downloading" [running]="running" [tribes]="ruleset.tribes" (applyRules)="applyRules($event)" />
     </gol-home-section>
     <hr class="divider" />
-    <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." title="Metrics" [expanded]="metricsExpanded" (expandedChange)="onSectionExpandedChange('metrics', $event)">
-      <gol-metrics-section [liveMetricSettings]="liveMetricSettings" [liveMetricsEnabled]="liveMetricsEnabled" [metrics]="metrics" [tribes]="tribes" (settingsChange)="onLiveMetricSettingsChange($event)" />
+    <gol-home-section description="Monitor key simulation metrics. Values refresh once per second, or every generation below 1 gen/s." title="Metrics" preferenceKey="golt-home-section-metrics-expanded">
+      <gol-metrics-section [diversityExpanded]="metricsSectionPreferences.diversityExpanded" [interfacesExpanded]="metricsSectionPreferences.interfacesExpanded" [liveMetricSettings]="metricsSectionPreferences.liveMetricSettings" [liveMetricsEnabled]="speedSectionPreferences.liveMetricsEnabled" [metrics]="metrics" [populationExpanded]="metricsSectionPreferences.populationExpanded" [tribes]="tribes" (diversityExpandedChange)="onDiversityExpandedChange($event)" (interfacesExpandedChange)="onInterfacesExpandedChange($event)" (populationExpandedChange)="onPopulationExpandedChange($event)" (settingsChange)="onLiveMetricSettingsChange($event)" />
     </gol-home-section>
     <hr class="divider" />
 
     <!-- Download -->
-    <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'" [info]="storageTitleSize + ' / ' + storageQuotaFormatted">
-      <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
-      <div class="download-checks">
-        <gol-checkbox label="Saves" [disabled]="downloading" [(ngModel)]="downloadSaves" (ngModelChange)="savePrefs()" />
-        <gol-checkbox label="Metrics" [disabled]="downloading" [(ngModel)]="downloadMetrics" (ngModelChange)="savePrefs()" />
-        <gol-checkbox label="PNG" [disabled]="downloading" [(ngModel)]="downloadPng" (ngModelChange)="savePrefs()" />
-        <gol-checkbox label="MP4" [disabled]="downloading" [(ngModel)]="downloadMp4" (ngModelChange)="savePrefs()" />
-      </div>
-      <gol-subsection title="Selection" [expanded]="downloadSelectionExpanded" (expandedChange)="onSectionExpandedChange('downloadSelection', $event)">
-        <gol-checkbox label="All recorded frames" [disabled]="downloading" [ngModel]="downloadAllFrames" (ngModelChange)="onDownloadAllFramesChange($event)" />
-        <div class="mp4-settings-grid">
-          <div class="mp4-setting-label">
-            <span class="mp4-setting-text">Start frame</span>
-            <gol-input class="mp4-fps-input-control" name="startFrame" regex="^[0-9]+$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)" />
-          </div>
-          <div class="mp4-setting-label">
-            <span class="mp4-setting-text">End frame</span>
-            <gol-input class="mp4-fps-input-control" name="endFrame" regex="^[1-9][0-9]*$" [disabled]="downloading || downloadAllFrames || !hasRecordedFrames" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)" />
-          </div>
-        </div>
-        <div class="generation-display">
-          <span class="gen-label">Recorded</span>
-          <span class="gen-value">{{ totalRecordedFrames | number }}</span>
-          <span class="gen-label">Selected</span>
-          <span class="gen-value">{{ normalizedDownloadFrameRange ? (normalizedDownloadFrameRange.endFrame - normalizedDownloadFrameRange.startFrame + 1 | number) : (totalRecordedFrames | number) }}</span>
-        </div>
-        @if (!hasRecordedFrames) {
-          <span class="recording-gate-warning">No recorded frames are available yet.</span>
-        } @else if (downloadFrameRangeError) {
-          <span class="recording-gate-warning">{{ downloadFrameRangeError }}</span>
-        }
-      </gol-subsection>
-      <gol-subsection title="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSectionExpandedChange('mp4Settings', $event)">
-        <div class="mp4-settings-grid">
-          <div class="mp4-setting-label">
-            <span class="mp4-setting-text">FPS</span>
-            <gol-input class="mp4-fps-input-control" name="fps" regex="^[1-9][0-9]*$" [disabled]="downloading" [(ngModel)]="mp4Fps" (ngModelChange)="savePrefs()" />
-          </div>
-          <div class="mp4-setting-label">
-            <span class="mp4-setting-text">Bitrate (Mbps)</span>
-            <gol-input class="mp4-fps-input-control" name="bitrate" type="number" [disabled]="downloading" [(ngModel)]="mp4BitrateMbps" (ngModelChange)="savePrefs()" />
-          </div>
-        </div>
-      </gol-subsection>
-      @if (downloadMp4 && mp4GateMessage) {
-        <span class="recording-gate-warning">{{ mp4GateMessage }}</span>
-      }
-      @if (downloadProgress >= 0) {
-        <div class="download-status">
-          <mat-progress-bar mode="determinate" [value]="downloadProgress" />
-          @if (downloadMainStatus) {
-            <span class="download-status-text main-status">{{ downloadMainStatus }}</span>
-          }
-          @if (downloadSubProgress >= 0) {
-            <mat-progress-bar class="sub-progress" mode="determinate" [value]="downloadSubProgress" />
-          }
-          @if (downloadStatus) {
-            <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
-          }
-        </div>
-      }
-      <gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="!downloading" (leftClick)="onDownload()" (rightClick)="emit('cancelDownload')" />
+    <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'">
+      <gol-download-section [chunksSaving]="chunksSaving" [downloadMainStatus]="downloadMainStatus" [downloadProgress]="downloadProgress" [downloadStatus]="downloadStatus" [downloadSubProgress]="downloadSubProgress" [storageCompressedBytes]="storageCompressedBytes" [storagePendingRawBytes]="storagePendingRawBytes" [storageQuotaBytes]="storageQuotaBytes" [totalRecordedFrames]="metrics?.totalFrames ?? 0" (cancelDownload)="emit('cancelDownload')" (download)="emit('download', $event)" />
     </gol-home-section>
 
     <hr class="divider" />
 
     <!-- Snapshot -->
     <gol-home-section title="Snapshot" [collapsible]="false" [description]="'Save or load a .golt snapshot file.'">
-      @if (savingState || loadingState) {
-        <div class="snapshot-progress">
-          <mat-icon>{{ savingState ? "save" : "upload_file" }}</mat-icon>
-          <span>{{ savingState ? "Saving…" : "Loading…" }}</span>
-          <mat-progress-bar mode="indeterminate" />
-        </div>
-      } @else {
-        <gol-button-pair leftIcon="save" leftLabel="Save" rightIcon="upload_file" rightLabel="Load" [leftDisabled]="downloading" [rightDisabled]="downloading" (leftClick)="emit('saveState')" (rightClick)="fileInput.click()" />
-        <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
-      }
+      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [savingState]="savingState" (loadState)="emit('loadState', $event)" (saveState)="emit('saveState')" />
     </gol-home-section>
 
     <hr class="divider shortcuts-divider" />
-    <gol-home-section class="shortcuts-section" description="Keyboard and mouse shortcuts for controlling and interacting with the simulation." title="Shortcuts" [expanded]="shortcutsExpanded" (expandedChange)="onSectionExpandedChange('shortcuts', $event)">
+    <gol-home-section class="shortcuts-section" description="Keyboard and mouse shortcuts for controlling and interacting with the simulation." title="Shortcuts" preferenceKey="golt-home-section-shortcuts-expanded">
       <gol-shortcuts-section />
     </gol-home-section>
   </div>

@@ -1,4 +1,4 @@
-import {Directive, Input} from '@angular/core';
+import {ChangeDetectorRef, Directive, inject, Input} from '@angular/core';
 import {ControlValueAccessor} from '@angular/forms';
 
 /**
@@ -31,10 +31,20 @@ export abstract class CvaComponent<T> implements ControlValueAccessor {
   public abstract value: T;
 
   /**
+   * Change detector reference.
+   *
+   * @private
+   * @readonly
+   * @type {ChangeDetectorRef}
+   */
+  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
    * @inheritdoc
    */
   public writeValue(value: T | null): void {
     this.value = this.normalizeValue(value);
+    this.changeDetectorRef.markForCheck();
   }
 
   /**
@@ -56,6 +66,7 @@ export abstract class CvaComponent<T> implements ControlValueAccessor {
    */
   public setDisabledState(disabled: boolean): void {
     this.disabled = disabled;
+    this.changeDetectorRef.markForCheck();
   }
 
   /**

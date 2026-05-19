@@ -1,49 +1,19 @@
 <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
-<div class="download-checks">
-  <gol-checkbox label="Saves" [disabled]="downloading" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Metrics" [disabled]="downloading" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="PNG" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="MP4" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
+<div class="download-checks" title="">
+  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="PNG" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
 </div>
-<gol-subsection title="Selection" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
-  <gol-checkbox label="All recorded frames" [disabled]="downloading" [ngModel]="currentPreferences.allFrames" (ngModelChange)="onDownloadAllFramesChange($event)" />
-  <div class="mp4-settings-grid">
-    <div class="mp4-setting-label">
-      <span class="mp4-setting-text">Start frame</span>
-      <gol-input class="mp4-fps-input-control" name="startFrame" regex="^[0-9]+$" [disabled]="downloading || currentPreferences.allFrames || !hasRecordedFrames" [ngModel]="downloadStartFrame" (ngModelChange)="onDownloadStartFrameChange($event)" />
-    </div>
-    <div class="mp4-setting-label">
-      <span class="mp4-setting-text">End frame</span>
-      <gol-input class="mp4-fps-input-control" name="endFrame" regex="^[1-9][0-9]*$" [disabled]="downloading || currentPreferences.allFrames || !hasRecordedFrames" [ngModel]="downloadEndFrame" (ngModelChange)="onDownloadEndFrameChange($event)" />
-    </div>
-  </div>
-  <div class="generation-display">
-    <span class="gen-label">Recorded</span>
-    <span class="gen-value">{{ totalRecordedFrames | number }}</span>
-    <span class="gen-label">Selected</span>
-    <span class="gen-value">{{ selectedFrameCount | number }}</span>
-  </div>
-  @if (!hasRecordedFrames) {
-    <span class="recording-gate-warning">No recorded frames are available yet.</span>
-  } @else if (downloadFrameRangeError) {
-    <span class="recording-gate-warning">{{ downloadFrameRangeError }}</span>
-  }
+<gol-subsection title="Selection range" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
+  <gol-download-frame-range-form [disabled]="downloading" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
 </gol-subsection>
 <gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
-  <div class="mp4-settings-grid">
-    <div class="mp4-setting-label">
-      <span class="mp4-setting-text">FPS</span>
-      <gol-input class="mp4-fps-input-control" name="fps" regex="^[1-9][0-9]*$" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4Fps" (ngModelChange)="onSettingChange()" />
-    </div>
-    <div class="mp4-setting-label">
-      <span class="mp4-setting-text">Bitrate (Mbps)</span>
-      <gol-input class="mp4-fps-input-control" name="bitrate" type="number" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4BitrateMbps" (ngModelChange)="onSettingChange()" />
-    </div>
-  </div>
+  <gol-download-mp4-settings-form [disabled]="downloading" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
 </gol-subsection>
-@if (currentPreferences.mp4 && mp4GateMessage) {
-  <span class="recording-gate-warning">{{ mp4GateMessage }}</span>
-}
+<span class="warning-message collapsible-message mp4-gate-message" [class.empty]="!currentPreferences.mp4 || !mp4GateMessage">
+  <span class="message-content">{{ currentPreferences.mp4 ? mp4GateMessage : '' }}</span>
+</span>
 @if (downloadProgress >= 0) {
   <div class="download-status">
     <mat-progress-bar mode="determinate" [value]="downloadProgress" />

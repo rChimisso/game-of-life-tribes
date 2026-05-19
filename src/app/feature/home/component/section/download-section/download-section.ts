@@ -1,18 +1,17 @@
-import {DecimalPipe} from '@angular/common';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
-import {InputComponent} from '../../../../../shared/component/input/input';
 import {StorageBar} from '../../../../../shared/component/storage-bar/storage-bar';
 import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
-import {DownloadFrameRange, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
+import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
 import {formatBinaryBytes, formatDecimalBytes} from '../../../util/byte-format';
+import {DownloadFrameRangeForm} from '../../element/download-frame-range-form/download-frame-range-form';
+import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/download-mp4-settings-form';
 
-import {TypedChanges} from '~gol/core/model/typed-change';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 /**
@@ -21,7 +20,6 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
  * @export
  * @class DownloadSection
  * @typedef {DownloadSection}
- * @implements {OnChanges}
  * @implements {OnInit}
  */
 @Component({
@@ -31,17 +29,17 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
     FormsModule,
     StorageBar,
     CheckboxComponent,
-    InputComponent,
     SubsectionComponent,
     ApplyRestoreButtons,
-    MatProgressBarModule,
-    DecimalPipe
+    DownloadFrameRangeForm,
+    DownloadMp4SettingsForm,
+    MatProgressBarModule
   ],
   templateUrl: './download-section.html',
   styleUrl: './download-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DownloadSection extends PersistedPreferencesComponent<DownloadSectionPreferences> implements OnChanges, OnInit {
+export class DownloadSection extends PersistedPreferencesComponent<DownloadSectionPreferences> implements OnInit {
   /**
    * Number of recorded frames available for download.
    *
@@ -144,28 +142,59 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public readonly cancelDownload = new EventEmitter<void>();
 
   /**
-   * First selected frame.
+   * Download frame range form data.
    *
    * @public
-   * @type {number}
+   * @type {DownloadFrameRangeFormValue}
    */
-  public downloadStartFrame = 1;
+  public downloadFrameRangeFormData: DownloadFrameRangeFormValue = {
+    allFrames: true,
+    startFrame: 1,
+    endFrame: 1
+  };
 
   /**
-   * Last selected frame.
+   * Current valid download frame range form value.
    *
    * @public
-   * @type {number}
+   * @type {DownloadFrameRangeFormValue}
    */
-  public downloadEndFrame = 1;
+  public downloadFrameRangeValue: DownloadFrameRangeFormValue = {...this.downloadFrameRangeFormData};
 
   /**
-   * Whether the download frame selection was touched.
+   * Whether the frame range form is currently valid.
    *
-   * @private
+   * @public
    * @type {boolean}
    */
-  private downloadFrameRangeTouched = false;
+  public downloadFrameRangeValid = true;
+
+  /**
+   * Download MP4 settings form data.
+   *
+   * @public
+   * @type {DownloadMp4SettingsFormValue}
+   */
+  public downloadMp4SettingsFormData: DownloadMp4SettingsFormValue = {
+    mp4Fps: 12,
+    mp4BitrateMbps: 2
+  };
+
+  /**
+   * Current valid download MP4 settings form value.
+   *
+   * @public
+   * @type {DownloadMp4SettingsFormValue}
+   */
+  public downloadMp4SettingsValue: DownloadMp4SettingsFormValue = {...this.downloadMp4SettingsFormData};
+
+  /**
+   * Whether the MP4 settings form is currently valid.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public downloadMp4SettingsValid = true;
 
   /**
    * Default preferences.
@@ -214,7 +243,13 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get downloadButtonDisabled(): boolean {
-    return this.downloading || this.chunksSaving || !!this.downloadFrameRangeError || (!this.currentPreferences.metrics && !this.currentPreferences.saves && !this.currentPreferences.mp4 && !this.currentPreferences.png);
+    const noOutputsSelected =
+      !this.currentPreferences.metrics &&
+      !this.currentPreferences.saves &&
+      !this.currentPreferences.mp4 &&
+      !this.currentPreferences.png;
+    const invalidMp4Settings = this.currentPreferences.mp4 && !this.downloadMp4SettingsValid;
+    return this.downloading || this.chunksSaving || !this.downloadFrameRangeValid || invalidMp4Settings || noOutputsSelected;
   }
 
   /**
@@ -308,63 +343,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
-   * Normalized selected frame range.
-   *
-   * @public
-   * @readonly
-   * @type {(DownloadFrameRange | null)}
-   */
-  public get normalizedDownloadFrameRange(): DownloadFrameRange | null {
-    let range: DownloadFrameRange | null = null;
-    if (!this.currentPreferences.allFrames && this.hasRecordedFrames) {
-      const startFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), this.totalRecordedFrames);
-      const endFrame = Math.min(Math.max(startFrame, Math.floor(this.downloadEndFrame || startFrame)), this.totalRecordedFrames);
-      range = {startFrame, endFrame};
-    }
-    return range;
-  }
-
-  /**
-   * Number of selected frames.
-   *
-   * @public
-   * @readonly
-   * @type {number}
-   */
-  public get selectedFrameCount(): number {
-    const range = this.normalizedDownloadFrameRange;
-    return range ? range.endFrame - range.startFrame + 1 : this.totalRecordedFrames;
-  }
-
-  /**
-   * Frame range validation message.
-   *
-   * @public
-   * @readonly
-   * @type {(string | null)}
-   */
-  public get downloadFrameRangeError(): string | null {
-    let message: string | null = null;
-    if (!this.currentPreferences.allFrames && this.hasRecordedFrames) {
-      switch (true) {
-        case !Number.isFinite(this.downloadStartFrame) || !Number.isFinite(this.downloadEndFrame):
-          message = 'Frame range must use whole numbers.';
-          break;
-        case this.downloadStartFrame < 1 || this.downloadEndFrame < 1:
-          message = 'Frame range must start at frame 1 or later.';
-          break;
-        case this.downloadStartFrame > this.totalRecordedFrames || this.downloadEndFrame > this.totalRecordedFrames:
-          message = `Recorded frames currently range from 1 to ${this.totalRecordedFrames.toLocaleString()}.`;
-          break;
-        case this.downloadStartFrame > this.downloadEndFrame:
-          message = 'Start frame must be less than or equal to end frame.';
-          break;
-      }
-    }
-    return message;
-  }
-
-  /**
    * MP4 availability message.
    *
    * @public
@@ -372,12 +350,12 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {(string | null)}
    */
   public get mp4GateMessage(): string | null {
-    const bitrateBps = this.currentPreferences.mp4BitrateMbps * 1_000_000;
+    const bitrateBps = this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000;
     const overheadMultiplier = 1.1;
-    const estimatedBytes = (this.totalRecordedFrames / this.currentPreferences.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
+    const estimatedBytes = (this.totalRecordedFrames / this.downloadMp4SettingsValue.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
     const twoGb = 2 * 1024 * 1024 * 1024;
-    return this.totalRecordedFrames > 0 && estimatedBytes > twoGb ?
-      `Estimated MP4 size (${formatBinaryBytes(estimatedBytes)}) exceeds the 2 GB memory limit - MP4 will be skipped. Increase FPS, lower bitrate, or record fewer frames` :
+    return this.downloadMp4SettingsValid && this.totalRecordedFrames > 0 && estimatedBytes > twoGb ?
+      `Estimated MP4 size (${formatBinaryBytes(estimatedBytes)}) exceeds 2 GB - MP4 will be skipped. Increase FPS, lower bitrate, or export fewer frames` :
       null;
   }
 
@@ -396,50 +374,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public ngOnChanges(changes: TypedChanges<DownloadSection>): void {
-    if (changes.totalRecordedFrames) {
-      this.syncDownloadFrameRange();
-    }
-  }
-
-  /**
-   * Handles all-frames selection changes.
-   *
-   * @public
-   * @param {boolean} checked
-   */
-  public onDownloadAllFramesChange(checked: boolean): void {
-    this.currentPreferences.allFrames = checked;
-    this.downloadFrameRangeTouched = false;
-    this.syncDownloadFrameRange();
-    this.savePreferences();
-  }
-
-  /**
-   * Handles start frame changes.
-   *
-   * @public
-   * @param {number} value
-   */
-  public onDownloadStartFrameChange(value: number): void {
-    this.downloadStartFrame = value;
-    this.downloadFrameRangeTouched = true;
-  }
-
-  /**
-   * Handles end frame changes.
-   *
-   * @public
-   * @param {number} value
-   */
-  public onDownloadEndFrameChange(value: number): void {
-    this.downloadEndFrame = value;
-    this.downloadFrameRangeTouched = true;
   }
 
   /**
@@ -473,15 +407,71 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @public
    */
   public onDownload(): void {
+    const frameRange = this.downloadFrameRangeValue.allFrames ?
+      null :
+      {
+        startFrame: +this.downloadFrameRangeValue.startFrame,
+        endFrame: +this.downloadFrameRangeValue.endFrame
+      };
     this.download.emit({
       metrics: this.currentPreferences.metrics,
       mp4: this.currentPreferences.mp4 && !this.mp4GateMessage,
       png: this.currentPreferences.png,
       saves: this.currentPreferences.saves,
-      fps: this.currentPreferences.mp4Fps,
-      bitrate: this.currentPreferences.mp4BitrateMbps * 1_000_000,
-      frameRange: this.normalizedDownloadFrameRange
+      fps: +this.downloadMp4SettingsValue.mp4Fps,
+      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
+      frameRange
     });
+  }
+
+  /**
+   * Handles valid frame range form submissions.
+   *
+   * @public
+   * @param {DownloadFrameRangeFormValue} value
+   */
+  public onDownloadFrameRangeFormChange(value: DownloadFrameRangeFormValue): void {
+    const {allFrames} = value;
+    this.downloadFrameRangeValue = {...value};
+    if (allFrames !== this.currentPreferences.allFrames) {
+      this.currentPreferences.allFrames = allFrames;
+      this.savePreferences();
+    }
+  }
+
+  /**
+   * Handles frame range form validity changes.
+   *
+   * @public
+   * @param {boolean} valid
+   */
+  public onDownloadFrameRangeValidityChange(valid: boolean): void {
+    this.downloadFrameRangeValid = valid;
+  }
+
+  /**
+   * Handles valid MP4 settings form submissions.
+   *
+   * @public
+   * @param {DownloadMp4SettingsFormValue} value
+   */
+  public onDownloadMp4SettingsFormChange(value: DownloadMp4SettingsFormValue): void {
+    this.downloadMp4SettingsValue = {...value};
+    if (value.mp4Fps !== this.currentPreferences.mp4Fps || value.mp4BitrateMbps !== this.currentPreferences.mp4BitrateMbps) {
+      this.currentPreferences.mp4Fps = value.mp4Fps;
+      this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
+      this.savePreferences();
+    }
+  }
+
+  /**
+   * Handles MP4 settings form validity changes.
+   *
+   * @public
+   * @param {boolean} valid
+   */
+  public onDownloadMp4SettingsValidityChange(valid: boolean): void {
+    this.downloadMp4SettingsValid = valid;
   }
 
   /**
@@ -496,41 +486,71 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   protected override applyPreferences(preferences: DownloadSectionPreferences): void {
     Object.assign(this.currentPreferences, this.defaultPreferences, preferences);
-    this.syncDownloadFrameRange();
+    this.forceDownloadFrameRangeValue({
+      allFrames: this.currentPreferences.allFrames,
+      startFrame: 1,
+      endFrame: Math.max(1, this.totalRecordedFrames)
+    });
+    this.forceDownloadMp4SettingsValue({
+      mp4Fps: this.currentPreferences.mp4Fps,
+      mp4BitrateMbps: this.currentPreferences.mp4BitrateMbps
+    });
   }
 
   /**
    * @inheritdoc
    */
   protected override normalizePreferences(stored: Partial<DownloadSectionPreferences>, defaults: DownloadSectionPreferences): DownloadSectionPreferences {
+    const storedMp4Fps = stored.mp4Fps;
+    const storedMp4BitrateMbps = stored.mp4BitrateMbps;
+    const mp4Fps =
+      typeof storedMp4Fps === 'number' &&
+      Number.isInteger(storedMp4Fps) &&
+      storedMp4Fps >= 1 &&
+      storedMp4Fps <= 240 ?
+        storedMp4Fps :
+        defaults.mp4Fps;
+    const mp4BitrateMbps =
+      typeof storedMp4BitrateMbps === 'number' &&
+      Number.isInteger(storedMp4BitrateMbps) &&
+      storedMp4BitrateMbps >= 1 &&
+      storedMp4BitrateMbps <= 60 ?
+        storedMp4BitrateMbps :
+        defaults.mp4BitrateMbps;
     return {
       metrics: typeof stored.metrics === 'boolean' ? stored.metrics : defaults.metrics,
       saves: typeof stored.saves === 'boolean' ? stored.saves : defaults.saves,
       mp4: typeof stored.mp4 === 'boolean' ? stored.mp4 : defaults.mp4,
       png: typeof stored.png === 'boolean' ? stored.png : defaults.png,
       allFrames: typeof stored.allFrames === 'boolean' ? stored.allFrames : defaults.allFrames,
-      mp4Fps: typeof stored.mp4Fps === 'number' && stored.mp4Fps >= 1 && stored.mp4Fps <= 60 ? stored.mp4Fps : defaults.mp4Fps,
-      mp4BitrateMbps: typeof stored.mp4BitrateMbps === 'number' && stored.mp4BitrateMbps >= 0.5 && stored.mp4BitrateMbps <= 50 ? stored.mp4BitrateMbps : defaults.mp4BitrateMbps,
+      mp4Fps,
+      mp4BitrateMbps,
       mp4SettingsExpanded: typeof stored.mp4SettingsExpanded === 'boolean' ? stored.mp4SettingsExpanded : defaults.mp4SettingsExpanded,
       selectionExpanded: typeof stored.selectionExpanded === 'boolean' ? stored.selectionExpanded : defaults.selectionExpanded
     };
   }
 
   /**
-   * Keeps the selected frame range inside the recorded frame count.
+   * Forcefully syncs the frame range state passed to the child form.
    *
    * @private
+   * @param {DownloadFrameRangeFormValue} value
    */
-  private syncDownloadFrameRange(): void {
-    if (this.totalRecordedFrames <= 0) {
-      this.downloadStartFrame = 1;
-      this.downloadEndFrame = 1;
-    } else if (this.currentPreferences.allFrames || !this.downloadFrameRangeTouched) {
-      this.downloadStartFrame = 1;
-      this.downloadEndFrame = this.totalRecordedFrames;
-    } else {
-      this.downloadStartFrame = Math.min(Math.max(1, Math.floor(this.downloadStartFrame || 1)), this.totalRecordedFrames);
-      this.downloadEndFrame = Math.min(Math.max(this.downloadStartFrame, Math.floor(this.downloadEndFrame || this.downloadStartFrame)), this.totalRecordedFrames);
-    }
+  private forceDownloadFrameRangeValue(value: DownloadFrameRangeFormValue): void {
+    this.downloadFrameRangeValue = {...value};
+    this.downloadFrameRangeFormData = {...value};
+    this.downloadFrameRangeValid = true;
+  }
+
+  /**
+   * Forcefully syncs the MP4 settings state passed to the child form.
+   *
+   * @private
+   * @param {DownloadMp4SettingsFormValue} value
+   */
+  private forceDownloadMp4SettingsValue(value: DownloadMp4SettingsFormValue): void {
+    this.downloadMp4SettingsValue = {...value};
+    this.downloadMp4SettingsFormData = {...value};
+    this.downloadMp4SettingsValid = true;
   }
 }

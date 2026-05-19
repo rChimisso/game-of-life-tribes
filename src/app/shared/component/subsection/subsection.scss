@@ -27,7 +27,8 @@
     display: grid;
     grid-template-rows: 0fr;
     transition: grid-template-rows 0.25s ease;
-    padding: 4px 16px;
+    padding: 4px;
+    padding-left: 16px;
 
     &.open {
       grid-template-rows: 1fr;

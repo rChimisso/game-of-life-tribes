@@ -135,3 +135,53 @@ export interface DownloadSectionPreferences {
    */
   selectionExpanded: boolean;
 }
+
+/**
+ * Download frame range form value.
+ *
+ * @export
+ * @interface DownloadFrameRangeFormValue
+ * @typedef {DownloadFrameRangeFormValue}
+ */
+export interface DownloadFrameRangeFormValue {
+  /**
+   * Whether all recorded frames are selected.
+   *
+   * @type {boolean}
+   */
+  allFrames: boolean;
+  /**
+   * First selected frame.
+   *
+   * @type {number}
+   */
+  startFrame: number;
+  /**
+   * Last selected frame.
+   *
+   * @type {number}
+   */
+  endFrame: number;
+}
+
+/**
+ * Download MP4 settings form value.
+ *
+ * @export
+ * @interface DownloadMp4SettingsFormValue
+ * @typedef {DownloadMp4SettingsFormValue}
+ */
+export interface DownloadMp4SettingsFormValue {
+  /**
+   * MP4 frames per second.
+   *
+   * @type {number}
+   */
+  mp4Fps: number;
+  /**
+   * MP4 bitrate in megabits per second.
+   *
+   * @type {number}
+   */
+  mp4BitrateMbps: number;
+}

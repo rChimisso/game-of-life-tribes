@@ -38,6 +38,15 @@ export class CheckboxComponent extends CvaComponent<boolean> {
   public label = '';
 
   /**
+   * Tooltip.
+   *
+   * @public
+   * @type {(string | null)}
+   */
+  @Input()
+  public tooltip: string | null = null;
+
+  /**
    * Checkbox size.
    *
    * @public

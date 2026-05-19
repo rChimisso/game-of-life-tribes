@@ -53,6 +53,58 @@ p {
   margin-bottom: 1rem;
 }
 
+.error-message,
+.warning-message {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.error-message {
+  color: #ff6b6b;
+}
+
+.warning-message {
+  color: #ffa726;
+}
+
+.compact-message {
+  display: block;
+  height: 1rem;
+  opacity: 1;
+  line-height: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    height 0.2s ease,
+    opacity 0.2s ease;
+
+  &.empty {
+    height: 4px;
+    opacity: 0;
+  }
+}
+
+.collapsible-message {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    grid-template-rows 0.2s ease,
+    opacity 0.2s ease;
+
+  &.empty {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  > .message-content {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
 ul,
 ol {
   list-style-position: outside;
@@ -268,7 +320,7 @@ a {
         selected-handle-size: 18px,
         unselected-handle-size: 18px,
         with-icon-handle-size: 18px,
-        pressed-handle-size: 18px
+        pressed-handle-size: 18px,
       )
     );
 
@@ -342,6 +394,15 @@ mat-checkbox.mat-mdc-checkbox {
     .mdc-checkbox {
       transform: scale(0.85);
       transform-origin: left center;
+      flex: 0 0 12px;
+    }
+
+    .mat-internal-form-field {
+      height: 32px;
+
+      > label {
+        padding-left: 0;
+      }
     }
   }
 }

@@ -1,7 +1,14 @@
 :host {
   display: inline-block;
 
-  &:hover {
+  > mat-checkbox {
+    background-color: var(--gol-checkbox-background-color, #00000099);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  > mat-checkbox:hover {
     color: #ededed;
   }
 }

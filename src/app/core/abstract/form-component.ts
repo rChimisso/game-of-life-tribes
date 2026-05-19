@@ -1,6 +1,6 @@
 import {Directive, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormGroup} from '@angular/forms';
-import {Observable, OperatorFunction, debounceTime, distinctUntilChanged, filter, pairwise, startWith} from 'rxjs';
+import {Observable, OperatorFunction, debounceTime, filter, pairwise, startWith} from 'rxjs';
 
 import {SubscriberComponent} from './subscriber-component';
 import {FormType} from '../model/form-type';
@@ -98,7 +98,7 @@ export abstract class FormComponent<T> extends SubscriberComponent implements On
    * @param {number} [interval=0]
    */
   protected formChanges(callback: (value: [T, T]) => void, allower: (value: [T, T], index: number) => boolean = () => true, interval = 0) {
-    (this.form.valueChanges as Observable<T>).pipe(startWith(this.form.value) as OperatorFunction<T, T>, debounceTime(interval), distinctUntilChanged() as OperatorFunction<T, T>, pairwise(), filter(allower), this.takeUntil()).subscribe(callback);
+    (this.form.valueChanges as Observable<T>).pipe(startWith(this.form.value) as OperatorFunction<T, T>, debounceTime(interval), pairwise(), filter(allower), this.takeUntil()).subscribe(callback);
   }
 
   /**
@@ -112,7 +112,7 @@ export abstract class FormComponent<T> extends SubscriberComponent implements On
    * @param {number} [interval=0]
    */
   protected valueChanges<K extends keyof T>(control: K, callback: (value: T[K]) => void, allower: (value: T[K], index: number) => boolean = () => true, interval = 0) {
-    (this.form.controls[control].valueChanges as Observable<T[K]>).pipe(startWith(this.form.controls[control].value), debounceTime(interval), distinctUntilChanged(), filter(allower), this.takeUntil()).subscribe(callback);
+    (this.form.controls[control].valueChanges as Observable<T[K]>).pipe(startWith(this.form.controls[control].value), debounceTime(interval), filter(allower), this.takeUntil()).subscribe(callback);
   }
 
   /**

@@ -987,7 +987,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return changed;
   }
 
-  private downloadZip(opts: DownloadRequestPayload): void {
+  private async downloadZip(opts: DownloadRequestPayload): Promise<void> {
     const needFrames = opts.mp4 || opts.png || opts.metrics || opts.saves;
     console.log('[GOLT] Download started', {
       metrics: opts.metrics,
@@ -1005,97 +1005,40 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
     this.downloadProgress = 0;
     this.downloadSubProgress = -1;
-    this.downloadMainStatus = 'Waiting for compression jobs to finish';
+    this.downloadMainStatus = needFrames ? 'Saving pending recording frames' : 'Preparing snapshot';
     this.downloadStatus = '';
     this.cdr.markForCheck();
 
-    this.pauseCompressionPool().then(() => {
-      const snapshotP = new Promise<SnapshotMessage>(resolve => {
-        this.pendingSnapshotResolve = resolve;
-        this.engine.requestSnapshot();
+    try {
+      if (needFrames) {
+        console.log('[GOLT] Download OPFS flush started');
+        const flushedRecording = await this.requestRecordingManifest();
+        console.log('[GOLT] Download OPFS flush completed', {
+          chunks: flushedRecording.manifest.chunks.length,
+          generationStart: flushedRecording.manifest.generationStart,
+          generationEnd: flushedRecording.manifest.generationEnd
+        });
+        this.downloadMainStatus = 'Waiting for compression jobs to finish';
+        this.cdr.markForCheck();
+      }
+
+      console.log('[GOLT] Download compression pause started');
+      await this.pauseCompressionPool();
+      console.log('[GOLT] Download compression pause completed');
+
+      this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : 'Preparing snapshot';
+      this.cdr.markForCheck();
+      const snapshotP = this.requestDownloadSnapshot();
+      const recordingP = needFrames ? this.requestRecordingManifest() : Promise.resolve(null);
+      const [snap, rec] = await Promise.all([snapshotP, recordingP]);
+      console.log('[GOLT] Download manifest handoff ready', {
+        chunks: rec?.manifest.chunks.length ?? 0,
+        generationStart: rec?.manifest.generationStart ?? null,
+        generationEnd: rec?.manifest.generationEnd ?? null
       });
-
-      const framesP = needFrames ?
-        new Promise<RecordingMessage>(resolve => {
-          this.pendingRecordingResolve = resolve;
-          this.engine.requestRecording();
-        }) :
-        Promise.resolve(null);
-
-      Promise.all([snapshotP, framesP]).then(([snap, rec]) => {
-        const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
-        this.downloadWorker = worker;
-
-        const cleanupDownload = () => {
-          console.log('[GOLT] Download worker cleaned up');
-          this.downloadProgress = -1;
-          this.downloadSubProgress = -1;
-          this.downloadStatus = '';
-          this.downloadMainStatus = '';
-          this.downloadWorker = null;
-          this.cdr.markForCheck();
-          worker.terminate();
-          this.resumeCompressionPool();
-          this.engine.requestUncompressedChunks();
-        };
-
-        worker.onerror = () => {
-          console.error('[GOLT] Download worker failed unexpectedly');
-          this.openSnack('Download failed unexpectedly. Try again.', 'error', 0);
-          cleanupDownload();
-        };
-
-        worker.onmessage = (e: MessageEvent) => {
-          if (e.data.type === 'progress') {
-            this.downloadProgress = e.data.percent;
-            this.downloadMainStatus = e.data.status ?? '';
-            this.cdr.markForCheck();
-          } else if (e.data.type === 'sub-progress') {
-            this.downloadSubProgress = e.data.percent;
-            this.downloadStatus = e.data.status ?? '';
-            this.cdr.markForCheck();
-          } else if (e.data.type === 'done-part') {
-            console.log('[GOLT] Download part ready:', e.data.filename);
-            this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
-          } else if (e.data.type === 'error') {
-            const reason = e.data.reason ?? 'Unknown error';
-            console.error('[GOLT] Download error:', reason);
-            const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
-            this.openSnack(`Download error: ${reason}${suggestion}`, 'error', 0);
-            cleanupDownload();
-          } else if (e.data.type === 'done') {
-            console.log('[GOLT] Download completed');
-            cleanupDownload();
-          }
-        };
-        const gridBuf = snap.grid;
-        const hasChunks = rec && rec.manifest.chunks.length > 0;
-        const transferables: ArrayBuffer[] = [];
-        if (gridBuf?.buffer?.byteLength > 0) {
-          transferables.push(gridBuf.buffer);
-        }
-        worker.postMessage({
-          type: 'download',
-          opts,
-          snapshot: {
-            generation: snap.generation,
-            cols: snap.cols,
-            rows: snap.rows,
-            grid: gridBuf,
-            gridFormat: snap.gridFormat
-          },
-          recording: hasChunks ? {
-            manifest: rec.manifest,
-            cols: rec.cols,
-            rows: rec.rows
-          } : null,
-          tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
-          rules: this.ruleset.rules,
-          metricsHistory: []
-        }, transferables);
-      });
-    }).catch(() => {
-      console.error('[GOLT] Download preparation failed while waiting for compression data');
+      this.startDownloadWorker(opts, snap, rec);
+    } catch (error) {
+      console.error('[GOLT] Download preparation failed:', error);
       this.openSnack('Download failed while preparing compression data. Try again.', 'error', 0);
       this.resumeCompressionPool();
       this.downloadProgress = -1;
@@ -1103,7 +1046,112 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       this.downloadStatus = '';
       this.downloadMainStatus = '';
       this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * Requests the current engine snapshot for a download.
+   *
+   * @private
+   */
+  private requestDownloadSnapshot(): Promise<SnapshotMessage> {
+    return new Promise<SnapshotMessage>(resolve => {
+      this.pendingSnapshotResolve = resolve;
+      this.engine.requestSnapshot();
     });
+  }
+
+  /**
+   * Requests a recording manifest after pending frames have been sealed to OPFS.
+   *
+   * @private
+   */
+  private requestRecordingManifest(): Promise<RecordingMessage> {
+    return new Promise<RecordingMessage>(resolve => {
+      this.pendingRecordingResolve = resolve;
+      this.engine.requestRecording();
+    });
+  }
+
+  /**
+   * Starts the download worker once snapshot and recording data are stable.
+   *
+   * @private
+   * @param {DownloadRequestPayload} opts download options.
+   * @param {SnapshotMessage} snap stable snapshot.
+   * @param {(RecordingMessage | null)} rec stable recording manifest.
+   */
+  private startDownloadWorker(opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null): void {
+    const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
+    this.downloadWorker = worker;
+
+    const cleanupDownload = () => {
+      console.log('[GOLT] Download worker cleaned up');
+      this.downloadProgress = -1;
+      this.downloadSubProgress = -1;
+      this.downloadStatus = '';
+      this.downloadMainStatus = '';
+      this.downloadWorker = null;
+      this.cdr.markForCheck();
+      worker.terminate();
+      this.resumeCompressionPool();
+      this.engine.requestUncompressedChunks();
+    };
+
+    worker.onerror = () => {
+      console.error('[GOLT] Download worker failed unexpectedly');
+      this.openSnack('Download failed unexpectedly. Try again.', 'error', 0);
+      cleanupDownload();
+    };
+
+    worker.onmessage = (e: MessageEvent) => {
+      if (e.data.type === 'progress') {
+        this.downloadProgress = e.data.percent;
+        this.downloadMainStatus = e.data.status ?? '';
+        this.cdr.markForCheck();
+      } else if (e.data.type === 'sub-progress') {
+        this.downloadSubProgress = e.data.percent;
+        this.downloadStatus = e.data.status ?? '';
+        this.cdr.markForCheck();
+      } else if (e.data.type === 'done-part') {
+        console.log('[GOLT] Download part ready:', e.data.filename);
+        this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
+      } else if (e.data.type === 'error') {
+        const reason = e.data.reason ?? 'Unknown error';
+        console.error('[GOLT] Download error:', reason);
+        const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
+        this.openSnack(`Download error: ${reason}${suggestion}`, 'error', 0);
+        cleanupDownload();
+      } else if (e.data.type === 'done') {
+        console.log('[GOLT] Download completed');
+        cleanupDownload();
+      }
+    };
+    const gridBuf = snap.grid;
+    const hasChunks = rec && rec.manifest.chunks.length > 0;
+    const transferables: ArrayBuffer[] = [];
+    if (gridBuf?.buffer?.byteLength > 0) {
+      transferables.push(gridBuf.buffer);
+    }
+    worker.postMessage({
+      type: 'download',
+      opts,
+      snapshot: {
+        generation: snap.generation,
+        cols: snap.cols,
+        rows: snap.rows,
+        grid: gridBuf,
+        gridFormat: snap.gridFormat
+      },
+      recording: hasChunks ? {
+        manifest: rec.manifest,
+        cols: rec.cols,
+        rows: rec.rows
+      } : null,
+      tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
+      rules: this.ruleset.rules,
+      metricsHistory: []
+    }, transferables);
   }
 
   private async loadState(buffer: ArrayBuffer): Promise<void> {

@@ -74,6 +74,15 @@ interface PendingAttractorFrame {
   frame: Uint8Array;
 }
 
+/**
+ * Selected recorded frame used for `.golt` state export.
+ */
+interface SelectedStateFrame {
+  gen: number;
+  packed: Uint8Array;
+  gridFormat: GridFormatMetadata;
+}
+
 interface ActiveAttractor {
   startGeneration: number;
   firstRepeatGeneration: number;
@@ -1231,8 +1240,9 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
 
     // OPFS dir handle (opened once).
     let opfsDir: FileSystemDirectoryHandle | null = null;
-    // Track first and last frame for state snapshots.
-    let firstFrame: {gen: number; packed: Uint8Array; gridFormat: GridFormatMetadata} | null = null;
+    // Track first and last selected frames for state snapshots.
+    let firstFrame: SelectedStateFrame | null = null;
+    let lastFrame: SelectedStateFrame | null = null;
 
     // Progress budget: chunks 2-82%, metrics 85%, MP4 90%, finalize 95%.
     const chunkProgressStart = 2;
@@ -1355,6 +1365,11 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
                 gridFormat: chunkMeta.gridFormat
               };
             }
+            lastFrame = frameGlobalIndex === selectedEndIndex ? {
+              gen: frameGen,
+              packed: new Uint8Array(packed),
+              gridFormat: chunkMeta.gridFormat
+            } : lastFrame;
 
             if (needMetrics) {
               const metrics = computeFrameMetrics(frame, rec.cols, rec.rows, tribes, deadId, frameGen, previousMetricFrame);
@@ -1422,7 +1437,7 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
     const subFinalize = 95;
 
     // States: first and last generation frames saved as .golt binary files.
-    if (opts.saves && hasRecording && firstFrame) {
+    if (opts.saves && hasRecording && firstFrame && lastFrame) {
       mainProgress(metricsProgress, 'Writing states');
       subProgress(subStates, 'Building first-gen state');
 
@@ -1442,17 +1457,18 @@ self.onmessage = async(e: MessageEvent<WorkerInput>) => {
         })
       );
 
-      // Use snapshot grid for the last-gen state — it's the current GPU state in native format.
-      if (snapshot.generation !== firstFrame.gen) {
+      // LastFrame.packed is the selected range boundary, not the live snapshot.
+      if (lastFrame.gen !== firstFrame.gen) {
         subProgress(subStates + 10, 'Building last-gen state');
+        const lastU32 = alignPackedBytesToWords(lastFrame.packed);
         summaryZip.addEntry(
-          `state-last-gen${snapshot.generation}.golt`,
+          `state-last-gen${lastFrame.gen}.golt`,
           await buildGoltStateFile({
-            generation: snapshot.generation,
-            cols: snapshot.cols,
-            rows: snapshot.rows,
-            grid: snapshot.grid,
-            gridFormat: snapshot.gridFormat,
+            generation: lastFrame.gen,
+            cols: rec.cols,
+            rows: rec.rows,
+            grid: lastU32,
+            gridFormat: lastFrame.gridFormat,
             tribes,
             rules
           })

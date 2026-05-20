@@ -1,13 +1,13 @@
 <form class="gol-grid-tiny" [formGroup]="form">
   <div class="gol-cell-12 gol-grid-tiny mp4-settings-row">
-    <gol-input class="gol-cell-3" formControlName="mp4Fps" name="fps" regex="^([1-9][0-9]*)?$" type="number" />
-    <span class="gol-cell-3 mp4-setting-text">FPS</span>
-    <gol-input class="gol-cell-4" formControlName="mp4BitrateMbps" name="bitrate" regex="^([1-9][0-9]*)?$" type="number" />
-    <span class="gol-cell-2 mp4-setting-text">Mbps</span>
+    <gol-input class="gol-cell-3" formControlName="mp4Fps" name="fps" regex="^([1-9][0-9]*)?$" title="MP4 FPS" type="number" />
+    <span class="gol-cell-3 mp4-setting-text" title="MP4 FPS">FPS</span>
+    <gol-input class="gol-cell-4" formControlName="mp4BitrateMbps" name="bitrate" regex="^([1-9][0-9]*)?$" title="MP4 Bitrate" type="number" />
+    <span class="gol-cell-2 mp4-setting-text" title="MP4 Bitrate">Mbps</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny">
-    <span class="gol-cell-3 error-message compact-message" [class.empty]="!fpsError">{{ fpsError }}</span>
+    <span class="gol-cell-3 error-message compact-message" title="" [class.empty]="!fpsError">{{ fpsError }}</span>
     <div class="gol-cell-3"></div>
-    <span class="gol-cell-4 error-message compact-message" [class.empty]="!bitrateError">{{ bitrateError }}</span>
+    <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!bitrateError">{{ bitrateError }}</span>
   </div>
 </form>

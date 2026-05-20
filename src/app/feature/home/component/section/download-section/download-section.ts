@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 
@@ -12,6 +12,7 @@ import {formatBinaryBytes, formatDecimalBytes} from '../../../util/byte-format';
 import {DownloadFrameRangeForm} from '../../element/download-frame-range-form/download-frame-range-form';
 import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/download-mp4-settings-form';
 
+import {TypedChanges} from '~gol/core/model/typed-change';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 /**
@@ -20,6 +21,7 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
  * @export
  * @class DownloadSection
  * @typedef {DownloadSection}
+ * @implements {OnChanges}
  * @implements {OnInit}
  */
 @Component({
@@ -39,7 +41,7 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
   styleUrl: './download-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DownloadSection extends PersistedPreferencesComponent<DownloadSectionPreferences> implements OnInit {
+export class DownloadSection extends PersistedPreferencesComponent<DownloadSectionPreferences> implements OnChanges, OnInit {
   /**
    * Number of recorded frames available for download.
    *
@@ -195,6 +197,22 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public downloadMp4SettingsValid = true;
+
+  /**
+   * Displayed MP4 gate message.
+   *
+   * @public
+   * @type {string}
+   */
+  public displayedMp4GateMessage = '';
+
+  /**
+   * Whether the MP4 gate message is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public mp4GateMessageExpanded = false;
 
   /**
    * Default preferences.
@@ -372,8 +390,18 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   /**
    * @inheritdoc
    */
+  public ngOnChanges(changes: TypedChanges<DownloadSection>): void {
+    if (changes.totalRecordedFrames) {
+      this.syncMp4GateMessage();
+    }
+  }
+
+  /**
+   * @inheritdoc
+   */
   public ngOnInit(): void {
     this.restorePreferences();
+    this.syncMp4GateMessage();
   }
 
   /**
@@ -383,6 +411,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onSettingChange(): void {
     this.savePreferences();
+    this.syncMp4GateMessage();
   }
 
   /**
@@ -462,6 +491,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
       this.savePreferences();
     }
+    this.syncMp4GateMessage();
   }
 
   /**
@@ -472,6 +502,19 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadMp4SettingsValidityChange(valid: boolean): void {
     this.downloadMp4SettingsValid = valid;
+    this.syncMp4GateMessage();
+  }
+
+  /**
+   * Clears the MP4 gate message content after collapse.
+   *
+   * @public
+   * @param {TransitionEvent} event
+   */
+  public onMp4GateMessageTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName === 'grid-template-rows' && !this.mp4GateMessageExpanded) {
+      this.displayedMp4GateMessage = '';
+    }
   }
 
   /**
@@ -495,6 +538,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       mp4Fps: this.currentPreferences.mp4Fps,
       mp4BitrateMbps: this.currentPreferences.mp4BitrateMbps
     });
+    this.syncMp4GateMessage();
   }
 
   /**
@@ -552,5 +596,20 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     this.downloadMp4SettingsValue = {...value};
     this.downloadMp4SettingsFormData = {...value};
     this.downloadMp4SettingsValid = true;
+  }
+
+  /**
+   * Syncs the displayed MP4 gate message with the current warning state.
+   *
+   * @private
+   */
+  private syncMp4GateMessage(): void {
+    const nextMessage = this.currentPreferences.mp4 ? this.mp4GateMessage : null;
+    if (nextMessage) {
+      this.displayedMp4GateMessage = nextMessage;
+      this.mp4GateMessageExpanded = true;
+    } else {
+      this.mp4GateMessageExpanded = false;
+    }
   }
 }

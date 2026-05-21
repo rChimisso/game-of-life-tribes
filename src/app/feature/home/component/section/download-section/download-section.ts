@@ -88,6 +88,15 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public chunksSaving = false;
 
   /**
+   * Whether the simulation is running.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public running = false;
+
+  /**
    * Main download progress percentage.
    *
    * @public
@@ -267,7 +276,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       !this.currentPreferences.mp4 &&
       !this.currentPreferences.png;
     const invalidMp4Settings = this.currentPreferences.mp4 && !this.downloadMp4SettingsValid;
-    return this.downloading || this.chunksSaving || !this.downloadFrameRangeValid || invalidMp4Settings || noOutputsSelected;
+    return this.running || this.downloading || this.chunksSaving || !this.downloadFrameRangeValid || invalidMp4Settings || noOutputsSelected;
   }
 
   /**

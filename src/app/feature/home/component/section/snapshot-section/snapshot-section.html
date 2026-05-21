@@ -5,6 +5,6 @@
     <mat-progress-bar mode="indeterminate" />
   </div>
 } @else {
-  <gol-button-pair leftIcon="save" leftLabel="Save" rightIcon="upload_file" rightLabel="Load" [leftDisabled]="downloading" [rightDisabled]="downloading" (leftClick)="saveState.emit()" (rightClick)="fileInput.click()" />
+  <gol-button-pair leftIcon="save" leftLabel="Save" rightIcon="upload_file" rightLabel="Load" [leftDisabled]="snapshotActionsDisabled" [rightDisabled]="snapshotActionsDisabled" (leftClick)="saveState.emit()" (rightClick)="fileInput.click()" />
   <input #fileInput accept=".golt,.json" hidden type="file" (change)="onFileSelect($event)" />
 }

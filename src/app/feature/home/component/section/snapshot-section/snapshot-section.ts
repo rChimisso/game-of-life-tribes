@@ -48,6 +48,15 @@ export class SnapshotSection {
   public downloading = false;
 
   /**
+   * Whether the simulation is running.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public running = false;
+
+  /**
    * Emits snapshot save requests.
    *
    * @public
@@ -66,6 +75,17 @@ export class SnapshotSection {
    */
   @Output()
   public readonly loadState = new EventEmitter<ArrayBuffer>();
+
+  /**
+   * Whether snapshot actions are disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get snapshotActionsDisabled(): boolean {
+    return this.running || this.downloading;
+  }
 
   /**
    * Handles file input changes.

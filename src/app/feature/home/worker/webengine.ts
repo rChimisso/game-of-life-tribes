@@ -19,9 +19,10 @@ import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metri
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
-import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../util/grid-format';
+import {LimitsMessage, SnapshotMessage, WorkerMessage} from '../model/worker-message';
+import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
 import {normalizeLiveMetricsSettings} from '../util/metric-settings';
+import {repackPackedGrid} from './snapshot/packed-repack';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -1426,7 +1427,7 @@ function sealCurrentChunk(): void {
         rows,
         rawGridFormat: meta.gridFormat,
         storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
-      } satisfies ChunkSealedMessage);
+      });
 
       if (getRecordingPending && inflightSeals === 0) {
         getRecordingPending = false;
@@ -1472,7 +1473,7 @@ async function resetRecording(startGen: number): Promise<void> {
   pendingOpfsWrites = 0;
   if (inflightSeals > 0) {
     inflightSeals = 0;
-    self.postMessage({type: 'chunksSaving', active: false} satisfies ChunksSavingMessage);
+    self.postMessage({type: 'chunksSaving', active: false});
   }
   if (backpressureActive) {
     backpressureActive = false;
@@ -1558,7 +1559,7 @@ function sendRecordingManifest(): void {
     },
     cols,
     rows
-  } satisfies RecordingMessage);
+  });
 }
 
 /**
@@ -1793,7 +1794,7 @@ function postGeneration(): void {
     type: 'generation',
     generation: genCounter,
     fps: currentFps
-  } satisfies GenerationMessage);
+  });
 }
 
 function stepSimulation(): void {
@@ -1940,14 +1941,14 @@ function maybePostRunProgress(run: RunState, now: number): void {
 function clearRunBackpressure(): void {
   if (backpressureActive) {
     backpressureActive = false;
-    self.postMessage({type: 'backpressure', active: false} satisfies BackpressureMessage);
+    self.postMessage({type: 'backpressure', active: false});
   }
 }
 
 function markRunBackpressure(): void {
   if (!backpressureActive) {
     backpressureActive = true;
-    self.postMessage({type: 'backpressure', active: true} satisfies BackpressureMessage);
+    self.postMessage({type: 'backpressure', active: true});
   }
 }
 
@@ -2049,7 +2050,7 @@ function stopRun(reason: RunStopReason, options: StopRunOptions = {}): void {
   }
 
   if (targetRun && options.postStepping !== false && (reason === 'targetReached' || reason === 'cancelled')) {
-    self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
+    self.postMessage({type: 'stepping', active: false});
   }
 
   if (targetRun || reason === 'cancelled') {
@@ -2451,7 +2452,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     restartRestoredRun: false
   });
   rebuilding = true;
-  self.postMessage({type: 'rebuilding', active: true} satisfies RebuildingMessage);
+  self.postMessage({type: 'rebuilding', active: true});
 
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
@@ -2711,25 +2712,27 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
     case 'getSnapshot': {
       readbackGrid().then(grid => {
-        self.postMessage({
+        const message = {
           type: 'snapshot',
           grid,
           generation: genCounter,
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage);
+        } satisfies SnapshotMessage;
+        self.postMessage(message, [grid.buffer]);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
         const empty = new Uint32Array(0);
-        self.postMessage({
+        const message = {
           type: 'snapshot',
           grid: empty,
           generation: genCounter,
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage);
+        } satisfies SnapshotMessage;
+        self.postMessage(message, [empty.buffer]);
       });
       break;
     }
@@ -2741,9 +2744,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.grid.byteLength !== incomingSize) {
         break;
       }
-      const gridData = incomingGridFormat.bitsPerCell === gridFormat.bitsPerCell ?
-        m.grid :
-        packFrameToWords(unpackWordsToFrame(m.grid, {cols, rows}, incomingGridFormat), {cols, rows}, gridFormat);
+      const gridData = repackPackedGrid(m.grid, {cols, rows}, incomingGridFormat, gridFormat);
       device.queue.writeBuffer(currentGrid, 0, gridData);
       genCounter = m.generation;
       await resetRecording(m.generation);
@@ -2873,8 +2874,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           for (let frameIndex = 0; frameIndex <= frameInChunk; frameIndex++) {
             const storedOffset = frameIndex * storedFrameByteSize;
             const packedFrame = new Uint8Array(chunkData, storedOffset, storedFrameByteSize);
-            const unpackedFrame = unpackPackedBytesToFrame(packedFrame, {cols, rows}, storedChunkFormat);
-            const repackedFrame = packFrameToWords(unpackedFrame, {cols, rows}, gridFormat);
+            const repackedFrame = repackPackedGrid(alignPackedBytesToWords(packedFrame), {cols, rows}, storedChunkFormat, gridFormat);
             repackedPrefix.set(new Uint8Array(repackedFrame.buffer, repackedFrame.byteOffset, repackedFrame.byteLength), frameIndex * frameByteSize);
           }
           device.queue.writeBuffer(chunkGpuBuffer!, 0, repackedPrefix);
@@ -2938,7 +2938,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         renderFrame();
       } else {
         // Multi-step: target-generation run, max speed, no rendering.
-        self.postMessage({type: 'stepping', active: true} satisfies SteppingMessage);
+        self.postMessage({type: 'stepping', active: true});
         captureCurrentGenerationIfNeeded(true);
         startRun(runKindForCurrentRecording(), {
           pacing: {kind: 'max'},

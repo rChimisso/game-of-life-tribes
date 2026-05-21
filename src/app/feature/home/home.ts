@@ -15,11 +15,12 @@ import {CONWAY_PRESET} from './model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
-import {buildGoltStateFile, parseGoltStateFile} from './util/golt-file';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {applyRuleTribeRenames} from './util/tribe-impact';
 import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
+
+import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
  * Home page component.
@@ -54,6 +55,15 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @type {string}
    */
   private static readonly fixedSpeedLogMessage = '[GOLT] Fixed speed selected';
+
+  /**
+   * Status shown while the app is collecting snapshot inputs.
+   *
+   * @private
+   * @readonly
+   * @type {string}
+   */
+  private static readonly preparingSnapshotStatus = 'Preparing snapshot';
 
   public ruleset: Ruleset = CONWAY_PRESET.ruleset;
 
@@ -138,6 +148,30 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   public loadingState = false;
 
+  /**
+   * Current snapshot progress bar mode.
+   *
+   * @public
+   * @type {ProgressStatusMode}
+   */
+  public snapshotProgressMode: ProgressStatusMode = 'indeterminate';
+
+  /**
+   * Current snapshot progress percentage.
+   *
+   * @public
+   * @type {(number | null)}
+   */
+  public snapshotProgressPercent: number | null = null;
+
+  /**
+   * Current snapshot progress status text.
+   *
+   * @public
+   * @type {string}
+   */
+  public snapshotProgressStatus = '';
+
   private quotaWarningLevel: 0 | 25 | 50 | 75 | 100 = 0;
 
   private pendingStateLoad: {grid: Uint32Array; generation: number; gridFormat: GridFormatMetadata} | null = null;
@@ -159,6 +193,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private wakeLock: WakeLockSentinel | null = null;
 
   private wakeLockRequestPending = false;
+
+  private readonly minimumProgressVisibleMs = 1000;
 
   /**
    * Default preferences.
@@ -294,8 +330,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     console.error('[GOLT] GPU error:', data.reason);
     this.setRunState('paused');
     this.gpuErrorMessage = data.reason;
-    this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
-    this.openSnack(`GPU error: ${data.reason}`, 'error', 0);
+    this.openSnack(`GPU error: ${data.reason}`, 'error');
+    this.openSnack(`GPU error: ${data.reason}`, 'error');
     this.cdr.markForCheck();
   }
 
@@ -333,18 +369,18 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress — size may decrease)' : '';
       const alreadyPaused = this.state === 'paused' && !this.stepping;
       if (level === 25) {
-        this.openSnack(`Recording storage at 25% capacity${compHint}`, 'info', 0);
+        this.openSnack(`Recording storage at 25% capacity${compHint}`, 'info');
       } else if (level === 50) {
-        this.openSnack(`Recording storage at 50% capacity${compHint}`, 'warning', 0);
+        this.openSnack(`Recording storage at 50% capacity${compHint}`, 'warning');
       } else if (level === 75) {
         const pauseHint = alreadyPaused ? '' : ' — simulation paused to preserve data';
-        this.openSnack(`Recording storage at 75%${pauseHint}${compHint}`, 'warning', 0);
+        this.openSnack(`Recording storage at 75%${pauseHint}${compHint}`, 'warning');
         if (this.stepping) {
           this.cancelStepping();
         }
         this.setRunState('paused');
       } else if (level === 100) {
-        this.openSnack(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'error', 0);
+        this.openSnack(`Storage full — recording disabled. Save your data, then reset.${compHint}`, 'error');
         if (this.stepping) {
           this.cancelStepping();
         }
@@ -390,10 +426,16 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       this.pendingSnapshotResolve(snap);
       this.pendingSnapshotResolve = null;
     } else {
-      this.saveGoltState(snap).finally(() => {
-        this.savingState = false;
-        this.cdr.markForCheck();
-      });
+      this.saveGoltState(snap)
+        .catch(error => {
+          console.error('[GOLT] Snapshot save failed:', error);
+          this.openSnack('Snapshot save failed. Try again.', 'error');
+        })
+        .finally(() => {
+          this.savingState = false;
+          this.resetSnapshotProgress();
+          this.cdr.markForCheck();
+        });
     }
   }
 
@@ -495,6 +537,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         break;
       case 'saveState':
         this.savingState = true;
+        this.setSnapshotProgress('indeterminate', null, HomePage.preparingSnapshotStatus);
         this.cdr.markForCheck();
         this.engine.requestSnapshot();
         break;
@@ -969,7 +1012,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.latestMetrics = null;
   }
 
-  private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number): void {
+  private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number = 0): void {
     const config: MatSnackBarConfig = {
       panelClass: `snackbar-${tone}`
     };
@@ -1005,7 +1048,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
     this.downloadProgress = 0;
     this.downloadSubProgress = -1;
-    this.downloadMainStatus = needFrames ? 'Saving pending recording frames' : 'Preparing snapshot';
+    this.downloadMainStatus = needFrames ? 'Saving pending recording frames' : HomePage.preparingSnapshotStatus;
     this.downloadStatus = '';
     this.cdr.markForCheck();
 
@@ -1026,7 +1069,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       await this.pauseCompressionPool();
       console.log('[GOLT] Download compression pause completed');
 
-      this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : 'Preparing snapshot';
+      this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : HomePage.preparingSnapshotStatus;
       this.cdr.markForCheck();
       const snapshotP = this.requestDownloadSnapshot();
       const recordingP = needFrames ? this.requestRecordingManifest() : Promise.resolve(null);
@@ -1036,10 +1079,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         generationStart: rec?.manifest.generationStart ?? null,
         generationEnd: rec?.manifest.generationEnd ?? null
       });
-      this.startDownloadWorker(opts, snap, rec);
+      this.startDownloadWorker(opts, snap, rec, performance.now());
     } catch (error) {
       console.error('[GOLT] Download preparation failed:', error);
-      this.openSnack('Download failed while preparing compression data. Try again.', 'error', 0);
+      this.openSnack('Download failed while preparing compression data. Try again.', 'error');
       this.resumeCompressionPool();
       this.downloadProgress = -1;
       this.downloadSubProgress = -1;
@@ -1079,11 +1122,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @private
    * @param {DownloadRequestPayload} opts download options.
    * @param {SnapshotMessage} snap stable snapshot.
+   * @param startedAt
    * @param {(RecordingMessage | null)} rec stable recording manifest.
    */
-  private startDownloadWorker(opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null): void {
+  private startDownloadWorker(opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null, startedAt: number): void {
     const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
     this.downloadWorker = worker;
+    const pendingDownloadSideEffects: Promise<void>[] = [];
 
     const cleanupDownload = () => {
       console.log('[GOLT] Download worker cleaned up');
@@ -1100,11 +1145,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
     worker.onerror = () => {
       console.error('[GOLT] Download worker failed unexpectedly');
-      this.openSnack('Download failed unexpectedly. Try again.', 'error', 0);
+      this.openSnack('Download failed unexpectedly. Try again.', 'error');
       cleanupDownload();
     };
 
-    worker.onmessage = (e: MessageEvent) => {
+    worker.onmessage = async(e: MessageEvent) => {
       if (e.data.type === 'progress') {
         this.downloadProgress = e.data.percent;
         this.downloadMainStatus = e.data.status ?? '';
@@ -1115,15 +1160,18 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.cdr.markForCheck();
       } else if (e.data.type === 'done-part') {
         console.log('[GOLT] Download part ready:', e.data.filename);
-        this.downloadBlob(new Blob([e.data.buffer]), e.data.filename);
+        const blob = e.data.file instanceof Blob ? e.data.file : new Blob([e.data.buffer]);
+        const sideEffect = this.waitForMinimumVisibleTime(startedAt).then(() => this.downloadBlob(blob, e.data.filename));
+        pendingDownloadSideEffects.push(sideEffect);
       } else if (e.data.type === 'error') {
         const reason = e.data.reason ?? 'Unknown error';
         console.error('[GOLT] Download error:', reason);
         const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
-        this.openSnack(`Download error: ${reason}${suggestion}`, 'error', 0);
+        this.openSnack(`Download error: ${reason}${suggestion}`, 'error');
         cleanupDownload();
       } else if (e.data.type === 'done') {
         console.log('[GOLT] Download completed');
+        await Promise.all(pendingDownloadSideEffects);
         cleanupDownload();
       }
     };
@@ -1149,71 +1197,101 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         rows: rec.rows
       } : null,
       tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
-      rules: this.ruleset.rules,
-      metricsHistory: []
+      rules: this.ruleset.rules
     }, transferables);
   }
 
   private async loadState(buffer: ArrayBuffer): Promise<void> {
+    const startedAt = performance.now();
     this.loadingState = true;
+    this.setSnapshotProgress('indeterminate', null, 'Reading snapshot file');
     this.cdr.markForCheck();
     try {
       const parsed = await this.parseGoltFile(buffer);
-      if (!parsed) {
-        return;
-      }
-      const {cols, rows, generation, grid, gridFormat} = parsed;
-      const nextSimulationGridFormat = this.smallestSimulationGridFormatForRuleset(this.ruleset, cols, rows);
-      const needsRebuild = cols !== this.ruleset.cols || rows !== this.ruleset.rows ||
-        nextSimulationGridFormat.bitsPerCell !== this.simulationGridFormat.bitsPerCell;
-      if (needsRebuild) {
-        this.rebuilding = true;
-        this.pendingStateLoad = {
-          grid,
-          generation,
-          gridFormat
-        };
-        this.simulationGridFormat = nextSimulationGridFormat;
-        if (cols !== this.ruleset.cols || rows !== this.ruleset.rows) {
-          this.ruleset = {
-            ...this.ruleset,
-            cols,
-            rows
-          };
-        }
-        if (this.clampBrushSize()) {
-          this.savePreferences();
-        }
+      await this.waitForMinimumVisibleTime(startedAt);
+      if (parsed) {
+        this.applyLoadedSnapshot(parsed);
       } else {
-        this.engine.loadSnapshot(grid, generation, gridFormat);
-        this.latestMetrics = null;
+        console.warn('[GOLT] Invalid snapshot file selected');
+        this.openSnack('Invalid snapshot file.', 'error');
       }
     } finally {
       this.loadingState = false;
+      this.resetSnapshotProgress();
       this.cdr.markForCheck();
     }
   }
 
   private async saveGoltState(snap: SnapshotMessage): Promise<void> {
+    const startedAt = performance.now();
     const blob = await this.buildGoltFile(snap);
+    await this.waitForMinimumVisibleTime(startedAt);
     this.downloadBlob(blob, `gol-state-gen${snap.generation}.golt`);
   }
 
   private async buildGoltFile(snap: SnapshotMessage): Promise<Blob> {
-    const file = await buildGoltStateFile({
-      generation: snap.generation,
-      cols: snap.cols,
-      rows: snap.rows,
-      grid: snap.grid,
-      gridFormat: snap.gridFormat,
-      tribes: this.tribes,
-      rules: this.ruleset.rules
-    });
-    return new Blob([file], {type: 'application/octet-stream'});
+    return new Blob([await this.runSnapshotSaveWorker(snap)], {type: 'application/octet-stream'});
   }
 
   private async parseGoltFile(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata} | null> {
-    return parseGoltStateFile(buffer);
+    return this.runSnapshotLoadWorker(buffer);
+  }
+
+  /**
+   * Applies a parsed snapshot to the current engine or queues it through rebuild.
+   *
+   * @private
+   * @param {{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}} parsed 
+   * @param {number} parsed.cols
+   * @param {number} parsed.rows
+   * @param {number} parsed.generation
+   * @param {Uint32Array} parsed.grid
+   * @param {GridFormatMetadata} parsed.gridFormat
+   */
+  private applyLoadedSnapshot(parsed: {cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}): void {
+    const {cols, rows, generation, grid, gridFormat} = parsed;
+    const nextSimulationGridFormat = this.smallestSimulationGridFormatForRuleset(this.ruleset, cols, rows);
+    const needsRebuild = cols !== this.ruleset.cols || rows !== this.ruleset.rows ||
+      nextSimulationGridFormat.bitsPerCell !== this.simulationGridFormat.bitsPerCell;
+    if (needsRebuild) {
+      this.queueLoadedSnapshotForRebuild(parsed, nextSimulationGridFormat);
+    } else {
+      this.engine.loadSnapshot(grid, generation, gridFormat);
+      this.latestMetrics = null;
+    }
+  }
+
+  /**
+   * Stores a parsed snapshot until the engine rebuild completes.
+   *
+   * @private
+   * @param {{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}} parsed parsed snapshot data.
+   * @param {number} parsed.cols
+   * @param {number} parsed.rows
+   * @param {number} parsed.generation
+   * @param {Uint32Array} parsed.grid
+   * @param {GridFormatMetadata} parsed.gridFormat
+   * @param {GridFormatMetadata} nextSimulationGridFormat grid format selected for the rebuilt engine.
+   */
+  private queueLoadedSnapshotForRebuild(parsed: {cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}, nextSimulationGridFormat: GridFormatMetadata): void {
+    const {cols, rows, generation, grid, gridFormat} = parsed;
+    this.rebuilding = true;
+    this.pendingStateLoad = {
+      grid,
+      generation,
+      gridFormat
+    };
+    this.simulationGridFormat = nextSimulationGridFormat;
+    if (cols !== this.ruleset.cols || rows !== this.ruleset.rows) {
+      this.ruleset = {
+        ...this.ruleset,
+        cols,
+        rows
+      };
+    }
+    if (this.clampBrushSize()) {
+      this.savePreferences();
+    }
   }
 
   private downloadBlob(blob: Blob, filename: string): void {
@@ -1223,6 +1301,143 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  private runSnapshotSaveWorker(snap: SnapshotMessage): Promise<ArrayBuffer> {
+    return new Promise<ArrayBuffer>((resolve, reject) => {
+      const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
+      worker.onerror = () => {
+        worker.terminate();
+        reject(new Error('Snapshot worker failed unexpectedly'));
+      };
+      worker.onmessage = (event: MessageEvent) => {
+        const message = event.data as {
+          type: 'saved' | 'progress' | 'error';
+          buffer?: ArrayBuffer;
+          mode?: ProgressStatusMode;
+          percent?: number | null;
+          status?: string;
+          reason?: string;
+        };
+        if (message.type === 'saved' && message.buffer instanceof ArrayBuffer) {
+          worker.terminate();
+          resolve(message.buffer);
+        } else if (message.type === 'saved') {
+          worker.terminate();
+          reject(new Error('Snapshot save failed: missing worker buffer'));
+        } else if (message.type === 'progress') {
+          this.applySnapshotProgress(message.mode, message.percent ?? null, message.status ?? '');
+        } else if (message.type === 'error') {
+          worker.terminate();
+          reject(new Error(message.reason ?? 'Snapshot save failed'));
+        }
+      };
+      worker.postMessage({
+        type: 'save',
+        snapshot: {
+          generation: snap.generation,
+          cols: snap.cols,
+          rows: snap.rows,
+          grid: snap.grid,
+          gridFormat: snap.gridFormat,
+          tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
+          rules: this.ruleset.rules
+        }
+      }, [snap.grid.buffer]);
+    });
+  }
+
+  private runSnapshotLoadWorker(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata} | null> {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
+      worker.onerror = () => {
+        worker.terminate();
+        reject(new Error('Snapshot worker failed unexpectedly'));
+      };
+      worker.onmessage = (event: MessageEvent) => {
+        const message = event.data as {
+          type: 'loaded' | 'invalid' | 'progress' | 'error';
+          cols?: number;
+          rows?: number;
+          generation?: number;
+          grid?: Uint32Array;
+          gridFormat?: GridFormatMetadata;
+          mode?: ProgressStatusMode;
+          percent?: number | null;
+          status?: string;
+          reason?: string;
+        };
+        if (message.type === 'loaded' && typeof message.cols === 'number' && typeof message.rows === 'number' &&
+            typeof message.generation === 'number' && message.grid instanceof Uint32Array && message.gridFormat) {
+          worker.terminate();
+          resolve({
+            cols: message.cols,
+            rows: message.rows,
+            generation: message.generation,
+            grid: message.grid,
+            gridFormat: message.gridFormat
+          });
+        } else if (message.type === 'loaded') {
+          worker.terminate();
+          reject(new Error('Snapshot load failed: incomplete worker payload'));
+        } else if (message.type === 'invalid') {
+          worker.terminate();
+          resolve(null);
+        } else if (message.type === 'progress') {
+          this.applySnapshotProgress(message.mode, message.percent ?? null, message.status ?? '');
+        } else if (message.type === 'error') {
+          worker.terminate();
+          reject(new Error(message.reason ?? 'Snapshot load failed'));
+        }
+      };
+      worker.postMessage({
+        type: 'load',
+        buffer
+      }, [buffer]);
+    });
+  }
+
+  /**
+   * Applies progress reported by the snapshot worker.
+   *
+   * @private
+   * @param {(ProgressStatusMode | undefined)} mode progress bar mode.
+   * @param {(number | null)} percent determinate progress percentage.
+   * @param {string} status user-visible status text.
+   */
+  private applySnapshotProgress(mode: ProgressStatusMode | undefined, percent: number | null, status: string): void {
+    this.setSnapshotProgress(mode ?? 'indeterminate', percent, status);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Sets snapshot progress state.
+   *
+   * @private
+   * @param {ProgressStatusMode} mode progress bar mode.
+   * @param {(number | null)} percent determinate progress percentage.
+   * @param {string} status user-visible status text.
+   */
+  private setSnapshotProgress(mode: ProgressStatusMode, percent: number | null, status: string): void {
+    this.snapshotProgressMode = mode;
+    this.snapshotProgressPercent = percent;
+    this.snapshotProgressStatus = status;
+  }
+
+  /**
+   * Clears snapshot progress state.
+   *
+   * @private
+   */
+  private resetSnapshotProgress(): void {
+    this.setSnapshotProgress('indeterminate', null, '');
+  }
+
+  private async waitForMinimumVisibleTime(startedAt: number): Promise<void> {
+    const elapsed = performance.now() - startedAt;
+    if (elapsed < this.minimumProgressVisibleMs) {
+      await new Promise(resolve => setTimeout(resolve, this.minimumProgressVisibleMs - elapsed));
+    }
   }
 
   private normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {

@@ -202,9 +202,10 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
   // Compress with deflate-raw
   const cs = new CompressionStream('deflate-raw');
   const writer = cs.writable.getWriter();
-  writer.write(packedPayload);
-  writer.close();
-  const compressedData = await new Response(cs.readable).arrayBuffer();
+  const compressedOutput = new Response(cs.readable).arrayBuffer();
+  await writer.write(packedPayload);
+  await writer.close();
+  const compressedData = await compressedOutput;
 
   // Check if compression is worthwhile
   if (compressedData.byteLength >= packedPayload.byteLength * COMPRESSION_THRESHOLD) {

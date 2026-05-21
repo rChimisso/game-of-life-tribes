@@ -58,7 +58,7 @@
 
     <!-- Snapshot -->
     <gol-home-section title="Snapshot" [collapsible]="false" [description]="'Save or load a .golt snapshot file.'">
-      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [running]="running" [savingState]="savingState" (loadState)="emit('loadState', $event)" (saveState)="emit('saveState')" />
+      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [running]="running" [savingState]="savingState" [snapshotProgressMode]="snapshotProgressMode" [snapshotProgressPercent]="snapshotProgressPercent" [snapshotProgressStatus]="snapshotProgressStatus" (loadState)="emit('loadState', $event)" (saveState)="emit('saveState')" />
     </gol-home-section>
 
     <hr class="divider shortcuts-divider" />

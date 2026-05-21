@@ -14,18 +14,5 @@
 <span class="warning-message collapsible-message mp4-gate-message" [class.empty]="!mp4GateMessageExpanded" (transitionend)="onMp4GateMessageTransitionEnd($event)">
   <span class="message-content">{{ displayedMp4GateMessage }}</span>
 </span>
-@if (downloadProgress >= 0) {
-  <div class="download-status">
-    <mat-progress-bar mode="determinate" [value]="downloadProgress" />
-    @if (downloadMainStatus) {
-      <span class="download-status-text main-status">{{ downloadMainStatus }}</span>
-    }
-    @if (downloadSubProgress >= 0) {
-      <mat-progress-bar class="sub-progress" mode="determinate" [value]="downloadSubProgress" />
-    }
-    @if (downloadStatus) {
-      <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
-    }
-  </div>
-}
+<gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
 <gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="!downloading" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />

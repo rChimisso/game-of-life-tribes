@@ -1,10 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
+import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
 import {StorageBar} from '../../../../../shared/component/storage-bar/storage-bar';
 import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
 import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
@@ -35,7 +35,7 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
     ApplyRestoreButtons,
     DownloadFrameRangeForm,
     DownloadMp4SettingsForm,
-    MatProgressBarModule
+    ProgressStatus
   ],
   templateUrl: './download-section.html',
   styleUrl: './download-section.scss',
@@ -260,6 +260,17 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public get downloading(): boolean {
     return this.downloadProgress >= 0;
+  }
+
+  /**
+   * Download progress status displayed above the button pair.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadProgressStatus(): string {
+    return this.downloadStatus || this.downloadMainStatus || 'Preparing download';
   }
 
   /**

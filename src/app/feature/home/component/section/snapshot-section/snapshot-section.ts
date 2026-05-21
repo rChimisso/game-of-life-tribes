@@ -1,8 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
+import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
+
+import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
  * Snapshot save and load section.
@@ -14,7 +16,7 @@ import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore
 @Component({
   selector: 'gol-snapshot-section',
   standalone: true,
-  imports: [ApplyRestoreButtons, MatIconModule, MatProgressBarModule],
+  imports: [ApplyRestoreButtons, MatIconModule, ProgressStatus],
   templateUrl: './snapshot-section.html',
   styleUrl: './snapshot-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -57,6 +59,33 @@ export class SnapshotSection {
   public running = false;
 
   /**
+   * Current snapshot progress bar mode.
+   *
+   * @public
+   * @type {ProgressStatusMode}
+   */
+  @Input({required: true})
+  public snapshotProgressMode: ProgressStatusMode = 'indeterminate';
+
+  /**
+   * Current snapshot progress percentage.
+   *
+   * @public
+   * @type {(number | null)}
+   */
+  @Input()
+  public snapshotProgressPercent: number | null = null;
+
+  /**
+   * Current snapshot progress status from the worker.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public snapshotProgressStatus = '';
+
+  /**
    * Emits snapshot save requests.
    *
    * @public
@@ -84,7 +113,29 @@ export class SnapshotSection {
    * @type {boolean}
    */
   public get snapshotActionsDisabled(): boolean {
-    return this.running || this.downloading;
+    return this.running || this.downloading || this.savingState || this.loadingState;
+  }
+
+  /**
+   * Whether snapshot progress is active.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get snapshotProgressActive(): boolean {
+    return this.savingState || this.loadingState;
+  }
+
+  /**
+   * Current snapshot progress status.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get displayedSnapshotProgressStatus(): string {
+    return this.snapshotProgressStatus || (this.savingState ? 'Saving snapshot' : 'Loading snapshot');
   }
 
   /**

@@ -323,7 +323,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       grid,
       generation,
       gridFormat
-    });
+    }, [grid.buffer]);
   }
 
   public setRecording(recording: boolean): void {

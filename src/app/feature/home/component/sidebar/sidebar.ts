@@ -30,6 +30,7 @@ import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
 import {Grid} from '~gol/feature/home/model/grid';
+import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 @Component({
@@ -182,6 +183,33 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   @Input()
   public loadingState = false;
+
+  /**
+   * Current snapshot progress bar mode.
+   *
+   * @public
+   * @type {ProgressStatusMode}
+   */
+  @Input()
+  public snapshotProgressMode: ProgressStatusMode = 'indeterminate';
+
+  /**
+   * Current snapshot progress percentage.
+   *
+   * @public
+   * @type {(number | null)}
+   */
+  @Input()
+  public snapshotProgressPercent: number | null = null;
+
+  /**
+   * Current snapshot progress status text.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public snapshotProgressStatus = '';
 
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();

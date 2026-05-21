@@ -2,7 +2,7 @@
 <div class="download-checks" title="">
   <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
   <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="PNG" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
   <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
 </div>
 <gol-subsection title="Selection range" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">

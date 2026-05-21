@@ -1,13 +1,11 @@
-import {
-  BuildMetricMessageRequest,
+import {BuildMetricMessageRequest,
   CreateInteractiveMetricsResourcesRequest,
   EncodeInteractiveMetricsRequest,
   InteractiveMetricMessage,
   InteractiveMetricsReadback,
   InteractiveMetricsResources,
   MetricsDispatchPlan2D,
-  ReadInteractiveMetricsRequest
-} from './metrics-types';
+  ReadInteractiveMetricsRequest} from './metrics-types';
 import {GPU_LABELS} from '../gpu-labels';
 import {hasInteractiveMetricSection} from './metrics-planner';
 
@@ -300,22 +298,20 @@ export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest
 
   if (diversityEnabled && totalAlive > 0) {
     for (let i = 0; i < tribes.length; i++) {
-      if (i === deadTribeIndex) {
-        continue;
-      }
-      const p = (readback.histogram[i] ?? 0) / totalAlive;
-      if (p > 0) {
-        shannonEntropy -= p * Math.log2(p);
-        simpsonSum += p * p;
+      if (i !== deadTribeIndex) {
+        const p = (readback.histogram[i] ?? 0) / totalAlive;
+        if (p > 0) {
+          shannonEntropy -= p * Math.log2(p);
+          simpsonSum += p * p;
+        }
       }
     }
   }
 
   for (let i = 0; i < tribes.length; i++) {
-    if (i === deadTribeIndex) {
-      continue;
+    if (i !== deadTribeIndex) {
+      extinctionTime[tribes[i]!.id] = 0;
     }
-    extinctionTime[tribes[i]!.id] = 0;
   }
 
   const deadCells = populationEnabled ? population[tribes[deadTribeIndex]?.id ?? ''] ?? 0 : 0;

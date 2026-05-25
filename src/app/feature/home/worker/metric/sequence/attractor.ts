@@ -1,14 +1,14 @@
 import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
 import {finalizeCrc32, updateCrc32} from '../../zip/zip-crc32';
-import {AttractorEpisode} from '../core/offline-types';
+import {AttractorEpisode, OfflineMetricEntry} from '../core/offline-types';
 
 /**
- * Hash-only pending frame used for bounded attractor detection.
+ * Compact signature used for bounded attractor detection.
  *
- * @interface PendingAttractorFrame
- * @typedef {PendingAttractorFrame}
+ * @interface AttractorFrameSignature
+ * @typedef {AttractorFrameSignature}
  */
-interface PendingAttractorFrame {
+interface AttractorFrameSignature {
   /**
    * Generation represented by the frame.
    *
@@ -21,10 +21,40 @@ interface PendingAttractorFrame {
    * @type {number}
    */
   hash: number;
+  /**
+   * Population counts in tribe key order.
+   *
+   * @type {number[]}
+   */
+  population: number[];
+  /**
+   * Live cell count.
+   *
+   * @type {number}
+   */
+  aliveCells: number;
+  /**
+   * Dead cell count.
+   *
+   * @type {number}
+   */
+  deadCells: number;
+  /**
+   * Contact edges whose endpoints have the same state.
+   *
+   * @type {number}
+   */
+  sameStateContactEdges: number;
+  /**
+   * Contact edges whose endpoints have different states.
+   *
+   * @type {number}
+   */
+  crossStateContactEdges: number;
 }
 
 /**
- * Active hash-only attractor candidate.
+ * Active attractor candidate.
  *
  * @interface ActiveAttractor
  * @typedef {ActiveAttractor}
@@ -49,11 +79,11 @@ interface ActiveAttractor {
    */
   orbitPeriodLength: number;
   /**
-   * Hashes for one orbit.
+   * Signatures for one orbit.
    *
-   * @type {number[]}
+   * @type {AttractorFrameSignature[]}
    */
-  orbitHashes: number[];
+  orbitSignatures: AttractorFrameSignature[];
   /**
    * Last generation matching the active orbit.
    *
@@ -63,7 +93,7 @@ interface ActiveAttractor {
 }
 
 /**
- * Hash-only attractor tracker state.
+ * Attractor tracker state.
  *
  * @export
  * @interface AttractorTracker
@@ -95,11 +125,11 @@ interface AttractorTracker {
    */
   candidatesByHash: Map<number, number[]>;
   /**
-   * Hash-only candidate frames.
+   * Candidate frame signatures.
    *
-   * @type {PendingAttractorFrame[]}
+   * @type {AttractorFrameSignature[]}
    */
-  pendingFrames: PendingAttractorFrame[];
+  pendingFrames: AttractorFrameSignature[];
   /**
    * Active attractor, if one is currently matching.
    *
@@ -115,7 +145,7 @@ interface AttractorTracker {
 }
 
 /**
- * Creates an empty hash-only attractor tracker.
+ * Creates an empty attractor tracker.
  *
  * @export
  * @returns {AttractorTracker} attractor tracker.
@@ -133,14 +163,15 @@ function createAttractorTracker(): AttractorTracker {
 }
 
 /**
- * Observes one frame in the hash-only attractor tracker.
+ * Observes one frame in the attractor tracker.
  *
  * @export
  * @param {AttractorTracker} tracker attractor tracker.
  * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {OfflineMetricEntry} metric metric row for the frame.
  */
-function observeAttractorFrame(tracker: AttractorTracker, frame: PackedRecordedFrame): void {
-  const hash = hashFrame(frame.packed);
+function observeAttractorFrame(tracker: AttractorTracker, frame: PackedRecordedFrame, metric: OfflineMetricEntry): void {
+  const signature = createFrameSignature(frame, metric);
   const {generation} = frame;
   const gapAfterLastFrame = tracker.lastGeneration !== null && generation - tracker.lastGeneration !== 1;
   if (tracker.generationStart === null) {
@@ -152,9 +183,9 @@ function observeAttractorFrame(tracker: AttractorTracker, frame: PackedRecordedF
     resetAttractorCandidates(tracker);
   }
   if (tracker.active) {
-    updateActiveAttractor(tracker, hash, generation);
+    updateActiveAttractor(tracker, signature);
   } else {
-    detectOrAddCandidate(tracker, hash, generation);
+    detectOrAddCandidate(tracker, signature);
   }
   tracker.lastGeneration = generation;
 }
@@ -176,8 +207,7 @@ function finalizeActiveAttractor(tracker: AttractorTracker): void {
       firstRepeatGeneration: active.firstRepeatGeneration,
       endGeneration: active.lastMatchingGeneration,
       transientLength: previousAttractor ? active.startGeneration - previousAttractor.endGeneration : active.startGeneration,
-      orbitPeriodLength: active.orbitPeriodLength,
-      exact: false
+      orbitPeriodLength: active.orbitPeriodLength
     });
     tracker.active = null;
   }
@@ -187,19 +217,18 @@ function finalizeActiveAttractor(tracker: AttractorTracker): void {
  * Updates an active attractor match or restarts detection when the sequence diverges.
  *
  * @param {AttractorTracker} tracker attractor tracker.
- * @param {number} hash current frame hash.
- * @param {number} generation current generation.
+ * @param {AttractorFrameSignature} signature current frame signature.
  */
-function updateActiveAttractor(tracker: AttractorTracker, hash: number, generation: number): void {
+function updateActiveAttractor(tracker: AttractorTracker, signature: AttractorFrameSignature): void {
   const {active} = tracker;
   if (active) {
-    const phase = (generation - active.startGeneration) % active.orbitPeriodLength;
-    if (active.orbitHashes[phase] === hash) {
-      active.lastMatchingGeneration = generation;
+    const phase = (signature.generation - active.startGeneration) % active.orbitPeriodLength;
+    if (sameFrameSignature(active.orbitSignatures[phase]!, signature)) {
+      active.lastMatchingGeneration = signature.generation;
     } else {
       finalizeActiveAttractor(tracker);
       resetAttractorCandidates(tracker);
-      detectOrAddCandidate(tracker, hash, generation);
+      detectOrAddCandidate(tracker, signature);
     }
   }
 }
@@ -208,24 +237,23 @@ function updateActiveAttractor(tracker: AttractorTracker, hash: number, generati
  * Detects an attractor from existing hash candidates or stores the current frame as a candidate.
  *
  * @param {AttractorTracker} tracker attractor tracker.
- * @param {number} hash current frame hash.
- * @param {number} generation current generation.
+ * @param {AttractorFrameSignature} signature current frame signature.
  */
-function detectOrAddCandidate(tracker: AttractorTracker, hash: number, generation: number): void {
-  const candidates = tracker.candidatesByHash.get(hash) ?? [];
+function detectOrAddCandidate(tracker: AttractorTracker, signature: AttractorFrameSignature): void {
+  const candidates = tracker.candidatesByHash.get(signature.hash) ?? [];
   let detected = false;
   for (const candidateIndex of candidates) {
     const candidate = tracker.pendingFrames[candidateIndex] ?? null;
-    if (!detected && candidate) {
-      const period = generation - candidate.generation;
+    if (!detected && candidate && sameFrameSignature(candidate, signature)) {
+      const period = signature.generation - candidate.generation;
       const orbitFrames = tracker.pendingFrames.slice(candidateIndex);
       if (period > 0 && period === orbitFrames.length) {
         tracker.active = {
           startGeneration: candidate.generation,
-          firstRepeatGeneration: generation,
+          firstRepeatGeneration: signature.generation,
           orbitPeriodLength: period,
-          orbitHashes: orbitFrames.map(entry => entry.hash),
-          lastMatchingGeneration: generation
+          orbitSignatures: orbitFrames,
+          lastMatchingGeneration: signature.generation
         };
         resetAttractorCandidates(tracker);
         detected = true;
@@ -233,23 +261,22 @@ function detectOrAddCandidate(tracker: AttractorTracker, hash: number, generatio
     }
   }
   if (!detected) {
-    addAttractorCandidate(tracker, hash, generation);
+    addAttractorCandidate(tracker, signature);
   }
 }
 
 /**
- * Adds a hash-only attractor candidate.
+ * Adds an attractor candidate signature.
  *
  * @param {AttractorTracker} tracker attractor tracker.
- * @param {number} hash frame hash.
- * @param {number} generation frame generation.
+ * @param {AttractorFrameSignature} signature frame signature.
  */
-function addAttractorCandidate(tracker: AttractorTracker, hash: number, generation: number): void {
+function addAttractorCandidate(tracker: AttractorTracker, signature: AttractorFrameSignature): void {
   const index = tracker.pendingFrames.length;
-  tracker.pendingFrames.push({generation, hash});
-  const candidates = tracker.candidatesByHash.get(hash) ?? [];
+  tracker.pendingFrames.push(signature);
+  const candidates = tracker.candidatesByHash.get(signature.hash) ?? [];
   candidates.push(index);
-  tracker.candidatesByHash.set(hash, candidates);
+  tracker.candidatesByHash.set(signature.hash, candidates);
 }
 
 /**
@@ -260,6 +287,45 @@ function addAttractorCandidate(tracker: AttractorTracker, hash: number, generati
 function resetAttractorCandidates(tracker: AttractorTracker): void {
   tracker.candidatesByHash = new Map<number, number[]>();
   tracker.pendingFrames = [];
+}
+
+/**
+ * Creates a compact frame signature from packed bytes and precomputed metrics.
+ *
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {OfflineMetricEntry} metric metric row.
+ * @returns {AttractorFrameSignature} attractor frame signature.
+ */
+function createFrameSignature(frame: PackedRecordedFrame, metric: OfflineMetricEntry): AttractorFrameSignature {
+  return {
+    generation: frame.generation,
+    hash: hashFrame(frame.packed),
+    population: Object.values(metric.population),
+    aliveCells: metric.aliveCells,
+    deadCells: metric.deadCells,
+    sameStateContactEdges: metric.sameStateContactEdges,
+    crossStateContactEdges: metric.crossStateContactEdges
+  };
+}
+
+/**
+ * Checks whether two compact frame signatures match.
+ *
+ * @param {AttractorFrameSignature} a first signature.
+ * @param {AttractorFrameSignature} b second signature.
+ * @returns {boolean} whether the signatures match.
+ */
+function sameFrameSignature(a: AttractorFrameSignature, b: AttractorFrameSignature): boolean {
+  let matches = a.hash === b.hash &&
+    a.aliveCells === b.aliveCells &&
+    a.deadCells === b.deadCells &&
+    a.sameStateContactEdges === b.sameStateContactEdges &&
+    a.crossStateContactEdges === b.crossStateContactEdges &&
+    a.population.length === b.population.length;
+  for (let index = 0; matches && index < a.population.length; index++) {
+    matches = a.population[index] === b.population[index];
+  }
+  return matches;
 }
 
 /**

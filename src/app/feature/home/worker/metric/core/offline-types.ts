@@ -178,12 +178,6 @@ interface AttractorEpisode {
    * @type {number}
    */
   orbitPeriodLength: number;
-  /**
-   * Whether the attractor was verified by exact frame comparison.
-   *
-   * @type {boolean}
-   */
-  exact: boolean;
 }
 
 /**

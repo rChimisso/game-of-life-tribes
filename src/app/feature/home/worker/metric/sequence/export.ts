@@ -99,7 +99,7 @@ async function writeMetricsEntries(zip: ZipWriter, recording: Grid & {manifest: 
   })) {
     assertNotCancelled(options);
     const metric = computeOfflineMetricEntry(frame, tribes, previous);
-    observeAttractorFrame(attractorTracker, frame);
+    observeAttractorFrame(attractorTracker, frame, metric);
     observeExtinctionMetric(extinctionTracker, metric);
     metrics.push(metric);
     previous = createPreviousOfflineMetricFrame(frame, metric);

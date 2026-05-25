@@ -350,10 +350,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.worker?.postMessage({type: 'cancelStepping'});
   }
 
-  public updateChunkCodec(filename: string, codec: string, storedBytes: number, gridFormat: GridFormatMetadata): void {
+  public updateChunkCodec(filename: string, rawBytes: number, codec: string, storedBytes: number, gridFormat: GridFormatMetadata): void {
     this.worker?.postMessage({
       type: 'updateChunkCodec',
       filename,
+      rawBytes,
       codec,
       storedBytes,
       gridFormat

@@ -38,7 +38,8 @@ function readHeaderContext(buffer: ArrayBuffer): {header: GoltHeader; headerEnd:
 async function parseGridPayload(buffer: ArrayBuffer, header: GoltHeader, headerEnd: number, reportProgress: SnapshotProgressReporter): Promise<ParsedGoltState | null> {
   let parsed: ParsedGoltState | null = null;
   const {gridFormat} = header;
-  if (header.cols && header.rows && isSupportedBitsPerCell(gridFormat?.bitsPerCell ?? 0)) {
+  if (header.cols && header.rows && isSupportedBitsPerCell(gridFormat?.bitsPerCell ?? 0) &&
+      Array.isArray(header.tribes) && header.tribes.length > 0 && Array.isArray(header.rules)) {
     const decodedGridFormat = gridFormatFromMetadata(gridFormat);
     const expectedGridBytes = gridByteSize(header, decodedGridFormat);
     const largeSnapshot = expectedGridBytes >= SNAPSHOT_STREAMING_THRESHOLD_BYTES;
@@ -47,15 +48,19 @@ async function parseGridPayload(buffer: ArrayBuffer, header: GoltHeader, headerE
       percent: largeSnapshot ? 5 : null,
       status: 'Decompressing grid'
     });
-    const rawGrid = await inflateRaw(new Uint8Array(buffer, headerEnd), largeSnapshot ? expectedGridBytes : null, reportProgress);
-    if (rawGrid.byteLength >= expectedGridBytes) {
+    const rawGrid = largeSnapshot ?
+      await inflateRawToExpectedBuffer(new Uint8Array(buffer, headerEnd), expectedGridBytes, reportProgress) :
+      await inflateRaw(new Uint8Array(buffer, headerEnd), reportProgress);
+    if (rawGrid && rawGrid.byteLength >= expectedGridBytes) {
       const gridBuffer = rawGrid.byteLength === expectedGridBytes ? rawGrid : rawGrid.slice(0, expectedGridBytes);
       parsed = {
         cols: header.cols,
         rows: header.rows,
         generation: header.generation ?? 0,
         grid: new Uint32Array(gridBuffer),
-        gridFormat: gridFormatMetadata(decodedGridFormat)
+        gridFormat: gridFormatMetadata(decodedGridFormat),
+        tribes: header.tribes,
+        rules: header.rules
       };
     }
   }
@@ -67,14 +72,31 @@ async function parseGridPayload(buffer: ArrayBuffer, header: GoltHeader, headerE
  *
  * @async
  * @param {Uint8Array} data compressed grid bytes.
- * @param {(number | null)} expectedGridBytes expected decompressed grid bytes.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  * @returns {Promise<ArrayBuffer>} decompressed packed grid bytes.
  */
-async function inflateRaw(data: Uint8Array, expectedGridBytes: number | null, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer> {
+async function inflateRaw(data: Uint8Array, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer> {
   const stream = new DecompressionStream(RAW_DEFLATE_CODEC);
   const writer = stream.writable.getWriter();
-  const output = collectInflatedBytes(stream.readable.getReader(), expectedGridBytes, reportProgress);
+  const output = collectInflatedBytes(stream.readable.getReader(), reportProgress);
+  await writer.write(data);
+  await writer.close();
+  return output;
+}
+
+/**
+ * Decompresses bytes into one exact expected-size output buffer.
+ *
+ * @async
+ * @param {Uint8Array} data compressed grid bytes.
+ * @param {number} expectedGridBytes expected decompressed grid bytes.
+ * @param {SnapshotProgressReporter} reportProgress progress callback.
+ * @returns {Promise<ArrayBuffer | null>} decompressed packed grid bytes or `null` when the size is invalid.
+ */
+async function inflateRawToExpectedBuffer(data: Uint8Array, expectedGridBytes: number, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer | null> {
+  const stream = new DecompressionStream(RAW_DEFLATE_CODEC);
+  const writer = stream.writable.getWriter();
+  const output = fillExpectedInflatedBuffer(stream.readable.getReader(), expectedGridBytes, reportProgress);
   await writer.write(data);
   await writer.close();
   return output;
@@ -85,11 +107,10 @@ async function inflateRaw(data: Uint8Array, expectedGridBytes: number | null, re
  *
  * @async
  * @param {ReadableStreamDefaultReader<Uint8Array>} reader inflated byte reader.
- * @param {(number | null)} expectedGridBytes expected packed grid byte count.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  * @returns {Promise<ArrayBuffer>} decompressed packed grid bytes.
  */
-async function collectInflatedBytes(reader: ReadableStreamDefaultReader<Uint8Array>, expectedGridBytes: number | null, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer> {
+async function collectInflatedBytes(reader: ReadableStreamDefaultReader<Uint8Array>, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer> {
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   let done = false;
@@ -99,13 +120,6 @@ async function collectInflatedBytes(reader: ReadableStreamDefaultReader<Uint8Arr
     if (result.value) {
       chunks.push(result.value);
       totalBytes += result.value.byteLength;
-      if (expectedGridBytes) {
-        reportProgress({
-          mode: 'determinate',
-          percent: Math.min(95, Math.round((totalBytes / expectedGridBytes) * 90) + 5),
-          status: 'Decompressing grid'
-        });
-      }
     }
   }
   const output = new Uint8Array(totalBytes);
@@ -115,11 +129,64 @@ async function collectInflatedBytes(reader: ReadableStreamDefaultReader<Uint8Arr
     offset += chunk.byteLength;
   }
   reportProgress({
-    mode: expectedGridBytes ? 'determinate' : 'indeterminate',
-    percent: expectedGridBytes ? 100 : null,
+    mode: 'indeterminate',
+    percent: null,
     status: 'Preparing loaded grid'
   });
   return output.buffer;
+}
+
+/**
+ * Fills a preallocated expected-size buffer from decompressed stream chunks.
+ *
+ * @async
+ * @param {ReadableStreamDefaultReader<Uint8Array>} reader inflated byte reader.
+ * @param {number} expectedGridBytes expected packed grid byte count.
+ * @param {SnapshotProgressReporter} reportProgress progress callback.
+ * @returns {Promise<ArrayBuffer | null>} filled output buffer or `null` when decompressed size is invalid.
+ */
+async function fillExpectedInflatedBuffer(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  expectedGridBytes: number,
+  reportProgress: SnapshotProgressReporter
+): Promise<ArrayBuffer | null> {
+  const output = new Uint8Array(expectedGridBytes);
+  let offset = 0;
+  let valid = true;
+  let done = false;
+  while (!done) {
+    const result = await reader.read();
+    done = result.done;
+    if (result.value) {
+      if (offset + result.value.byteLength <= expectedGridBytes) {
+        output.set(result.value, offset);
+        offset += result.value.byteLength;
+        reportProgress({
+          mode: 'determinate',
+          percent: Math.min(95, Math.round((offset / expectedGridBytes) * 90) + 5),
+          status: 'Decompressing grid'
+        });
+      } else {
+        valid = false;
+        offset += result.value.byteLength;
+      }
+    }
+  }
+  let buffer: ArrayBuffer | null = null;
+  if (valid && offset === expectedGridBytes) {
+    reportProgress({
+      mode: 'determinate',
+      percent: 100,
+      status: 'Preparing loaded grid'
+    });
+    buffer = output.buffer;
+  } else {
+    console.warn('[GOLT] Invalid snapshot grid payload size', {
+      expectedGridBytes,
+      actualGridBytes: offset
+    });
+  }
+  return buffer;
 }
 
 /**

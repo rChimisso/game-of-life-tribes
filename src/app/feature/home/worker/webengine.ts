@@ -17,9 +17,9 @@ import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
-import {RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
+import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {LimitsMessage, SnapshotMessage, WorkerMessage} from '../model/worker-message';
+import {WorkerMessage} from '../model/worker-message';
 import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
 import {normalizeLiveMetricsSettings} from '../util/metric-settings';
 import {repackPackedGrid} from './snapshot/packed-repack';
@@ -160,6 +160,7 @@ const RAW_DEFLATE_CODEC = 'deflate-raw';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
 let opfsResetPromise: Promise<void> | null = null;
 let inflightSeals = 0;
+let inflightSealFrames = 0;
 let pendingOpfsWrites = 0;
 const MAX_PENDING_OPFS_WRITES = 12;
 let backpressureActive = false;
@@ -171,7 +172,6 @@ const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
 // Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
 // Frames at or above this size fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
 const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
-const OPFS_PENDING_WRITE_BYTE_BUDGET = 512 * 1024 * 1024; // 512 MB
 
 // Yield between major rebuild allocations so the browser can catch up.
 const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024; // 512 MB
@@ -302,6 +302,7 @@ function destroyRecordingBuffers(): void {
   chunkFrameCapacity = 0;
   chunkFrameIndex = 0;
   chunkGenerations = [];
+  inflightSealFrames = 0;
 }
 
 function destroyRebuildableBuffers(): void {
@@ -1307,7 +1308,7 @@ function postRecordingLimits(): void {
     vramSimulationBytes: simulationBufferBytes(),
     vramRecordingBytes: recordingBufferBytes(),
     gridFormat: currentGridFormatMetadata()
-  } satisfies LimitsMessage);
+  });
 }
 
 function canRecord(): boolean {
@@ -1338,6 +1339,17 @@ function recordGeneration(gen: number): void {
   device.queue.submit([enc.finish()]);
   chunkGenerations.push(gen);
   chunkFrameIndex++;
+}
+
+function updateInflightSealFrames(delta: number): void {
+  inflightSealFrames = Math.max(0, inflightSealFrames + delta);
+}
+
+function retrySealCurrentChunkIfPossible(): void {
+  const currentChunkFull = chunkFrameCapacity > 0 && chunkFrameIndex >= chunkFrameCapacity;
+  if (currentChunkFull && canRecord()) {
+    sealCurrentChunk();
+  }
 }
 
 function sealCurrentChunk(): void {
@@ -1384,6 +1396,7 @@ function sealCurrentChunk(): void {
   };
 
   updateInflightSeals(+1);
+  updateInflightSealFrames(blockCount);
   pendingOpfsWrites++;
   checkBackpressure();
 
@@ -1402,10 +1415,12 @@ function sealCurrentChunk(): void {
 
     // Free staging immediately after data is in RAM.
     stagingAvailable[idx] = true;
-    checkBackpressure();
 
     sealedChunks.push(meta);
+    updateInflightSealFrames(-blockCount);
     updateManifestRange();
+    checkBackpressure();
+    retrySealCurrentChunkIfPossible();
 
     // Write raw (uncompressed) to OPFS, then notify the main thread so
     // Compress workers can read the chunk from OPFS.
@@ -1417,6 +1432,8 @@ function sealCurrentChunk(): void {
       checkBackpressure();
       updateInflightSeals(-1);
       postStorageQuota();
+      queueMetricsRefresh(true);
+      retrySealCurrentChunkIfPossible();
 
       self.postMessage({
         type: 'chunkSealed',
@@ -1442,8 +1459,10 @@ function sealCurrentChunk(): void {
     }
     stagingAvailable[idx] = true;
     pendingOpfsWrites--;
+    updateInflightSealFrames(-blockCount);
     checkBackpressure();
     updateInflightSeals(-1);
+    retrySealCurrentChunkIfPossible();
   });
 
   chunkFrameIndex = 0;
@@ -1470,6 +1489,7 @@ async function resetRecording(startGen: number): Promise<void> {
   chunkFrameIndex = 0;
   chunkGenerations = [];
   sealedChunks = [];
+  inflightSealFrames = 0;
   pendingOpfsWrites = 0;
   if (inflightSeals > 0) {
     inflightSeals = 0;
@@ -1642,7 +1662,7 @@ async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CO
  * Helper: compute total recorded frames across sealed chunks and current buffer.
  */
 function totalRecordedFrames(): number {
-  let count = chunkFrameIndex;
+  let count = chunkFrameIndex + inflightSealFrames;
   for (const c of sealedChunks) {
     count += c.blockCount;
   }
@@ -2719,7 +2739,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage;
+        };
         self.postMessage(message, [grid.buffer]);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
@@ -2731,7 +2751,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage;
+        };
         self.postMessage(message, [empty.buffer]);
       });
       break;

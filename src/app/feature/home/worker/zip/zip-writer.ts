@@ -1,12 +1,6 @@
 import {finalizeCrc32, updateCrc32} from './zip-crc32';
 import {ZipEntrySink, ZipEntryWriter} from './zip-types';
-
-/**
- * Directory name for OPFS download storage.
- *
- * @type {string}
- */
-const OPFS_DOWNLOAD_DIR = 'gol-downloads';
+import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../util/opfs-temp';
 
 /**
  * ZIP local file header signature.
@@ -98,6 +92,17 @@ interface CentralDirectoryRecord {
 }
 
 /**
+ * Creates a unique OPFS ZIP filename.
+ *
+ * @param {string} visibleFilename user-visible export filename.
+ * @returns {string} unique OPFS filename.
+ */
+function createUniqueOpfsFilename(visibleFilename: string): string {
+  const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  return `${Date.now()}-${suffix}-${visibleFilename}`;
+}
+
+/**
  * Writes a little-endian unsigned 64-bit integer.
  *
  * @param {DataView} view target data view.
@@ -136,6 +141,15 @@ export class ZipWriter {
   private readonly records: CentralDirectoryRecord[] = [];
 
   /**
+   * OPFS filename for the archive.
+   *
+   * @private
+   * @readonly
+   * @type {string}
+   */
+  private readonly filename: string;
+
+  /**
    * Current byte offset in the ZIP file.
    *
    * @private
@@ -152,12 +166,29 @@ export class ZipWriter {
   private closed = false;
 
   /**
+   * Whether the OPFS file has been removed.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private removed = false;
+
+  /**
    * Creates a ZIP writer around an OPFS writable stream.
    *
    * @param {FileSystemWritableFileStream} writable opfs writable stream.
+   * @param {FileSystemDirectoryHandle} directory opfs directory handle for the archive.
    * @param {FileSystemFileHandle} fileHandle opfs file handle for the archive.
+   * @param {string} filename opfs filename for the archive.
    */
-  private constructor(private readonly writable: FileSystemWritableFileStream, private readonly fileHandle: FileSystemFileHandle) {}
+  private constructor(
+    private readonly writable: FileSystemWritableFileStream,
+    private readonly directory: FileSystemDirectoryHandle,
+    private readonly fileHandle: FileSystemFileHandle,
+    filename: string
+  ) {
+    this.filename = filename;
+  }
 
   /**
    * Opens a new ZIP file in OPFS.
@@ -165,12 +196,26 @@ export class ZipWriter {
    * @public
    * @static
    * @async
-   * @param {string} filename opfs filename for the ZIP archive.
+   * @param {string} [visibleFilename] user-visible export filename.
    * @returns {Promise<ZipWriter>} opened ZIP writer.
    */
-  public static async open(filename: string): Promise<ZipWriter> {
-    const fileHandle = await (await (await navigator.storage.getDirectory()).getDirectoryHandle(OPFS_DOWNLOAD_DIR, {create: true})).getFileHandle(filename, {create: true});
-    return new ZipWriter(await fileHandle.createWritable(), fileHandle);
+  public static async open(visibleFilename = 'gol-export.zip'): Promise<ZipWriter> {
+    const directory = await ZipWriter.openDirectory();
+    await ZipWriter.removeStaleFiles(directory);
+    const filename = createUniqueOpfsFilename(visibleFilename);
+    const fileHandle = await directory.getFileHandle(filename, {create: true});
+    return new ZipWriter(await fileHandle.createWritable(), directory, fileHandle, filename);
+  }
+
+  /**
+   * Removes stale OPFS ZIP files from previous interrupted downloads.
+   *
+   * @public
+   * @static
+   * @async
+   */
+  public static async cleanupStaleFiles(): Promise<void> {
+    await ZipWriter.removeStaleFiles(await ZipWriter.openDirectory());
   }
 
   /**
@@ -239,6 +284,64 @@ export class ZipWriter {
     if (!this.closed) {
       await this.writable.abort();
       this.closed = true;
+    }
+  }
+
+  /**
+   * Removes the OPFS archive file.
+   *
+   * @public
+   * @async
+   */
+  public async cleanup(): Promise<void> {
+    await this.abort();
+    await this.removeFile();
+  }
+
+  /**
+   * Opens the OPFS download directory.
+   *
+   * @private
+   * @static
+   * @async
+   * @returns {Promise<FileSystemDirectoryHandle>} OPFS download directory.
+   */
+  private static async openDirectory(): Promise<FileSystemDirectoryHandle> {
+    return openTempOpfsDirectory(GOLT_TEMP_DOWNLOAD_DIR);
+  }
+
+  /**
+   * Removes stale files in the OPFS download directory.
+   *
+   * @private
+   * @static
+   * @async
+   * @param {FileSystemDirectoryHandle} directory opfs download directory.
+   */
+  private static async removeStaleFiles(directory: FileSystemDirectoryHandle): Promise<void> {
+    for await (const name of directory.keys()) {
+      try {
+        await directory.removeEntry(name);
+      } catch (error) {
+        console.warn('[GOLT] Failed to remove stale ZIP output:', name, error);
+      }
+    }
+  }
+
+  /**
+   * Removes this archive file from OPFS.
+   *
+   * @private
+   * @async
+   */
+  private async removeFile(): Promise<void> {
+    if (!this.removed) {
+      this.removed = true;
+      try {
+        await this.directory.removeEntry(this.filename);
+      } catch (error) {
+        console.warn('[GOLT] Failed to remove ZIP output:', this.filename, error);
+      }
     }
   }
 

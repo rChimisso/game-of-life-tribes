@@ -6,21 +6,72 @@ import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
-import {DownloadRequestPayload} from './model/download';
+import {CompressionFailedMessage, CompressionStatusMessage, DownloadCancelledError, DownloadRequestPayload} from './model/download';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
 import {GridFormatMetadata} from './model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, DrawSectionPreferences, HomePreferences, MetricsSectionPreferences, SpeedSectionPreferences} from './model/preferences';
 import {CONWAY_PRESET} from './model/preset';
+import {OPFS_PENDING_WRITE_BYTE_BUDGET} from './model/recording-limits';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
+import {clearTempOpfsDirectory} from './util/opfs-temp';
 import {applyRuleTribeRenames} from './util/tribe-impact';
+import {ParsedGoltState} from './worker/snapshot/golt-types';
 import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
+
+/**
+ * Completed snapshot save output.
+ *
+ * @interface SnapshotSaveOutput
+ * @typedef {SnapshotSaveOutput}
+ */
+interface SnapshotSaveOutput {
+  /**
+   * User-visible download filename.
+   *
+   * @type {string}
+   */
+  filename: string;
+  /**
+   * Snapshot file data.
+   *
+   * @type {Blob}
+   */
+  blob: Blob;
+}
+
+/**
+ * Compression job tracked by the main-thread scheduler.
+ *
+ * @interface QueuedCompressionJob
+ * @typedef {QueuedCompressionJob}
+ */
+interface QueuedCompressionJob {
+  /**
+   * Chunk data sent to a compression worker.
+   *
+   * @type {ChunkSealedMessage}
+   */
+  chunk: ChunkSealedMessage;
+  /**
+   * Failed retry attempts since this job last entered the queue.
+   *
+   * @type {number}
+   */
+  attempts: number;
+  /**
+   * Number of times this job has moved from deferred back to queued.
+   *
+   * @type {number}
+   */
+  deferredRequeues: number;
+}
 
 /**
  * Home page component.
@@ -64,6 +115,42 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @type {string}
    */
   private static readonly preparingSnapshotStatus = 'Preparing snapshot';
+
+  /**
+   * Status shown while active compression jobs finish.
+   *
+   * @private
+   * @readonly
+   * @type {string}
+   */
+  private static readonly waitingCompressionJobsStatus = 'Waiting for compression jobs to finish';
+
+  /**
+   * Maximum delayed retries before a failed compression job is deferred.
+   *
+   * @private
+   * @readonly
+   * @type {number}
+   */
+  private static readonly maxCompressionRetries = 3;
+
+  /**
+   * Maximum deferred-to-queued cycles before a chunk is left raw.
+   *
+   * @private
+   * @readonly
+   * @type {number}
+   */
+  private static readonly maxCompressionDeferredRequeues = 3;
+
+  /**
+   * Initial delayed compression retry interval.
+   *
+   * @private
+   * @readonly
+   * @type {number}
+   */
+  private static readonly compressionRetryDelayMs = 2000;
 
   public ruleset: Ruleset = CONWAY_PRESET.ruleset;
 
@@ -180,7 +267,29 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   private compressPoolIndex = 0;
 
+  private pendingCompressionJobs: QueuedCompressionJob[] = [];
+
+  private deferredCompressionJobs: QueuedCompressionJob[] = [];
+
+  private activeCompressionJobs = new Map<string, QueuedCompressionJob>();
+
+  private compressionRetryTimers: ReturnType<typeof setTimeout>[] = [];
+
+  private activeCompressionBytes = 0;
+
+  private compressionDispatchPaused = false;
+
+  private compressionPauseCancel: (() => void) | null = null;
+
   private downloadWorker: Worker | null = null;
+
+  /**
+   * Whether the current download was cancelled by the user.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private downloadCancelRequested = false;
 
   private drawTribeIndex = 1;
 
@@ -213,10 +322,22 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return this.maxSpeed ? -1 : this.speed;
   }
 
+  /**
+   * Whether an active download is waiting for cancellation to complete.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get downloadCancelling(): boolean {
+    return this.downloadCancelRequested;
+  }
+
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
     super('golt-home-prefs');
     console.log('[GOLT] Home page initialized');
     this.restorePreferences();
+    clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files on page init:', error));
     document.addEventListener('keydown', ev => this.handleKeydown(ev), {
       capture: true,
       signal: this.keydownListenerController.signal
@@ -283,6 +404,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.recordingAvailable = data.recordingAvailable;
     if (!data.recordingAvailable && this.recording) {
       this.recording = false;
+      this.requeueDeferredCompressionJobs();
       this.savePreferences();
     }
     this.cdr.markForCheck();
@@ -312,7 +434,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         const {grid, generation, gridFormat} = this.pendingStateLoad;
         this.pendingStateLoad = null;
         this.engine.loadSnapshot(grid, generation, gridFormat);
-        this.latestMetrics = null;
+        this.setLoadedGenerationCounter(generation);
       }
     }
     this.cdr.markForCheck();
@@ -387,6 +509,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.setRunState('paused');
         if (this.recording) {
           this.recording = false;
+          this.requeueDeferredCompressionJobs();
           this.savePreferences();
         }
       }
@@ -401,18 +524,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     if (this.compressPool.length === 0) {
       this.initCompressPool();
     }
-    const worker = this.compressPool[this.compressPoolIndex % this.compressPool.length]!;
-    this.compressPoolIndex++;
-    worker.postMessage({
-      type: 'compress',
-      filename: data.filename,
-      rawBytes: data.rawBytes,
-      blockCount: data.blockCount,
-      cols: data.cols,
-      rows: data.rows,
-      rawGridFormat: data.rawGridFormat,
-      storageGridFormat: data.storageGridFormat
+    this.pendingCompressionJobs.push({
+      chunk: data,
+      attempts: 0,
+      deferredRequeues: 0
     });
+    this.dispatchCompressionJobs();
   }
 
   public onUncompressedChunks(data: UncompressedChunksMessage): void {
@@ -484,6 +601,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         console.log(`[GOLT] Recording ${this.toggleStateLabel(this.recording)}`);
         if (this.recording && this.compressPool.length === 0) {
           this.initCompressPool();
+        }
+        if (!this.recording) {
+          this.requeueDeferredCompressionJobs();
         }
         shouldSavePreferences = true;
         break;
@@ -737,6 +857,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
           if (this.recording && this.compressPool.length === 0) {
             this.initCompressPool();
           }
+          if (!this.recording) {
+            this.requeueDeferredCompressionJobs();
+          }
           return {handled: true, shouldSavePreferences: true};
         }
         return {handled: true, shouldSavePreferences: false};
@@ -849,6 +972,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       console.log(`[GOLT] Simulation ${state}`);
     }
     this.state = state;
+    if (state === 'paused') {
+      this.requeueDeferredCompressionJobs();
+    }
     this.syncWakeLock();
   }
 
@@ -924,30 +1050,219 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     for (const w of this.compressPool) {
       w.terminate();
     }
+    for (const timer of this.compressionRetryTimers) {
+      clearTimeout(timer);
+    }
     this.compressPool = [];
     this.compressPoolIndex = 0;
+    this.pendingCompressionJobs = [];
+    this.deferredCompressionJobs = [];
+    this.activeCompressionJobs.clear();
+    this.compressionRetryTimers = [];
+    this.activeCompressionBytes = 0;
+    this.compressionDispatchPaused = false;
+    this.compressionPauseCancel = null;
+  }
+
+  /**
+   * Dispatches queued compression jobs within the memory budget.
+   *
+   * @private
+   */
+  private dispatchCompressionJobs(): void {
+    let dispatched = true;
+    while (!this.compressionDispatchPaused && dispatched && this.pendingCompressionJobs.length > 0 && this.compressPool.length > 0) {
+      const nextJob = this.pendingCompressionJobs[0]!;
+      if (this.canDispatchCompressionJob(nextJob)) {
+        this.pendingCompressionJobs.shift();
+        this.postCompressionJob(nextJob);
+      } else {
+        dispatched = false;
+      }
+    }
+  }
+
+  /**
+   * Checks whether one compression job fits the active memory budget.
+   *
+   * @private
+   * @param {QueuedCompressionJob} job compression job.
+   * @returns {boolean} true when the job can start now.
+   */
+  private canDispatchCompressionJob(job: QueuedCompressionJob): boolean {
+    return this.activeCompressionBytes === 0 ||
+      this.activeCompressionBytes + job.chunk.rawBytes <= OPFS_PENDING_WRITE_BYTE_BUDGET;
+  }
+
+  /**
+   * Sends one compression job to the worker pool.
+   *
+   * @private
+   * @param {QueuedCompressionJob} job compression job.
+   */
+  private postCompressionJob(job: QueuedCompressionJob): void {
+    const worker = this.compressPool[this.compressPoolIndex % this.compressPool.length]!;
+    this.compressPoolIndex++;
+    this.activeCompressionBytes += job.chunk.rawBytes;
+    this.activeCompressionJobs.set(job.chunk.filename, job);
+    worker.postMessage({
+      type: 'compress',
+      filename: job.chunk.filename,
+      rawBytes: job.chunk.rawBytes,
+      blockCount: job.chunk.blockCount,
+      cols: job.chunk.cols,
+      rows: job.chunk.rows,
+      rawGridFormat: job.chunk.rawGridFormat,
+      storageGridFormat: job.chunk.storageGridFormat
+    });
+  }
+
+  /**
+   * Releases active compression memory after a worker finishes a job.
+   *
+   * @private
+   * @param {string} filename completed chunk filename.
+   * @param {number} rawBytes raw bytes for the completed job.
+   */
+  private completeCompressionJob(filename: string, rawBytes: number): void {
+    const activeJob = this.activeCompressionJobs.get(filename);
+    const completedBytes = activeJob?.chunk.rawBytes ?? rawBytes;
+    this.activeCompressionJobs.delete(filename);
+    this.activeCompressionBytes = Math.max(0, this.activeCompressionBytes - completedBytes);
+    this.dispatchCompressionJobs();
+  }
+
+  /**
+   * Handles a compression job failure.
+   *
+   * @private
+   * @param {string} filename failed chunk filename.
+   * @param {number} rawBytes failed chunk raw bytes.
+   */
+  private failCompressionJob(filename: string, rawBytes: number): void {
+    const failedJob = this.activeCompressionJobs.get(filename);
+    this.completeCompressionJob(filename, rawBytes);
+    if (failedJob) {
+      this.scheduleCompressionRetryOrDefer(failedJob);
+    }
+  }
+
+  /**
+   * Schedules a delayed retry or defers a repeatedly failed compression job.
+   *
+   * @private
+   * @param {QueuedCompressionJob} job failed compression job.
+   */
+  private scheduleCompressionRetryOrDefer(job: QueuedCompressionJob): void {
+    if (job.attempts < HomePage.maxCompressionRetries) {
+      this.scheduleCompressionRetry({
+        ...job,
+        attempts: job.attempts + 1
+      });
+    } else if (job.deferredRequeues < HomePage.maxCompressionDeferredRequeues) {
+      console.warn('[GOLT] Compression job deferred after retries:', job.chunk.filename);
+      this.deferredCompressionJobs.push({
+        ...job,
+        attempts: 0
+      });
+    } else {
+      console.warn('[GOLT] Compression job left raw after repeated retry cycles:', job.chunk.filename);
+    }
+  }
+
+  /**
+   * Adds a compression job back to the queue after exponential backoff.
+   *
+   * @private
+   * @param {QueuedCompressionJob} job retry job.
+   */
+  private scheduleCompressionRetry(job: QueuedCompressionJob): void {
+    const delayMs = HomePage.compressionRetryDelayMs * 2 ** (job.attempts - 1);
+    const timer = setTimeout(() => {
+      this.compressionRetryTimers = this.compressionRetryTimers.filter(t => t !== timer);
+      this.pendingCompressionJobs.push(job);
+      this.dispatchCompressionJobs();
+    }, delayMs);
+    this.compressionRetryTimers.push(timer);
+  }
+
+  /**
+   * Requeues deferred failed compression jobs after memory pressure drops.
+   *
+   * @private
+   */
+  private requeueDeferredCompressionJobs(): void {
+    if (this.deferredCompressionJobs.length > 0) {
+      const jobs = this.deferredCompressionJobs.map(job => ({
+        ...job,
+        attempts: 0,
+        deferredRequeues: job.deferredRequeues + 1
+      }));
+      this.deferredCompressionJobs = [];
+      this.pendingCompressionJobs.push(...jobs);
+      console.log('[GOLT] Requeued deferred compression jobs', {count: jobs.length});
+      this.dispatchCompressionJobs();
+    }
   }
 
   private async pauseCompressionPool(): Promise<void> {
     if (this.compressPool.length === 0) {
       return;
     }
-    await Promise.all(this.compressPool.map(worker => new Promise<void>(resolve => {
+    this.compressionDispatchPaused = true;
+    const statuses = new Map<Worker, CompressionStatusMessage>();
+    const listeners: {worker: Worker; onMessage: (ev: MessageEvent) => void}[] = [];
+    let initialActiveJobs: number | null = null;
+    const updateCompressionPauseProgress = () => {
+      if (!this.downloadCancelRequested && statuses.size === this.compressPool.length) {
+        const activeJobs = [...statuses.values()].reduce((sum, status) => sum + status.activeJobs, 0);
+        if (initialActiveJobs === null) {
+          initialActiveJobs = activeJobs;
+        }
+        if (initialActiveJobs > 0) {
+          const completedJobs = initialActiveJobs - activeJobs;
+          this.downloadProgress = Math.max(this.downloadProgress, Math.round(20 + (completedJobs / initialActiveJobs) * 10));
+          this.downloadMainStatus = HomePage.waitingCompressionJobsStatus;
+        } else {
+          this.downloadProgress = Math.max(this.downloadProgress, 30);
+          this.downloadMainStatus = HomePage.waitingCompressionJobsStatus;
+        }
+        this.cdr.markForCheck();
+      }
+    };
+    const pauseCancelled = new Promise<never>((_, reject) => {
+      this.compressionPauseCancel = () => reject(new DownloadCancelledError());
+    });
+    const pauseCompleted = Promise.all(this.compressPool.map(worker => new Promise<void>(resolve => {
       const onMessage = (ev: MessageEvent) => {
-        if (ev.data?.type === 'compressionPaused') {
+        if (ev.data?.type === 'compressionStatus') {
+          statuses.set(worker, ev.data as CompressionStatusMessage);
+          updateCompressionPauseProgress();
+        } else if (ev.data?.type === 'compressionPaused') {
           worker.removeEventListener('message', onMessage);
           resolve();
         }
       };
+      listeners.push({worker, onMessage});
       worker.addEventListener('message', onMessage);
       worker.postMessage({type: 'pauseCompression'});
     })));
+    try {
+      await Promise.race([pauseCompleted, pauseCancelled]);
+    } finally {
+      for (const listener of listeners) {
+        listener.worker.removeEventListener('message', listener.onMessage);
+      }
+      this.compressionPauseCancel = null;
+    }
   }
 
   private resumeCompressionPool(): void {
+    this.compressionDispatchPaused = false;
     for (const worker of this.compressPool) {
       worker.postMessage({type: 'resumeCompression'});
     }
+    this.dispatchCompressionJobs();
   }
 
   /**
@@ -974,7 +1289,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       const w = new Worker(new URL('./worker/compress.ts', import.meta.url), {type: 'module'});
       w.onmessage = (ev: MessageEvent) => {
         if (ev.data?.type === 'compressed') {
-          this.engine.updateChunkCodec(ev.data.filename, ev.data.codec, ev.data.storedBytes, ev.data.gridFormat);
+          this.engine.updateChunkCodec(ev.data.filename, ev.data.rawBytes, ev.data.codec, ev.data.storedBytes, ev.data.gridFormat);
+          this.completeCompressionJob(ev.data.filename, ev.data.rawBytes);
+        } else if (ev.data?.type === 'compressionFailed') {
+          const failed = ev.data as CompressionFailedMessage;
+          this.failCompressionJob(failed.filename, failed.rawBytes);
         }
       };
       this.compressPool.push(w);
@@ -982,25 +1301,50 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   private cancelDownload(): void {
-    console.log('[GOLT] Download cancelled');
+    console.log('[GOLT] Cancelling download');
+    this.downloadCancelRequested = true;
+    this.compressionPauseCancel?.();
     if (this.downloadWorker) {
-      this.downloadWorker.terminate();
-      this.downloadWorker = null;
+      this.downloadMainStatus = 'Cancelling download';
+      this.downloadStatus = '';
+      this.downloadWorker.postMessage({type: 'cancel'});
+      this.cdr.markForCheck();
+    } else {
+      this.downloadMainStatus = 'Cancelling download';
+      this.downloadStatus = '';
+      this.resumeCompressionPool();
+      this.engine.requestUncompressedChunks();
+      this.cdr.markForCheck();
     }
-    this.resumeCompressionPool();
+  }
+
+  /**
+   * Clears visible download progress state.
+   *
+   * @private
+   */
+  private resetDownloadState(): void {
     this.downloadProgress = -1;
     this.downloadSubProgress = -1;
     this.downloadStatus = '';
     this.downloadMainStatus = '';
-    this.cdr.markForCheck();
+  }
 
-    // Resume background compression for any remaining raw-packed chunks.
-    this.engine.requestUncompressedChunks();
+  /**
+   * Stops download preparation when cancellation was requested.
+   *
+   * @private
+   */
+  private throwIfDownloadCancelled(): void {
+    if (this.downloadCancelRequested) {
+      throw new DownloadCancelledError();
+    }
   }
 
   private restart(): void {
     console.log('[GOLT] Restart requested');
     this.snackBar.dismiss();
+    clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files:', error));
     this.setRunState('paused');
     this.terminateCompressWorker();
     this.storagePendingRawBytes = 0;
@@ -1031,6 +1375,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   private async downloadZip(opts: DownloadRequestPayload): Promise<void> {
+    this.downloadCancelRequested = false;
     const needFrames = opts.mp4 || opts.png || opts.metrics || opts.saves;
     console.log('[GOLT] Download started', {
       metrics: opts.metrics,
@@ -1053,6 +1398,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
 
     try {
+      console.log('[GOLT] Clearing temporary OPFS files before download');
+      await clearTempOpfsDirectory();
+      this.throwIfDownloadCancelled();
       if (needFrames) {
         console.log('[GOLT] Download OPFS flush started');
         const flushedRecording = await this.requestRecordingManifest();
@@ -1061,12 +1409,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
           generationStart: flushedRecording.manifest.generationStart,
           generationEnd: flushedRecording.manifest.generationEnd
         });
-        this.downloadMainStatus = 'Waiting for compression jobs to finish';
+        this.throwIfDownloadCancelled();
+        this.downloadMainStatus = HomePage.waitingCompressionJobsStatus;
         this.cdr.markForCheck();
       }
 
       console.log('[GOLT] Download compression pause started');
       await this.pauseCompressionPool();
+      this.throwIfDownloadCancelled();
       console.log('[GOLT] Download compression pause completed');
 
       this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : HomePage.preparingSnapshotStatus;
@@ -1074,6 +1424,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       const snapshotP = this.requestDownloadSnapshot();
       const recordingP = needFrames ? this.requestRecordingManifest() : Promise.resolve(null);
       const [snap, rec] = await Promise.all([snapshotP, recordingP]);
+      this.throwIfDownloadCancelled();
       console.log('[GOLT] Download manifest handoff ready', {
         chunks: rec?.manifest.chunks.length ?? 0,
         generationStart: rec?.manifest.generationStart ?? null,
@@ -1081,15 +1432,27 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       });
       this.startDownloadWorker(opts, snap, rec, performance.now());
     } catch (error) {
+      this.handleDownloadPreparationFailure(error);
+    }
+  }
+
+  /**
+   * Handles download setup failure or cancellation before the worker starts.
+   *
+   * @private
+   * @param {unknown} error failure reason.
+   */
+  private handleDownloadPreparationFailure(error: unknown): void {
+    if (this.downloadCancelRequested || error instanceof DownloadCancelledError) {
+      console.log('[GOLT] Download preparation cancelled');
+    } else {
       console.error('[GOLT] Download preparation failed:', error);
       this.openSnack('Download failed while preparing compression data. Try again.', 'error');
-      this.resumeCompressionPool();
-      this.downloadProgress = -1;
-      this.downloadSubProgress = -1;
-      this.downloadStatus = '';
-      this.downloadMainStatus = '';
-      this.cdr.markForCheck();
     }
+    this.resumeCompressionPool();
+    this.resetDownloadState();
+    this.downloadCancelRequested = false;
+    this.cdr.markForCheck();
   }
 
   /**
@@ -1122,8 +1485,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @private
    * @param {DownloadRequestPayload} opts download options.
    * @param {SnapshotMessage} snap stable snapshot.
-   * @param startedAt
    * @param {(RecordingMessage | null)} rec stable recording manifest.
+   * @param {number} startedAt download start timestamp.
    */
   private startDownloadWorker(opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null, startedAt: number): void {
     const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
@@ -1132,10 +1495,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
     const cleanupDownload = () => {
       console.log('[GOLT] Download worker cleaned up');
-      this.downloadProgress = -1;
-      this.downloadSubProgress = -1;
-      this.downloadStatus = '';
-      this.downloadMainStatus = '';
+      this.resetDownloadState();
+      this.downloadCancelRequested = false;
       this.downloadWorker = null;
       this.cdr.markForCheck();
       worker.terminate();
@@ -1161,13 +1522,20 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       } else if (e.data.type === 'done-part') {
         console.log('[GOLT] Download part ready:', e.data.filename);
         const blob = e.data.file instanceof Blob ? e.data.file : new Blob([e.data.buffer]);
-        const sideEffect = this.waitForMinimumVisibleTime(startedAt).then(() => this.downloadBlob(blob, e.data.filename));
+        const sideEffect = this.waitForMinimumVisibleTime(startedAt).then(() => {
+          if (!this.downloadCancelRequested && this.downloadWorker === worker) {
+            this.downloadBlob(blob, e.data.filename);
+          }
+        });
         pendingDownloadSideEffects.push(sideEffect);
       } else if (e.data.type === 'error') {
         const reason = e.data.reason ?? 'Unknown error';
         console.error('[GOLT] Download error:', reason);
         const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
         this.openSnack(`Download error: ${reason}${suggestion}`, 'error');
+        cleanupDownload();
+      } else if (e.data.type === 'cancelled') {
+        console.log('[GOLT] Download cancelled');
         cleanupDownload();
       } else if (e.data.type === 'done') {
         console.log('[GOLT] Download completed');
@@ -1189,7 +1557,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         cols: snap.cols,
         rows: snap.rows,
         grid: gridBuf,
-        gridFormat: snap.gridFormat
+        gridFormat: snap.gridFormat,
+        tribes: this.tribes.map(t => ({id: t.id, color: t.color})),
+        rules: this.ruleset.rules
       },
       recording: hasChunks ? {
         manifest: rec.manifest,
@@ -1224,16 +1594,18 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   private async saveGoltState(snap: SnapshotMessage): Promise<void> {
     const startedAt = performance.now();
-    const blob = await this.buildGoltFile(snap);
+    console.log('[GOLT] Clearing temporary OPFS files before snapshot save');
+    await clearTempOpfsDirectory();
+    const saved = await this.buildGoltFile(snap);
     await this.waitForMinimumVisibleTime(startedAt);
-    this.downloadBlob(blob, `gol-state-gen${snap.generation}.golt`);
+    this.downloadBlob(saved.blob, saved.filename);
   }
 
-  private async buildGoltFile(snap: SnapshotMessage): Promise<Blob> {
-    return new Blob([await this.runSnapshotSaveWorker(snap)], {type: 'application/octet-stream'});
+  private async buildGoltFile(snap: SnapshotMessage): Promise<SnapshotSaveOutput> {
+    return this.runSnapshotSaveWorker(snap);
   }
 
-  private async parseGoltFile(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata} | null> {
+  private async parseGoltFile(buffer: ArrayBuffer): Promise<ParsedGoltState | null> {
     return this.runSnapshotLoadWorker(buffer);
   }
 
@@ -1241,40 +1613,41 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * Applies a parsed snapshot to the current engine or queues it through rebuild.
    *
    * @private
-   * @param {{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}} parsed 
+   * @param {ParsedGoltState} parsed parsed snapshot data.
    * @param {number} parsed.cols
    * @param {number} parsed.rows
    * @param {number} parsed.generation
    * @param {Uint32Array} parsed.grid
    * @param {GridFormatMetadata} parsed.gridFormat
    */
-  private applyLoadedSnapshot(parsed: {cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}): void {
-    const {cols, rows, generation, grid, gridFormat} = parsed;
-    const nextSimulationGridFormat = this.smallestSimulationGridFormatForRuleset(this.ruleset, cols, rows);
-    const needsRebuild = cols !== this.ruleset.cols || rows !== this.ruleset.rows ||
-      nextSimulationGridFormat.bitsPerCell !== this.simulationGridFormat.bitsPerCell;
-    if (needsRebuild) {
-      this.queueLoadedSnapshotForRebuild(parsed, nextSimulationGridFormat);
-    } else {
-      this.engine.loadSnapshot(grid, generation, gridFormat);
-      this.latestMetrics = null;
-    }
+  private applyLoadedSnapshot(parsed: ParsedGoltState): void {
+    const {cols, rows, generation} = parsed;
+    const nextRuleset: Ruleset = {
+      cols,
+      rows,
+      tribes: parsed.tribes.map(t => ({id: t.id, color: t.color})),
+      rules: structuredClone(parsed.rules)
+    };
+    const nextSimulationGridFormat = this.smallestSimulationGridFormatForRuleset(nextRuleset, cols, rows);
+    this.setLoadedGenerationCounter(generation);
+    this.queueLoadedSnapshotForRebuild(parsed, nextRuleset, nextSimulationGridFormat);
   }
 
   /**
    * Stores a parsed snapshot until the engine rebuild completes.
    *
    * @private
-   * @param {{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}} parsed parsed snapshot data.
+   * @param {ParsedGoltState} parsed parsed snapshot data.
    * @param {number} parsed.cols
    * @param {number} parsed.rows
    * @param {number} parsed.generation
    * @param {Uint32Array} parsed.grid
    * @param {GridFormatMetadata} parsed.gridFormat
+   * @param {Ruleset} nextRuleset ruleset loaded from the snapshot.
    * @param {GridFormatMetadata} nextSimulationGridFormat grid format selected for the rebuilt engine.
    */
-  private queueLoadedSnapshotForRebuild(parsed: {cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata}, nextSimulationGridFormat: GridFormatMetadata): void {
-    const {cols, rows, generation, grid, gridFormat} = parsed;
+  private queueLoadedSnapshotForRebuild(parsed: ParsedGoltState, nextRuleset: Ruleset, nextSimulationGridFormat: GridFormatMetadata): void {
+    const {generation, grid, gridFormat} = parsed;
     this.rebuilding = true;
     this.pendingStateLoad = {
       grid,
@@ -1282,16 +1655,37 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       gridFormat
     };
     this.simulationGridFormat = nextSimulationGridFormat;
-    if (cols !== this.ruleset.cols || rows !== this.ruleset.rows) {
-      this.ruleset = {
-        ...this.ruleset,
-        cols,
-        rows
-      };
-    }
+    this.ruleset = nextRuleset;
+    this.syncDrawSelectionWithRuleset();
     if (this.clampBrushSize()) {
       this.savePreferences();
     }
+  }
+
+  /**
+   * Keeps draw controls pointed at a valid tribe after loading snapshot metadata.
+   *
+   * @private
+   */
+  private syncDrawSelectionWithRuleset(): void {
+    if (!this.ruleset.tribes.some(t => this.drawTribes.includes(t.id))) {
+      this.drawTribes = [this.ruleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
+    }
+    this.drawTribeIndex = this.ruleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
+  }
+
+  /**
+   * Updates the visible generation counter as soon as a snapshot is accepted.
+   *
+   * @private
+   * @param {number} generation loaded snapshot generation.
+   */
+  private setLoadedGenerationCounter(generation: number): void {
+    this.onGeneration({
+      type: 'generation',
+      generation,
+      fps: this.latestMetrics?.fps ?? 0
+    });
   }
 
   private downloadBlob(blob: Blob, filename: string): void {
@@ -1303,8 +1697,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     URL.revokeObjectURL(url);
   }
 
-  private runSnapshotSaveWorker(snap: SnapshotMessage): Promise<ArrayBuffer> {
-    return new Promise<ArrayBuffer>((resolve, reject) => {
+  private runSnapshotSaveWorker(snap: SnapshotMessage): Promise<SnapshotSaveOutput> {
+    return new Promise<SnapshotSaveOutput>((resolve, reject) => {
       const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
       worker.onerror = () => {
         worker.terminate();
@@ -1312,19 +1706,30 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       };
       worker.onmessage = (event: MessageEvent) => {
         const message = event.data as {
-          type: 'saved' | 'progress' | 'error';
+          type: 'saved-buffer' | 'saved-file' | 'progress' | 'error';
+          filename?: string;
           buffer?: ArrayBuffer;
+          file?: File;
           mode?: ProgressStatusMode;
           percent?: number | null;
           status?: string;
           reason?: string;
         };
-        if (message.type === 'saved' && message.buffer instanceof ArrayBuffer) {
+        if (message.type === 'saved-buffer' && message.buffer instanceof ArrayBuffer && message.filename) {
           worker.terminate();
-          resolve(message.buffer);
-        } else if (message.type === 'saved') {
+          resolve({
+            filename: message.filename,
+            blob: new Blob([message.buffer], {type: 'application/octet-stream'})
+          });
+        } else if (message.type === 'saved-file' && message.file instanceof File && message.filename) {
           worker.terminate();
-          reject(new Error('Snapshot save failed: missing worker buffer'));
+          resolve({
+            filename: message.filename,
+            blob: message.file
+          });
+        } else if (message.type === 'saved-buffer' || message.type === 'saved-file') {
+          worker.terminate();
+          reject(new Error('Snapshot save failed: incomplete worker payload'));
         } else if (message.type === 'progress') {
           this.applySnapshotProgress(message.mode, message.percent ?? null, message.status ?? '');
         } else if (message.type === 'error') {
@@ -1347,7 +1752,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     });
   }
 
-  private runSnapshotLoadWorker(buffer: ArrayBuffer): Promise<{cols: number; rows: number; generation: number; grid: Uint32Array; gridFormat: GridFormatMetadata} | null> {
+  private runSnapshotLoadWorker(buffer: ArrayBuffer): Promise<ParsedGoltState | null> {
     return new Promise((resolve, reject) => {
       const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
       worker.onerror = () => {
@@ -1362,20 +1767,25 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
           generation?: number;
           grid?: Uint32Array;
           gridFormat?: GridFormatMetadata;
+          tribes?: ParsedGoltState['tribes'];
+          rules?: ParsedGoltState['rules'];
           mode?: ProgressStatusMode;
           percent?: number | null;
           status?: string;
           reason?: string;
         };
         if (message.type === 'loaded' && typeof message.cols === 'number' && typeof message.rows === 'number' &&
-            typeof message.generation === 'number' && message.grid instanceof Uint32Array && message.gridFormat) {
+            typeof message.generation === 'number' && message.grid instanceof Uint32Array && message.gridFormat &&
+            Array.isArray(message.tribes) && Array.isArray(message.rules)) {
           worker.terminate();
           resolve({
             cols: message.cols,
             rows: message.rows,
             generation: message.generation,
             grid: message.grid,
-            gridFormat: message.gridFormat
+            gridFormat: message.gridFormat,
+            tribes: message.tribes,
+            rules: message.rules
           });
         } else if (message.type === 'loaded') {
           worker.terminate();

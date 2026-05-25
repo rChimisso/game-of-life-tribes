@@ -1,4 +1,4 @@
-import {DownloadRequestPayload} from '../model/download';
+import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
 import {RecordingManifest} from '../model/recording';
 import {alignPackedBytesToWords} from '../util/grid-format';
 import {writeGoltStateStream} from './snapshot/golt-build-stream';
@@ -8,6 +8,13 @@ import {countRecordingFrames, resolveRecordingFrameRef} from './snapshot/recordi
 import {ZipWriter} from './zip/zip-writer';
 
 import {Grid} from '~gol/feature/home/model/grid';
+
+/**
+ * User-visible ZIP export filename.
+ *
+ * @type {string}
+ */
+const ZIP_DOWNLOAD_FILENAME = 'gol-export.zip';
 
 /**
  * First percent used for streaming save-entry writes.
@@ -69,11 +76,26 @@ interface DownloadRequest {
 }
 
 /**
+ * Download worker cancellation request.
+ *
+ * @interface DownloadCancelRequest
+ * @typedef {DownloadCancelRequest}
+ */
+interface DownloadCancelRequest {
+  /**
+   * Download worker cancellation request type.
+   *
+   * @type {'cancel'}
+   */
+  type: 'cancel';
+}
+
+/**
  * Download worker input.
  *
  * @typedef {WorkerInput}
  */
-type WorkerInput = DownloadRequest;
+type WorkerInput = DownloadRequest | DownloadCancelRequest;
 
 /**
  * Download worker request event.
@@ -82,17 +104,34 @@ type WorkerInput = DownloadRequest;
  */
 type DownloadWorkerEvent = MessageEvent<WorkerInput>;
 
+let cancelRequested = false;
+
 /**
  * Saves-only download worker. Metrics, PNG, and MP4 are intentionally skipped in this milestone.
  *
  * @param {DownloadWorkerEvent} event download worker request event.
  */
 self.onmessage = (event: DownloadWorkerEvent) => {
-  handleDownload(event.data).catch(error => {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.error('[GOLT] Download worker failed:', error);
-    self.postMessage({type: 'error', reason});
-  });
+  switch (event.data.type) {
+    case 'download':
+      cancelRequested = false;
+      handleDownload(event.data).catch(error => {
+        if (error instanceof DownloadCancelledError || cancelRequested) {
+          console.log('[GOLT] Download worker cancelled');
+          self.postMessage({type: 'cancelled'});
+        } else {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error('[GOLT] Download worker failed:', error);
+          self.postMessage({type: 'error', reason});
+        }
+      }).finally(() => {
+      });
+      break;
+    case 'cancel':
+      cancelRequested = true;
+      postProgress(100, 'Cancelling');
+      break;
+  }
 };
 
 /**
@@ -105,21 +144,24 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
   const {opts, snapshot, recording, tribes, rules} = message;
   logSkippedOutputs(opts);
   postProgress(0, 'Preparing download');
+  throwIfCancelled();
   if (opts.saves) {
     postProgress(10, 'Opening ZIP output');
-    const zip = await ZipWriter.open('gol-export.zip');
+    const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
     try {
       await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
+      throwIfCancelled();
       postProgress(90, 'Finalizing ZIP');
       const file = await zip.finalize();
+      throwIfCancelled();
       postProgress(100, 'Done');
       self.postMessage({
         type: 'done-part',
-        filename: file.name,
+        filename: ZIP_DOWNLOAD_FILENAME,
         file
       });
     } catch (error) {
-      await zip.abort();
+      await zip.cleanup();
       throw error;
     }
   } else {
@@ -140,6 +182,7 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
  * @param {GoltStateData['rules']} rules snapshot rule metadata.
  */
 async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, snapshot: DownloadRequest['snapshot'], recording: DownloadRequest['recording'], tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
+  throwIfCancelled();
   if (recording && recording.manifest.chunks.length > 0) {
     await writeRecordedSaveEntries(zip, opts, recording, tribes, rules);
   } else {
@@ -168,6 +211,7 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
  */
 async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: Grid & {manifest: RecordingManifest}, tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
   postProgress(20, 'Resolving selected frames');
+  throwIfCancelled();
   const totalFrames = countRecordingFrames(recording.manifest);
   const selectedStartIndex = opts.frameRange && totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, opts.frameRange.startFrame - 1)) : 0;
   const selectedEndIndex = opts.frameRange && totalFrames > 0 ? Math.max(selectedStartIndex, Math.min(totalFrames - 1, opts.frameRange.endFrame - 1)) : Math.max(0, totalFrames - 1);
@@ -177,7 +221,9 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
     const twoEntries = lastRef.globalFrameIndex !== firstRef.globalFrameIndex;
     const firstEnd = twoEntries ? 60 : SAVE_WRITE_PROGRESS_END;
     postProgress(SAVE_WRITE_PROGRESS_START, 'Writing first save');
+    throwIfCancelled();
     const firstFrame = await readRecordingFrame(recording, firstRef);
+    throwIfCancelled();
     await zip.addEntry(`state-first-gen${firstFrame.generation}.golt`, entry => writeGoltStateStream({
       generation: firstFrame.generation,
       cols: recording.cols,
@@ -189,7 +235,9 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
     }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save')));
     if (twoEntries) {
       postProgress(65, 'Writing last save');
+      throwIfCancelled();
       const lastFrame = await readRecordingFrame(recording, lastRef);
+      throwIfCancelled();
       await zip.addEntry(`state-last-gen${lastFrame.generation}.golt`, entry => writeGoltStateStream({
         generation: lastFrame.generation,
         cols: recording.cols,
@@ -215,10 +263,20 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
  */
 function createSaveProgressReporter(startPercent: number, endPercent: number, status: string): SnapshotProgressReporter {
   return update => {
+    throwIfCancelled();
     const innerPercent = Math.max(0, Math.min(100, update.percent ?? 0));
     const span = endPercent - startPercent;
     postProgress(Math.round(startPercent + (innerPercent / 100) * span), status);
   };
+}
+
+/**
+ * Throws when the user has cancelled the active download.
+ */
+function throwIfCancelled(): void {
+  if (cancelRequested) {
+    throw new DownloadCancelledError();
+  }
 }
 
 /**

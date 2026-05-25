@@ -97,6 +97,24 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public running = false;
 
   /**
+   * Whether a snapshot is being saved.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public savingState = false;
+
+  /**
+   * Whether a snapshot is being loaded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public loadingState = false;
+
+  /**
    * Main download progress percentage.
    *
    * @public
@@ -131,6 +149,15 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   @Input({required: true})
   public downloadMainStatus = '';
+
+  /**
+   * Whether the current download is cancelling.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public downloadCancelling = false;
 
   /**
    * Emits the final download request.
@@ -263,6 +290,17 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
+   * Whether download option controls are disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get downloadControlsDisabled(): boolean {
+    return this.downloading || this.savingState || this.loadingState;
+  }
+
+  /**
    * Download progress status displayed above the button pair.
    *
    * @public
@@ -281,13 +319,27 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get downloadButtonDisabled(): boolean {
-    const noOutputsSelected =
-      !this.currentPreferences.metrics &&
-      !this.currentPreferences.saves &&
-      !this.currentPreferences.mp4 &&
-      !this.currentPreferences.png;
-    const invalidMp4Settings = this.currentPreferences.mp4 && !this.downloadMp4SettingsValid;
-    return this.running || this.downloading || this.chunksSaving || !this.downloadFrameRangeValid || invalidMp4Settings || noOutputsSelected;
+    return !this.downloadFrameRangeValid ||
+      !this.hasRecordedFrames ||
+      this.chunksSaving ||
+      this.loadingState ||
+      this.downloadCancelling ||
+      this.downloading ||
+      this.savingState ||
+      this.running ||
+      (this.currentPreferences.mp4 && !this.downloadMp4SettingsValid) ||
+      !(this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);
+  }
+
+  /**
+   * Whether the cancel button is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get cancelButtonDisabled(): boolean {
+    return !this.downloading || this.downloadCancelling;
   }
 
   /**

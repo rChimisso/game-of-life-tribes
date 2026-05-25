@@ -37,17 +37,6 @@ export interface ParsedGoltState extends Grid {
    * @type {GridFormatMetadata}
    */
   gridFormat: GridFormatMetadata;
-}
-
-/**
- * Data used to build a `.golt` state file.
- *
- * @export
- * @interface GoltStateData
- * @typedef {GoltStateData}
- * @extends {ParsedGoltState}
- */
-export interface GoltStateData extends ParsedGoltState {
   /**
    * Tribe information.
    *
@@ -61,6 +50,14 @@ export interface GoltStateData extends ParsedGoltState {
    */
   rules: Rule<Tribe[]>[];
 }
+
+/**
+ * Data used to build a `.golt` state file.
+ *
+ * @export
+ * @typedef {GoltStateData}
+ */
+export type GoltStateData = ParsedGoltState;
 
 /**
  * Partial `.golt` file header used while parsing.
@@ -83,6 +80,18 @@ export interface GoltHeader extends Grid {
    * @type {?GridFormatMetadata}
    */
   gridFormat?: GridFormatMetadata;
+  /**
+   * Tribe information.
+   *
+   * @type {?readonly Pick<Tribe, 'id' | 'color'>[]}
+   */
+  tribes?: readonly Pick<Tribe, 'id' | 'color'>[];
+  /**
+   * Rules.
+   *
+   * @type {?Rule<Tribe[]>[]}
+   */
+  rules?: Rule<Tribe[]>[];
 }
 
 /**

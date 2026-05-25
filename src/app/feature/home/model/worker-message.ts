@@ -188,6 +188,7 @@ export interface ChunkSealedMessage extends Grid {
 export interface UpdateChunkCodecMessage {
   type: 'updateChunkCodec';
   filename: string;
+  rawBytes: number;
   codec: string;
   storedBytes: number;
   gridFormat: GridFormatMetadata;

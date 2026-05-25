@@ -1,18 +1,18 @@
 <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
 <div class="download-checks" title="">
-  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
 </div>
 <gol-subsection title="Selection range" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
-  <gol-download-frame-range-form [disabled]="downloading" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
+  <gol-download-frame-range-form [disabled]="downloadControlsDisabled" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
 </gol-subsection>
 <gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
-  <gol-download-mp4-settings-form [disabled]="downloading" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
+  <gol-download-mp4-settings-form [disabled]="downloadControlsDisabled" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
 </gol-subsection>
 <span class="warning-message collapsible-message mp4-gate-message" [class.empty]="!mp4GateMessageExpanded" (transitionend)="onMp4GateMessageTransitionEnd($event)">
   <span class="message-content">{{ displayedMp4GateMessage }}</span>
 </span>
 <gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
-<gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="!downloading" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />
+<gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="cancelButtonDisabled" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />

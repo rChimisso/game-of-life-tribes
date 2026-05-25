@@ -1,14 +1,26 @@
 import {createGoltPrefix, RAW_DEFLATE_CODEC} from './golt-format';
 import {ByteSink, GoltStateData, SnapshotProgressReporter} from './golt-types';
-import {repackPackedGrid} from './packed-repack';
+import {repackPackedGrid, writeRepackedGridToSink} from './packed-repack';
+import {GridFormat} from '../../model/grid-format';
 import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '../../util/grid-format';
 
 /**
- * Chunk size used when streaming grid bytes into the compressor.
+ * Creates the serialized `.golt` JSON header.
  *
- * @type {number}
+ * @param {GoltStateData} data state data to serialize.
+ * @param {GridFormat} targetFormat target storage grid format.
+ * @returns {Uint8Array} encoded header bytes.
  */
-const SNAPSHOT_STREAM_CHUNK_BYTES = 8 * 1024 * 1024;
+function createGoltHeaderBytes(data: GoltStateData, targetFormat: GridFormat): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify({
+    generation: data.generation,
+    cols: data.cols,
+    rows: data.rows,
+    gridFormat: gridFormatMetadata(targetFormat),
+    tribes: data.tribes.map(t => ({id: t.id, color: t.color})),
+    rules: data.rules
+  }));
+}
 
 /**
  * Pumps compressed chunks from a stream reader into a sink.
@@ -29,28 +41,6 @@ async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Arr
 }
 
 /**
- * Streams packed grid bytes into a compression stream.
- *
- * @async
- * @param {WritableStreamDefaultWriter<Uint8Array>} writer compression stream writer.
- * @param {Uint8Array} gridBytes packed grid bytes to compress.
- * @param {SnapshotProgressReporter} reportProgress progress callback.
- */
-async function writeGridBytes(writer: WritableStreamDefaultWriter<Uint8Array>, gridBytes: Uint8Array, reportProgress: SnapshotProgressReporter): Promise<void> {
-  let offset = 0;
-  while (offset < gridBytes.byteLength) {
-    const end = Math.min(offset + SNAPSHOT_STREAM_CHUNK_BYTES, gridBytes.byteLength);
-    await writer.write(gridBytes.subarray(offset, end));
-    offset = end;
-    reportProgress({
-      mode: 'determinate',
-      percent: Math.min(95, Math.round((offset / gridBytes.byteLength) * 90) + 5),
-      status: 'Compressing grid'
-    });
-  }
-}
-
-/**
  * Writes a `.golt` state file to a byte sink using a streaming-shaped deflate path.
  *
  * @export
@@ -60,25 +50,40 @@ async function writeGridBytes(writer: WritableStreamDefaultWriter<Uint8Array>, g
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  */
 export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, reportProgress: SnapshotProgressReporter): Promise<void> {
-  const {headerBytes, gridBytes} = prepareGoltState(data);
+  const targetFormat = chooseTightStorageGridFormat(data.tribes.length);
+  const sourceFormat = gridFormatFromMetadata(data.gridFormat);
+  const headerBytes = createGoltHeaderBytes(data, targetFormat);
   await sink.write(createGoltPrefix(headerBytes));
   const stream = new CompressionStream(RAW_DEFLATE_CODEC);
   const writer = stream.writable.getWriter();
   const reader = stream.readable.getReader();
-  const pump = pumpCompressedChunks(reader, sink);
+  let pumpFailure: Error | null = null;
+  const pump = pumpCompressedChunks(reader, sink).catch(error => {
+    pumpFailure = error instanceof Error ? error : new Error(String(error));
+  });
   reportProgress({
     mode: 'determinate',
     percent: 5,
     status: 'Compressing grid'
   });
-  await writeGridBytes(writer, gridBytes, reportProgress);
-  await writer.close();
-  await pump;
-  reportProgress({
-    mode: 'determinate',
-    percent: 100,
-    status: 'Preparing snapshot'
-  });
+  try {
+    await writeRepackedGridToSink(data.grid, data, sourceFormat, targetFormat, {write: chunk => writer.write(chunk)}, reportProgress);
+    await writer.close();
+    await pump;
+    if (pumpFailure) {
+      throw pumpFailure;
+    }
+    reportProgress({
+      mode: 'determinate',
+      percent: 100,
+      status: 'Preparing snapshot'
+    });
+  } catch (error) {
+    await writer.abort(error).catch(() => undefined);
+    await reader.cancel(error).catch(() => undefined);
+    await pump;
+    throw error;
+  }
 }
 
 /**
@@ -121,13 +126,6 @@ export function prepareGoltState(data: GoltStateData): {headerBytes: Uint8Array;
   const sourceFormat = gridFormatFromMetadata(data.gridFormat);
   const targetGrid = repackPackedGrid(data.grid, data, sourceFormat, targetFormat);
   const gridBytes = new Uint8Array(targetGrid.buffer, targetGrid.byteOffset, targetGrid.byteLength);
-  const headerBytes = new TextEncoder().encode(JSON.stringify({
-    generation: data.generation,
-    cols: data.cols,
-    rows: data.rows,
-    gridFormat: gridFormatMetadata(targetFormat),
-    tribes: data.tribes.map(t => ({id: t.id, color: t.color})),
-    rules: data.rules
-  }));
+  const headerBytes = createGoltHeaderBytes(data, targetFormat);
   return {headerBytes, gridBytes};
 }

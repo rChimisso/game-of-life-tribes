@@ -1,4 +1,78 @@
 /**
+ * Error used to stop download work after cancellation.
+ *
+ * @export
+ * @class DownloadCancelledError
+ * @typedef {DownloadCancelledError}
+ * @extends {Error}
+ */
+export class DownloadCancelledError extends Error {
+  /**
+   * Creates a download cancellation error.
+   */
+  public constructor() {
+    super('Download cancelled');
+    this.name = 'DownloadCancelledError';
+  }
+}
+
+/**
+ * Compression worker queue status.
+ *
+ * @export
+ * @interface CompressionStatusMessage
+ * @typedef {CompressionStatusMessage}
+ */
+export interface CompressionStatusMessage {
+  /**
+   * Compression status message type.
+   *
+   * @type {'compressionStatus'}
+   */
+  type: 'compressionStatus';
+  /**
+   * Number of active compression jobs.
+   *
+   * @type {number}
+   */
+  activeJobs: number;
+  /**
+   * Number of queued compression jobs.
+   *
+   * @type {number}
+   */
+  queuedJobs: number;
+}
+
+/**
+ * Compression worker failed-job completion message.
+ *
+ * @export
+ * @interface CompressionFailedMessage
+ * @typedef {CompressionFailedMessage}
+ */
+export interface CompressionFailedMessage {
+  /**
+   * Compression failure message type.
+   *
+   * @type {'compressionFailed'}
+   */
+  type: 'compressionFailed';
+  /**
+   * Chunk filename.
+   *
+   * @type {string}
+   */
+  filename: string;
+  /**
+   * Original raw chunk bytes.
+   *
+   * @type {number}
+   */
+  rawBytes: number;
+}
+
+/**
  * Download frame range.
  *
  * @export

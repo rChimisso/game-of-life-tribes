@@ -1,6 +1,7 @@
-import {buildGoltStateFile} from './snapshot/golt-build';
+import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/golt-build';
 import {parseGoltStateFile} from './snapshot/golt-parse';
 import {GoltStateData, SnapshotProgressUpdate} from './snapshot/golt-types';
+import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../util/opfs-temp';
 
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 
@@ -103,6 +104,18 @@ interface SnapshotLoadedMessage {
    * @type {GridFormatMetadata}
    */
   gridFormat: GridFormatMetadata;
+  /**
+   * Loaded tribe color metadata.
+   *
+   * @type {GoltStateData['tribes']}
+   */
+  tribes: GoltStateData['tribes'];
+  /**
+   * Loaded rules metadata.
+   *
+   * @type {GoltStateData['rules']}
+   */
+  rules: GoltStateData['rules'];
 }
 
 /**
@@ -150,14 +163,30 @@ async function handleSnapshotRequest(message: SnapshotWorkerRequest): Promise<vo
 }
 
 /**
- * Builds a `.golt` snapshot and posts the serialized bytes.
+ * Builds a `.golt` snapshot and posts the serialized output.
  *
  * @async
  * @param {GoltStateData} snapshot snapshot data to serialize.
  */
 async function saveSnapshot(snapshot: GoltStateData): Promise<void> {
-  const buffer = (await buildGoltStateFile(snapshot, postSnapshotProgress)).buffer as ArrayBuffer;
-  self.postMessage({type: 'saved', buffer}, [buffer]);
+  const filename = createSnapshotFilename(snapshot.generation);
+  if (shouldStreamGoltState(snapshot)) {
+    console.log('[GOLT] Snapshot worker writing OPFS-backed snapshot');
+    const file = await writeSnapshotFileToOpfs(snapshot, filename);
+    self.postMessage({
+      type: 'saved-file',
+      filename,
+      file
+    });
+  } else {
+    const bytes = await buildGoltStateFile(snapshot, postSnapshotProgress);
+    const buffer = bytes.buffer as ArrayBuffer;
+    self.postMessage({
+      type: 'saved-buffer',
+      filename,
+      buffer
+    }, [buffer]);
+  }
 }
 
 /**
@@ -175,7 +204,9 @@ async function loadSnapshot(buffer: ArrayBuffer): Promise<void> {
       rows: parsed.rows,
       generation: parsed.generation,
       grid: parsed.grid,
-      gridFormat: parsed.gridFormat
+      gridFormat: parsed.gridFormat,
+      tribes: parsed.tribes,
+      rules: parsed.rules
     };
     self.postMessage(message, [parsed.grid.buffer]);
   } else {
@@ -195,4 +226,50 @@ function postSnapshotProgress(update: SnapshotProgressUpdate): void {
     percent: update.percent,
     status: update.status
   });
+}
+
+/**
+ * Writes a large snapshot to OPFS and returns its file handle snapshot.
+ *
+ * @async
+ * @param {GoltStateData} snapshot snapshot data to serialize.
+ * @param {string} downloadFilename user-visible download filename.
+ * @returns {Promise<File>} OPFS-backed snapshot file.
+ */
+async function writeSnapshotFileToOpfs(snapshot: GoltStateData, downloadFilename: string): Promise<File> {
+  const directory = await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR);
+  const filename = createOpfsSnapshotFilename(downloadFilename);
+  const fileHandle = await directory.getFileHandle(filename, {create: true});
+  const writable = await fileHandle.createWritable();
+  try {
+    await writeGoltStateFileToSink(snapshot, {
+      write: chunk => writable.write(chunk)
+    }, postSnapshotProgress);
+    await writable.close();
+  } catch (error) {
+    await writable.abort();
+    throw error;
+  }
+  return fileHandle.getFile();
+}
+
+/**
+ * Creates the user-visible snapshot download filename.
+ *
+ * @param {number} generation snapshot generation.
+ * @returns {string} snapshot filename.
+ */
+function createSnapshotFilename(generation: number): string {
+  return `gol-state-gen${generation}.golt`;
+}
+
+/**
+ * Creates a unique temporary OPFS snapshot filename.
+ *
+ * @param {string} downloadFilename user-visible download filename.
+ * @returns {string} OPFS filename.
+ */
+function createOpfsSnapshotFilename(downloadFilename: string): string {
+  const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+  return `${Date.now()}-${suffix}-${downloadFilename}`;
 }

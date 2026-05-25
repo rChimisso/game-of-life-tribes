@@ -1,10 +1,12 @@
 import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
 import {RecordingManifest} from '../model/recording';
 import {alignPackedBytesToWords} from '../util/grid-format';
+import {resolveRecordingFrameSelection} from './frame/recording-frame-stream';
+import {writeMetricsEntries, MetricsExportProgress} from './metric/sequence/export';
 import {writeGoltStateStream} from './snapshot/golt-build-stream';
 import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/golt-types';
 import {readRecordingFrame} from './snapshot/recording-frame-reader';
-import {countRecordingFrames, resolveRecordingFrameRef} from './snapshot/recording-frame-ref';
+import {resolveRecordingFrameRef} from './snapshot/recording-frame-ref';
 import {ZipWriter} from './zip/zip-writer';
 
 import {Grid} from '~gol/feature/home/model/grid';
@@ -21,14 +23,28 @@ const ZIP_DOWNLOAD_FILENAME = 'gol-export.zip';
  *
  * @type {number}
  */
-const SAVE_WRITE_PROGRESS_START = 35;
+const SAVE_WRITE_PROGRESS_START = 10;
 
 /**
  * Last percent used for streaming save-entry writes.
  *
  * @type {number}
  */
-const SAVE_WRITE_PROGRESS_END = 85;
+const SAVE_WRITE_PROGRESS_END = 55;
+
+/**
+ * First percent used for Metrics export.
+ *
+ * @type {number}
+ */
+const METRICS_PROGRESS_START = 55;
+
+/**
+ * Last percent used for Metrics export.
+ *
+ * @type {number}
+ */
+const METRICS_PROGRESS_END = 85;
 
 /**
  * Download worker request payload.
@@ -107,7 +123,7 @@ type DownloadWorkerEvent = MessageEvent<WorkerInput>;
 let cancelRequested = false;
 
 /**
- * Saves-only download worker. Metrics, PNG, and MP4 are intentionally skipped in this milestone.
+ * Download worker for ZIP-backed export outputs.
  *
  * @param {DownloadWorkerEvent} event download worker request event.
  */
@@ -145,11 +161,22 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
   logSkippedOutputs(opts);
   postProgress(0, 'Preparing download');
   throwIfCancelled();
-  if (opts.saves) {
+  const hasRecordedFrames = recording !== null && recording.manifest.chunks.length > 0;
+  const shouldWriteZip = opts.saves || (opts.metrics && hasRecordedFrames);
+  if (opts.metrics && !hasRecordedFrames) {
+    console.warn('[GOLT] Metrics requested but no recording data is available');
+  }
+  if (shouldWriteZip) {
     postProgress(10, 'Opening ZIP output');
     const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
     try {
       await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
+      if (opts.metrics && hasRecordedFrames && recording) {
+        await writeMetricsEntries(zip, recording, opts.frameRange, tribes, {
+          shouldCancel: () => cancelRequested,
+          onProgress: createMetricsProgressReporter(METRICS_PROGRESS_START, METRICS_PROGRESS_END)
+        });
+      }
       throwIfCancelled();
       postProgress(90, 'Finalizing ZIP');
       const file = await zip.finalize();
@@ -183,9 +210,9 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
  */
 async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, snapshot: DownloadRequest['snapshot'], recording: DownloadRequest['recording'], tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
   throwIfCancelled();
-  if (recording && recording.manifest.chunks.length > 0) {
+  if (opts.saves && recording && recording.manifest.chunks.length > 0) {
     await writeRecordedSaveEntries(zip, opts, recording, tribes, rules);
-  } else {
+  } else if (opts.saves) {
     postProgress(SAVE_WRITE_PROGRESS_START, 'Writing current save');
     await zip.addEntry(`state-gen${snapshot.generation}.golt`, entry => writeGoltStateStream({
       generation: snapshot.generation,
@@ -210,16 +237,15 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
  * @param {GoltStateData['rules']} rules snapshot rule metadata.
  */
 async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: Grid & {manifest: RecordingManifest}, tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
-  postProgress(20, 'Resolving selected frames');
+  postProgress(SAVE_WRITE_PROGRESS_START, 'Resolving selected frames');
   throwIfCancelled();
-  const totalFrames = countRecordingFrames(recording.manifest);
-  const selectedStartIndex = opts.frameRange && totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, opts.frameRange.startFrame - 1)) : 0;
-  const selectedEndIndex = opts.frameRange && totalFrames > 0 ? Math.max(selectedStartIndex, Math.min(totalFrames - 1, opts.frameRange.endFrame - 1)) : Math.max(0, totalFrames - 1);
-  const firstRef = resolveRecordingFrameRef(recording.manifest, selectedStartIndex);
-  const lastRef = resolveRecordingFrameRef(recording.manifest, selectedEndIndex);
+  const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
+  const firstRef = resolveRecordingFrameRef(recording.manifest, selection.startIndex);
+  const lastRef = resolveRecordingFrameRef(recording.manifest, selection.endIndex);
   if (firstRef && lastRef) {
     const twoEntries = lastRef.globalFrameIndex !== firstRef.globalFrameIndex;
-    const firstEnd = twoEntries ? 60 : SAVE_WRITE_PROGRESS_END;
+    const firstEnd = twoEntries ? Math.round((SAVE_WRITE_PROGRESS_START + SAVE_WRITE_PROGRESS_END) / 2) : SAVE_WRITE_PROGRESS_END;
+    const lastStart = Math.min(SAVE_WRITE_PROGRESS_END, firstEnd + 1);
     postProgress(SAVE_WRITE_PROGRESS_START, 'Writing first save');
     throwIfCancelled();
     const firstFrame = await readRecordingFrame(recording, firstRef);
@@ -234,7 +260,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
       rules
     }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save')));
     if (twoEntries) {
-      postProgress(65, 'Writing last save');
+      postProgress(lastStart, 'Writing last save');
       throwIfCancelled();
       const lastFrame = await readRecordingFrame(recording, lastRef);
       throwIfCancelled();
@@ -246,11 +272,27 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
         gridFormat: lastRef.gridFormat,
         tribes,
         rules
-      }, entry, createSaveProgressReporter(65, SAVE_WRITE_PROGRESS_END, 'Writing last save')));
+      }, entry, createSaveProgressReporter(lastStart, SAVE_WRITE_PROGRESS_END, 'Writing last save')));
     }
   } else {
     console.warn('[GOLT] Saves requested but selected recording frames could not be resolved');
   }
+}
+
+/**
+ * Creates a reporter that maps Metrics export progress into the overall download range.
+ *
+ * @param {number} startPercent overall start percent.
+ * @param {number} endPercent overall end percent.
+ * @returns {(progress: MetricsExportProgress) => void} mapped progress reporter.
+ */
+function createMetricsProgressReporter(startPercent: number, endPercent: number): (progress: MetricsExportProgress) => void {
+  return progress => {
+    throwIfCancelled();
+    const innerPercent = Math.max(0, Math.min(100, progress.percent));
+    const span = endPercent - startPercent;
+    postProgress(Math.round(startPercent + (innerPercent / 100) * span), progress.status);
+  };
 }
 
 /**
@@ -285,9 +327,6 @@ function throwIfCancelled(): void {
  * @param {DownloadRequestPayload} opts selected download options.
  */
 function logSkippedOutputs(opts: DownloadRequestPayload): void {
-  if (opts.metrics) {
-    console.log('[GOLT] Metrics export is not implemented in the new download worker yet; skipping metrics output.');
-  }
   if (opts.png) {
     console.log('[GOLT] PNG frame export is not implemented in the new download worker yet; skipping PNG output.');
   }

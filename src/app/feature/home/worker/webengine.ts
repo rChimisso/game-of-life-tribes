@@ -10,9 +10,9 @@
  */
 
 import {GPU_LABELS} from './gpu-labels';
-import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metrics/metrics-current';
-import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metrics/metrics-planner';
-import {InteractiveMetricSection, InteractiveMetricsResources} from './metrics/metrics-types';
+import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/current/current';
+import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/current/planner';
+import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/current/types';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';

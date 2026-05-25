@@ -464,6 +464,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnChanges(changes: TypedChanges<DownloadSection>): void {
     if (changes.totalRecordedFrames) {
+      this.syncFrameRangeWithTotalFrames();
       this.syncMp4GateMessage();
     }
   }
@@ -508,7 +509,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @public
    */
   public onDownload(): void {
-    const frameRange = this.downloadFrameRangeValue.allFrames ?
+    const frameRange = this.currentPreferences.allFrames ?
       null :
       {
         startFrame: +this.downloadFrameRangeValue.startFrame,
@@ -656,6 +657,21 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     this.downloadFrameRangeValue = {...value};
     this.downloadFrameRangeFormData = {...value};
     this.downloadFrameRangeValid = true;
+  }
+
+  /**
+   * Syncs the frame range bounds when the recording grows.
+   *
+   * @private
+   */
+  private syncFrameRangeWithTotalFrames(): void {
+    if (this.currentPreferences.allFrames) {
+      this.forceDownloadFrameRangeValue({
+        allFrames: true,
+        startFrame: 1,
+        endFrame: Math.max(1, this.totalRecordedFrames)
+      });
+    }
   }
 
   /**

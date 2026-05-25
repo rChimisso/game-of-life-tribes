@@ -1,54 +1,73 @@
-import {BuildMetricMessageRequest,
-  CreateInteractiveMetricsResourcesRequest,
-  EncodeInteractiveMetricsRequest,
-  InteractiveMetricMessage,
-  InteractiveMetricsReadback,
-  InteractiveMetricsResources,
-  MetricsDispatchPlan2D,
-  ReadInteractiveMetricsRequest} from './metrics-types';
-import {GPU_LABELS} from '../gpu-labels';
-import {hasInteractiveMetricSection} from './metrics-planner';
+import {hasInteractiveMetricSection} from './planner';
+import {BuildMetricMessageRequest, CreateInteractiveMetricsResourcesRequest, EncodeInteractiveMetricsRequest, InteractiveMetricMessage, InteractiveMetricsReadback, InteractiveMetricsResources, MetricsDispatchPlan2D, ReadInteractiveMetricsRequest} from './types';
+import {GPU_LABELS} from '../../gpu-labels';
 
-export const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
-export const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
+/**
+ * Histogram buffer size in bytes.
+ *
+ * @type {number}
+ */
+const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
 
+/**
+ * Boundary buffer size in bytes.
+ *
+ * @type {number}
+ */
+const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
+
+/**
+ * Builds dispatch constants for remapped metrics dispatches.
+ *
+ * @param {MetricsDispatchPlan2D} dispatchPlan metrics dispatch plan.
+ * @returns {string} WGSL constants.
+ */
 function dispatchConstantsWgsl(dispatchPlan: MetricsDispatchPlan2D): string {
-  if (!dispatchPlan.remapped) {
-    return '';
-  }
-  return `
+  return dispatchPlan.remapped ? `
 const LOGICAL_WG_X: u32 = ${dispatchPlan.logicalWgX}u;
 const DISPATCH_WG_X: u32 = ${dispatchPlan.dispatchWgX}u;
-`;
+` : '';
 }
 
+/**
+ * Builds the WGSL main signature for a metrics shader.
+ *
+ * @param {MetricsDispatchPlan2D} dispatchPlan metrics dispatch plan.
+ * @returns {string} WGSL main signature.
+ */
 function metricsMainSignatureWgsl(dispatchPlan: MetricsDispatchPlan2D): string {
-  if (dispatchPlan.remapped) {
-    return `fn main(
+  return dispatchPlan.remapped ? `fn main(
   @builtin(workgroup_id) workgroup_id: vec3u,
   @builtin(local_invocation_id) local_invocation_id: vec3u,
   @builtin(local_invocation_index) lid: u32
-) {`;
-  }
-  return `fn main(
+) {` : `fn main(
   @builtin(global_invocation_id) gid: vec3u,
   @builtin(local_invocation_index) lid: u32
 ) {`;
 }
 
+/**
+ * Builds WGSL coordinate calculation for a metrics shader.
+ *
+ * @param {MetricsDispatchPlan2D} dispatchPlan metrics dispatch plan.
+ * @returns {string} WGSL coordinate calculation.
+ */
 function metricsCoordinateWgsl(dispatchPlan: MetricsDispatchPlan2D): string {
-  if (dispatchPlan.remapped) {
-    return `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
+  return dispatchPlan.remapped ? `  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;
   let logicalWgX = flatWg % LOGICAL_WG_X;
   let logicalWgY = flatWg / LOGICAL_WG_X;
 
   let x = logicalWgX * 16u + local_invocation_id.x;
-  let y = logicalWgY * 16u + local_invocation_id.y;`;
-  }
-  return `  let x = gid.x;
+  let y = logicalWgY * 16u + local_invocation_id.y;` : `  let x = gid.x;
   let y = gid.y;`;
 }
 
+/**
+ * Generates the histogram metrics shader.
+ *
+ * @param {CreateInteractiveMetricsResourcesRequest} request resource creation request.
+ * @returns {string} WGSL shader source.
+ */
 function generateHistogramWgsl(request: CreateInteractiveMetricsResourcesRequest): string {
   const {cols, rows, gridFormat, dispatchPlan} = request;
   return `
@@ -93,6 +112,12 @@ ${metricsCoordinateWgsl(dispatchPlan)}
 `;
 }
 
+/**
+ * Generates the boundary metrics shader.
+ *
+ * @param {CreateInteractiveMetricsResourcesRequest} request resource creation request.
+ * @returns {string} WGSL shader source.
+ */
 function generateBoundaryWgsl(request: CreateInteractiveMetricsResourcesRequest): string {
   const {cols, rows, gridFormat, dispatchPlan} = request;
   return `
@@ -153,7 +178,13 @@ ${metricsCoordinateWgsl(dispatchPlan)}
 `;
 }
 
-export function createInteractiveMetricsResources(request: CreateInteractiveMetricsResourcesRequest): InteractiveMetricsResources {
+/**
+ * Creates live metric WebGPU resources.
+ *
+ * @param {CreateInteractiveMetricsResourcesRequest} request resource creation request.
+ * @returns {InteractiveMetricsResources} live metric GPU resources.
+ */
+function createInteractiveMetricsResources(request: CreateInteractiveMetricsResourcesRequest): InteractiveMetricsResources {
   const {device} = request;
   const histModule = device.createShaderModule({label: GPU_LABELS.histogramMetricsShaderModule, code: generateHistogramWgsl(request)});
   const histogramPipeline = device.createComputePipeline({
@@ -199,14 +230,24 @@ export function createInteractiveMetricsResources(request: CreateInteractiveMetr
   };
 }
 
-export function destroyInteractiveMetricsResources(resources: InteractiveMetricsResources | null): void {
+/**
+ * Destroys live metric WebGPU resources.
+ *
+ * @param {(InteractiveMetricsResources | null)} resources live metric GPU resources.
+ */
+function destroyInteractiveMetricsResources(resources: InteractiveMetricsResources | null): void {
   resources?.histogramBuffer.destroy();
   resources?.histogramReadBuffer.destroy();
   resources?.boundaryBuffer.destroy();
   resources?.boundaryReadBuffer.destroy();
 }
 
-export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsRequest): void {
+/**
+ * Encodes live metric GPU work into a command encoder.
+ *
+ * @param {EncodeInteractiveMetricsRequest} request encode request.
+ */
+function encodeInteractiveMetrics(request: EncodeInteractiveMetricsRequest): void {
   const {device, encoder, resources, sourceBuffer, dispatchPlan, enabledSections} = request;
   if (hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity')) {
     const zeros256 = new Uint32Array(256);
@@ -239,7 +280,14 @@ export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsReques
   }
 }
 
-export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequest): Promise<InteractiveMetricsReadback> {
+/**
+ * Reads live metric GPU outputs.
+ *
+ * @async
+ * @param {ReadInteractiveMetricsRequest} request readback request.
+ * @returns {Promise<InteractiveMetricsReadback>} live metric readback.
+ */
+async function readInteractiveMetrics(request: ReadInteractiveMetricsRequest): Promise<InteractiveMetricsReadback> {
   const {resources, enabledSections} = request;
   const needsHistogram = hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity');
   const needsBoundary = hasInteractiveMetricSection(enabledSections, 'interfaces');
@@ -267,77 +315,172 @@ export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequ
   return {histogram, crossStateContactEdges};
 }
 
-export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
-  const {generation, tribes, deadTribeIndex, readback, enabledSections, availability, liveMetricSettings, cols, rows, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
-  const populationEnabled = hasInteractiveMetricSection(enabledSections, 'population') && liveMetricSettings.population;
-  const diversityEnabled = hasInteractiveMetricSection(enabledSections, 'diversity') && liveMetricSettings.diversity;
-  const interfacesEnabled = hasInteractiveMetricSection(enabledSections, 'interfaces') && liveMetricSettings.interfaces;
-  const population: Record<string, number> = {};
-  let shannonEntropy = 0;
-  let simpsonSum = 0;
-  const extinctionTime: Record<string, number | null> = {};
-  let totalAlive = 0;
-  const totalCells = cols * rows;
+/**
+ * Population stats derived from live metric readback.
+ *
+ * @interface LivePopulationStats
+ * @typedef {LivePopulationStats}
+ */
+interface LivePopulationStats {
+  /**
+   * Population by tribe ID.
+   *
+   * @type {Record<string, number>}
+   */
+  population: Record<string, number>;
+  /**
+   * Live cell count.
+   *
+   * @type {number}
+   */
+  aliveCells: number;
+  /**
+   * Dead cell count.
+   *
+   * @type {number}
+   */
+  deadCells: number;
+}
 
+/**
+ * Diversity stats derived from live metric readback.
+ *
+ * @interface LiveDiversityStats
+ * @typedef {LiveDiversityStats}
+ */
+interface LiveDiversityStats {
+  /**
+   * Shannon entropy among live tribes.
+   *
+   * @type {number}
+   */
+  shannonEntropy: number;
+  /**
+   * Simpson sum among live tribes.
+   *
+   * @type {number}
+   */
+  simpsonSum: number;
+}
+
+/**
+ * Computes live population stats.
+ *
+ * @param {BuildMetricMessageRequest} request metric message request.
+ * @param {boolean} populationEnabled whether population metrics are enabled.
+ * @returns {LivePopulationStats} population stats.
+ */
+function computeLivePopulationStats(request: BuildMetricMessageRequest, populationEnabled: boolean): LivePopulationStats {
+  const {tribes, deadTribeIndex, readback, cols, rows} = request;
+  const totalCells = cols * rows;
+  const population: Record<string, number> = {};
   for (let i = 0; i < tribes.length; i++) {
     const count = populationEnabled ? readback.histogram[i] ?? 0 : 0;
     population[tribes[i]!.id] = count;
-    if (i !== deadTribeIndex) {
-      totalAlive += count;
-    }
   }
+  const deadCells = populationEnabled ? population[tribes[deadTribeIndex]?.id ?? ''] ?? 0 : 0;
+  return {
+    population,
+    aliveCells: populationEnabled ? Math.max(0, totalCells - deadCells) : 0,
+    deadCells
+  };
+}
 
-  if (diversityEnabled) {
-    totalAlive = 0;
-    for (let i = 0; i < tribes.length; i++) {
-      if (i !== deadTribeIndex) {
-        totalAlive += readback.histogram[i] ?? 0;
-      }
-    }
-  }
-
-  if (diversityEnabled && totalAlive > 0) {
-    for (let i = 0; i < tribes.length; i++) {
-      if (i !== deadTribeIndex) {
-        const p = (readback.histogram[i] ?? 0) / totalAlive;
-        if (p > 0) {
-          shannonEntropy -= p * Math.log2(p);
-          simpsonSum += p * p;
-        }
-      }
-    }
-  }
-
+/**
+ * Computes the total live cells used by diversity metrics.
+ *
+ * @param {BuildMetricMessageRequest} request metric message request.
+ * @returns {number} total live cells.
+ */
+function computeDiversityAliveCells(request: BuildMetricMessageRequest): number {
+  const {tribes, deadTribeIndex, readback} = request;
+  let totalAlive = 0;
   for (let i = 0; i < tribes.length; i++) {
     if (i !== deadTribeIndex) {
-      extinctionTime[tribes[i]!.id] = 0;
+      totalAlive += readback.histogram[i] ?? 0;
     }
   }
+  return totalAlive;
+}
 
-  const deadCells = populationEnabled ? population[tribes[deadTribeIndex]?.id ?? ''] ?? 0 : 0;
-  const aliveCells = populationEnabled ? Math.max(0, totalCells - deadCells) : 0;
-  const totalContactEdges = totalCells * 2;
-  const crossStateContactEdges = interfacesEnabled ? readback.crossStateContactEdges : 0;
+/**
+ * Computes live diversity stats.
+ *
+ * @param {BuildMetricMessageRequest} request metric message request.
+ * @param {boolean} diversityEnabled whether diversity metrics are enabled.
+ * @returns {LiveDiversityStats} diversity stats.
+ */
+function computeLiveDiversityStats(request: BuildMetricMessageRequest, diversityEnabled: boolean): LiveDiversityStats {
+  const {tribes, deadTribeIndex, readback} = request;
+  const totalAlive = diversityEnabled ? computeDiversityAliveCells(request) : 0;
+  let shannonEntropy = 0;
+  let simpsonSum = 0;
+  for (let i = 0; i < tribes.length; i++) {
+    const probability = i !== deadTribeIndex && totalAlive > 0 ? (readback.histogram[i] ?? 0) / totalAlive : 0;
+    if (probability > 0) {
+      shannonEntropy -= probability * Math.log2(probability);
+      simpsonSum += probability * probability;
+    }
+  }
+  return {shannonEntropy, simpsonSum};
+}
+
+/**
+ * Builds live extinction data.
+ *
+ * @returns {Record<string, number | null>} empty live extinction data.
+ */
+function buildLiveExtinctionTime(): Record<string, number | null> {
+  return {};
+}
+
+/**
+ * Builds live interface metrics.
+ *
+ * @param {BuildMetricMessageRequest} request metric message request.
+ * @param {boolean} interfacesEnabled whether interface metrics are enabled.
+ * @returns {NonNullable<InteractiveMetricMessage['interfaces']>} interface metrics.
+ */
+function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interfacesEnabled: boolean): NonNullable<InteractiveMetricMessage['interfaces']> {
+  const totalContactEdges = request.cols * request.rows * 2;
+  const crossStateContactEdges = interfacesEnabled ? request.readback.crossStateContactEdges : 0;
   const sameStateContactEdges = interfacesEnabled ? Math.max(0, totalContactEdges - crossStateContactEdges) : 0;
-  const interfaces = {
+  return {
     sameStateContactEdges,
     crossStateContactEdges,
     sameStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
     crossStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? crossStateContactEdges / totalContactEdges : 0
   };
+}
+
+/**
+ * Builds a live metric message from GPU readback.
+ *
+ * @param {BuildMetricMessageRequest} request metric message request.
+ * @returns {InteractiveMetricMessage} live metric message.
+ */
+function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
+  const {generation, enabledSections, availability, liveMetricSettings, cols, rows, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
+  const populationEnabled = hasInteractiveMetricSection(enabledSections, 'population') && liveMetricSettings.population;
+  const diversityEnabled = hasInteractiveMetricSection(enabledSections, 'diversity') && liveMetricSettings.diversity;
+  const interfacesEnabled = hasInteractiveMetricSection(enabledSections, 'interfaces') && liveMetricSettings.interfaces;
+  const totalCells = cols * rows;
+  const populationStats = computeLivePopulationStats(request, populationEnabled);
+  const diversityStats = computeLiveDiversityStats(request, diversityEnabled);
+  const interfaces = buildLiveInterfaceMetrics(request, interfacesEnabled);
 
   return {
     type: 'metrics',
     generation,
-    population,
-    aliveCells,
-    deadCells,
-    occupancy: populationEnabled && totalCells > 0 ? aliveCells / totalCells : 0,
-    shannonEntropy,
-    simpsonIndex: diversityEnabled ? 1 - simpsonSum : 0,
+    population: populationStats.population,
+    aliveCells: populationStats.aliveCells,
+    deadCells: populationStats.deadCells,
+    occupancy: populationEnabled && totalCells > 0 ? populationStats.aliveCells / totalCells : 0,
+    shannonEntropy: diversityStats.shannonEntropy,
+    simpsonIndex: diversityEnabled ? 1 - diversityStats.simpsonSum : 0,
     interfaces,
     metricsAvailability: availability,
-    extinctionTime,
+    extinctionTime: buildLiveExtinctionTime(),
     totalFrames,
     fps,
     canStepBack,
@@ -345,3 +488,5 @@ export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest
     recordingRawBytes
   };
 }
+
+export {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics};

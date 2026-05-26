@@ -97,6 +97,15 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public running = false;
 
   /**
+   * Whether a skip or step operation is active.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public stepping = false;
+
+  /**
    * Whether a snapshot is being saved.
    *
    * @public
@@ -297,7 +306,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get downloadControlsDisabled(): boolean {
-    return this.downloading || this.savingState || this.loadingState;
+    return this.downloading || this.savingState || this.loadingState || this.stepping;
   }
 
   /**
@@ -326,6 +335,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.downloadCancelling ||
       this.downloading ||
       this.savingState ||
+      this.stepping ||
       this.running ||
       (this.currentPreferences.mp4 && !this.downloadMp4SettingsValid) ||
       !(this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);

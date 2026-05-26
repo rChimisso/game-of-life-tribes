@@ -145,6 +145,7 @@ let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max 
 let chunkGpuBuffer: GPUBuffer | null = null;
 let chunkFrameIndex = 0;
 let chunkGenerations: number[] = [];
+let latestRecordedGeneration: number | null = null;
 let chunkFrameCapacity = 64;
 let frameByteSize = 0;
 
@@ -302,6 +303,7 @@ function destroyRecordingBuffers(): void {
   chunkFrameCapacity = 0;
   chunkFrameIndex = 0;
   chunkGenerations = [];
+  latestRecordedGeneration = null;
   inflightSealFrames = 0;
 }
 
@@ -1338,6 +1340,7 @@ function recordGeneration(gen: number): void {
   enc.copyBufferToBuffer(currentGrid, 0, chunkGpuBuffer, offset, frameByteSize);
   device.queue.submit([enc.finish()]);
   chunkGenerations.push(gen);
+  latestRecordedGeneration = gen;
   chunkFrameIndex++;
 }
 
@@ -1489,6 +1492,7 @@ async function resetRecording(startGen: number): Promise<void> {
   chunkFrameIndex = 0;
   chunkGenerations = [];
   sealedChunks = [];
+  latestRecordedGeneration = null;
   inflightSealFrames = 0;
   pendingOpfsWrites = 0;
   if (inflightSeals > 0) {
@@ -1569,6 +1573,7 @@ async function resetOpfsDir(): Promise<void> {
 
 function sendRecordingManifest(): void {
   updateManifestRange();
+  console.log('[GOLT worker] Recording manifest diagnostics', recordingCountDiagnostics('manifest'));
   self.postMessage({
     type: 'recording',
     manifest: {
@@ -1586,13 +1591,7 @@ function sendRecordingManifest(): void {
  * True when the current generation has not yet been recorded.
  */
 function needsInitialCapture(): boolean {
-  if (chunkFrameIndex > 0) {
-    return chunkGenerations[chunkFrameIndex - 1] !== genCounter;
-  }
-  if (sealedChunks.length > 0) {
-    return sealedChunks[sealedChunks.length - 1]!.generationEnd !== genCounter;
-  }
-  return true;
+  return latestRecordedGeneration !== genCounter;
 }
 
 function captureCurrentGenerationIfNeeded(markForwardProgress: boolean = false): void {
@@ -1644,8 +1643,9 @@ function applyPendingBrush(): void {
 /**
  * Read a chunk from OPFS and decompress if needed.
  *
- * @param filename
- * @param codec
+ * @param {string} filename chunk filename.
+ * @param {string} codec chunk payload codec.
+ * @returns {Promise<ArrayBuffer>} chunk payload bytes.
  */
 async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CODEC): Promise<ArrayBuffer> {
   const dir = await ensureOpfsDir();
@@ -1660,6 +1660,8 @@ async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CO
 
 /**
  * Helper: compute total recorded frames across sealed chunks and current buffer.
+ *
+ * @returns {number} total recorded frame count currently reported to the UI.
  */
 function totalRecordedFrames(): number {
   let count = chunkFrameIndex + inflightSealFrames;
@@ -1667,6 +1669,53 @@ function totalRecordedFrames(): number {
     count += c.blockCount;
   }
   return count;
+}
+
+/**
+ * Builds recording frame-count diagnostics for UI/manifest mismatch investigation.
+ *
+ * @param {string} source point where the diagnostics were captured.
+ * @returns {object} recording count diagnostics.
+ */
+function recordingCountDiagnostics(source: string): object {
+  const sealedBlockCount = sealedChunks.reduce((sum, c) => sum + c.blockCount, 0);
+  const sealedGenerationCount = sealedChunks.reduce((sum, c) => sum + c.generations.length, 0);
+  const currentChunkGenerationCount = chunkGenerations.length;
+  const liveTotalFrames = sealedBlockCount + chunkFrameIndex + inflightSealFrames;
+  const generationSpanFrames = manifest.generationEnd >= manifest.generationStart ?
+    manifest.generationEnd - manifest.generationStart + 1 :
+    0;
+  const recentSealedChunks = sealedChunks.slice(-16).map(c => ({
+    chunkId: c.chunkId,
+    filename: c.filename,
+    blockCount: c.blockCount,
+    generationCount: c.generations.length,
+    generationStart: c.generationStart,
+    generationEnd: c.generationEnd,
+    uncompressedBytes: c.uncompressedBytes,
+    storedBytes: c.storedBytes,
+    codec: c.codec
+  }));
+  return {
+    source,
+    generationCounter: genCounter,
+    liveTotalFrames,
+    manifestGenerationSpanFrames: generationSpanFrames,
+    sealedChunkCount: sealedChunks.length,
+    sealedBlockCount,
+    sealedGenerationCount,
+    currentChunkFrameIndex: chunkFrameIndex,
+    currentChunkGenerationCount,
+    inflightSealFrames,
+    inflightSeals,
+    pendingOpfsWrites,
+    chunkFrameCapacity,
+    latestRecordedGeneration,
+    recordingAwaitingForward,
+    backpressureActive,
+    currentChunkGenerations: [...chunkGenerations],
+    recentSealedChunks
+  };
 }
 
 function currentMetricAvailability() {
@@ -1712,6 +1761,7 @@ function readMetricsAndPost(): void {
   }).then(readback => {
     const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
     const totalFrames = totalRecordedFrames();
+    console.log('[GOLT worker] Recording live counter diagnostics', recordingCountDiagnostics('metrics'));
     const message = buildInteractiveMetricMessage({
       generation: gen,
       tribes,
@@ -2403,6 +2453,7 @@ async function createChunkBuffer(): Promise<void> {
   await trackMajorBufferAllocation(chunkFrameCapacity * frameByteSize, chunkGpuBuffer);
   chunkFrameIndex = 0;
   chunkGenerations = [];
+  latestRecordedGeneration = null;
 }
 
 async function createStagingRing(): Promise<void> {
@@ -2844,6 +2895,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations.length = chunkFrameIndex;
         genCounter = chunkGenerations[frameInChunk]!;
+        latestRecordedGeneration = genCounter;
 
         const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
         bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
@@ -2903,6 +2955,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
         genCounter = chunkGenerations[frameInChunk]!;
+        latestRecordedGeneration = genCounter;
 
         if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
           // Copy target frame to the grid.

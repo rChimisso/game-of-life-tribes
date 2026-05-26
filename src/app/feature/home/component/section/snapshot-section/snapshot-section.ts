@@ -59,6 +59,15 @@ export class SnapshotSection {
   public running = false;
 
   /**
+   * Whether a skip or step operation is active.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public stepping = false;
+
+  /**
    * Current snapshot progress bar mode.
    *
    * @public
@@ -113,7 +122,7 @@ export class SnapshotSection {
    * @type {boolean}
    */
   public get snapshotActionsDisabled(): boolean {
-    return this.running || this.downloading || this.savingState || this.loadingState;
+    return this.running || this.downloading || this.savingState || this.loadingState || this.stepping;
   }
 
   /**

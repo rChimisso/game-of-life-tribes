@@ -1,8 +1,9 @@
+import {addPackedRowToHistogram, createHistogramLookup} from './histogram-lookup';
 import {OfflineMetricEntry} from './offline-types';
 import {GridFormat} from '../../../model/grid-format';
 import {DEAD_TRIBE_ID, Tribe} from '../../../model/rule';
 import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
-import {readPackedCell} from '../../snapshot/packed-access';
+import {decodePackedRow} from '../../snapshot/packed-access';
 
 /**
  * Previous packed frame retained for transition metrics.
@@ -47,23 +48,70 @@ interface PreviousOfflineMetricFrame {
 type OfflineMetricsTribe = Pick<Tribe, 'id' | 'color'>;
 
 /**
+ * Options for one offline Metrics computation.
+ *
+ * @export
+ * @interface OfflineMetricComputeOptions
+ * @typedef {OfflineMetricComputeOptions}
+ */
+interface OfflineMetricComputeOptions {
+  /**
+   * Returns whether Metrics computation should stop.
+   *
+   * @type {() => boolean}
+   */
+  shouldCancel: () => boolean;
+  /**
+   * Receives row progress for the current frame.
+   *
+   * @type {(rowsProcessed: number, rowsTotal: number) => void}
+   */
+  onRowsProcessed?: (rowsProcessed: number, rowsTotal: number) => void;
+  /**
+   * Number of rows to process before yielding to the event loop.
+   *
+   * @type {number}
+   */
+  yieldEveryRows?: number;
+}
+
+/**
+ * Default row cadence for yielding during CPU-heavy metric scans.
+ *
+ * @type {number}
+ */
+const DEFAULT_METRIC_YIELD_EVERY_ROWS = 128;
+
+/**
  * Computes one offline Metrics row from a packed recorded frame.
+ *
+ * @export
+ * @async
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+ * @param {OfflineMetricComputeOptions} options compute options.
+ * @returns {Promise<OfflineMetricEntry>} metric row.
+ */
+async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
+  const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
+  const stats = await collectFrameMetricStats(frame, previous, deadIndex, tribes.length, options);
+  return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex);
+}
+
+/**
+ * Builds one offline Metrics row from aggregate frame stats.
  *
  * @export
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+ * @param {FrameMetricStats} stats aggregate frame stats.
+ * @param {number} deadIndex dead tribe index.
  * @returns {OfflineMetricEntry} metric row.
  */
-function computeOfflineMetricEntry(
-  frame: PackedRecordedFrame,
-  tribes: readonly OfflineMetricsTribe[],
-  previous: PreviousOfflineMetricFrame | null
-): OfflineMetricEntry {
+function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
   const totalCells = frame.cols * frame.rows;
-  const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
-  const stats = collectFrameMetricStats(frame, previous, deadIndex, tribes.length);
-
   const population = buildPopulationRecord(tribes, stats.counts);
   const populationDelta = previous ? buildPopulationDelta(tribes, population, previous.metric.population) : undefined;
   const deadCells = deadIndex >= 0 ? stats.counts[deadIndex]! : 0;
@@ -71,7 +119,6 @@ function computeOfflineMetricEntry(
   const totalContactEdges = totalCells * 2;
   const sameStateContactEdges = Math.max(0, totalContactEdges - stats.crossStateContactEdges);
   const diversity = computeDiversity(stats.counts, deadIndex, aliveCells);
-
   return {
     type: 'metrics',
     generation: frame.generation,
@@ -192,23 +239,46 @@ interface FrameMetricStats {
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
  * @param {number} deadIndex dead tribe index.
  * @param {number} tribeCount known tribe count.
- * @returns {FrameMetricStats} collected frame stats.
+ * @param {OfflineMetricComputeOptions} options compute options.
+ * @returns {Promise<FrameMetricStats>} collected frame stats.
  */
-function collectFrameMetricStats(frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null, deadIndex: number, tribeCount: number): FrameMetricStats {
+async function collectFrameMetricStats(frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null, deadIndex: number, tribeCount: number, options: OfflineMetricComputeOptions): Promise<FrameMetricStats> {
   const counts = new Array<number>(tribeCount).fill(0);
   const frontierCounts = new Array<number>(tribeCount).fill(0);
   const transition = createTransitionAccumulator(previous, frame.generation);
+  let currentRow = new Uint32Array(frame.cols);
+  let nextRow = new Uint32Array(frame.cols);
+  let scratchRow = new Uint32Array(frame.cols);
+  const previousRow = transition.exact && previous ? new Uint32Array(frame.cols) : null;
+  const histogramLookup = createHistogramLookup(frame.format);
   let crossStateContactEdges = 0;
+
+  assertNotCancelled(options);
+  if (frame.rows > 0) {
+    decodePackedRow(frame.words, frame, frame.format, 0, currentRow);
+    decodePackedRow(frame.words, frame, frame.format, frame.rows > 1 ? 1 : 0, nextRow);
+  }
+
   for (let y = 0; y < frame.rows; y++) {
-    const bottomY = (y + 1) % frame.rows;
-    for (let x = 0; x < frame.cols; x++) {
-      const state = readPackedCell(frame.words, frame, frame.format, x, y);
-      const right = readPackedCell(frame.words, frame, frame.format, (x + 1) % frame.cols, y);
-      const bottom = readPackedCell(frame.words, frame, frame.format, x, bottomY);
-      countState(counts, state);
-      crossStateContactEdges += countCrossStateEdges(frontierCounts, state, right, bottom);
-      accumulateTransition(transition, frame, previous, state, x, y, deadIndex);
+    addPackedRowToHistogram(frame.words, frame, frame.format, y, counts, histogramLookup);
+    if (previousRow && previous) {
+      decodePackedRow(previous.words, frame, previous.format, y, previousRow);
     }
+    for (let x = 0; x < frame.cols; x++) {
+      const state = currentRow[x]!;
+      const right = currentRow[(x + 1) % frame.cols]!;
+      const bottom = nextRow[x]!;
+      crossStateContactEdges += countCrossStateEdges(frontierCounts, state, right, bottom);
+      accumulateTransition(transition, previousRow, state, x, deadIndex);
+    }
+    if (y < frame.rows - 1) {
+      const previousCurrentRow = currentRow;
+      currentRow = nextRow;
+      nextRow = scratchRow;
+      scratchRow = previousCurrentRow;
+      decodePackedRow(frame.words, frame, frame.format, (y + 2) % frame.rows, nextRow);
+    }
+    await maybeYieldMetricScan(y + 1, frame.rows, options);
   }
   return {
     counts,
@@ -216,6 +286,49 @@ function collectFrameMetricStats(frame: PackedRecordedFrame, previous: PreviousO
     crossStateContactEdges,
     transition
   };
+}
+
+/**
+ * Yields during long metric scans and reports row progress.
+ *
+ * @async
+ * @param {number} rowsProcessed rows scanned so far.
+ * @param {number} rowsTotal total rows in the frame.
+ * @param {OfflineMetricComputeOptions} options compute options.
+ */
+async function maybeYieldMetricScan(rowsProcessed: number, rowsTotal: number, options: OfflineMetricComputeOptions): Promise<void> {
+  const yieldEveryRows = Math.max(1, options.yieldEveryRows ?? DEFAULT_METRIC_YIELD_EVERY_ROWS);
+  const shouldYield = rowsTotal >= yieldEveryRows && (rowsProcessed % yieldEveryRows === 0 || rowsProcessed === rowsTotal);
+  if (!shouldYield) {
+    return;
+  }
+
+  assertNotCancelled(options);
+  options.onRowsProcessed?.(rowsProcessed, rowsTotal);
+  await yieldToEventLoop();
+  assertNotCancelled(options);
+}
+
+/**
+ * Yields worker execution back to the event loop.
+ *
+ * @async
+ */
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, 0);
+  });
+}
+
+/**
+ * Throws when Metrics computation has been cancelled.
+ *
+ * @param {OfflineMetricComputeOptions} options compute options.
+ */
+function assertNotCancelled(options: OfflineMetricComputeOptions): void {
+  if (options.shouldCancel()) {
+    throw new Error('Metrics computation cancelled');
+  }
 }
 
 /**
@@ -239,16 +352,14 @@ function createTransitionAccumulator(previous: PreviousOfflineMetricFrame | null
  * Updates transition metrics for one cell.
  *
  * @param {TransitionAccumulator} transition transition accumulator.
- * @param {PackedRecordedFrame} frame current frame.
- * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+ * @param {(Uint32Array | null)} previousRow decoded previous-frame row.
  * @param {number} state current cell state.
  * @param {number} x cell column.
- * @param {number} y cell row.
  * @param {number} deadIndex dead tribe index.
  */
-function accumulateTransition(transition: TransitionAccumulator, frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null, state: number, x: number, y: number, deadIndex: number): void {
-  if (transition.exact && previous) {
-    const previousState = readPackedCell(previous.words, frame, previous.format, x, y);
+function accumulateTransition(transition: TransitionAccumulator, previousRow: Uint32Array | null, state: number, x: number, deadIndex: number): void {
+  if (transition.exact && previousRow) {
+    const previousState = previousRow[x]!;
     if (previousState !== state) {
       transition.changedCells++;
       if (previousState === deadIndex && state !== deadIndex) {
@@ -259,18 +370,6 @@ function accumulateTransition(transition: TransitionAccumulator, frame: PackedRe
         transition.tribeSwitches++;
       }
     }
-  }
-}
-
-/**
- * Counts one cell state when it belongs to a known tribe.
- *
- * @param {number[]} counts population counts.
- * @param {number} state cell state.
- */
-function countState(counts: number[], state: number): void {
-  if (state < counts.length) {
-    counts[state]!++;
   }
 }
 
@@ -383,6 +482,6 @@ function buildFrontierRecord(tribes: readonly OfflineMetricsTribe[], frontierCou
   return frontierLength;
 }
 
-export {computeOfflineMetricEntry, createPreviousOfflineMetricFrame};
+export {buildOfflineMetricEntry, computeOfflineMetricEntryAsync, createPreviousOfflineMetricFrame};
 
-export type {OfflineMetricsTribe, PreviousOfflineMetricFrame};
+export type {FrameMetricStats, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame, TransitionAccumulator};

@@ -352,7 +352,7 @@ function createTransitionAccumulator(previous: PreviousOfflineMetricFrame | null
  * Updates transition metrics for one cell.
  *
  * @param {TransitionAccumulator} transition transition accumulator.
- * @param {(Uint32Array | null)} previousRow decoded previous-frame row.
+ * @param {(DecodedPackedRow | null)} previousRow decoded previous-frame row.
  * @param {number} state current cell state.
  * @param {number} x cell column.
  * @param {number} deadIndex dead tribe index.

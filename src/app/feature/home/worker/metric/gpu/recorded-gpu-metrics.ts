@@ -19,6 +19,27 @@ const GPU_STATE_BUCKETS = 256;
 const GPU_STATS_U32_COUNT = (GPU_STATE_BUCKETS * 2) + 5;
 
 /**
+ * Metrics stats buffer byte size.
+ *
+ * @type {number}
+ */
+const GPU_STATS_BYTE_SIZE = GPU_STATS_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
+
+/**
+ * Size of the uniform config buffer.
+ *
+ * @type {number}
+ */
+const GPU_CONFIG_U32_COUNT = 1;
+
+/**
+ * Metrics config buffer byte size.
+ *
+ * @type {number}
+ */
+const GPU_CONFIG_BYTE_SIZE = GPU_CONFIG_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
+
+/**
  * Maximum value representable by WebGPU u32 counters.
  *
  * @type {number}
@@ -26,32 +47,67 @@ const GPU_STATS_U32_COUNT = (GPU_STATE_BUCKETS * 2) + 5;
 const U32_MAX = 0xffff_ffff;
 
 /**
- * Reusable GPU buffer with its allocated byte size.
+ * Reusable GPU Metrics resources for one export.
  *
- * @interface ReusableGpuBuffer
- * @typedef {ReusableGpuBuffer}
+ * @interface RecordedGpuMetricsContext
+ * @typedef {RecordedGpuMetricsContext}
  */
-interface ReusableGpuBuffer {
+interface RecordedGpuMetricsContext {
   /**
-   * GPU buffer.
+   * Compute pipeline specialized for the export layout.
+   *
+   * @type {GPUComputePipeline}
+   */
+  pipeline: GPUComputePipeline;
+  /**
+   * Bind group for reusable Metrics buffers.
+   *
+   * @type {GPUBindGroup}
+   */
+  bindGroup: GPUBindGroup;
+  /**
+   * Current-frame storage buffer.
    *
    * @type {GPUBuffer}
    */
-  buffer: GPUBuffer;
+  currentBuffer: GPUBuffer;
   /**
-   * Allocated buffer byte size.
+   * Previous-frame storage buffer.
+   *
+   * @type {GPUBuffer}
+   */
+  previousBuffer: GPUBuffer;
+  /**
+   * Metrics stats storage buffer.
+   *
+   * @type {GPUBuffer}
+   */
+  statsBuffer: GPUBuffer;
+  /**
+   * Metrics stats readback buffer.
+   *
+   * @type {GPUBuffer}
+   */
+  readbackBuffer: GPUBuffer;
+  /**
+   * Per-frame Metrics config uniform buffer.
+   *
+   * @type {GPUBuffer}
+   */
+  configBuffer: GPUBuffer;
+  /**
+   * Stats buffer byte size.
    *
    * @type {number}
    */
-  byteSize: number;
+  statsByteSize: number;
+  /**
+   * Packed frame buffer byte size.
+   *
+   * @type {number}
+   */
+  frameByteSize: number;
 }
-
-/**
- * Frame buffer slot retained across metric frames.
- *
- * @typedef {FrameBufferSlot}
- */
-type FrameBufferSlot = 0 | 1;
 
 /**
  * Recorded-frame GPU metrics backend.
@@ -62,86 +118,12 @@ type FrameBufferSlot = 0 | 1;
  */
 class RecordedGpuMetricBackend {
   /**
-   * Cached compute pipelines by frame layout.
+   * Reusable per-export GPU context.
    *
    * @private
-   * @readonly
-   * @type {Map<string, GPUComputePipeline>}
+   * @type {(RecordedGpuMetricsContext | null)}
    */
-  private readonly pipelineCache = new Map<string, GPUComputePipeline>();
-
-  /**
-   * Cached bind groups by pipeline and buffer slot layout.
-   *
-   * @private
-   * @readonly
-   * @type {Map<string, GPUBindGroup>}
-   */
-  private readonly bindGroupCache = new Map<string, GPUBindGroup>();
-
-  /**
-   * Alternating frame storage buffers.
-   *
-   * @private
-   * @type {[ReusableGpuBuffer | null, ReusableGpuBuffer | null]}
-   */
-  private readonly frameBuffers: [ReusableGpuBuffer | null, ReusableGpuBuffer | null] = [null, null];
-
-  /**
-   * Slot currently retaining the previous exported frame.
-   *
-   * @private
-   * @type {(FrameBufferSlot | null)}
-   */
-  private previousFrameSlot: FrameBufferSlot | null = null;
-
-  /**
-   * Generation retained in the previous-frame slot.
-   *
-   * @private
-   * @type {(number | null)}
-   */
-  private previousFrameGeneration: number | null = null;
-
-  /**
-   * Packing format retained in the previous-frame slot.
-   *
-   * @private
-   * @type {string}
-   */
-  private previousFrameFormatKey = '';
-
-  /**
-   * Packed byte length retained in the previous-frame slot.
-   *
-   * @private
-   * @type {number}
-   */
-  private previousFrameByteLength = 0;
-
-  /**
-   * Reusable stats storage buffer.
-   *
-   * @private
-   * @type {(ReusableGpuBuffer | null)}
-   */
-  private statsBuffer: ReusableGpuBuffer | null = null;
-
-  /**
-   * Reusable stats readback buffer.
-   *
-   * @private
-   * @type {(ReusableGpuBuffer | null)}
-   */
-  private readBuffer: ReusableGpuBuffer | null = null;
-
-  /**
-   * Resource version used to invalidate bind group cache keys.
-   *
-   * @private
-   * @type {number}
-   */
-  private resourceVersion = 0;
+  private context: RecordedGpuMetricsContext | null = null;
 
   /**
    * GPU unsupported-reason warnings already logged.
@@ -169,20 +151,20 @@ class RecordedGpuMetricBackend {
    * @returns {Promise<(RecordedGpuMetricBackend | null)>} GPU backend or null.
    */
   public static async create(): Promise<RecordedGpuMetricBackend | null> {
-    if (!('gpu' in navigator) || !navigator.gpu) {
-      return null;
-    }
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      return null;
-    }
-    const device = await adapter.requestDevice({
-      requiredLimits: {
-        maxBufferSize: adapter.limits.maxBufferSize,
-        maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
+    let backend: RecordedGpuMetricBackend | null = null;
+    if ('gpu' in navigator && navigator.gpu) {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (adapter) {
+        const device = await adapter.requestDevice({
+          requiredLimits: {
+            maxBufferSize: adapter.limits.maxBufferSize,
+            maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize
+          }
+        });
+        backend = new RecordedGpuMetricBackend(device);
       }
-    });
-    return new RecordedGpuMetricBackend(device);
+    }
+    return backend;
   }
 
   /**
@@ -195,21 +177,25 @@ class RecordedGpuMetricBackend {
    * @returns {(string | null)} unsupported reason, or null when GPU can be used.
    */
   public unsupportedReason(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null): string | null {
-    const exactTransition = previous !== null && frame.generation - previous.generation === 1;
-    const maxStorageBytes = this.maxStorageBufferBytes();
-    const totalCells = frame.cols * frame.rows;
-    const totalContactEdges = totalCells * 2;
     let reason: string | null = null;
     if (tribes.length > GPU_STATE_BUCKETS) {
       reason = `Recorded GPU Metrics supports up to ${GPU_STATE_BUCKETS} states.`;
-    } else if (frame.words.byteLength > maxStorageBytes) {
-      reason = `Recorded GPU Metrics frame buffer (${frame.words.byteLength} bytes) exceeds device storage buffer limit (${maxStorageBytes} bytes).`;
-    } else if (exactTransition && previous && previous.words.byteLength > maxStorageBytes) {
-      reason = `Recorded GPU Metrics previous frame buffer (${previous.words.byteLength} bytes) exceeds device storage buffer limit (${maxStorageBytes} bytes).`;
-    } else if (totalCells > U32_MAX || totalContactEdges > U32_MAX) {
-      reason = 'Recorded GPU Metrics counters can overflow for this grid size.';
+    } else {
+      reason = this.frameLimitReason(frame, previous);
     }
     return reason;
+  }
+
+  /**
+   * Returns whether the GPU backend can process a frame without exceeding fixed device limits.
+   *
+   * @public
+   * @param {PackedRecordedFrame} frame packed recorded frame.
+   * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+   * @returns {boolean} whether the frame can be processed on this GPU.
+   */
+  public canProcessFrame(frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null): boolean {
+    return this.frameLimitReason(frame, previous) === null;
   }
 
   /**
@@ -248,25 +234,92 @@ class RecordedGpuMetricBackend {
     }
     const exactTransition = previous !== null && frame.generation - previous.generation === 1;
     const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
-    const readback = await this.runMetricPass(frame, previous, exactTransition, tribes.length, deadIndex);
+    this.context ??= this.createContext(frame, previous?.format ?? frame.format, tribes.length, deadIndex);
+    const readback = await this.runMetricPass(this.context, frame, previous, exactTransition);
     assertNotCancelled(options);
     return buildOfflineMetricEntry(frame, tribes, previous, buildGpuFrameMetricStats(readback, tribes.length, exactTransition), deadIndex);
   }
 
   /**
-   * Releases the WebGPU device.
+   * Releases the WebGPU device and per-export resources.
    *
    * @public
    */
   public dispose(): void {
-    this.pipelineCache.clear();
-    this.bindGroupCache.clear();
-    for (const frameBuffer of this.frameBuffers) {
-      frameBuffer?.buffer.destroy();
-    }
-    this.statsBuffer?.buffer.destroy();
-    this.readBuffer?.buffer.destroy();
+    this.disposeContext();
     this.device.destroy();
+  }
+
+  /**
+   * Creates the reusable per-export GPU Metrics context.
+   *
+   * @private
+   * @param {PackedRecordedFrame} frame first packed recorded frame.
+   * @param {GridFormat} previousFormat previous-frame packing format.
+   * @param {number} tribeCount known state count.
+   * @param {number} deadIndex dead tribe index.
+   * @returns {RecordedGpuMetricsContext} reusable GPU context.
+   */
+  private createContext(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): RecordedGpuMetricsContext {
+    const frameByteSize = Math.max(Uint32Array.BYTES_PER_ELEMENT, frame.words.byteLength);
+    const shader = this.device.createShaderModule({
+      label: 'recorded metric shader',
+      code: buildRecordedMetricWgsl(frame, previousFormat, tribeCount, deadIndex)
+    });
+    const pipeline = this.device.createComputePipeline({
+      label: 'recorded metric pipeline',
+      layout: 'auto',
+      compute: {
+        module: shader,
+        entryPoint: 'main'
+      }
+    });
+    const currentBuffer = this.device.createBuffer({
+      label: 'recorded metric current frame',
+      size: frameByteSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const previousBuffer = this.device.createBuffer({
+      label: 'recorded metric previous frame',
+      size: frameByteSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    const statsBuffer = this.device.createBuffer({
+      label: 'recorded metric stats',
+      size: GPU_STATS_BYTE_SIZE,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+    });
+    const readbackBuffer = this.device.createBuffer({
+      label: 'recorded metric stats readback',
+      size: GPU_STATS_BYTE_SIZE,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    });
+    const configBuffer = this.device.createBuffer({
+      label: 'recorded metric config',
+      size: GPU_CONFIG_BYTE_SIZE,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    const bindGroup = this.device.createBindGroup({
+      label: 'recorded metric bind group',
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [
+        {binding: 0, resource: {buffer: currentBuffer} },
+        {binding: 1, resource: {buffer: previousBuffer} },
+        {binding: 2, resource: {buffer: statsBuffer} },
+        {binding: 3, resource: {buffer: configBuffer} }
+      ]
+    });
+    return {
+      pipeline,
+      bindGroup,
+      currentBuffer,
+      previousBuffer,
+      statsBuffer,
+      readbackBuffer,
+      configBuffer,
+      statsByteSize: GPU_STATS_BYTE_SIZE,
+      frameByteSize
+    };
   }
 
   /**
@@ -274,225 +327,79 @@ class RecordedGpuMetricBackend {
    *
    * @private
    * @async
+   * @param {RecordedGpuMetricsContext} context reusable GPU context.
    * @param {PackedRecordedFrame} frame packed recorded frame.
    * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
    * @param {boolean} exactTransition whether transition counters should be computed.
-   * @param {number} tribeCount known state count.
-   * @param {number} deadIndex dead tribe index.
    * @returns {Promise<Uint32Array>} metric counters.
    */
-  private async runMetricPass(frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null, exactTransition: boolean, tribeCount: number, deadIndex: number): Promise<Uint32Array> {
-    const statsByteSize = GPU_STATS_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
-    const previousFormat = previous?.format ?? frame.format;
-    const pipelineKey = createPipelineKey(frame, previousFormat, exactTransition, tribeCount, deadIndex);
-    const pipeline = this.getPipeline(pipelineKey, frame, previousFormat, exactTransition, tribeCount, deadIndex);
-    const previousSlot = this.preparePreviousFrameSlot(previous, exactTransition);
-    const currentSlot = previousSlot === 0 ? 1 : 0;
-    const currentBuffer = this.uploadFrameToSlot(currentSlot, frame.words, 'recorded metric current frame');
-    const previousBuffer = previousSlot === null ? currentBuffer : this.frameBuffers[previousSlot]!.buffer;
-    const previousBindingSlot = previousSlot ?? currentSlot;
-    const statsBuffer = this.ensureBuffer('stats', statsByteSize, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST).buffer;
-    const readBuffer = this.ensureBuffer('readback', statsByteSize, GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST).buffer;
-    const bindGroup = this.getBindGroup(pipelineKey, currentSlot, previousBindingSlot, pipeline, currentBuffer, previousBuffer, statsBuffer);
+  private async runMetricPass(context: RecordedGpuMetricsContext, frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null, exactTransition: boolean): Promise<Uint32Array> {
+    this.device.queue.writeBuffer(context.currentBuffer, 0, frame.words);
+    this.device.queue.writeBuffer(context.previousBuffer, 0, previous?.words ?? frame.words);
+    this.device.queue.writeBuffer(context.configBuffer, 0, new Uint32Array([exactTransition ? 1 : 0]));
     const encoder = this.device.createCommandEncoder({label: 'recorded metric encoder'});
-    encoder.clearBuffer(statsBuffer);
+    encoder.clearBuffer(context.statsBuffer);
     const pass = encoder.beginComputePass({label: 'recorded metric pass'});
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bindGroup);
+    pass.setPipeline(context.pipeline);
+    pass.setBindGroup(0, context.bindGroup);
     pass.dispatchWorkgroups(Math.ceil(frame.cols / 16), Math.ceil(frame.rows / 16));
     pass.end();
-    encoder.copyBufferToBuffer(statsBuffer, 0, readBuffer, 0, statsByteSize);
+    encoder.copyBufferToBuffer(context.statsBuffer, 0, context.readbackBuffer, 0, context.statsByteSize);
     this.device.queue.submit([encoder.finish()]);
-    await readBuffer.mapAsync(GPUMapMode.READ);
-    const readback = new Uint32Array(readBuffer.getMappedRange().slice(0));
-    readBuffer.unmap();
-    this.rememberPreviousFrame(currentSlot, frame);
+    await context.readbackBuffer.mapAsync(GPUMapMode.READ);
+    const readback = new Uint32Array(context.readbackBuffer.getMappedRange().slice(0));
+    context.readbackBuffer.unmap();
     return readback;
   }
 
   /**
-   * Returns the effective storage buffer size limit.
+   * Explains fixed GPU limit incompatibilities for one frame.
    *
    * @private
-   * @returns {number} effective storage buffer byte limit.
-   */
-  private maxStorageBufferBytes(): number {
-    return Math.min(this.device.limits.maxStorageBufferBindingSize, this.device.limits.maxBufferSize);
-  }
-
-  /**
-   * Prepares the retained previous-frame slot.
-   *
-   * @private
+   * @param {PackedRecordedFrame} frame packed recorded frame.
    * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
-   * @param {boolean} exactTransition whether transition counters should be computed.
-   * @returns {(FrameBufferSlot | null)} previous frame slot, or null when not needed.
+   * @returns {(string | null)} unsupported reason, or null when fixed limits are satisfied.
    */
-  private preparePreviousFrameSlot(previous: PreviousOfflineMetricFrame | null, exactTransition: boolean): FrameBufferSlot | null {
-    let slot: FrameBufferSlot | null = null;
-    if (exactTransition && previous) {
-      const previousFormatKey = formatCacheKey(previous.format);
-      const canReusePrevious = this.previousFrameSlot !== null &&
-        this.previousFrameGeneration === previous.generation &&
-        this.previousFrameFormatKey === previousFormatKey &&
-        this.previousFrameByteLength === previous.words.byteLength;
-      if (canReusePrevious) {
-        slot = this.previousFrameSlot;
-      } else {
-        slot = 0;
-        this.uploadFrameToSlot(slot, previous.words, 'recorded metric previous frame');
-        this.previousFrameSlot = slot;
-        this.previousFrameGeneration = previous.generation;
-        this.previousFrameFormatKey = previousFormatKey;
-        this.previousFrameByteLength = previous.words.byteLength;
-      }
+  private frameLimitReason(frame: PackedRecordedFrame, previous: PreviousOfflineMetricFrame | null): string | null {
+    const maxBufferBytes = this.device.limits.maxBufferSize;
+    const maxStorageBytes = this.device.limits.maxStorageBufferBindingSize;
+    const totalCells = frame.cols * frame.rows;
+    const totalContactEdges = totalCells * 2;
+    let reason: string | null = null;
+    if (frame.words.byteLength > maxBufferBytes) {
+      reason = `Recorded GPU Metrics frame buffer (${frame.words.byteLength} bytes) exceeds device buffer limit (${maxBufferBytes} bytes).`;
+    } else if (frame.words.byteLength > maxStorageBytes) {
+      reason = `Recorded GPU Metrics frame buffer (${frame.words.byteLength} bytes) exceeds device storage buffer binding limit (${maxStorageBytes} bytes).`;
+    } else if (previous && previous.words.byteLength > maxBufferBytes) {
+      reason = `Recorded GPU Metrics previous frame buffer (${previous.words.byteLength} bytes) exceeds device buffer limit (${maxBufferBytes} bytes).`;
+    } else if (previous && previous.words.byteLength > maxStorageBytes) {
+      reason = `Recorded GPU Metrics previous frame buffer (${previous.words.byteLength} bytes) exceeds device storage buffer binding limit (${maxStorageBytes} bytes).`;
+    } else if (GPU_STATS_BYTE_SIZE > maxBufferBytes) {
+      reason = `Recorded GPU Metrics stats buffer (${GPU_STATS_BYTE_SIZE} bytes) exceeds device buffer limit (${maxBufferBytes} bytes).`;
+    } else if (GPU_STATS_BYTE_SIZE > maxStorageBytes) {
+      reason = `Recorded GPU Metrics stats buffer (${GPU_STATS_BYTE_SIZE} bytes) exceeds device storage buffer binding limit (${maxStorageBytes} bytes).`;
+    } else if (GPU_CONFIG_BYTE_SIZE > maxBufferBytes) {
+      reason = `Recorded GPU Metrics config buffer (${GPU_CONFIG_BYTE_SIZE} bytes) exceeds device buffer limit (${maxBufferBytes} bytes).`;
+    } else if (totalCells > U32_MAX || totalContactEdges > U32_MAX) {
+      reason = 'Recorded GPU Metrics counters can overflow for this grid size.';
     }
-    return slot;
+    return reason;
   }
 
   /**
-   * Uploads packed frame words to a reusable slot.
+   * Releases the reusable GPU context.
    *
    * @private
-   * @param {FrameBufferSlot} slot frame buffer slot.
-   * @param {Uint32Array} words packed frame words.
-   * @param {string} label buffer label.
-   * @returns {GPUBuffer} uploaded GPU buffer.
    */
-  private uploadFrameToSlot(slot: FrameBufferSlot, words: Uint32Array, label: string): GPUBuffer {
-    const byteSize = Math.max(Uint32Array.BYTES_PER_ELEMENT, words.byteLength);
-    const existing = this.frameBuffers[slot];
-    if (!existing || existing.byteSize !== byteSize) {
-      existing?.buffer.destroy();
-      this.frameBuffers[slot] = {
-        buffer: this.device.createBuffer({
-          label,
-          size: byteSize,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-        }),
-        byteSize
-      };
-      this.invalidateBindGroups();
+  private disposeContext(): void {
+    if (this.context) {
+      this.context.currentBuffer.destroy();
+      this.context.previousBuffer.destroy();
+      this.context.statsBuffer.destroy();
+      this.context.readbackBuffer.destroy();
+      this.context.configBuffer.destroy();
+      this.context = null;
     }
-    const {buffer} = this.frameBuffers[slot]!;
-    if (words.byteLength > 0) {
-      this.device.queue.writeBuffer(buffer, 0, words);
-    }
-    return buffer;
-  }
-
-  /**
-   * Ensures a reusable stats buffer exists.
-   *
-   * @private
-   * @param {'stats' | 'readback'} kind buffer kind.
-   * @param {number} byteSize required byte size.
-   * @param {GPUBufferUsageFlags} usage buffer usage flags.
-   * @returns {ReusableGpuBuffer} reusable buffer.
-   */
-  private ensureBuffer(kind: 'stats' | 'readback', byteSize: number, usage: GPUBufferUsageFlags): ReusableGpuBuffer {
-    const current = kind === 'stats' ? this.statsBuffer : this.readBuffer;
-    let next = current;
-    if (!next || next.byteSize !== byteSize) {
-      current?.buffer.destroy();
-      next = {
-        buffer: this.device.createBuffer({
-          label: kind === 'stats' ? 'recorded metric stats' : 'recorded metric stats readback',
-          size: byteSize,
-          usage
-        }),
-        byteSize
-      };
-      if (kind === 'stats') {
-        this.statsBuffer = next;
-      } else {
-        this.readBuffer = next;
-      }
-      this.invalidateBindGroups();
-    }
-    return next;
-  }
-
-  /**
-   * Gets or creates a cached compute pipeline.
-   *
-   * @private
-   * @param {string} pipelineKey pipeline cache key.
-   * @param {PackedRecordedFrame} frame packed recorded frame.
-   * @param {GridFormat} previousFormat previous frame format.
-   * @param {boolean} exactTransition whether transition counters should be computed.
-   * @param {number} tribeCount known state count.
-   * @param {number} deadIndex dead tribe index.
-   * @returns {GPUComputePipeline} cached pipeline.
-   */
-  private getPipeline(pipelineKey: string, frame: PackedRecordedFrame, previousFormat: GridFormat, exactTransition: boolean, tribeCount: number, deadIndex: number): GPUComputePipeline {
-    let pipeline = this.pipelineCache.get(pipelineKey);
-    if (!pipeline) {
-      pipeline = this.device.createComputePipeline({
-        label: 'recorded metric pipeline',
-        layout: 'auto',
-        compute: {
-          module: this.device.createShaderModule({
-            label: 'recorded metric shader',
-            code: buildRecordedMetricWgsl(frame, previousFormat, exactTransition, tribeCount, deadIndex)
-          }),
-          entryPoint: 'main'
-        }
-      });
-      this.pipelineCache.set(pipelineKey, pipeline);
-    }
-    return pipeline;
-  }
-
-  /**
-   * Gets or creates a cached bind group.
-   *
-   * @private
-   * @param {string} pipelineKey pipeline cache key.
-   * @param {FrameBufferSlot} currentSlot current frame slot.
-   * @param {FrameBufferSlot} previousSlot previous frame slot.
-   * @param {GPUComputePipeline} pipeline compute pipeline.
-   * @param {GPUBuffer} currentBuffer current frame buffer.
-   * @param {GPUBuffer} previousBuffer previous frame buffer.
-   * @param {GPUBuffer} statsBuffer stats buffer.
-   * @returns {GPUBindGroup} cached bind group.
-   */
-  private getBindGroup(pipelineKey: string, currentSlot: FrameBufferSlot, previousSlot: FrameBufferSlot, pipeline: GPUComputePipeline, currentBuffer: GPUBuffer, previousBuffer: GPUBuffer, statsBuffer: GPUBuffer): GPUBindGroup {
-    const bindGroupKey = `${pipelineKey}|${currentSlot}|${previousSlot}|${this.resourceVersion}`;
-    let bindGroup = this.bindGroupCache.get(bindGroupKey);
-    if (!bindGroup) {
-      bindGroup = this.device.createBindGroup({
-        label: 'recorded metric bind group',
-        layout: pipeline.getBindGroupLayout(0),
-        entries: [{binding: 0, resource: {buffer: currentBuffer} }, {binding: 1, resource: {buffer: previousBuffer} }, {binding: 2, resource: {buffer: statsBuffer} }]
-      });
-      this.bindGroupCache.set(bindGroupKey, bindGroup);
-    }
-    return bindGroup;
-  }
-
-  /**
-   * Retains the current frame slot as the next previous frame.
-   *
-   * @private
-   * @param {FrameBufferSlot} slot current frame slot.
-   * @param {PackedRecordedFrame} frame packed recorded frame.
-   */
-  private rememberPreviousFrame(slot: FrameBufferSlot, frame: PackedRecordedFrame): void {
-    this.previousFrameSlot = slot;
-    this.previousFrameGeneration = frame.generation;
-    this.previousFrameFormatKey = formatCacheKey(frame.format);
-    this.previousFrameByteLength = frame.words.byteLength;
-  }
-
-  /**
-   * Invalidates cached bind groups after buffer recreation.
-   *
-   * @private
-   */
-  private invalidateBindGroups(): void {
-    this.resourceVersion++;
-    this.bindGroupCache.clear();
   }
 }
 
@@ -501,23 +408,27 @@ class RecordedGpuMetricBackend {
  *
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {GridFormat} previousFormat previous frame packing format.
- * @param {boolean} exactTransition whether transition counters should be computed.
  * @param {number} tribeCount known state count.
  * @param {number} deadIndex dead tribe index.
  * @returns {string} wgsl shader source.
  */
-function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, exactTransition: boolean, tribeCount: number, deadIndex: number): string {
+function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): string {
   return `
 @group(0) @binding(0) var<storage, read> currentGrid: array<u32>;
 @group(0) @binding(1) var<storage, read> previousGrid: array<u32>;
 @group(0) @binding(2) var<storage, read_write> stats: array<atomic<u32>>;
+
+struct MetricConfig {
+  exactTransition: u32,
+};
+
+@group(0) @binding(3) var<uniform> config: MetricConfig;
 
 const COLS: u32 = ${frame.cols}u;
 const ROWS: u32 = ${frame.rows}u;
 const STATE_COUNT: u32 = ${tribeCount}u;
 const DEAD_INDEX: u32 = ${Math.max(0, deadIndex)}u;
 const HAS_DEAD: bool = ${deadIndex >= 0};
-const EXACT_TRANSITION: bool = ${exactTransition};
 
 const CURRENT_CELLS_PER_WORD: u32 = ${frame.format.cellsPerWord}u;
 const CURRENT_WORD_SHIFT: u32 = ${frame.format.wordShift}u;
@@ -596,7 +507,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_ind
       }
     }
 
-    if (EXACT_TRANSITION) {
+    if (config.exactTransition != 0u) {
       let previousState = readPreviousCell(x, y);
       if (previousState != state) {
         atomicAdd(&localChanged, 1u);
@@ -629,38 +540,6 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_ind
   }
 }
 `;
-}
-
-/**
- * Builds a GPU pipeline cache key.
- *
- * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {GridFormat} previousFormat previous frame packing format.
- * @param {boolean} exactTransition whether transition counters should be computed.
- * @param {number} tribeCount known state count.
- * @param {number} deadIndex dead tribe index.
- * @returns {string} pipeline cache key.
- */
-function createPipelineKey(frame: PackedRecordedFrame, previousFormat: GridFormat, exactTransition: boolean, tribeCount: number, deadIndex: number): string {
-  return [
-    frame.cols,
-    frame.rows,
-    formatCacheKey(frame.format),
-    formatCacheKey(previousFormat),
-    exactTransition ? 'exact' : 'inexact',
-    tribeCount,
-    deadIndex
-  ].join('|');
-}
-
-/**
- * Builds a cache key for a packing format.
- *
- * @param {GridFormat} format packing format.
- * @returns {string} packing format cache key.
- */
-function formatCacheKey(format: GridFormat): string {
-  return String(format.bitsPerCell);
 }
 
 /**

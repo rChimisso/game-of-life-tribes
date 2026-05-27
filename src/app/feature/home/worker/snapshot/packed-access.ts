@@ -4,6 +4,13 @@ import {packedColsForFormat} from '../../util/grid-format';
 import {Grid} from '~gol/feature/home/model/grid';
 
 /**
+ * Decoded row buffer sized to the active packing format.
+ *
+ * @typedef {DecodedPackedRow}
+ */
+type DecodedPackedRow = Uint8Array | Uint16Array | Uint32Array;
+
+/**
  * Reads one packed cell value.
  *
  * @export
@@ -28,9 +35,9 @@ function readPackedCell(words: Uint32Array, grid: Grid, format: GridFormat, x: n
  * @param {Grid} grid grid dimensions.
  * @param {GridFormat} format packing format.
  * @param {number} y row index.
- * @param {Uint32Array} out decoded row output; only the first `grid.cols` entries are written.
+ * @param {DecodedPackedRow} out decoded row output; only the first `grid.cols` entries are written.
  */
-function decodePackedRow(words: Uint32Array, grid: Grid, format: GridFormat, y: number, out: Uint32Array): void {
+function decodePackedRow(words: Uint32Array, grid: Grid, format: GridFormat, y: number, out: DecodedPackedRow): void {
   const packedCols = packedColsForFormat(grid.cols, format);
   const rowOffset = y * packedCols;
   for (let packedX = 0; packedX < packedCols; packedX++) {
@@ -79,3 +86,5 @@ function readPackedCellFromWord(word: number, format: GridFormat, cellIndex: num
 }
 
 export {decodePackedRow, readPackedCell, writePackedCell};
+
+export type {DecodedPackedRow};

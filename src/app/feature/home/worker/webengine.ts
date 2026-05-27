@@ -9,6 +9,8 @@
  * - Toroidal: world wraps in both axes.
  */
 
+import '../../../core/function/timestamped-console';
+
 import {GPU_LABELS} from './gpu-labels';
 import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/current/current';
 import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/current/planner';
@@ -1573,7 +1575,6 @@ async function resetOpfsDir(): Promise<void> {
 
 function sendRecordingManifest(): void {
   updateManifestRange();
-  console.log('[GOLT worker] Recording manifest diagnostics', recordingCountDiagnostics('manifest'));
   self.postMessage({
     type: 'recording',
     manifest: {
@@ -1671,53 +1672,6 @@ function totalRecordedFrames(): number {
   return count;
 }
 
-/**
- * Builds recording frame-count diagnostics for UI/manifest mismatch investigation.
- *
- * @param {string} source point where the diagnostics were captured.
- * @returns {object} recording count diagnostics.
- */
-function recordingCountDiagnostics(source: string): object {
-  const sealedBlockCount = sealedChunks.reduce((sum, c) => sum + c.blockCount, 0);
-  const sealedGenerationCount = sealedChunks.reduce((sum, c) => sum + c.generations.length, 0);
-  const currentChunkGenerationCount = chunkGenerations.length;
-  const liveTotalFrames = sealedBlockCount + chunkFrameIndex + inflightSealFrames;
-  const generationSpanFrames = manifest.generationEnd >= manifest.generationStart ?
-    manifest.generationEnd - manifest.generationStart + 1 :
-    0;
-  const recentSealedChunks = sealedChunks.slice(-16).map(c => ({
-    chunkId: c.chunkId,
-    filename: c.filename,
-    blockCount: c.blockCount,
-    generationCount: c.generations.length,
-    generationStart: c.generationStart,
-    generationEnd: c.generationEnd,
-    uncompressedBytes: c.uncompressedBytes,
-    storedBytes: c.storedBytes,
-    codec: c.codec
-  }));
-  return {
-    source,
-    generationCounter: genCounter,
-    liveTotalFrames,
-    manifestGenerationSpanFrames: generationSpanFrames,
-    sealedChunkCount: sealedChunks.length,
-    sealedBlockCount,
-    sealedGenerationCount,
-    currentChunkFrameIndex: chunkFrameIndex,
-    currentChunkGenerationCount,
-    inflightSealFrames,
-    inflightSeals,
-    pendingOpfsWrites,
-    chunkFrameCapacity,
-    latestRecordedGeneration,
-    recordingAwaitingForward,
-    backpressureActive,
-    currentChunkGenerations: [...chunkGenerations],
-    recentSealedChunks
-  };
-}
-
 function currentMetricAvailability() {
   return planInteractiveMetricAvailability(cols, rows, liveMetrics.enabled, liveMetrics.sections);
 }
@@ -1761,7 +1715,6 @@ function readMetricsAndPost(): void {
   }).then(readback => {
     const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
     const totalFrames = totalRecordedFrames();
-    console.log('[GOLT worker] Recording live counter diagnostics', recordingCountDiagnostics('metrics'));
     const message = buildInteractiveMetricMessage({
       generation: gen,
       tribes,

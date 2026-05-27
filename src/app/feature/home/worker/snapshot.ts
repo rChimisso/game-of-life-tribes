@@ -1,3 +1,5 @@
+import '../../../core/function/timestamped-console';
+
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/golt-build';
 import {parseGoltStateFile} from './snapshot/golt-parse';
 import {GoltStateData, SnapshotProgressUpdate} from './snapshot/golt-types';

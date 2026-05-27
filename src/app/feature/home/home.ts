@@ -1357,6 +1357,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number = 0): void {
+    this.logSnack(message, tone);
     const config: MatSnackBarConfig = {
       panelClass: `snackbar-${tone}`
     };
@@ -1364,6 +1365,27 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       config.duration = duration;
     }
     this.snackBar.open(message, 'Dismiss', config);
+  }
+
+  /**
+   * Logs snackbar messages with the same severity used by the UI.
+   *
+   * @private
+   * @param {string} message snackbar message.
+   * @param {('info' | 'warning' | 'error')} tone snackbar tone.
+   */
+  private logSnack(message: string, tone: 'info' | 'warning' | 'error'): void {
+    switch (tone) {
+      case 'info':
+        console.log(`[GOLT] ${message}`);
+        break;
+      case 'warning':
+        console.warn(`[GOLT] ${message}`);
+        break;
+      case 'error':
+        console.error(`[GOLT] ${message}`);
+        break;
+    }
   }
 
   private clampBrushSize(): boolean {
@@ -1519,6 +1541,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.downloadSubProgress = e.data.percent;
         this.downloadStatus = e.data.status ?? '';
         this.cdr.markForCheck();
+      } else if (e.data.type === 'warning') {
+        this.openSnack(e.data.message ?? 'Download warning.', 'warning');
       } else if (e.data.type === 'done-part') {
         console.log('[GOLT] Download part ready:', e.data.filename);
         const blob = e.data.file instanceof Blob ? e.data.file : new Blob([e.data.buffer]);

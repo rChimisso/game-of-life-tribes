@@ -1,6 +1,8 @@
+import '../../../core/function/timestamped-console';
+
 import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
 import {RecordingManifest} from '../model/recording';
-import {alignPackedBytesToWords} from '../util/grid-format';
+import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../util/grid-format';
 import {resolveRecordingFrameSelection} from './frame/recording-frame-stream';
 import {writeMetricsEntries, MetricsExportProgress} from './metric/sequence/export';
 import {writeGoltStateStream} from './snapshot/golt-build-stream';
@@ -45,6 +47,55 @@ const METRICS_PROGRESS_START = 55;
  * @type {number}
  */
 const METRICS_PROGRESS_END = 85;
+
+/**
+ * Maximum estimated working set allowed before cancelling a download.
+ *
+ * @type {number}
+ */
+const DOWNLOAD_WORKING_SET_LIMIT_BYTES = 1024 * 1024 * 1024;
+
+/**
+ * Estimated retained metric-row memory where Metrics switches to streaming output.
+ *
+ * @type {number}
+ */
+const METRICS_ENTRY_STREAM_THRESHOLD_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Estimated Metrics CSV output size where download warns about large output.
+ *
+ * @type {number}
+ */
+const METRICS_CSV_LARGE_OUTPUT_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Estimated fixed memory retained by one offline metric entry.
+ *
+ * @type {number}
+ */
+const METRIC_ENTRY_BASE_BYTES = 512;
+
+/**
+ * Estimated memory retained per tribe by one offline metric entry.
+ *
+ * @type {number}
+ */
+const METRIC_ENTRY_TRIBE_BYTES = 160;
+
+/**
+ * Estimated fixed CSV bytes written by one offline metric row.
+ *
+ * @type {number}
+ */
+const METRIC_CSV_ROW_BASE_BYTES = 384;
+
+/**
+ * Estimated CSV bytes written per tribe by one offline metric row.
+ *
+ * @type {number}
+ */
+const METRIC_CSV_ROW_TRIBE_BYTES = 48;
 
 /**
  * Download worker request payload.
@@ -163,6 +214,16 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
   throwIfCancelled();
   const hasRecordedFrames = recording !== null && recording.manifest.chunks.length > 0;
   const shouldWriteZip = opts.saves || (opts.metrics && hasRecordedFrames);
+  const estimate = estimateDownloadWorkingSet(opts, recording, tribes.length);
+  logDownloadWorkingSetEstimate(estimate);
+  if (estimate.totalBytes > DOWNLOAD_WORKING_SET_LIMIT_BYTES) {
+    const reason = opts.metrics ?
+      `Estimated Metrics memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.` :
+      `Estimated download memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.`;
+    console.error('[GOLT] Download cancelled by memory estimate:', estimate);
+    throw new Error(reason);
+  }
+  postAllowedEstimateWarnings(estimate);
   if (opts.metrics && !hasRecordedFrames) {
     console.warn('[GOLT] Metrics requested but no recording data is available');
   }
@@ -174,7 +235,9 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
       if (opts.metrics && hasRecordedFrames && recording) {
         await writeMetricsEntries(zip, recording, opts.frameRange, tribes, {
           shouldCancel: () => cancelRequested,
-          onProgress: createMetricsProgressReporter(METRICS_PROGRESS_START, METRICS_PROGRESS_END)
+          onProgress: createMetricsProgressReporter(METRICS_PROGRESS_START, METRICS_PROGRESS_END),
+          onWarning: postWarning,
+          streamEntries: estimate.streamMetrics
         });
       }
       throwIfCancelled();
@@ -195,6 +258,225 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
     postProgress(100, 'Done');
   }
   self.postMessage({type: 'done'});
+}
+
+/**
+ * Estimated download memory pressure.
+ *
+ * @interface DownloadWorkingSetEstimate
+ * @typedef {DownloadWorkingSetEstimate}
+ */
+interface DownloadWorkingSetEstimate {
+  /**
+   * Estimated peak working-set bytes.
+   *
+   * @type {number}
+   */
+  totalBytes: number;
+  /**
+   * Estimated retained metric-entry bytes before streaming.
+   *
+   * @type {number}
+   */
+  metricEntryBytes: number;
+  /**
+   * Whether Metrics entries should be streamed.
+   *
+   * @type {boolean}
+   */
+  streamMetrics: boolean;
+  /**
+   * Largest selected chunk read/decode footprint.
+   *
+   * @type {number}
+   */
+  maxChunkBytes: number;
+  /**
+   * Packed previous-frame bytes retained by Metrics.
+   *
+   * @type {number}
+   */
+  previousFrameBytes: number;
+  /**
+   * Estimated Metrics CSV output bytes.
+   *
+   * @type {number}
+   */
+  metricCsvBytes: number;
+  /**
+   * Selected Metrics frame count.
+   *
+   * @type {number}
+   */
+  metricFrameCount: number;
+}
+
+/**
+ * Estimates the download working set before opening ZIP output.
+ *
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @param {DownloadRequest['recording']} recording recording manifest, if available.
+ * @param {number} tribeCount exported tribe count.
+ * @returns {DownloadWorkingSetEstimate} working-set estimate.
+ */
+function estimateDownloadWorkingSet(opts: DownloadRequestPayload, recording: DownloadRequest['recording'], tribeCount: number): DownloadWorkingSetEstimate {
+  let totalBytes = 0;
+  let metricEntryBytes = 0;
+  let streamMetrics = false;
+  let maxChunkBytes = 0;
+  let previousFrameBytes = 0;
+  let metricCsvBytes = 0;
+  let metricFrameCount = 0;
+  if (opts.saves) {
+    totalBytes += recording?.manifest.chunks.reduce((maxBytes, chunk) => Math.max(maxBytes, chunk.uncompressedBytes), 0) ?? 0;
+  }
+  if (opts.metrics && recording && recording.manifest.chunks.length > 0) {
+    const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
+    metricFrameCount = selection.framesTotal;
+    const selectedChunks = selectedMetricChunks(recording.manifest, selection.startIndex, selection.endIndex);
+    maxChunkBytes = selectedChunks.reduce((maxBytes, chunk) => {
+      const compressedOverlap = chunk.codec === 'deflate-raw' ? chunk.storedBytes : 0;
+      return Math.max(maxBytes, chunk.uncompressedBytes + compressedOverlap);
+    }, 0);
+    const firstChunk = selectedChunks[0] ?? recording.manifest.chunks[0]!;
+    previousFrameBytes = firstChunk.blockCount > 0 ?
+      Math.ceil(firstChunk.uncompressedBytes / firstChunk.blockCount) :
+      gridByteSize(recording, gridFormatFromMetadata(firstChunk.gridFormat));
+    metricEntryBytes = estimateMetricEntryBytes(selection.framesTotal, tribeCount);
+    metricCsvBytes = estimateMetricCsvBytes(selection.framesTotal, tribeCount);
+    streamMetrics = metricEntryBytes > METRICS_ENTRY_STREAM_THRESHOLD_BYTES;
+    totalBytes += maxChunkBytes + previousFrameBytes + estimateMetricRowBufferBytes(recording, tribeCount);
+    if (!streamMetrics) {
+      totalBytes += metricEntryBytes;
+    }
+  }
+  return {
+    totalBytes,
+    metricEntryBytes,
+    streamMetrics,
+    maxChunkBytes,
+    previousFrameBytes,
+    metricCsvBytes,
+    metricFrameCount
+  };
+}
+
+/**
+ * Logs detailed working-set estimate numbers for diagnostics.
+ *
+ * @param {DownloadWorkingSetEstimate} estimate working-set estimate.
+ */
+function logDownloadWorkingSetEstimate(estimate: DownloadWorkingSetEstimate): void {
+  console.log('[GOLT] Download working-set estimate:', {
+    totalBytes: estimate.totalBytes,
+    total: formatBytes(estimate.totalBytes),
+    metricEntryBytes: estimate.metricEntryBytes,
+    metricEntries: formatBytes(estimate.metricEntryBytes),
+    metricCsvBytes: estimate.metricCsvBytes,
+    metricCsv: formatBytes(estimate.metricCsvBytes),
+    streamMetrics: estimate.streamMetrics,
+    maxChunkBytes: estimate.maxChunkBytes,
+    maxChunk: formatBytes(estimate.maxChunkBytes),
+    previousFrameBytes: estimate.previousFrameBytes,
+    previousFrame: formatBytes(estimate.previousFrameBytes),
+    metricFrameCount: estimate.metricFrameCount
+  });
+}
+
+/**
+ * Posts warnings for allowed but potentially expensive exports.
+ *
+ * @param {DownloadWorkingSetEstimate} estimate working-set estimate.
+ */
+function postAllowedEstimateWarnings(estimate: DownloadWorkingSetEstimate): void {
+  if (estimate.streamMetrics) {
+    const message = `Estimated Metrics memory is high (${formatBytes(estimate.metricEntryBytes)}), so CSV and JSON will be streamed during export.`;
+    console.warn('[GOLT] Metrics row estimate exceeds in-memory threshold; streaming CSV and JSON to OPFS-backed ZIP entries');
+    postWarning(message);
+  }
+  if (estimate.metricCsvBytes > METRICS_CSV_LARGE_OUTPUT_BYTES) {
+    const message = `Metrics CSV output is expected to be large (${formatBytes(estimate.metricCsvBytes)}). Finalizing the ZIP and starting the browser download may take a while.`;
+    console.warn('[GOLT] Metrics CSV output estimate is large:', {
+      metricCsvBytes: estimate.metricCsvBytes,
+      metricCsv: formatBytes(estimate.metricCsvBytes),
+      metricFrameCount: estimate.metricFrameCount
+    });
+    postWarning(message);
+  }
+}
+
+/**
+ * Selects chunks that overlap a zero-based frame range.
+ *
+ * @param {RecordingManifest} manifest recording manifest.
+ * @param {number} startIndex first selected zero-based frame.
+ * @param {number} endIndex last selected zero-based frame.
+ * @returns {RecordingManifest['chunks']} selected chunks.
+ */
+function selectedMetricChunks(manifest: RecordingManifest, startIndex: number, endIndex: number): RecordingManifest['chunks'] {
+  const chunks: RecordingManifest['chunks'] = [];
+  let chunkStart = 0;
+  for (const chunk of manifest.chunks) {
+    const chunkEnd = chunkStart + chunk.blockCount - 1;
+    if (chunkEnd >= startIndex && chunkStart <= endIndex) {
+      chunks.push(chunk);
+    }
+    chunkStart = chunkEnd + 1;
+  }
+  return chunks;
+}
+
+/**
+ * Estimates retained metric-entry object memory.
+ *
+ * @param {number} frameCount selected frame count.
+ * @param {number} tribeCount exported tribe count.
+ * @returns {number} estimated retained metric-entry bytes.
+ */
+function estimateMetricEntryBytes(frameCount: number, tribeCount: number): number {
+  return frameCount * (METRIC_ENTRY_BASE_BYTES + (tribeCount * METRIC_ENTRY_TRIBE_BYTES));
+}
+
+/**
+ * Estimates Metrics CSV output size.
+ *
+ * @param {number} frameCount selected frame count.
+ * @param {number} tribeCount exported tribe count.
+ * @returns {number} estimated CSV output bytes.
+ */
+function estimateMetricCsvBytes(frameCount: number, tribeCount: number): number {
+  return frameCount * (METRIC_CSV_ROW_BASE_BYTES + (tribeCount * METRIC_CSV_ROW_TRIBE_BYTES));
+}
+
+/**
+ * Estimates decoded row buffers retained by CPU Metrics.
+ *
+ * @param {Grid} grid grid dimensions.
+ * @param {number} tribeCount exported tribe count.
+ * @returns {number} estimated row-buffer bytes.
+ */
+function estimateMetricRowBufferBytes(grid: Grid, tribeCount: number): number {
+  let bytesPerCell: number;
+  if (tribeCount <= 256) {
+    bytesPerCell = Uint8Array.BYTES_PER_ELEMENT;
+  } else if (tribeCount <= 65536) {
+    bytesPerCell = Uint16Array.BYTES_PER_ELEMENT;
+  } else {
+    bytesPerCell = Uint32Array.BYTES_PER_ELEMENT;
+  }
+  return grid.cols * bytesPerCell * 4;
+}
+
+/**
+ * Formats byte counts for diagnostics and error messages.
+ *
+ * @param {number} bytes byte count.
+ * @returns {string} formatted byte count.
+ */
+function formatBytes(bytes: number): string {
+  const gib = bytes / (1024 ** 3);
+  const mib = bytes / (1024 ** 2);
+  return gib >= 1 ? `${gib.toFixed(2)} GiB` : `${mib.toFixed(1)} MiB`;
 }
 
 /**
@@ -346,5 +628,17 @@ function postProgress(percent: number, status: string): void {
     type: 'progress',
     percent,
     status
+  });
+}
+
+/**
+ * Posts a user-visible warning to the UI thread.
+ *
+ * @param {string} message warning message.
+ */
+function postWarning(message: string): void {
+  self.postMessage({
+    type: 'warning',
+    message
   });
 }

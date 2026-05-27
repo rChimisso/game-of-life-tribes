@@ -3,7 +3,7 @@ import {OfflineMetricEntry} from './offline-types';
 import {GridFormat} from '../../../model/grid-format';
 import {DEAD_TRIBE_ID, Tribe} from '../../../model/rule';
 import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
-import {decodePackedRow} from '../../snapshot/packed-access';
+import {decodePackedRow, DecodedPackedRow} from '../../snapshot/packed-access';
 
 /**
  * Previous packed frame retained for transition metrics.
@@ -246,10 +246,10 @@ async function collectFrameMetricStats(frame: PackedRecordedFrame, previous: Pre
   const counts = new Array<number>(tribeCount).fill(0);
   const frontierCounts = new Array<number>(tribeCount).fill(0);
   const transition = createTransitionAccumulator(previous, frame.generation);
-  let currentRow = new Uint32Array(frame.cols);
-  let nextRow = new Uint32Array(frame.cols);
-  let scratchRow = new Uint32Array(frame.cols);
-  const previousRow = transition.exact && previous ? new Uint32Array(frame.cols) : null;
+  let currentRow = createMetricRowBuffer(frame.format, frame.cols);
+  let nextRow = createMetricRowBuffer(frame.format, frame.cols);
+  let scratchRow = createMetricRowBuffer(frame.format, frame.cols);
+  const previousRow = transition.exact && previous ? createMetricRowBuffer(previous.format, frame.cols) : null;
   const histogramLookup = createHistogramLookup(frame.format);
   let crossStateContactEdges = 0;
 
@@ -357,7 +357,7 @@ function createTransitionAccumulator(previous: PreviousOfflineMetricFrame | null
  * @param {number} x cell column.
  * @param {number} deadIndex dead tribe index.
  */
-function accumulateTransition(transition: TransitionAccumulator, previousRow: Uint32Array | null, state: number, x: number, deadIndex: number): void {
+function accumulateTransition(transition: TransitionAccumulator, previousRow: DecodedPackedRow | null, state: number, x: number, deadIndex: number): void {
   if (transition.exact && previousRow) {
     const previousState = previousRow[x]!;
     if (previousState !== state) {
@@ -371,6 +371,25 @@ function accumulateTransition(transition: TransitionAccumulator, previousRow: Ui
       }
     }
   }
+}
+
+/**
+ * Creates a decoded row buffer sized to the packing format.
+ *
+ * @param {GridFormat} format packing format.
+ * @param {number} cols grid columns.
+ * @returns {DecodedPackedRow} decoded row buffer.
+ */
+function createMetricRowBuffer(format: GridFormat, cols: number): DecodedPackedRow {
+  let row: DecodedPackedRow;
+  if (format.bitsPerCell <= 8) {
+    row = new Uint8Array(cols);
+  } else if (format.bitsPerCell <= 16) {
+    row = new Uint16Array(cols);
+  } else {
+    row = new Uint32Array(cols);
+  }
+  return row;
 }
 
 /**

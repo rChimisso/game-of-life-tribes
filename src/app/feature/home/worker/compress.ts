@@ -1,3 +1,5 @@
+import '../../../core/function/timestamped-console';
+
 import {GridFormatMetadata} from '../model/grid-format';
 import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../util/grid-format';
 

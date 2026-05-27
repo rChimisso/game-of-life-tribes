@@ -10,7 +10,7 @@ import {Grid} from '~gol/feature/home/model/grid';
  *
  * @type {number}
  */
-const STREAM_REPACK_BLOCK_BYTES = 32 * 1024 * 1024;
+const STREAM_REPACK_BLOCK_BYTES = 64 * 1024 * 1024;
 
 /**
  * Reports packed-grid streaming progress.
@@ -126,3 +126,5 @@ export async function writeRepackedGridToSink(sourceGrid: Uint32Array, grid: Gri
     await writeConvertedGridToSink(sourceGrid, grid, sourceFormat, targetFormat, sink, reportProgress);
   }
 }
+
+export {STREAM_REPACK_BLOCK_BYTES};

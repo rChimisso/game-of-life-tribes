@@ -20,6 +20,13 @@ const GOLT_TEMP_DOWNLOAD_DIR = 'downloads';
 const GOLT_TEMP_SNAPSHOT_DIR = 'snapshots';
 
 /**
+ * OPFS subdirectory for temporary Metrics export files.
+ *
+ * @type {string}
+ */
+const GOLT_TEMP_METRICS_DIR = 'metrics';
+
+/**
  * OPFS directory handle with browser entry iteration support.
  *
  * @interface IterableFileSystemDirectoryHandle
@@ -138,4 +145,4 @@ function isLockedOpfsEntry(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NoModificationAllowedError';
 }
 
-export {clearTempOpfsDirectory, GOLT_TEMP_DOWNLOAD_DIR, GOLT_TEMP_OPFS_DIR, GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory};
+export {clearTempOpfsDirectory, GOLT_TEMP_DOWNLOAD_DIR, GOLT_TEMP_METRICS_DIR, GOLT_TEMP_OPFS_DIR, GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory};

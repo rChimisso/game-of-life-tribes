@@ -3,8 +3,9 @@ import '../../../core/function/timestamped-console';
 import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
 import {RecordingManifest} from '../model/recording';
 import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../util/grid-format';
-import {resolveRecordingFrameSelection} from './frame/recording-frame-stream';
-import {writeMetricsEntries, MetricsExportProgress} from './metric/sequence/export';
+import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
+import {iterateRecordedFrames, resolveRecordingFrameSelection, RecordingFrameSelection} from './frame/recording-frame-stream';
+import {createMetricsExportWriter, MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export';
 import {writeGoltStateStream} from './snapshot/golt-build-stream';
 import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/golt-types';
 import {readRecordingFrame} from './snapshot/recording-frame-reader';
@@ -35,18 +36,18 @@ const SAVE_WRITE_PROGRESS_START = 10;
 const SAVE_WRITE_PROGRESS_END = 55;
 
 /**
- * First percent used for Metrics export.
+ * First percent used for recorded frame outputs.
  *
  * @type {number}
  */
-const METRICS_PROGRESS_START = 55;
+const FRAME_OUTPUT_PROGRESS_START = 55;
 
 /**
- * Last percent used for Metrics export.
+ * Last percent used for recorded frame outputs.
  *
  * @type {number}
  */
-const METRICS_PROGRESS_END = 85;
+const FRAME_OUTPUT_PROGRESS_END = 85;
 
 /**
  * Maximum estimated working set allowed before cancelling a download.
@@ -212,33 +213,18 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
   logSkippedOutputs(opts);
   postProgress(0, 'Preparing download');
   throwIfCancelled();
-  const hasRecordedFrames = recording !== null && recording.manifest.chunks.length > 0;
-  const shouldWriteZip = opts.saves || (opts.metrics && hasRecordedFrames);
+  const shouldWriteZip = opts.saves || opts.metrics || opts.png;
   const estimate = estimateDownloadWorkingSet(opts, recording, tribes.length);
   logDownloadWorkingSetEstimate(estimate);
-  if (estimate.totalBytes > DOWNLOAD_WORKING_SET_LIMIT_BYTES) {
-    const reason = opts.metrics ?
-      `Estimated Metrics memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.` :
-      `Estimated download memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.`;
-    console.error('[GOLT] Download cancelled by memory estimate:', estimate);
-    throw new Error(reason);
-  }
+  assertDownloadEstimateAllowed(opts, estimate);
   postAllowedEstimateWarnings(estimate);
-  if (opts.metrics && !hasRecordedFrames) {
-    console.warn('[GOLT] Metrics requested but no recording data is available');
-  }
   if (shouldWriteZip) {
     postProgress(10, 'Opening ZIP output');
     const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
     try {
       await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
-      if (opts.metrics && hasRecordedFrames && recording) {
-        await writeMetricsEntries(zip, recording, opts.frameRange, tribes, {
-          shouldCancel: () => cancelRequested,
-          onProgress: createMetricsProgressReporter(METRICS_PROGRESS_START, METRICS_PROGRESS_END),
-          onWarning: postWarning,
-          streamEntries: estimate.streamMetrics
-        });
+      if ((opts.metrics || opts.png) && recording) {
+        await writeRecordedFrameOutputs(zip, opts, recording, tribes, estimate);
       }
       throwIfCancelled();
       postProgress(90, 'Finalizing ZIP');
@@ -330,24 +316,27 @@ function estimateDownloadWorkingSet(opts: DownloadRequestPayload, recording: Dow
   if (opts.saves) {
     totalBytes += recording?.manifest.chunks.reduce((maxBytes, chunk) => Math.max(maxBytes, chunk.uncompressedBytes), 0) ?? 0;
   }
-  if (opts.metrics && recording && recording.manifest.chunks.length > 0) {
+  if ((opts.metrics || opts.png) && recording && recording.manifest.chunks.length > 0) {
     const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
-    metricFrameCount = selection.framesTotal;
     const selectedChunks = selectedMetricChunks(recording.manifest, selection.startIndex, selection.endIndex);
     maxChunkBytes = selectedChunks.reduce((maxBytes, chunk) => {
       const compressedOverlap = chunk.codec === 'deflate-raw' ? chunk.storedBytes : 0;
       return Math.max(maxBytes, chunk.uncompressedBytes + compressedOverlap);
     }, 0);
-    const firstChunk = selectedChunks[0] ?? recording.manifest.chunks[0]!;
-    previousFrameBytes = firstChunk.blockCount > 0 ?
-      Math.ceil(firstChunk.uncompressedBytes / firstChunk.blockCount) :
-      gridByteSize(recording, gridFormatFromMetadata(firstChunk.gridFormat));
-    metricEntryBytes = estimateMetricEntryBytes(selection.framesTotal, tribeCount);
-    metricCsvBytes = estimateMetricCsvBytes(selection.framesTotal, tribeCount);
-    streamMetrics = metricEntryBytes > METRICS_ENTRY_STREAM_THRESHOLD_BYTES;
-    totalBytes += maxChunkBytes + previousFrameBytes + estimateMetricRowBufferBytes(recording, tribeCount);
-    if (!streamMetrics) {
-      totalBytes += metricEntryBytes;
+    totalBytes += maxChunkBytes;
+    if (opts.metrics) {
+      metricFrameCount = selection.framesTotal;
+      const firstChunk = selectedChunks[0] ?? recording.manifest.chunks[0]!;
+      previousFrameBytes = firstChunk.blockCount > 0 ?
+        Math.ceil(firstChunk.uncompressedBytes / firstChunk.blockCount) :
+        gridByteSize(recording, gridFormatFromMetadata(firstChunk.gridFormat));
+      metricEntryBytes = estimateMetricEntryBytes(selection.framesTotal, tribeCount);
+      metricCsvBytes = estimateMetricCsvBytes(selection.framesTotal, tribeCount);
+      streamMetrics = metricEntryBytes > METRICS_ENTRY_STREAM_THRESHOLD_BYTES;
+      totalBytes += previousFrameBytes + estimateMetricRowBufferBytes(recording, tribeCount);
+      if (!streamMetrics) {
+        totalBytes += metricEntryBytes;
+      }
     }
   }
   return {
@@ -402,6 +391,22 @@ function postAllowedEstimateWarnings(estimate: DownloadWorkingSetEstimate): void
       metricFrameCount: estimate.metricFrameCount
     });
     postWarning(message);
+  }
+}
+
+/**
+ * Blocks downloads whose estimated working set is above the allowed limit.
+ *
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @param {DownloadWorkingSetEstimate} estimate working-set estimate.
+ */
+function assertDownloadEstimateAllowed(opts: DownloadRequestPayload, estimate: DownloadWorkingSetEstimate): void {
+  if (estimate.totalBytes > DOWNLOAD_WORKING_SET_LIMIT_BYTES) {
+    const reason = opts.metrics ?
+      `Estimated Metrics memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.` :
+      `Estimated download memory (${formatBytes(estimate.totalBytes)}) exceeds the ${formatBytes(DOWNLOAD_WORKING_SET_LIMIT_BYTES)} limit. Select fewer frames or fewer checkboxes.`;
+    console.error('[GOLT] Download cancelled by memory estimate:', estimate);
+    throw new Error(reason);
   }
 }
 
@@ -562,19 +567,126 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
 }
 
 /**
- * Creates a reporter that maps Metrics export progress into the overall download range.
+ * Writes recorded frame outputs that share the selected recording iteration.
  *
- * @param {number} startPercent overall start percent.
- * @param {number} endPercent overall end percent.
- * @returns {(progress: MetricsExportProgress) => void} mapped progress reporter.
+ * @async
+ * @param {ZipWriter} zip zip writer.
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @param {Grid & {manifest: RecordingManifest}} recording recording manifest and dimensions.
+ * @param {DownloadRequest['tribes']} tribes snapshot tribe metadata.
+ * @param {DownloadWorkingSetEstimate} estimate download working-set estimate.
  */
-function createMetricsProgressReporter(startPercent: number, endPercent: number): (progress: MetricsExportProgress) => void {
-  return progress => {
+async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Grid & {manifest: RecordingManifest}, tribes: DownloadRequest['tribes'], estimate: DownloadWorkingSetEstimate): Promise<void> {
+  const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
+  const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
+  const pngWriter = opts.png ? new PngFrameExportWriter(zip, tribes, selection.framesTotal, {shouldCancel: () => cancelRequested}) : null;
+  const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null);
+  let framesCompleted = 0;
+  try {
+    postProgress(FRAME_OUTPUT_PROGRESS_START, 'Reading recorded frames');
+    for await (const frame of iterateRecordedFrames(recording, opts.frameRange, {
+      shouldCancel: () => cancelRequested,
+      onProgress: progress => {
+        const status = createFrameOutputStatus(opts, framesCompleted + 1, progress.framesTotal);
+        postFrameOutputProgress(selection, framesCompleted, 0, operationsPerFrame, 0, status);
+      }
+    })) {
+      throwIfCancelled();
+      let operationIndex = 0;
+      if (metricsWriter) {
+        await metricsWriter.writeFrame(frame, createFrameOutputReporter(selection, framesCompleted, operationIndex, operationsPerFrame, opts));
+        operationIndex++;
+      }
+      if (pngWriter) {
+        await pngWriter.writeFrame(frame, createFrameOutputReporter(selection, framesCompleted, operationIndex, operationsPerFrame, opts));
+      }
+      framesCompleted++;
+      postFrameOutputProgress(selection, framesCompleted, 0, operationsPerFrame, 0, createFrameOutputStatus(opts, framesCompleted, selection.framesTotal));
+    }
     throwIfCancelled();
-    const innerPercent = Math.max(0, Math.min(100, progress.percent));
-    const span = endPercent - startPercent;
-    postProgress(Math.round(startPercent + (innerPercent / 100) * span), progress.status);
+    if (metricsWriter) {
+      await metricsWriter.finish();
+    }
+    if (pngWriter) {
+      await pngWriter.finish();
+    }
+  } finally {
+    await metricsWriter?.dispose();
+  }
+}
+
+/**
+ * Creates Metrics options for shared frame-output orchestration.
+ *
+ * @param {DownloadWorkingSetEstimate} estimate download working-set estimate.
+ * @returns {MetricsExportOptions} Metrics export options.
+ */
+function createSharedMetricsOptions(estimate: DownloadWorkingSetEstimate): MetricsExportOptions {
+  return {
+    shouldCancel: () => cancelRequested,
+    onProgress: progress => {
+      throwIfCancelled();
+      postProgress(FRAME_OUTPUT_PROGRESS_END, progress.status);
+    },
+    onWarning: postWarning,
+    streamEntries: estimate.streamMetrics
   };
+}
+
+/**
+ * Creates a row reporter for the shared frame-output pass.
+ *
+ * @param {RecordingFrameSelection} selection selected frame range.
+ * @param {number} frameIndex zero-based selected frame index.
+ * @param {number} operationIndex zero-based operation index within the frame.
+ * @param {number} operationsPerFrame output operations per frame.
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @returns {MetricsFrameProgressReporter} row progress reporter.
+ */
+function createFrameOutputReporter(selection: RecordingFrameSelection, frameIndex: number, operationIndex: number, operationsPerFrame: number, opts: DownloadRequestPayload): MetricsFrameProgressReporter {
+  return (rowsProcessed, rowsTotal) => {
+    const rowFraction = rowsTotal > 0 ? rowsProcessed / rowsTotal : 1;
+    postFrameOutputProgress(selection, frameIndex, operationIndex, operationsPerFrame, rowFraction, createFrameOutputStatus(opts, frameIndex + 1, selection.framesTotal));
+  };
+}
+
+/**
+ * Posts mapped shared frame-output progress.
+ *
+ * @param {RecordingFrameSelection} selection selected frame range.
+ * @param {number} frameIndex zero-based selected frame index.
+ * @param {number} operationIndex zero-based operation index within the frame.
+ * @param {number} operationsPerFrame output operations per frame.
+ * @param {number} operationFraction current operation fraction.
+ * @param {string} status visible status text.
+ */
+function postFrameOutputProgress(selection: RecordingFrameSelection, frameIndex: number, operationIndex: number, operationsPerFrame: number, operationFraction: number, status: string): void {
+  throwIfCancelled();
+  const boundedFraction = Math.max(0, Math.min(1, operationFraction));
+  const totalUnits = Math.max(1, selection.framesTotal * Math.max(1, operationsPerFrame));
+  const completedUnits = Math.min(totalUnits, (frameIndex * Math.max(1, operationsPerFrame)) + operationIndex + boundedFraction);
+  const span = FRAME_OUTPUT_PROGRESS_END - FRAME_OUTPUT_PROGRESS_START;
+  postProgress(Math.round(FRAME_OUTPUT_PROGRESS_START + (completedUnits / totalUnits) * span), status);
+}
+
+/**
+ * Creates shared frame-output status text.
+ *
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @param {number} frameNumber current one-based selected frame number.
+ * @param {number} framesTotal selected frame count.
+ * @returns {string} status text.
+ */
+function createFrameOutputStatus(opts: DownloadRequestPayload, frameNumber: number, framesTotal: number): string {
+  let status: string;
+  if (opts.metrics && opts.png) {
+    status = `Computing metrics and writing PNG frame ${frameNumber} / ${framesTotal}`;
+  } else if (opts.png) {
+    status = `Writing PNG frame ${frameNumber} / ${framesTotal}`;
+  } else {
+    status = 'Computing metrics';
+  }
+  return status;
 }
 
 /**
@@ -609,9 +721,6 @@ function throwIfCancelled(): void {
  * @param {DownloadRequestPayload} opts selected download options.
  */
 function logSkippedOutputs(opts: DownloadRequestPayload): void {
-  if (opts.png) {
-    console.log('[GOLT] PNG frame export is not implemented in the new download worker yet; skipping PNG output.');
-  }
   if (opts.mp4) {
     console.log('[GOLT] MP4 export is not implemented in the new download worker yet; skipping MP4 output.');
   }

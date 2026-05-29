@@ -32,6 +32,13 @@ const PNG_INDEXED_COLOR_TYPE = 3;
 const EMPTY_CHUNK_DATA = new Uint8Array(0);
 
 /**
+ * Largest PNG chunk payload copied into one sink write.
+ *
+ * @type {number}
+ */
+const PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES = 64 * 1024 * 1024;
+
+/**
  * Text encoder used for PNG chunk types.
  *
  * @type {TextEncoder}
@@ -60,6 +67,43 @@ async function writePngSignature(sink: PngByteSink): Promise<void> {
  */
 async function writePngChunk(sink: PngByteSink, type: string, data: Uint8Array): Promise<void> {
   const typeBytes = encodePngChunkType(type);
+  const crcBytes = createPngCrcBytes(typeBytes, data);
+  if (data.byteLength <= PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES) {
+    await writeSingleBufferPngChunk(sink, typeBytes, data, crcBytes);
+  } else {
+    await writeSplitPngChunk(sink, typeBytes, data, crcBytes);
+  }
+}
+
+/**
+ * Writes one PNG chunk through a single sink call.
+ *
+ * @async
+ * @param {PngByteSink} sink target byte sink.
+ * @param {Uint8Array} typeBytes encoded chunk type.
+ * @param {Uint8Array} data chunk payload.
+ * @param {Uint8Array} crcBytes encoded chunk crc.
+ */
+async function writeSingleBufferPngChunk(sink: PngByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
+  const chunk = new Uint8Array(8 + data.byteLength + 4);
+  const chunkView = new DataView(chunk.buffer);
+  chunkView.setUint32(0, data.byteLength, false);
+  chunk.set(typeBytes, 4);
+  chunk.set(data, 8);
+  chunk.set(crcBytes, 8 + data.byteLength);
+  await sink.write(chunk);
+}
+
+/**
+ * Writes one PNG chunk without copying a large payload.
+ *
+ * @async
+ * @param {PngByteSink} sink target byte sink.
+ * @param {Uint8Array} typeBytes encoded chunk type.
+ * @param {Uint8Array} data chunk payload.
+ * @param {Uint8Array} crcBytes encoded chunk crc.
+ */
+async function writeSplitPngChunk(sink: PngByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
   const header = new Uint8Array(8);
   const headerView = new DataView(header.buffer);
   headerView.setUint32(0, data.byteLength, false);
@@ -68,12 +112,23 @@ async function writePngChunk(sink: PngByteSink, type: string, data: Uint8Array):
   if (data.byteLength > 0) {
     await sink.write(data);
   }
+  await sink.write(crcBytes);
+}
+
+/**
+ * Creates the encoded PNG chunk CRC.
+ *
+ * @param {Uint8Array} typeBytes encoded chunk type.
+ * @param {Uint8Array} data chunk payload.
+ * @returns {Uint8Array} encoded crc bytes.
+ */
+function createPngCrcBytes(typeBytes: Uint8Array, data: Uint8Array): Uint8Array {
   const crcBytes = new Uint8Array(4);
   const crcView = new DataView(crcBytes.buffer);
   let crc = updateCrc32(0xffffffff, typeBytes);
   crc = updateCrc32(crc, data);
   crcView.setUint32(0, finalizeCrc32(crc), false);
-  await sink.write(crcBytes);
+  return crcBytes;
 }
 
 /**

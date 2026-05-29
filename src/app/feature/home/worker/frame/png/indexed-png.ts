@@ -5,11 +5,11 @@ import {decodePackedRow} from '../../snapshot/packed-access';
 import {PackedRecordedFrame} from '../recording-frame-stream';
 
 /**
- * Default row interval used to yield during PNG encoding.
+ * Memory budget for one PNG scanline write block.
  *
  * @type {number}
  */
-const DEFAULT_YIELD_EVERY_ROWS = 128;
+const PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES = 32 * 1024 * 1024;
 
 /**
  * PNG image-data chunk type.
@@ -65,18 +65,55 @@ async function writeIndexedPngFrame(sink: PngByteSink, frame: PackedRecordedFram
  */
 async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<BufferSource>, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions): Promise<void> {
   const decodedRow = new Uint8Array(frame.cols);
-  const scanline = new Uint8Array(1 + Math.ceil((frame.cols * palette.bitDepth) / 8));
-  const yieldEveryRows = options.yieldEveryRows ?? DEFAULT_YIELD_EVERY_ROWS;
+  const scanlineBytes = 1 + Math.ceil((frame.cols * palette.bitDepth) / 8);
+  const rowsPerBlock = choosePngRowsPerBlock(scanlineBytes, frame.rows);
+  const blockA = new Uint8Array(scanlineBytes * rowsPerBlock);
+  const blockB = new Uint8Array(scanlineBytes * rowsPerBlock);
+  let activeBlock = blockA;
+  let usedRows = 0;
   for (let y = 0; y < frame.rows; y++) {
     assertNotCancelled(options);
+    const rowOffset = usedRows * scanlineBytes;
+    const scanline = activeBlock.subarray(rowOffset, rowOffset + scanlineBytes);
     decodePackedRow(frame.words, frame, frame.format, y, decodedRow);
     packIndexedPngScanline(decodedRow, frame.cols, palette.bitDepth, scanline, palette.stateToPaletteIndex);
-    await writer.write(scanline.slice());
-    options.onRowsProcessed?.(y + 1, frame.rows);
-    if ((y + 1) % yieldEveryRows === 0) {
-      await Promise.resolve();
+    usedRows++;
+    if (usedRows === rowsPerBlock) {
+      await writeScanlineBlock(writer, activeBlock, usedRows, scanlineBytes);
+      activeBlock = activeBlock === blockA ? blockB : blockA;
+      usedRows = 0;
+      options.onRowsProcessed?.(y + 1, frame.rows);
     }
   }
+  if (usedRows > 0) {
+    await writeScanlineBlock(writer, activeBlock, usedRows, scanlineBytes);
+    options.onRowsProcessed?.(frame.rows, frame.rows);
+  }
+}
+
+/**
+ * Chooses a bounded row count for PNG scanline write blocks.
+ *
+ * @param {number} scanlineBytes bytes in one packed PNG scanline.
+ * @param {number} rowsTotal total rows in the frame.
+ * @returns {number} rows per write block.
+ */
+function choosePngRowsPerBlock(scanlineBytes: number, rowsTotal: number): number {
+  return Math.max(1, Math.min(rowsTotal, Math.floor(Math.max(scanlineBytes, PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES) / scanlineBytes)));
+}
+
+/**
+ * Writes one PNG scanline block to the compressor.
+ *
+ * @async
+ * @param {WritableStreamDefaultWriter<BufferSource>} writer compressor writer.
+ * @param {Uint8Array} block reusable scanline block.
+ * @param {number} usedRows number of rows populated in the block.
+ * @param {number} scanlineBytes bytes in one packed PNG scanline.
+ */
+async function writeScanlineBlock(writer: WritableStreamDefaultWriter<BufferSource>, block: Uint8Array, usedRows: number, scanlineBytes: number): Promise<void> {
+  const usedBytes = usedRows * scanlineBytes;
+  await writer.write(block.subarray(0, usedBytes).slice());
 }
 
 /**

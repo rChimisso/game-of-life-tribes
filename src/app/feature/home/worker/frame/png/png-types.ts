@@ -62,12 +62,6 @@ interface IndexedPngFrameOptions {
    * @type {?((rowsProcessed: number, rowsTotal: number) => void)}
    */
   onRowsProcessed?: (rowsProcessed: number, rowsTotal: number) => void;
-  /**
-   * Row interval used to yield back to the event loop.
-   *
-   * @type {?number}
-   */
-  yieldEveryRows?: number;
 }
 
 /**

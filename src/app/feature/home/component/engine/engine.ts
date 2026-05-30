@@ -19,6 +19,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
     '(pointermove)': 'onPointerMove($event)',
     '(pointerup)': 'onPointerUp($event)',
     '(pointercancel)': 'onPointerUp($event)',
+    '(pointerleave)': 'onPointerLeave($event)',
     '(contextmenu)': 'disableCtx($event)',
     '(window:resize)': 'onResize()'
   },
@@ -127,6 +128,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   private lastPinchDist = 0;
 
+  private lastPreviewCell: {x: number; y: number} | null = null;
+
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
@@ -153,20 +156,24 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     if (ev.button === 2) {
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
+      this.clearBrushPreview();
       return;
     }
     if (this.pointers.size >= 2) {
       this.mode = 'pinch';
       this.touchPendingDraw = null;
+      this.clearBrushPreview();
       this.lastPinchDist = this.currentPinchDist();
       return;
     }
     if (ev.pointerType === 'touch' && this.panMode) {
       this.mode = 'pan';
       this.primaryPointerId = ev.pointerId;
+      this.clearBrushPreview();
     } else if (ev.pointerType === 'touch') {
       this.touchPendingDraw = {x: ev.clientX, y: ev.clientY};
       this.primaryPointerId = ev.pointerId;
+      this.updateBrushPreview(ev.clientX, ev.clientY);
     } else {
       this.mode = 'draw';
       this.primaryPointerId = ev.pointerId;
@@ -175,47 +182,45 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   }
 
   public onPointerMove(ev: PointerEvent): void {
-    if (!this.pointers.has(ev.pointerId)) {
-      return;
-    }
-    const prev = this.pointers.get(ev.pointerId)!;
-    this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    if (this.pointers.has(ev.pointerId)) {
+      const prev = this.pointers.get(ev.pointerId)!;
+      this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
 
-    if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
-      const dx = ev.clientX - prev.x;
-      const dy = ev.clientY - prev.y;
-      this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
-      this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
-      this.sendCamera();
-      return;
-    }
-
-    if (this.mode === 'pinch' || this.pointers.size >= 2) {
-      this.mode = 'pinch';
-      this.touchPendingDraw = null;
-      const dist = this.currentPinchDist();
-      if (this.lastPinchDist > 0 && dist > 0) {
-        const mid = this.currentPinchMid();
-        const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-        const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
-        const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
-        const factor = dist / this.lastPinchDist;
-        this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-        this.offsetX = worldX - (mid.x - rect.left) / this.scale;
-        this.offsetY = worldY - (mid.y - rect.top) / this.scale;
+      if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
+        const dx = ev.clientX - prev.x;
+        const dy = ev.clientY - prev.y;
+        this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
+        this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
         this.sendCamera();
+      } else if (this.mode === 'pinch' || this.pointers.size >= 2) {
+        this.mode = 'pinch';
+        this.touchPendingDraw = null;
+        this.clearBrushPreview();
+        const dist = this.currentPinchDist();
+        if (this.lastPinchDist > 0 && dist > 0) {
+          const mid = this.currentPinchMid();
+          const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+          const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
+          const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
+          const factor = dist / this.lastPinchDist;
+          this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
+          this.offsetX = worldX - (mid.x - rect.left) / this.scale;
+          this.offsetY = worldY - (mid.y - rect.top) / this.scale;
+          this.sendCamera();
+        }
+        this.lastPinchDist = dist;
+      } else {
+        if (this.touchPendingDraw) {
+          this.mode = 'draw';
+          this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+          this.touchPendingDraw = null;
+        }
+        if (this.mode === 'draw') {
+          this.drawAtPoint(ev.clientX, ev.clientY);
+        }
       }
-      this.lastPinchDist = dist;
-      return;
-    }
-
-    if (this.touchPendingDraw) {
-      this.mode = 'draw';
-      this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
-      this.touchPendingDraw = null;
-    }
-    if (this.mode === 'draw') {
-      this.drawAtPoint(ev.clientX, ev.clientY);
+    } else {
+      this.updateBrushPreview(ev.clientX, ev.clientY);
     }
   }
 
@@ -235,6 +240,17 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       this.lastPinchDist = 0;
     } else if (this.pointers.size === 1) {
       this.lastPinchDist = 0;
+    }
+  }
+
+  /**
+   * Clears hover preview when the pointer leaves the canvas.
+   *
+   * @param {PointerEvent} _ev pointer event.
+   */
+  public onPointerLeave(_ev: PointerEvent): void {
+    if (this.pointers.size === 0) {
+      this.clearBrushPreview();
     }
   }
 
@@ -393,6 +409,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
           this.resetCamera();
         }
       }
+      this.syncBrushPreviewInputChanges(changes);
     }
   }
 
@@ -446,20 +463,117 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     };
   }
 
-  private drawAtPoint(clientX: number, clientY: number): void {
+  /**
+   * Keeps the rendered brush preview aligned when brush inputs change.
+   *
+   * @private
+   * @param {TypedChanges<Engine<T>>} changes input changes.
+   */
+  private syncBrushPreviewInputChanges(changes: TypedChanges<Engine<T>>): void {
+    const brushPreviewInputChanged = changes.brushSize || changes.brushShape || changes.panMode;
+    if (brushPreviewInputChanged && this.lastPreviewCell) {
+      if (this.panMode) {
+        this.clearBrushPreview();
+      } else {
+        this.worker?.postMessage({
+          type: 'brushPreview',
+          visible: true,
+          x: this.lastPreviewCell.x,
+          y: this.lastPreviewCell.y,
+          size: this.brushSize,
+          shape: this.brushShape
+        });
+      }
+    }
+  }
+
+  /**
+   * Updates the worker-side brush preview for a client coordinate.
+   *
+   * @private
+   * @param {number} clientX pointer x coordinate.
+   * @param {number} clientY pointer y coordinate.
+   */
+  private updateBrushPreview(clientX: number, clientY: number): void {
+    if (!this.panMode) {
+      const cell = this.cellAtPoint(clientX, clientY);
+      this.lastPreviewCell = cell;
+      this.worker?.postMessage({
+        type: 'brushPreview',
+        visible: true,
+        x: cell.x,
+        y: cell.y,
+        size: this.brushSize,
+        shape: this.brushShape
+      });
+    } else {
+      this.clearBrushPreview();
+    }
+  }
+
+  /**
+   * Hides the worker-side brush preview.
+   *
+   * @private
+   */
+  private clearBrushPreview(): void {
+    this.lastPreviewCell = null;
+    this.worker?.postMessage({
+      type: 'brushPreview',
+      visible: false,
+      x: 0,
+      y: 0,
+      size: this.brushSize,
+      shape: this.brushShape
+    });
+  }
+
+  /**
+   * Converts a client coordinate into a grid cell coordinate.
+   *
+   * @private
+   * @param {number} clientX pointer x coordinate.
+   * @param {number} clientY pointer y coordinate.
+   * @returns {{ x: number; y: number }} grid cell coordinate.
+   */
+  private cellAtPoint(clientX: number, clientY: number): {x: number; y: number} {
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const cssX = clientX - rect.left;
     const cssY = clientY - rect.top;
     const worldX = cssX / this.scale + this.offsetX;
     const worldY = cssY / this.scale + this.offsetY;
+    return {
+      x: Math.floor(worldX),
+      y: Math.floor(worldY)
+    };
+  }
+
+  /**
+   * Sends a draw stroke sample and updates the preview position.
+   *
+   * @private
+   * @param {number} clientX pointer x coordinate.
+   * @param {number} clientY pointer y coordinate.
+   */
+  private drawAtPoint(clientX: number, clientY: number): void {
+    const cell = this.cellAtPoint(clientX, clientY);
+    this.lastPreviewCell = cell;
     this.worker?.postMessage({
       type: 'draw',
-      x: Math.floor(worldX),
-      y: Math.floor(worldY),
+      x: cell.x,
+      y: cell.y,
       size: this.brushSize,
       shape: this.brushShape,
       fill: this.brushFill,
       tribes: this.drawTribes
+    });
+    this.worker?.postMessage({
+      type: 'brushPreview',
+      visible: true,
+      x: cell.x,
+      y: cell.y,
+      size: this.brushSize,
+      shape: this.brushShape
     });
   }
 }

@@ -43,6 +43,47 @@ export interface DrawMessage {
   tribes: string[];
 }
 
+/**
+ * Brush footprint preview shown over the rendered grid.
+ *
+ * @export
+ * @interface BrushPreviewMessage
+ * @typedef {BrushPreviewMessage}
+ */
+export interface BrushPreviewMessage {
+  type: 'brushPreview';
+  /**
+   * Whether the preview should be visible.
+   *
+   * @type {boolean}
+   */
+  visible: boolean;
+  /**
+   * Preview center x coordinate.
+   *
+   * @type {number}
+   */
+  x: number;
+  /**
+   * Preview center y coordinate.
+   *
+   * @type {number}
+   */
+  y: number;
+  /**
+   * Preview brush size.
+   *
+   * @type {number}
+   */
+  size: number;
+  /**
+   * Preview brush shape.
+   *
+   * @type {BrushShape}
+   */
+  shape: BrushShape;
+}
+
 export interface CameraMessage {
   type: 'camera';
   scale: number;
@@ -221,6 +262,7 @@ export type WorkerMessage =
   | SetRunningMessage
   | SetSpeedMessage
   | DrawMessage
+  | BrushPreviewMessage
   | CameraMessage
   | ResizeMessage
   | GetSnapshotMessage

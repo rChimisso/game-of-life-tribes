@@ -92,8 +92,99 @@ let brushBindGroupA: GPUBindGroup;
 let brushBindGroupB: GPUBindGroup;
 let brushSeedCounter = 0;
 
-// Pending brush (coalesced per frame)
-let pendingBrush: {centerX: number; centerY: number; brushSize: number; shape: number; fill: number; tribeIds: number[]} | null = null;
+/**
+ * Brush dispatch queued from a pointer stroke.
+ *
+ * @interface PendingBrush
+ * @typedef {PendingBrush}
+ */
+interface PendingBrush {
+  /**
+   * Center x coordinate.
+   *
+   * @type {number}
+   */
+  centerX: number;
+  /**
+   * Center y coordinate.
+   *
+   * @type {number}
+   */
+  centerY: number;
+  /**
+   * Brush size in cells.
+   *
+   * @type {number}
+   */
+  brushSize: number;
+  /**
+   * Numeric brush shape.
+   *
+   * @type {number}
+   */
+  shape: number;
+  /**
+   * Numeric brush fill mode.
+   *
+   * @type {number}
+   */
+  fill: number;
+  /**
+   * Numeric tribe IDs eligible for this brush.
+   *
+   * @type {number[]}
+   */
+  tribeIds: number[];
+}
+
+/**
+ * Brush footprint preview shown during drawing.
+ *
+ * @interface BrushPreview
+ * @typedef {BrushPreview}
+ */
+interface BrushPreview {
+  /**
+   * Center x coordinate.
+   *
+   * @type {number}
+   */
+  centerX: number;
+  /**
+   * Center y coordinate.
+   *
+   * @type {number}
+   */
+  centerY: number;
+  /**
+   * Brush size in cells.
+   *
+   * @type {number}
+   */
+  brushSize: number;
+  /**
+   * Numeric brush shape.
+   *
+   * @type {number}
+   */
+  shape: number;
+  /**
+   * Whether the preview should render.
+   *
+   * @type {boolean}
+   */
+  visible: boolean;
+}
+
+// Pending brush is applied on the next rendered or simulated frame.
+let pendingBrush: PendingBrush | null = null;
+let brushPreview: BrushPreview = {
+  centerX: 0,
+  centerY: 0,
+  brushSize: 1,
+  shape: 0,
+  visible: false
+};
 
 // Metrics: GPU histogram + boundary
 let metricsResources: InteractiveMetricsResources | null = null;
@@ -138,6 +229,7 @@ interface RunState {
   lastFrameTime: number;
   stepAccumulator: number;
   lastProgressTime: number;
+  lastRenderTime: number;
 }
 
 let activeRun: RunState | null = null;
@@ -870,9 +962,13 @@ function generateClauseExpr(
 //  Offset 32: offset_cell  vec2u    8 bytes
 //  Offset 40: tribe_count  u32      4 bytes
 //  Offset 44: pad                   4 bytes
-//  Total: 48 bytes
+//  Offset 48: preview_center vec2i  8 bytes
+//  Offset 56: preview_size u32      4 bytes
+//  Offset 60: preview_shape u32     4 bytes
+//  Offset 64: preview_visible u32   4 bytes
+//  Total: 80 bytes
 // ---------------------------------------------------------------------------
-const UNIFORM_SIZE = 48;
+const UNIFORM_SIZE = 80;
 
 function createUniformBuffer(): void {
   uniformBuffer?.destroy();
@@ -886,6 +982,7 @@ function createUniformBuffer(): void {
 function writeUniforms(): void {
   const data = new ArrayBuffer(UNIFORM_SIZE);
   const f32 = new Float32Array(data);
+  const i32 = new Int32Array(data);
   const u32 = new Uint32Array(data);
   const renderOffsetX = ((offsetX % cols) + cols) % cols;
   const renderOffsetY = ((offsetY % rows) + rows) % rows;
@@ -903,6 +1000,11 @@ function writeUniforms(): void {
   u32[8] = offsetCellX;
   u32[9] = offsetCellY;
   u32[10] = tribes.length;
+  i32[12] = brushPreview.centerX;
+  i32[13] = brushPreview.centerY;
+  u32[14] = brushPreview.brushSize;
+  u32[15] = brushPreview.shape;
+  u32[16] = brushPreview.visible ? 1 : 0;
 
   device.queue.writeBuffer(uniformBuffer, 0, data);
 }
@@ -1051,7 +1153,7 @@ function createMetricsPipelines(): void {
 //  Brush compute shader
 // ---------------------------------------------------------------------------
 
-//  BrushParams uniform layout (10 × u32 = 40 bytes):
+//  BrushParams uniform layout (10 x u32 = 40 bytes):
 //    0: centerX (i32)    4: centerY (i32)
 //    8: cols    (u32)   12: rows    (u32)
 //   16: brushSize (u32) 20: shape   (u32)
@@ -1633,20 +1735,21 @@ function captureCurrentGenerationIfNeeded(markForwardProgress: boolean = false):
  * Apply any pending brush draw and re-record the current gen if it was already captured.
  */
 function applyPendingBrush(): void {
-  if (!pendingBrush) {
-    return;
-  }
-  const b = pendingBrush;
-  pendingBrush = null;
-  const encoder = device.createCommandEncoder({label: GPU_LABELS.brushEncoder});
-  dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
-  device.queue.submit([encoder.finish()]);
-
-  // If the current generation was already recorded, overwrite the last frame to reflect the draw.
-  if (isRecording && chunkFrameIndex > 0 && chunkGenerations[chunkFrameIndex - 1] === genCounter) {
-    chunkFrameIndex--;
-    chunkGenerations.pop();
-    recordGeneration(genCounter);
+  if (pendingBrush) {
+    const b = pendingBrush;
+    pendingBrush = null;
+    const shouldOverwriteRecordedFrame = isRecording && chunkFrameIndex > 0 && chunkGenerations[chunkFrameIndex - 1] === genCounter;
+    if (shouldOverwriteRecordedFrame) {
+      chunkFrameIndex--;
+      chunkGenerations.pop();
+    }
+    const encoder = device.createCommandEncoder({label: GPU_LABELS.brushEncoder});
+    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
+    device.queue.submit([encoder.finish()]);
+    // If the current generation was already recorded, overwrite the last frame to reflect the draw.
+    if (shouldOverwriteRecordedFrame) {
+      recordGeneration(genCounter);
+    }
   }
 }
 
@@ -1783,6 +1886,38 @@ function skipBatchSize(): number {
     return 200;
   }
   return 1000;
+}
+
+/**
+ * Maximum fixed-speed work encoded from one animation frame.
+ *
+ * @param {RunKind} kind active run kind.
+ * @returns {number} simulation step budget.
+ */
+function fixedRunStepBudget(kind: RunKind): number {
+  if (kind === 'recording') {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return skipBatchSize() * nonRecordingMaxSpeedBatchesPerDrain();
+}
+
+/**
+ * Drops unreachable fixed-speed debt after the bounded frame work is encoded.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} startingAccumulator accumulator value before frame work.
+ * @param {number} duration target step duration in milliseconds.
+ * @param {number} dueSteps steps requested by the current accumulator.
+ * @param {number} completedSteps steps actually encoded this frame.
+ * @param {number} stepBudget maximum steps allowed this frame.
+ */
+function settleFixedRunAccumulator(run: RunState, startingAccumulator: number, duration: number, dueSteps: number, completedSteps: number, stepBudget: number): void {
+  const remainingAccumulator = startingAccumulator - duration * completedSteps;
+  if (dueSteps > completedSteps || dueSteps > stepBudget) {
+    run.stepAccumulator = Math.min(remainingAccumulator, duration);
+  } else {
+    run.stepAccumulator = remainingAccumulator;
+  }
 }
 
 function nonRecordingMaxSpeedBatchesPerDrain(): number {
@@ -2044,7 +2179,8 @@ function startRun(kind: RunKind, request: RunRequest): void {
     pumpPending: false,
     lastFrameTime: 0,
     stepAccumulator: 0,
-    lastProgressTime: 0
+    lastProgressTime: 0,
+    lastRenderTime: 0
   };
   scheduleRunPump(request.pacing.kind === 'fixedGenPerSecond' ? 'raf' : 'microtask');
 }
@@ -2189,24 +2325,31 @@ function pumpNonRecordingFixedRun(run: RunState, duration: number, now: number):
   run.lastFrameTime = now;
   run.stepAccumulator += delta;
 
+  const startingAccumulator = run.stepAccumulator;
   const dueSteps = Math.floor(run.stepAccumulator / duration);
-  const steps = Math.min(dueSteps, remainingTargetSteps(run));
+  const stepBudget = fixedRunStepBudget(run.kind);
+  const steps = Math.min(dueSteps, remainingTargetSteps(run), stepBudget);
   const didStep = steps > 0;
   if (didStep) {
     batchStep(steps);
-    run.stepAccumulator -= duration * steps;
   }
+  settleFixedRunAccumulator(run, startingAccumulator, duration, dueSteps, steps, stepBudget);
 
   maybePostRunProgress(run, now);
   if (runTargetReached(run)) {
     stopRun('targetReached');
     return;
   }
+  const shouldDrain = didStep && dueSteps > steps;
   if (!isTargetRun(run)) {
-    renderFrame();
-    maybeRunPeriodicMetrics(now, didStep);
+    const renderElapsed = now - run.lastRenderTime;
+    if (!shouldDrain || renderElapsed >= 33 || run.lastRenderTime === 0) {
+      run.lastRenderTime = now;
+      renderFrame();
+      maybeRunPeriodicMetrics(now, didStep);
+    }
   }
-  scheduleRunPump('raf');
+  scheduleRunPump(shouldDrain ? 'drain' : 'raf');
 }
 
 function pumpRecordingFixedRun(run: RunState, duration: number, now: number): void {
@@ -2219,17 +2362,24 @@ function pumpRecordingFixedRun(run: RunState, duration: number, now: number): vo
   run.stepAccumulator += delta;
 
   let didStep = false;
-  while (run.stepAccumulator >= duration && remainingTargetSteps(run) > 0) {
+  let stepsThisPump = 0;
+  const startingAccumulator = run.stepAccumulator;
+  const stepBudget = fixedRunStepBudget(run.kind);
+  const dueSteps = Math.floor(run.stepAccumulator / duration);
+  const deadline = performance.now() + 14;
+  while (run.stepAccumulator >= duration && remainingTargetSteps(run) > 0 && stepsThisPump < stepBudget && performance.now() < deadline) {
     if (!prepareRecordingStep()) {
       handleRecordingBlocked(run, now, didStep);
       return;
     }
     stepSimulation();
     stepCount++;
+    stepsThisPump++;
     run.stepAccumulator -= duration;
     didStep = true;
     recordGeneration(genCounter);
   }
+  settleFixedRunAccumulator(run, startingAccumulator, duration, dueSteps, stepsThisPump, stepBudget);
 
   clearRunBackpressure();
   maybePostRunProgress(run, now);
@@ -2723,14 +2873,37 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           spray: 1,
           outline: 2
         };
+        const shape = shapeMap[m.shape] ?? 0;
+        const fill = fillMap[m.fill] ?? 0;
         pendingBrush = {
           centerX: m.x,
           centerY: m.y,
           brushSize: m.size,
-          shape: shapeMap[m.shape] ?? 0,
-          fill: fillMap[m.fill] ?? 0,
+          shape,
+          fill,
           tribeIds: ids
         };
+      }
+      break;
+    }
+
+    case 'brushPreview': {
+      const shapeMap: Record<string, number> = {
+        square: 0,
+        round: 1,
+        diamond: 2,
+        vline: 3,
+        hline: 4
+      };
+      brushPreview = {
+        centerX: m.x,
+        centerY: m.y,
+        brushSize: m.size,
+        shape: shapeMap[m.shape] ?? 0,
+        visible: m.visible
+      };
+      if (!activeRun && !rebuilding && !deviceLost) {
+        renderFrame();
       }
       break;
     }

@@ -6,7 +6,7 @@ import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
-import {CompressionFailedMessage, CompressionStatusMessage, DownloadCancelledError, DownloadRequestPayload} from './model/download';
+import {CompressionFailedMessage, DownloadCancelledError, DownloadRequestPayload} from './model/download';
 import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES, estimateDownloadWorkingSet, resolveDownloadMode} from './model/download-estimate';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
 import {GridFormatMetadata} from './model/grid-format';
@@ -278,8 +278,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   private compressionDispatchPaused = false;
 
-  private compressionPauseCancel: (() => void) | null = null;
-
   private readonly compressionDrainResolvers = new Set<() => void>();
 
   private downloadWorker: Worker | null = null;
@@ -535,6 +533,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       deferredRequeues: 0
     });
     this.dispatchCompressionJobs();
+    this.notifyCompressionDrainWaiters();
   }
 
   public onUncompressedChunks(data: UncompressedChunksMessage): void {
@@ -567,20 +566,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     if (this.pendingRecordingResolve) {
       this.pendingRecordingResolve(rec);
       this.pendingRecordingResolve = null;
-    }
-  }
-
-  /**
-   * Refreshes the high-memory download estimate flag from the latest manifest.
-   *
-   * @private
-   */
-  private refreshDownloadEstimateFlag(): void {
-    if (this.latestRecordingManifest && this.downloadRequestPreview) {
-      const estimate = estimateDownloadWorkingSet(this.downloadRequestPreview, this.latestRecordingManifest, this.tribes.length);
-      this.downloadEstimateExceedsChunkThreshold = estimate.totalBytes > DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES;
-    } else {
-      this.downloadEstimateExceedsChunkThreshold = false;
     }
   }
 
@@ -815,6 +800,20 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       speed: this.normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
       metrics: this.normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
     };
+  }
+
+  /**
+   * Refreshes the high-memory download estimate flag from the latest manifest.
+   *
+   * @private
+   */
+  private refreshDownloadEstimateFlag(): void {
+    if (this.latestRecordingManifest && this.downloadRequestPreview) {
+      const estimate = estimateDownloadWorkingSet(this.downloadRequestPreview, this.latestRecordingManifest, this.tribes.length);
+      this.downloadEstimateExceedsChunkThreshold = estimate.totalBytes > DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES;
+    } else {
+      this.downloadEstimateExceedsChunkThreshold = false;
+    }
   }
 
   private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): boolean {
@@ -1086,7 +1085,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.compressionRetryTimers = [];
     this.activeCompressionBytes = 0;
     this.compressionDispatchPaused = false;
-    this.compressionPauseCancel = null;
     this.notifyCompressionDrainWaiters();
   }
 
@@ -1236,24 +1234,29 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   /**
-   * Waits until queued and active recording compression work is complete.
+   * Waits for compression jobs before download handoff.
    *
    * @private
    * @async
+   * @param {'active' | 'all'} mode compression wait mode.
    */
-  private async waitForCompressionQueueDrained(): Promise<void> {
-    this.requeueDeferredCompressionJobs();
-    const initialJobs = Math.max(1, this.countCompressionJobs());
-    while (!this.downloadCancelRequested && !this.isCompressionQueueDrained()) {
-      const remainingJobs = this.countCompressionJobs();
+  private async waitForDownloadCompression(mode: 'active' | 'all'): Promise<void> {
+    if (mode === 'all') {
+      this.requeueDeferredCompressionJobs();
+    } else {
+      this.compressionDispatchPaused = true;
+    }
+    const initialJobs = Math.max(0, this.countCompressionWaitJobs(mode));
+    this.updateCompressionWaitProgress(HomePage.waitingCompressionJobsStatus, 0, initialJobs);
+    while (!this.downloadCancelRequested && this.countCompressionWaitJobs(mode) > 0) {
+      const remainingJobs = this.countCompressionWaitJobs(mode);
       const completedJobs = Math.max(0, initialJobs - remainingJobs);
-      this.downloadProgress = Math.max(this.downloadProgress, Math.round(20 + (completedJobs / initialJobs) * 10));
-      this.downloadMainStatus = this.formatCompressionWaitStatus('Waiting for recording chunks', completedJobs, initialJobs);
-      this.cdr.markForCheck();
+      this.updateCompressionWaitProgress(HomePage.waitingCompressionJobsStatus, completedJobs, initialJobs);
       await new Promise<void>(resolve => {
         this.compressionDrainResolvers.add(resolve);
       });
     }
+    this.updateCompressionWaitProgress(HomePage.waitingCompressionJobsStatus, initialJobs, initialJobs);
     this.throwIfDownloadCancelled();
   }
 
@@ -1261,20 +1264,32 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * Counts queued, active, retrying, and deferred compression jobs.
    *
    * @private
+   * @param {'active' | 'all'} mode count mode.
    * @returns {number} compression job count.
    */
-  private countCompressionJobs(): number {
-    return this.pendingCompressionJobs.length + this.activeCompressionJobs.size + this.compressionRetryTimers.length + this.deferredCompressionJobs.length;
+  private countCompressionWaitJobs(mode: 'active' | 'all'): number {
+    let jobs: number;
+    if (mode === 'active') {
+      jobs = this.activeCompressionJobs.size;
+    } else {
+      jobs = this.activeCompressionJobs.size + this.pendingCompressionJobs.length + this.compressionRetryTimers.length + this.deferredCompressionJobs.length;
+    }
+    return jobs;
   }
 
   /**
-   * Whether all recording chunks have finished compression.
+   * Updates compression wait progress.
    *
    * @private
-   * @returns {boolean} true when no compression work remains.
+   * @param {string} label status label.
+   * @param {number} completedJobs completed jobs.
+   * @param {number} totalJobs total jobs.
    */
-  private isCompressionQueueDrained(): boolean {
-    return this.countCompressionJobs() === 0;
+  private updateCompressionWaitProgress(label: string, completedJobs: number, totalJobs: number): void {
+    const fraction = totalJobs > 0 ? completedJobs / totalJobs : 1;
+    this.downloadProgress = Math.max(this.downloadProgress, Math.round(30 * fraction));
+    this.downloadMainStatus = this.formatCompressionWaitStatus(label, completedJobs, totalJobs);
+    this.cdr.markForCheck();
   }
 
   /**
@@ -1299,58 +1314,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     for (const resolve of Array.from(this.compressionDrainResolvers)) {
       this.compressionDrainResolvers.delete(resolve);
       resolve();
-    }
-  }
-
-  private async pauseCompressionPool(): Promise<void> {
-    if (this.compressPool.length === 0) {
-      return;
-    }
-    this.compressionDispatchPaused = true;
-    const statuses = new Map<Worker, CompressionStatusMessage>();
-    const listeners: {worker: Worker; onMessage: (ev: MessageEvent) => void}[] = [];
-    let initialActiveJobs: number | null = null;
-    const updateCompressionPauseProgress = () => {
-      if (!this.downloadCancelRequested && statuses.size === this.compressPool.length) {
-        const activeJobs = [...statuses.values()].reduce((sum, status) => sum + status.activeJobs, 0);
-        if (initialActiveJobs === null) {
-          initialActiveJobs = activeJobs;
-        }
-        if (initialActiveJobs > 0) {
-          const completedJobs = initialActiveJobs - activeJobs;
-          this.downloadProgress = Math.max(this.downloadProgress, Math.round(20 + (completedJobs / initialActiveJobs) * 10));
-          this.downloadMainStatus = this.formatCompressionWaitStatus(HomePage.waitingCompressionJobsStatus, completedJobs, initialActiveJobs);
-        } else {
-          this.downloadProgress = Math.max(this.downloadProgress, 30);
-          this.downloadMainStatus = this.formatCompressionWaitStatus(HomePage.waitingCompressionJobsStatus, 0, 0);
-        }
-        this.cdr.markForCheck();
-      }
-    };
-    const pauseCancelled = new Promise<never>((_, reject) => {
-      this.compressionPauseCancel = () => reject(new DownloadCancelledError());
-    });
-    const pauseCompleted = Promise.all(this.compressPool.map(worker => new Promise<void>(resolve => {
-      const onMessage = (ev: MessageEvent) => {
-        if (ev.data?.type === 'compressionStatus') {
-          statuses.set(worker, ev.data as CompressionStatusMessage);
-          updateCompressionPauseProgress();
-        } else if (ev.data?.type === 'compressionPaused') {
-          worker.removeEventListener('message', onMessage);
-          resolve();
-        }
-      };
-      listeners.push({worker, onMessage});
-      worker.addEventListener('message', onMessage);
-      worker.postMessage({type: 'pauseCompression'});
-    })));
-    try {
-      await Promise.race([pauseCompleted, pauseCancelled]);
-    } finally {
-      for (const listener of listeners) {
-        listener.worker.removeEventListener('message', listener.onMessage);
-      }
-      this.compressionPauseCancel = null;
     }
   }
 
@@ -1400,7 +1363,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private cancelDownload(): void {
     console.log('[GOLT] Cancelling download');
     this.downloadCancelRequested = true;
-    this.compressionPauseCancel?.();
     this.notifyCompressionDrainWaiters();
     if (this.downloadWorker) {
       this.downloadMainStatus = 'Cancelling download';
@@ -1538,13 +1500,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       this.downloadEstimateExceedsChunkThreshold = initialEstimate.totalBytes > DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES;
       if (initialMode === 'compressed-chunks') {
         console.log('[GOLT] Download waiting for all recording chunks before chunk export');
-        await this.waitForCompressionQueueDrained();
+        await this.waitForDownloadCompression('all');
         this.throwIfDownloadCancelled();
       } else {
-        console.log('[GOLT] Download compression pause started');
-        await this.pauseCompressionPool();
+        console.log('[GOLT] Download active compression wait started');
+        await this.waitForDownloadCompression('active');
         this.throwIfDownloadCancelled();
-        console.log('[GOLT] Download compression pause completed');
+        console.log('[GOLT] Download active compression wait completed');
       }
 
       this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : HomePage.preparingSnapshotStatus;

@@ -245,6 +245,14 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadMp4SettingsValid = true;
 
   /**
+   * User-facing high-memory chunk export warning.
+   *
+   * @public
+   * @type {string}
+   */
+  public chunkModeWarning = '';
+
+  /**
    * Default preferences.
    *
    * @protected
@@ -347,19 +355,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public get forceChunkDownloadDisabled(): boolean {
     return this.downloadControlsDisabled || this.downloadEstimateExceedsChunkThreshold;
-  }
-
-  /**
-   * User-facing high-memory chunk export warning.
-   *
-   * @public
-   * @readonly
-   * @type {string}
-   */
-  public get chunkModeWarning(): string {
-    return this.downloadEstimateExceedsChunkThreshold ?
-      'Estimated download memory is above 2 GiB. This download will export compressed recording chunks instead of the selected outputs.' :
-      '';
   }
 
   /**
@@ -469,6 +464,9 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     if (changes.totalRecordedFrames) {
       this.syncFrameRangeWithTotalFrames();
     }
+    if (changes.downloadEstimateExceedsChunkThreshold && this.downloadEstimateExceedsChunkThreshold) {
+      this.chunkModeWarning = 'Estimated download memory is above 2 GiB. This download will export compressed recording chunks instead of the selected outputs.';
+    }
     this.emitSettingsChange();
   }
 
@@ -567,6 +565,18 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public onDownloadMp4SettingsValidityChange(valid: boolean): void {
     this.downloadMp4SettingsValid = valid;
     this.emitSettingsChange();
+  }
+
+  /**
+   * Clears the chunk mode message content after collapse.
+   *
+   * @public
+   * @param {TransitionEvent} event
+   */
+  public onChunkModeMessageTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName === 'grid-template-rows' && !this.downloadEstimateExceedsChunkThreshold) {
+      this.chunkModeWarning = '';
+    }
   }
 
   /**

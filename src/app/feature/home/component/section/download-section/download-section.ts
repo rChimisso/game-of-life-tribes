@@ -133,24 +133,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadProgress = -1;
 
   /**
-   * Sub-task download progress percentage.
-   *
-   * @public
-   * @type {number}
-   */
-  @Input({required: true})
-  public downloadSubProgress = -1;
-
-  /**
-   * Current download sub-task status.
-   *
-   * @public
-   * @type {string}
-   */
-  @Input({required: true})
-  public downloadStatus = '';
-
-  /**
    * Current download main status.
    *
    * @public
@@ -301,7 +283,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public get downloadProgressStatus(): string {
-    return this.downloadStatus || this.downloadMainStatus || 'Preparing download';
+    return this.downloadMainStatus || 'Preparing download';
   }
 
   /**
@@ -334,17 +316,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public get cancelButtonDisabled(): boolean {
     return !this.downloading || this.downloadCancelling;
-  }
-
-  /**
-   * Storage title display.
-   *
-   * @public
-   * @readonly
-   * @type {string}
-   */
-  public get storageTitleSize(): string {
-    return formatDecimalBytes(this.storagePendingRawBytes + this.storageCompressedBytes);
   }
 
   /**

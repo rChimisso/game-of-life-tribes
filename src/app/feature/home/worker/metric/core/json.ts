@@ -1,12 +1,5 @@
+import {MetricsJsonMetadata} from './json-types';
 import {MetricsJsonSummary, OfflineMetricEntry} from './offline-types';
-
-/**
- * Metrics JSON metadata supplied by the export pipeline.
- *
- * @export
- * @typedef {MetricsJsonMetadata}
- */
-type MetricsJsonMetadata = Omit<MetricsJsonSummary, 'generationStart' | 'generationEnd' | 'frameCount'>;
 
 /**
  * Builds the Metrics JSON summary document.
@@ -37,4 +30,4 @@ function buildMetricsJson(metrics: readonly OfflineMetricEntry[], metadata: Metr
 
 export {buildMetricsJson};
 
-export type {MetricsJsonMetadata};
+export type {MetricsJsonMetadata} from './json-types';

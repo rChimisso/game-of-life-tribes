@@ -26,7 +26,7 @@ gol-exclusive-button-group > .exclusive-button:active {
   border-style: inset;
 }
 
-gol-exclusive-button-group > .exclusive-button.active {
+gol-exclusive-button-group > .exclusive-button.active:not(:disabled) {
   background: #446;
   border-color: #88a;
   color: white;
@@ -35,4 +35,10 @@ gol-exclusive-button-group > .exclusive-button.active {
 
 gol-exclusive-button-group > .exclusive-button:hover:not(:disabled) {
   filter: brightness(1.3);
+}
+
+gol-exclusive-button-group > .exclusive-button:disabled {
+  border-style: ridge;
+  opacity: 0.6;
+  cursor: not-allowed;
 }

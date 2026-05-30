@@ -20,7 +20,7 @@ import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupp
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {clearTempOpfsDirectory} from './util/opfs-temp';
 import {applyRuleTribeRenames} from './util/tribe-impact';
-import {ParsedGoltState} from './worker/snapshot/golt-types';
+import {ParsedGoltState} from './worker/snapshot/model/golt-types';
 import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
@@ -193,10 +193,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   public downloadProgress = -1;
 
-  public downloadSubProgress = -1;
-
-  public downloadStatus = '';
-
   public downloadMainStatus = '';
 
   public maxBytes = Infinity;
@@ -271,7 +267,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   private deferredCompressionJobs: QueuedCompressionJob[] = [];
 
-  private activeCompressionJobs = new Map<string, QueuedCompressionJob>();
+  private readonly activeCompressionJobs = new Map<string, QueuedCompressionJob>();
 
   private compressionRetryTimers: ReturnType<typeof setTimeout>[] = [];
 
@@ -1306,12 +1302,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.compressionPauseCancel?.();
     if (this.downloadWorker) {
       this.downloadMainStatus = 'Cancelling download';
-      this.downloadStatus = '';
       this.downloadWorker.postMessage({type: 'cancel'});
       this.cdr.markForCheck();
     } else {
       this.downloadMainStatus = 'Cancelling download';
-      this.downloadStatus = '';
       this.resumeCompressionPool();
       this.engine.requestUncompressedChunks();
       this.cdr.markForCheck();
@@ -1325,8 +1319,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private resetDownloadState(): void {
     this.downloadProgress = -1;
-    this.downloadSubProgress = -1;
-    this.downloadStatus = '';
     this.downloadMainStatus = '';
   }
 
@@ -1414,9 +1406,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
 
     this.downloadProgress = 0;
-    this.downloadSubProgress = -1;
     this.downloadMainStatus = needFrames ? 'Saving pending recording frames' : HomePage.preparingSnapshotStatus;
-    this.downloadStatus = '';
     this.cdr.markForCheck();
 
     try {
@@ -1537,10 +1527,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.downloadProgress = e.data.percent;
         this.downloadMainStatus = e.data.status ?? '';
         this.cdr.markForCheck();
-      } else if (e.data.type === 'sub-progress') {
-        this.downloadSubProgress = e.data.percent;
-        this.downloadStatus = e.data.status ?? '';
-        this.cdr.markForCheck();
       } else if (e.data.type === 'warning') {
         this.openSnack(e.data.message ?? 'Download warning.', 'warning');
       } else if (e.data.type === 'done-part') {
@@ -1554,7 +1540,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         pendingDownloadSideEffects.push(sideEffect);
       } else if (e.data.type === 'error') {
         const reason = e.data.reason ?? 'Unknown error';
-        console.error('[GOLT] Download error:', reason);
         const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
         this.openSnack(`Download error: ${reason}${suggestion}`, 'error');
         cleanupDownload();

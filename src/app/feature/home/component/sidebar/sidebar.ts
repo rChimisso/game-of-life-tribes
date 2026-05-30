@@ -13,7 +13,7 @@ import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
-import {formatBinaryBytes} from '../../util/byte-format';
+import {formatBinaryBytes, formatDecimalBytes} from '../../util/byte-format';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
@@ -149,12 +149,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public downloadProgress = -1;
 
   @Input()
-  public downloadSubProgress = -1;
-
-  @Input()
-  public downloadStatus = '';
-
-  @Input()
   public downloadMainStatus = '';
 
   @Input()
@@ -258,6 +252,28 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   public get vramQuotaFormatted(): string {
     return Number.isFinite(this.vramBudgetBytes) ? formatBinaryBytes(this.vramBudgetBytes) : 'Detecting…';
+  }
+
+  /**
+   * Recording data size shown in the Download section title.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadStorageTitleSize(): string {
+    return formatDecimalBytes(this.storagePendingRawBytes + this.storageCompressedBytes);
+  }
+
+  /**
+   * Recording quota shown in the Download section title.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadStorageQuotaFormatted(): string {
+    return formatBinaryBytes(this.storageQuotaBytes);
   }
 
   public get vramSimulationFormatted(): string {

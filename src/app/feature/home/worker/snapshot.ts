@@ -1,9 +1,9 @@
 import '../../../core/function/timestamped-console';
 
-import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/golt-build';
-import {parseGoltStateFile} from './snapshot/golt-parse';
-import {GoltStateData, SnapshotProgressUpdate} from './snapshot/golt-types';
 import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../util/opfs-temp';
+import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
+import {GoltStateData, SnapshotProgressUpdate} from './snapshot/model/golt-types';
+import {parseGoltStateFile} from './snapshot/parse/golt-parse';
 
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 

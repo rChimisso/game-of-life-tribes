@@ -1,34 +1,11 @@
 import {writeIndexedPngFrame} from './indexed-png';
 import {buildIndexedPngPalette} from './indexed-png-palette';
+import {createPngFrameEntryPath} from './png-frame-entry-path';
+import {PngFrameExportOptions, PngFrameProgressReporter} from './png-frame-export-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {PackedRecordedFrame} from '../recording-frame-stream';
 
 import {Tribe} from '~gol/feature/home/model/rule';
-
-/**
- * PNG frame export progress callback.
- *
- * @export
- * @param {number} rowsProcessed rows encoded for the current frame.
- * @param {number} rowsTotal rows in the current frame.
- */
-type PngFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) => void;
-
-/**
- * Options for PNG frame ZIP export.
- *
- * @export
- * @interface PngFrameExportOptions
- * @typedef {PngFrameExportOptions}
- */
-interface PngFrameExportOptions {
-  /**
-   * Returns whether the active download has been cancelled.
-   *
-   * @type {() => boolean}
-   */
-  shouldCancel: () => boolean;
-}
 
 /**
  * Writes recorded frames as indexed-color PNG ZIP entries.
@@ -121,19 +98,8 @@ class PngFrameExportWriter {
    * @returns {string} PNG ZIP entry path.
    */
   private createEntryPath(frame: PackedRecordedFrame): string {
-    const frameNumber = String(this.framesWritten).padStart(this.filenameFrameWidth, '0');
-    return `frames/frame-${frameNumber}-gen${sanitizeGeneration(frame.generation)}.png`;
+    return createPngFrameEntryPath(this.framesWritten, this.filenameFrameWidth, frame.generation);
   }
-}
-
-/**
- * Sanitizes a generation number for use in a filename.
- *
- * @param {number} generation generation number.
- * @returns {string} filename-safe generation.
- */
-function sanitizeGeneration(generation: number): string {
-  return generation < 0 ? `neg${Math.abs(generation)}` : String(generation);
 }
 
 export {PngFrameExportWriter};

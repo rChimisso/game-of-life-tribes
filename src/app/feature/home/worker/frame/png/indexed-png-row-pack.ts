@@ -1,5 +1,5 @@
 import {IndexedPngBitDepth} from './png-types';
-import {DecodedPackedRow} from '../../snapshot/packed-access';
+import {DecodedPackedRow} from '../../snapshot/packing/packed-access';
 
 /**
  * PNG filter byte for the "None" filter.

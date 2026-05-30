@@ -1,33 +1,7 @@
+import {MetricsCsvColumns} from './csv-types';
 import {OfflineMetricsTribe} from './offline';
 import {OfflineMetricEntry} from './offline-types';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
-
-/**
- * Metrics CSV column groups.
- *
- * @interface MetricsCsvColumns
- * @typedef {MetricsCsvColumns}
- */
-interface MetricsCsvColumns {
-  /**
-   * Full CSV header cells.
-   *
-   * @type {string[]}
-   */
-  header: string[];
-  /**
-   * Population tribe columns.
-   *
-   * @type {string[]}
-   */
-  populationColumns: string[];
-  /**
-   * Frontier tribe columns.
-   *
-   * @type {string[]}
-   */
-  frontierColumns: string[];
-}
 
 /**
  * Builds the Metrics CSV document.

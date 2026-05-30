@@ -11,10 +11,11 @@
 
 import '../../../core/function/timestamped-console';
 
-import {GPU_LABELS} from './gpu-labels';
-import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/current/current';
-import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/current/planner';
-import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/current/types';
+import {requestWorkerGpuDevice} from './gpu/gpu-device';
+import {GPU_LABELS} from './gpu/gpu-labels';
+import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/interactive/interactive';
+import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/interactive/planner';
+import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
@@ -24,7 +25,7 @@ import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLA
 import {WorkerMessage} from '../model/worker-message';
 import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
 import {normalizeLiveMetricsSettings} from '../util/metric-settings';
-import {repackPackedGrid} from './snapshot/packed-repack';
+import {repackPackedGrid} from './snapshot/packing/packed-repack';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -2318,15 +2319,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   console.log('[GOLT worker] Initializing WebGPU');
   canvas = offscreen;
 
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    console.error('[GOLT worker] WebGPU adapter not available');
-    throw new Error('WebGPU adapter not available');
-  }
-
-  device = await adapter.requestDevice({
-    requiredLimits: {maxBufferSize: adapter.limits.maxBufferSize, maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize}
-  });
+  device = await requestWorkerGpuDevice(GPU_LABELS.webengineDevice);
   deviceLost = false;
 
   device.lost.then(info => {

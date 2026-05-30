@@ -1,7 +1,7 @@
 import {packIndexedPngScanline} from './indexed-png-row-pack';
 import {writeIendChunk, writeIhdrChunk, writePlteChunk, writePngChunk, writePngSignature} from './png-crc';
 import {IndexedPngFrameOptions, IndexedPngPalette, PngByteSink} from './png-types';
-import {decodePackedRow} from '../../snapshot/packed-access';
+import {decodePackedRow} from '../../snapshot/packing/packed-access';
 import {PackedRecordedFrame} from '../recording-frame-stream';
 
 /**

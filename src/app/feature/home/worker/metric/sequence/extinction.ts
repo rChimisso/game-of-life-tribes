@@ -1,60 +1,7 @@
+import {ExtinctionTracker, TribeExtinctionState} from './extinction-types';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
 import {OfflineMetricsTribe} from '../core/offline';
-import {ExtinctionEpisode, OfflineMetricEntry} from '../core/offline-types';
-
-/**
- * Per-tribe extinction tracker state.
- *
- * @interface TribeExtinctionState
- * @typedef {TribeExtinctionState}
- */
-interface TribeExtinctionState {
-  /**
-   * Whether the tribe has been observed alive at least once.
-   *
-   * @type {boolean}
-   */
-  everAlive: boolean;
-  /**
-   * Whether the tribe was alive in the latest observed frame.
-   *
-   * @type {boolean}
-   */
-  currentlyAlive: boolean;
-  /**
-   * First generation of the current open extinction episode.
-   *
-   * @type {(number | null)}
-   */
-  currentExtinctionStart: number | null;
-}
-
-/**
- * Extinction tracker for an offline Metrics export.
- *
- * @interface ExtinctionTracker
- * @typedef {ExtinctionTracker}
- */
-interface ExtinctionTracker {
-  /**
-   * Extinction states by tribe ID.
-   *
-   * @type {Record<string, TribeExtinctionState>}
-   */
-  states: Record<string, TribeExtinctionState>;
-  /**
-   * Completed and open extinction episodes by tribe ID.
-   *
-   * @type {Record<string, ExtinctionEpisode[]>}
-   */
-  extinctions: Record<string, ExtinctionEpisode[]>;
-  /**
-   * Last observed generation.
-   *
-   * @type {(number | null)}
-   */
-  lastGeneration: number | null;
-}
+import {OfflineMetricEntry} from '../core/offline-types';
 
 /**
  * Creates an extinction tracker for all non-dead tribes.
@@ -143,4 +90,4 @@ function closeExtinctionEpisode(tracker: ExtinctionTracker, state: TribeExtincti
 
 export {createExtinctionTracker, finalizeExtinctionTracker, observeExtinctionMetric};
 
-export type {ExtinctionTracker};
+export type {ExtinctionTracker} from './extinction-types';

@@ -6,12 +6,12 @@ import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../
 import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
 import {iterateRecordedFrames, resolveRecordingFrameSelection, RecordingFrameSelection} from './frame/recording-frame-stream';
 import {createMetricsExportWriter, MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export';
-import {createMp4FrameExportWriter} from './mp4/mp4-frame-export-writer';
-import {Mp4FrameExportWriter} from './mp4/mp4-types';
-import {writeGoltStateStream} from './snapshot/golt-build-stream';
-import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/golt-types';
-import {readRecordingFrame} from './snapshot/recording-frame-reader';
-import {resolveRecordingFrameRef} from './snapshot/recording-frame-ref';
+import {createMp4FrameExportWriter} from './mp4/logic/mp4-frame-export-factory';
+import {Mp4FrameExportWriter} from './mp4/model/mp4-types';
+import {writeGoltStateStream} from './snapshot/build/golt-build-stream';
+import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/model/golt-types';
+import {readRecordingFrame} from './snapshot/recording/recording-frame-reader';
+import {resolveRecordingFrameRef} from './snapshot/recording/recording-frame-ref';
 import {ZipWriter} from './zip/zip-writer';
 
 import {Grid} from '~gol/feature/home/model/grid';

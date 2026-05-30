@@ -21,6 +21,12 @@ interface PngFrameExportOptions {
    * @type {() => boolean}
    */
   shouldCancel: () => boolean;
+  /**
+   * Registers a listener for active download cancellation.
+   *
+   * @type {(listener: () => void) => () => void}
+   */
+  onCancelRequested: (listener: () => void) => () => void;
 }
 
 export type {PngFrameExportOptions, PngFrameProgressReporter};

@@ -72,6 +72,7 @@ class PngFrameExportWriter {
     const entryPath = this.createEntryPath(frame);
     await this.zip.addEntry(entryPath, entry => writeIndexedPngFrame(entry, frame, this.palette, {
       shouldCancel: this.options.shouldCancel,
+      onCancelRequested: this.options.onCancelRequested,
       onRowsProcessed: onProgress
     }));
   }

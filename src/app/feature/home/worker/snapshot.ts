@@ -2,7 +2,7 @@ import '../../../core/function/timestamped-console';
 
 import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../util/opfs-temp';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
-import {GoltStateData, SnapshotProgressUpdate} from './snapshot/model/golt-types';
+import {GoltStateData, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {parseGoltStateFile} from './snapshot/parse/golt-parse';
 
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
@@ -62,6 +62,16 @@ type SnapshotWorkerRequest = SnapshotSaveRequest | SnapshotLoadRequest;
  * @typedef {SnapshotWorkerEvent}
  */
 type SnapshotWorkerEvent = MessageEvent<SnapshotWorkerRequest>;
+
+/**
+ * Snapshot stream options for standalone save operations.
+ *
+ * @type {SnapshotStreamOptions}
+ */
+const SNAPSHOT_SAVE_STREAM_OPTIONS: SnapshotStreamOptions = {
+  shouldCancel: () => false,
+  onCancelRequested: () => () => undefined
+};
 
 /**
  * Parsed snapshot message sent to the UI thread.
@@ -181,7 +191,7 @@ async function saveSnapshot(snapshot: GoltStateData): Promise<void> {
       file
     });
   } else {
-    const bytes = await buildGoltStateFile(snapshot, postSnapshotProgress);
+    const bytes = await buildGoltStateFile(snapshot, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
     const buffer = bytes.buffer as ArrayBuffer;
     self.postMessage({
       type: 'saved-buffer',
@@ -246,7 +256,7 @@ async function writeSnapshotFileToOpfs(snapshot: GoltStateData, downloadFilename
   try {
     await writeGoltStateFileToSink(snapshot, {
       write: chunk => writable.write(chunk)
-    }, postSnapshotProgress);
+    }, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
     await writable.close();
   } catch (error) {
     await writable.abort();

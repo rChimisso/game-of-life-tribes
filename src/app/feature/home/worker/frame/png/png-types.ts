@@ -57,6 +57,12 @@ interface IndexedPngFrameOptions {
    */
   shouldCancel: () => boolean;
   /**
+   * Registers a listener for active export cancellation.
+   *
+   * @type {(listener: () => void) => () => void}
+   */
+  onCancelRequested: (listener: () => void) => () => void;
+  /**
    * Receives row-level encode progress.
    *
    * @type {?((rowsProcessed: number, rowsTotal: number) => void)}

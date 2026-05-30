@@ -9,7 +9,7 @@ import {createMetricsExportWriter, MetricsExportOptions, MetricsFrameProgressRep
 import {createMp4FrameExportWriter} from './mp4/logic/mp4-frame-export-factory';
 import {Mp4FrameExportWriter} from './mp4/model/mp4-types';
 import {writeGoltStateStream} from './snapshot/build/golt-build-stream';
-import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/model/golt-types';
+import {GoltStateData, ParsedGoltState, SnapshotProgressReporter, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {readRecordingFrame} from './snapshot/recording/recording-frame-reader';
 import {resolveRecordingFrameRef} from './snapshot/recording/recording-frame-ref';
 import {ZipWriter} from './zip/zip-writer';
@@ -174,7 +174,16 @@ type WorkerInput = DownloadRequest | DownloadCancelRequest;
  */
 type DownloadWorkerEvent = MessageEvent<WorkerInput>;
 
+/**
+ * Listener notified when download cancellation is requested.
+ *
+ * @typedef {DownloadCancelListener}
+ */
+type DownloadCancelListener = () => void;
+
 let cancelRequested = false;
+
+const cancelListeners = new Set<DownloadCancelListener>();
 
 /**
  * Download worker for ZIP-backed export outputs.
@@ -200,6 +209,7 @@ self.onmessage = (event: DownloadWorkerEvent) => {
     case 'cancel':
       cancelRequested = true;
       postProgress(100, 'Cancelling');
+      notifyCancelListeners();
       break;
   }
 };
@@ -222,6 +232,12 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
   if (shouldWriteZip) {
     postProgress(10, 'Opening ZIP output');
     const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
+    const unregisterZipCancel = addCancelListener(() => {
+      console.log('[GOLT] ZIP cancellation requested');
+      void zip.abort().catch(error => {
+        console.warn('[GOLT] ZIP cancellation abort failed:', error);
+      });
+    });
     try {
       await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
       if ((opts.metrics || opts.png || opts.mp4) && recording) {
@@ -238,13 +254,75 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
         file
       });
     } catch (error) {
-      await zip.cleanup();
+      await cleanupZipAfterFailure(zip, error);
       throw error;
+    } finally {
+      unregisterZipCancel();
     }
   } else {
     postProgress(100, 'Done');
   }
   self.postMessage({type: 'done'});
+}
+
+/**
+ * Registers a cancellation listener.
+ *
+ * @param {DownloadCancelListener} listener listener to call when cancellation is requested.
+ * @returns {() => void} unregister callback.
+ */
+function addCancelListener(listener: DownloadCancelListener): () => void {
+  cancelListeners.add(listener);
+  if (cancelRequested) {
+    listener();
+  }
+  return () => {
+    cancelListeners.delete(listener);
+  };
+}
+
+/**
+ * Notifies all active cancellation listeners.
+ */
+function notifyCancelListeners(): void {
+  for (const listener of Array.from(cancelListeners)) {
+    try {
+      listener();
+    } catch (error) {
+      console.warn('[GOLT] Download cancellation listener failed:', error);
+    }
+  }
+}
+
+/**
+ * Cleans up partial ZIP output after download failure or cancellation.
+ *
+ * @async
+ * @param {ZipWriter} zip zip writer to clean up.
+ * @param {unknown} error failure reason.
+ */
+async function cleanupZipAfterFailure(zip: ZipWriter, error: unknown): Promise<void> {
+  if (cancelRequested || error instanceof DownloadCancelledError) {
+    cleanupCancelledZip(zip);
+  } else {
+    await zip.cleanup();
+  }
+}
+
+/**
+ * Starts cancelled ZIP cleanup without blocking cancellation acknowledgement.
+ *
+ * @param {ZipWriter} zip zip writer to clean up.
+ */
+function cleanupCancelledZip(zip: ZipWriter): void {
+  console.log('[GOLT] Cancelled ZIP cleanup detached');
+  void zip.cleanup().then(() => {
+    console.log('[GOLT] Cancelled ZIP cleanup completed');
+    self.postMessage({type: 'cancel-cleanup-done'});
+  }).catch(error => {
+    console.warn('[GOLT] Cancelled ZIP cleanup failed:', error);
+    self.postMessage({type: 'cancel-cleanup-done'});
+  });
 }
 
 /**
@@ -510,7 +588,7 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
       gridFormat: snapshot.gridFormat,
       tribes,
       rules
-    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, SAVE_WRITE_PROGRESS_END, 'Writing current save')));
+    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, SAVE_WRITE_PROGRESS_END, 'Writing current save'), createDownloadSnapshotStreamOptions()));
   }
 }
 
@@ -546,7 +624,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
       gridFormat: firstRef.gridFormat,
       tribes,
       rules
-    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save')));
+    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save'), createDownloadSnapshotStreamOptions()));
     if (twoEntries) {
       postProgress(lastStart, 'Writing last save');
       throwIfCancelled();
@@ -560,7 +638,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
         gridFormat: lastRef.gridFormat,
         tribes,
         rules
-      }, entry, createSaveProgressReporter(lastStart, SAVE_WRITE_PROGRESS_END, 'Writing last save')));
+      }, entry, createSaveProgressReporter(lastStart, SAVE_WRITE_PROGRESS_END, 'Writing last save'), createDownloadSnapshotStreamOptions()));
     }
   } else {
     console.warn('[GOLT] Saves requested but selected recording frames could not be resolved');
@@ -580,7 +658,10 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
 async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Grid & {manifest: RecordingManifest}, tribes: DownloadRequest['tribes'], estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
-  const pngWriter = opts.png ? new PngFrameExportWriter(zip, tribes, selection.framesTotal, {shouldCancel: () => cancelRequested}) : null;
+  const pngWriter = opts.png ? new PngFrameExportWriter(zip, tribes, selection.framesTotal, {
+    shouldCancel: () => cancelRequested,
+    onCancelRequested: addCancelListener
+  }) : null;
   let mp4Writer: Mp4FrameExportWriter | null = null;
   const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null) + Number(opts.mp4);
   let framesCompleted = 0;
@@ -740,6 +821,18 @@ function createSaveProgressReporter(startPercent: number, endPercent: number, st
     const innerPercent = Math.max(0, Math.min(100, update.percent ?? 0));
     const span = endPercent - startPercent;
     postProgress(Math.round(startPercent + (innerPercent / 100) * span), status);
+  };
+}
+
+/**
+ * Creates snapshot stream options for ZIP save entries.
+ *
+ * @returns {SnapshotStreamOptions} snapshot stream cancellation options.
+ */
+function createDownloadSnapshotStreamOptions(): SnapshotStreamOptions {
+  return {
+    shouldCancel: () => cancelRequested,
+    onCancelRequested: addCancelListener
   };
 }
 

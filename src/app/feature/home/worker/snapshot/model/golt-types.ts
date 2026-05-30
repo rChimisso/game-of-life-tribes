@@ -146,3 +146,25 @@ export interface SnapshotProgressUpdate {
  * @typedef {SnapshotProgressReporter}
  */
 export type SnapshotProgressReporter = (update: SnapshotProgressUpdate) => void;
+
+/**
+ * Cancellation hooks used by streaming snapshot writers.
+ *
+ * @export
+ * @interface SnapshotStreamOptions
+ * @typedef {SnapshotStreamOptions}
+ */
+export interface SnapshotStreamOptions {
+  /**
+   * Returns whether the active stream has been cancelled.
+   *
+   * @type {() => boolean}
+   */
+  shouldCancel: () => boolean;
+  /**
+   * Registers a listener for active stream cancellation.
+   *
+   * @type {(listener: () => void) => () => void}
+   */
+  onCancelRequested: (listener: () => void) => () => void;
+}

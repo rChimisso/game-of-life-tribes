@@ -64,6 +64,14 @@ export class ZipWriter {
   private removed = false;
 
   /**
+   * In-flight OPFS abort operation, when cancellation is active.
+   *
+   * @private
+   * @type {(Promise<void> | null)}
+   */
+  private abortPromise: Promise<void> | null = null;
+
+  /**
    * Creates a ZIP writer around an OPFS writable stream.
    *
    * @param {FileSystemWritableFileStream} writable opfs writable stream.
@@ -172,8 +180,14 @@ export class ZipWriter {
    */
   public async abort(): Promise<void> {
     if (!this.closed) {
-      await this.writable.abort();
-      this.closed = true;
+      if (this.abortPromise === null) {
+        console.log('[GOLT] ZIP writable abort started:', this.filename);
+        this.abortPromise = this.writable.abort().then(() => {
+          this.closed = true;
+          console.log('[GOLT] ZIP writable abort completed:', this.filename);
+        });
+      }
+      await this.abortPromise;
     }
   }
 
@@ -184,8 +198,11 @@ export class ZipWriter {
    * @async
    */
   public async cleanup(): Promise<void> {
+    console.log('[GOLT] ZIP cleanup started:', this.filename);
     await this.abort();
+    console.log('[GOLT] ZIP cleanup remove started:', this.filename);
     await this.removeFile();
+    console.log('[GOLT] ZIP cleanup completed:', this.filename);
   }
 
   /**

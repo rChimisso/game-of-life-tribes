@@ -1505,15 +1505,24 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.downloadWorker = worker;
     const pendingDownloadSideEffects: Promise<void>[] = [];
 
-    const cleanupDownload = () => {
-      console.log('[GOLT] Download worker cleaned up');
+    const releaseDownloadUi = () => {
+      console.log('[GOLT] Download UI released');
       this.resetDownloadState();
       this.downloadCancelRequested = false;
-      this.downloadWorker = null;
+      if (this.downloadWorker === worker) {
+        this.downloadWorker = null;
+      }
       this.cdr.markForCheck();
-      worker.terminate();
       this.resumeCompressionPool();
       this.engine.requestUncompressedChunks();
+    };
+    const terminateDownloadWorker = (reason: string) => {
+      console.log('[GOLT] Download worker terminated:', reason);
+      worker.terminate();
+    };
+    const cleanupDownload = () => {
+      releaseDownloadUi();
+      terminateDownloadWorker('done');
     };
 
     worker.onerror = () => {
@@ -1545,7 +1554,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         cleanupDownload();
       } else if (e.data.type === 'cancelled') {
         console.log('[GOLT] Download cancelled');
-        cleanupDownload();
+        releaseDownloadUi();
+      } else if (e.data.type === 'cancel-cleanup-done') {
+        console.log('[GOLT] Download cancellation cleanup finished');
+        terminateDownloadWorker('cancel cleanup done');
       } else if (e.data.type === 'done') {
         console.log('[GOLT] Download completed');
         await Promise.all(pendingDownloadSideEffects);

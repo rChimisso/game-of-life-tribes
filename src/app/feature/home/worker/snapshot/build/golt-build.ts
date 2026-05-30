@@ -1,7 +1,7 @@
 import {collectGoltStateStream, prepareGoltState, writeGoltStateStream} from './golt-build-stream';
 import {chooseTightStorageGridFormat, gridByteSize} from '../../../util/grid-format';
 import {createGoltPrefix, RAW_DEFLATE_CODEC} from '../model/golt-format';
-import {ByteSink, GoltStateData, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
+import {ByteSink, GoltStateData, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
 
 /**
  * Compresses bytes with the `.golt` raw deflate codec.
@@ -27,12 +27,13 @@ async function deflateRaw(data: Uint8Array): Promise<ArrayBuffer> {
  * @async
  * @param {GoltStateData} data state data to serialize.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
+ * @param {SnapshotStreamOptions} options streaming cancellation options.
  * @returns {Promise<Uint8Array>} serialized `.golt` file bytes.
  */
-export async function buildGoltStateFile(data: GoltStateData, reportProgress: SnapshotProgressReporter): Promise<Uint8Array> {
+export async function buildGoltStateFile(data: GoltStateData, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<Uint8Array> {
   let output: Uint8Array;
   if (shouldStreamGoltState(data)) {
-    output = await collectGoltStateStream(data, reportProgress);
+    output = await collectGoltStateStream(data, reportProgress, options);
   } else {
     reportProgress({
       mode: 'indeterminate',
@@ -57,12 +58,13 @@ export async function buildGoltStateFile(data: GoltStateData, reportProgress: Sn
  * @param {GoltStateData} data state data to serialize.
  * @param {ByteSink} sink byte sink that receives serialized bytes.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
+ * @param {SnapshotStreamOptions} options streaming cancellation options.
  */
-export async function writeGoltStateFileToSink(data: GoltStateData, sink: ByteSink, reportProgress: SnapshotProgressReporter): Promise<void> {
+export async function writeGoltStateFileToSink(data: GoltStateData, sink: ByteSink, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<void> {
   if (shouldStreamGoltState(data)) {
-    await writeGoltStateStream(data, sink, reportProgress);
+    await writeGoltStateStream(data, sink, reportProgress, options);
   } else {
-    await sink.write(await buildGoltStateFile(data, reportProgress));
+    await sink.write(await buildGoltStateFile(data, reportProgress, options));
   }
 }
 

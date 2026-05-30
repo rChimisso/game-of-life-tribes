@@ -80,13 +80,14 @@ export class FrameSizeLimits implements OnChanges {
   private frameSizeLimitInfo(frameBytes: number, maxBytes: number): FrameSizeLimitInfo {
     const formatted = formatBinaryBytes(frameBytes);
     const maxBytesFinite = Number.isFinite(maxBytes);
-    const recordingLabel = `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} (${RECORDING_MAX_FRAME_BYTES.toLocaleString()} bytes)`;
+    const recordingMaxBytes = maxBytesFinite ? Math.min(RECORDING_MAX_FRAME_BYTES, maxBytes) : RECORDING_MAX_FRAME_BYTES;
+    const recordingLabel = `${formatBinaryBytes(recordingMaxBytes)} (${recordingMaxBytes.toLocaleString()} bytes)`;
     const allowedLabel = maxBytesFinite ? `${formatBinaryBytes(maxBytes)} (${maxBytes.toLocaleString()} bytes)` : 'Detecting…';
     const maxBytesLabel = maxBytesFinite ? formatBinaryBytes(maxBytes) : 'Detecting…';
     return {
       frameBytes,
       formatted,
-      overRecordingLimit: frameBytes > RECORDING_MAX_FRAME_BYTES,
+      overRecordingLimit: frameBytes > recordingMaxBytes,
       overAllowedLimit: maxBytesFinite && frameBytes > maxBytes,
       labels: {
         bytes: frameBytes.toLocaleString(),
@@ -94,7 +95,7 @@ export class FrameSizeLimits implements OnChanges {
         allowed: allowedLabel
       },
       title: `${formatted} frame size`,
-      tooltip: `${formatBinaryBytes(RECORDING_MAX_FRAME_BYTES)} recording budget / ${maxBytesLabel} total budget`
+      tooltip: `${formatBinaryBytes(recordingMaxBytes)} recording budget / ${maxBytesLabel} total budget`
     };
   }
 }

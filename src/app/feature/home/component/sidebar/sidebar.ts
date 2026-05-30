@@ -13,7 +13,7 @@ import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
-import {formatBinaryBytes} from '../../util/byte-format';
+import {formatBinaryBytes, formatDecimalBytes} from '../../util/byte-format';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
@@ -30,6 +30,7 @@ import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
 import {Grid} from '~gol/feature/home/model/grid';
+import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 @Component({
@@ -148,13 +149,13 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public downloadProgress = -1;
 
   @Input()
-  public downloadSubProgress = -1;
-
-  @Input()
-  public downloadStatus = '';
-
-  @Input()
   public downloadMainStatus = '';
+
+  @Input()
+  public downloadCancelling = false;
+
+  @Input()
+  public downloadEstimateExceedsChunkThreshold = false;
 
   @Input()
   public maxBytes = Infinity;
@@ -182,6 +183,33 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   @Input()
   public loadingState = false;
+
+  /**
+   * Current snapshot progress bar mode.
+   *
+   * @public
+   * @type {ProgressStatusMode}
+   */
+  @Input()
+  public snapshotProgressMode: ProgressStatusMode = 'indeterminate';
+
+  /**
+   * Current snapshot progress percentage.
+   *
+   * @public
+   * @type {(number | null)}
+   */
+  @Input()
+  public snapshotProgressPercent: number | null = null;
+
+  /**
+   * Current snapshot progress status text.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public snapshotProgressStatus = '';
 
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
@@ -227,6 +255,28 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
 
   public get vramQuotaFormatted(): string {
     return Number.isFinite(this.vramBudgetBytes) ? formatBinaryBytes(this.vramBudgetBytes) : 'Detecting…';
+  }
+
+  /**
+   * Recording data size shown in the Download section title.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadStorageTitleSize(): string {
+    return formatDecimalBytes(this.storagePendingRawBytes + this.storageCompressedBytes);
+  }
+
+  /**
+   * Recording quota shown in the Download section title.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadStorageQuotaFormatted(): string {
+    return formatBinaryBytes(this.storageQuotaBytes);
   }
 
   public get vramSimulationFormatted(): string {

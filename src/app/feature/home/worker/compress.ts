@@ -1,3 +1,5 @@
+import '../../../core/function/timestamped-console';
+
 import {GridFormatMetadata} from '../model/grid-format';
 import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../util/grid-format';
 
@@ -15,6 +17,13 @@ const OPFS_DIR = 'gol-recording';
 const MIN_SIZE_FOR_COMPRESS = 4096; // Skip chunks smaller than 4KB
 const COMPRESSION_THRESHOLD = 0.9; // Keep raw if compressed >= 90% of original
 
+/**
+ * Request to compress one recording chunk.
+ *
+ * @interface CompressRequest
+ * @typedef {CompressRequest}
+ * @extends {Grid}
+ */
 interface CompressRequest extends Grid {
   type: 'compress';
   filename: string;
@@ -24,35 +33,67 @@ interface CompressRequest extends Grid {
   storageGridFormat: GridFormatMetadata;
 }
 
+/**
+ * Request to cancel selected compression jobs.
+ *
+ * @interface CancelRequest
+ * @typedef {CancelRequest}
+ */
 interface CancelRequest {
   type: 'cancel';
   filenames: string[];
 }
 
+/**
+ * Request to cancel all queued compression jobs.
+ *
+ * @interface CancelAllRequest
+ * @typedef {CancelAllRequest}
+ */
 interface CancelAllRequest {
   type: 'cancelAll';
 }
 
+/**
+ * Request to pause compression after active jobs finish.
+ *
+ * @interface PauseCompressionRequest
+ * @typedef {PauseCompressionRequest}
+ */
 interface PauseCompressionRequest {
   type: 'pauseCompression';
 }
 
+/**
+ * Request to resume queued compression jobs.
+ *
+ * @interface ResumeCompressionRequest
+ * @typedef {ResumeCompressionRequest}
+ */
 interface ResumeCompressionRequest {
   type: 'resumeCompression';
 }
 
+/**
+ * Compression worker input message.
+ *
+ * @typedef {WorkerInput}
+ */
 type WorkerInput = CompressRequest | CancelRequest | CancelAllRequest | PauseCompressionRequest | ResumeCompressionRequest;
 
+/**
+ * Completed compression result.
+ *
+ * @interface CompressResult
+ * @typedef {CompressResult}
+ */
 interface CompressResult {
   type: 'compressed';
   filename: string;
+  rawBytes: number;
   codec: string;
   storedBytes: number;
   gridFormat: GridFormatMetadata;
-}
-
-interface CompressionPausedResult {
-  type: 'compressionPaused';
 }
 
 const pendingQueue: CompressRequest[] = [];
@@ -88,8 +129,9 @@ self.onmessage = (e: MessageEvent<WorkerInput>) => {
       break;
     case 'pauseCompression':
       compressionPaused = true;
+      postCompressionStatus();
       if (activeCount === 0) {
-        self.postMessage({type: 'compressionPaused'} satisfies CompressionPausedResult);
+        self.postMessage({type: 'compressionPaused'});
       }
       break;
     case 'resumeCompression':
@@ -99,6 +141,9 @@ self.onmessage = (e: MessageEvent<WorkerInput>) => {
   }
 };
 
+/**
+ * Starts queued compression jobs while the worker is not paused.
+ */
 function drain(): void {
   while (!compressionPaused && activeCount < 1 && pendingQueue.length > 0) {
     const job = pendingQueue.shift()!;
@@ -111,29 +156,81 @@ function drain(): void {
   }
 }
 
+/**
+ * Compresses one queued chunk and reports the result.
+ *
+ * @async
+ * @param {CompressRequest} job compression job.
+ */
 async function processJob(job: CompressRequest): Promise<void> {
   try {
     const result = await compressChunk(job);
     if (result && !cancelAll && !cancelledSet.has(job.filename)) {
       self.postMessage(result);
+    } else if (!cancelAll && !cancelledSet.has(job.filename)) {
+      postCompressionFailed(job);
     }
   } catch (e) {
     console.warn('Compression failed for', job.filename, e);
+    if (!cancelAll && !cancelledSet.has(job.filename)) {
+      postCompressionFailed(job);
+    }
   }
   cancelledSet.delete(job.filename);
   activeCount--;
+  if (compressionPaused) {
+    postCompressionStatus();
+  }
   if (compressionPaused && activeCount === 0) {
-    self.postMessage({type: 'compressionPaused'} satisfies CompressionPausedResult);
+    self.postMessage({type: 'compressionPaused'});
   }
   drain();
 }
 
+/**
+ * Posts current active and queued compression job counts.
+ */
+function postCompressionStatus(): void {
+  self.postMessage({
+    type: 'compressionStatus',
+    activeJobs: activeCount,
+    queuedJobs: pendingQueue.length
+  });
+}
+
+/**
+ * Posts failed-job completion so the scheduler can release its budget.
+ *
+ * @param {CompressRequest} job compression job.
+ */
+function postCompressionFailed(job: CompressRequest): void {
+  self.postMessage({
+    type: 'compressionFailed',
+    filename: job.filename,
+    rawBytes: job.rawBytes
+  });
+}
+
+/**
+ * Replaces an OPFS file with new bytes.
+ *
+ * @async
+ * @param {FileSystemFileHandle} fileHandle file handle to overwrite.
+ * @param {BufferSource} data replacement bytes.
+ */
 async function overwriteFile(fileHandle: FileSystemFileHandle, data: BufferSource): Promise<void> {
   const writable = await fileHandle.createWritable();
   await writable.write(data);
   await writable.close();
 }
 
+/**
+ * Re-packs one raw chunk into the storage grid format.
+ *
+ * @param {CompressRequest} job compression job.
+ * @param {Uint8Array} rawData raw chunk bytes.
+ * @returns {(Uint8Array | null)} packed chunk bytes, or null when invalid.
+ */
 function repackChunkPayload(job: CompressRequest, rawData: Uint8Array): Uint8Array | null {
   if (job.rawGridFormat.bitsPerCell === job.storageGridFormat.bitsPerCell) {
     return rawData;
@@ -160,6 +257,13 @@ function repackChunkPayload(job: CompressRequest, rawData: Uint8Array): Uint8Arr
   return repacked;
 }
 
+/**
+ * Compresses one OPFS chunk when compression saves enough space.
+ *
+ * @async
+ * @param {CompressRequest} job compression job.
+ * @returns {Promise<CompressResult | null>} compression result, or null when the source is unavailable.
+ */
 async function compressChunk(job: CompressRequest): Promise<CompressResult | null> {
   const root = await navigator.storage.getDirectory();
   let dir: FileSystemDirectoryHandle;
@@ -193,6 +297,7 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
     return {
       type: 'compressed',
       filename: job.filename,
+      rawBytes: job.rawBytes,
       codec: 'stored-packed',
       storedBytes: packedPayload.byteLength,
       gridFormat: job.storageGridFormat
@@ -202,9 +307,10 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
   // Compress with deflate-raw
   const cs = new CompressionStream('deflate-raw');
   const writer = cs.writable.getWriter();
-  writer.write(packedPayload);
-  writer.close();
-  const compressedData = await new Response(cs.readable).arrayBuffer();
+  const compressedOutput = new Response(cs.readable).arrayBuffer();
+  await writer.write(packedPayload);
+  await writer.close();
+  const compressedData = await compressedOutput;
 
   // Check if compression is worthwhile
   if (compressedData.byteLength >= packedPayload.byteLength * COMPRESSION_THRESHOLD) {
@@ -214,6 +320,7 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
     return {
       type: 'compressed',
       filename: job.filename,
+      rawBytes: job.rawBytes,
       codec: 'stored-packed',
       storedBytes: packedPayload.byteLength,
       gridFormat: job.storageGridFormat
@@ -228,6 +335,7 @@ async function compressChunk(job: CompressRequest): Promise<CompressResult | nul
   return {
     type: 'compressed',
     filename: job.filename,
+    rawBytes: job.rawBytes,
     codec: 'deflate-raw',
     storedBytes: compressedData.byteLength,
     gridFormat: job.storageGridFormat

@@ -1,0 +1,8 @@
+@if (active) {
+  <div class="progress-status">
+    <mat-progress-bar [mode]="mode" [value]="progressValue" />
+    @if (status) {
+      <span class="progress-status-text">{{ status }}<span class="dots"></span></span>
+    }
+  </div>
+}

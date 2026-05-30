@@ -1,31 +1,21 @@
 <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
 <div class="download-checks" title="">
-  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloading" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
+  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
 </div>
 <gol-subsection title="Selection range" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
-  <gol-download-frame-range-form [disabled]="downloading" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
+  <gol-download-frame-range-form [disabled]="downloadControlsDisabled" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
 </gol-subsection>
 <gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
-  <gol-download-mp4-settings-form [disabled]="downloading" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
+  <gol-download-mp4-settings-form [disabled]="downloadControlsDisabled" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
 </gol-subsection>
-<span class="warning-message collapsible-message mp4-gate-message" [class.empty]="!mp4GateMessageExpanded" (transitionend)="onMp4GateMessageTransitionEnd($event)">
-  <span class="message-content">{{ displayedMp4GateMessage }}</span>
-</span>
-@if (downloadProgress >= 0) {
-  <div class="download-status">
-    <mat-progress-bar mode="determinate" [value]="downloadProgress" />
-    @if (downloadMainStatus) {
-      <span class="download-status-text main-status">{{ downloadMainStatus }}</span>
-    }
-    @if (downloadSubProgress >= 0) {
-      <mat-progress-bar class="sub-progress" mode="determinate" [value]="downloadSubProgress" />
-    }
-    @if (downloadStatus) {
-      <span class="download-status-text">{{ downloadStatus }}<span class="dots"></span></span>
-    }
+<div class="chunk-mode">
+  <gol-checkbox label="Force chunk download" size="sm" tooltip="Export compressed recording chunks instead of selected outputs" [disabled]="forceChunkDownloadDisabled" [ngModel]="effectiveForceChunkDownload" (ngModelChange)="currentPreferences.forceChunkDownload = $event; onSettingChange()" />
+  <div class="warning-message collapsible-message" [class.empty]="!downloadEstimateExceedsChunkThreshold" (transitionend)="onChunkModeMessageTransitionEnd($event)">
+    <span class="message-content">{{ chunkModeWarning }}</span>
   </div>
-}
-<gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="!downloading" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />
+</div>
+<gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
+<gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="cancelButtonDisabled" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />

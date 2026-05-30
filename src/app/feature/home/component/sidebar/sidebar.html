@@ -50,15 +50,15 @@
     <hr class="divider" />
 
     <!-- Download -->
-    <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'">
-      <gol-download-section [chunksSaving]="chunksSaving" [downloadMainStatus]="downloadMainStatus" [downloadProgress]="downloadProgress" [downloadStatus]="downloadStatus" [downloadSubProgress]="downloadSubProgress" [storageCompressedBytes]="storageCompressedBytes" [storagePendingRawBytes]="storagePendingRawBytes" [storageQuotaBytes]="storageQuotaBytes" [totalRecordedFrames]="metrics?.totalFrames ?? 0" (cancelDownload)="emit('cancelDownload')" (download)="emit('download', $event)" />
+    <gol-home-section title="Download" [collapsible]="false" [description]="'Download recorded simulation data. Select the types and range of data you want to download.'" [info]="downloadStorageTitleSize + ' / ' + downloadStorageQuotaFormatted">
+      <gol-download-section [chunksSaving]="chunksSaving" [downloadCancelling]="downloadCancelling" [downloadEstimateExceedsChunkThreshold]="downloadEstimateExceedsChunkThreshold" [downloadMainStatus]="downloadMainStatus" [downloadProgress]="downloadProgress" [loadingState]="loadingState" [running]="running" [savingState]="savingState" [stepping]="stepping" [storageCompressedBytes]="storageCompressedBytes" [storagePendingRawBytes]="storagePendingRawBytes" [storageQuotaBytes]="storageQuotaBytes" [totalRecordedFrames]="metrics?.totalFrames ?? 0" (cancelDownload)="emit('cancelDownload')" (download)="emit('download', $event)" (settingsChange)="emit('downloadSettingsChange', $event)" />
     </gol-home-section>
 
     <hr class="divider" />
 
     <!-- Snapshot -->
     <gol-home-section title="Snapshot" [collapsible]="false" [description]="'Save or load a .golt snapshot file.'">
-      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [savingState]="savingState" (loadState)="emit('loadState', $event)" (saveState)="emit('saveState')" />
+      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [running]="running" [savingState]="savingState" [snapshotProgressMode]="snapshotProgressMode" [snapshotProgressPercent]="snapshotProgressPercent" [snapshotProgressStatus]="snapshotProgressStatus" [stepping]="stepping" (loadState)="emit('loadState', $event)" (saveState)="emit('saveState')" />
     </gol-home-section>
 
     <hr class="divider shortcuts-divider" />

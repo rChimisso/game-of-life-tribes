@@ -107,7 +107,7 @@ export class DownloadFrameRangeForm extends FormComponent<DownloadFrameRangeForm
   public get selectedFrameCount(): string {
     const {allFrames, endFrame, startFrame} = this.form.getRawValue();
     let count = 0;
-    if (this.form.valid) {
+    if (this.hasRecordedFrames && (this.form.valid || this.form.disabled)) {
       if (allFrames) {
         count = this.totalFrames;
       } else {

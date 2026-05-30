@@ -9,19 +9,23 @@
  * - Toroidal: world wraps in both axes.
  */
 
-import {GPU_LABELS} from './gpu-labels';
-import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metrics/metrics-current';
-import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metrics/metrics-planner';
-import {InteractiveMetricSection, InteractiveMetricsResources} from './metrics/metrics-types';
+import '../../../core/function/timestamped-console';
+
+import {requestWorkerGpuDevice} from './gpu/gpu-device';
+import {GPU_LABELS} from './gpu/gpu-labels';
+import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/interactive/interactive';
+import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/interactive/planner';
+import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
 import renderWgsl from './render.wgsl';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
-import {RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
+import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {BackpressureMessage, ChunksSavingMessage, ChunkSealedMessage, GenerationMessage, LimitsMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, WorkerMessage} from '../model/worker-message';
-import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packFrameToWords, packedColsForFormat, smallestValidSimulationGridFormat, unpackPackedBytesToFrame, unpackWordsToFrame, validatePackingAgainstStateCount} from '../util/grid-format';
+import {WorkerMessage} from '../model/worker-message';
+import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
 import {normalizeLiveMetricsSettings} from '../util/metric-settings';
+import {repackPackedGrid} from './snapshot/packing/packed-repack';
 
 // ---------------------------------------------------------------------------
 //  WebGPU state
@@ -144,6 +148,7 @@ let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max 
 let chunkGpuBuffer: GPUBuffer | null = null;
 let chunkFrameIndex = 0;
 let chunkGenerations: number[] = [];
+let latestRecordedGeneration: number | null = null;
 let chunkFrameCapacity = 64;
 let frameByteSize = 0;
 
@@ -159,6 +164,7 @@ const RAW_DEFLATE_CODEC = 'deflate-raw';
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
 let opfsResetPromise: Promise<void> | null = null;
 let inflightSeals = 0;
+let inflightSealFrames = 0;
 let pendingOpfsWrites = 0;
 const MAX_PENDING_OPFS_WRITES = 12;
 let backpressureActive = false;
@@ -170,7 +176,6 @@ const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
 // Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
 // Frames at or above this size fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
 const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
-const OPFS_PENDING_WRITE_BYTE_BUDGET = 512 * 1024 * 1024; // 512 MB
 
 // Yield between major rebuild allocations so the browser can catch up.
 const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024; // 512 MB
@@ -301,6 +306,8 @@ function destroyRecordingBuffers(): void {
   chunkFrameCapacity = 0;
   chunkFrameIndex = 0;
   chunkGenerations = [];
+  latestRecordedGeneration = null;
+  inflightSealFrames = 0;
 }
 
 function destroyRebuildableBuffers(): void {
@@ -1306,7 +1313,7 @@ function postRecordingLimits(): void {
     vramSimulationBytes: simulationBufferBytes(),
     vramRecordingBytes: recordingBufferBytes(),
     gridFormat: currentGridFormatMetadata()
-  } satisfies LimitsMessage);
+  });
 }
 
 function canRecord(): boolean {
@@ -1316,13 +1323,16 @@ function canRecord(): boolean {
   if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || stagingRing.length === 0) {
     return false;
   }
-  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
-    return false;
-  }
   if (chunkFrameIndex < chunkFrameCapacity) {
     return true;
   }
-  // Need to seal — a staging buffer must be truly usable (available AND unmapped).
+  return canSealCurrentChunk();
+}
+
+function canSealCurrentChunk(): boolean {
+  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
+    return false;
+  }
   return stagingRing.some((buf, i) => stagingAvailable[i] && buf.mapState === 'unmapped');
 }
 
@@ -1336,11 +1346,27 @@ function recordGeneration(gen: number): void {
   enc.copyBufferToBuffer(currentGrid, 0, chunkGpuBuffer, offset, frameByteSize);
   device.queue.submit([enc.finish()]);
   chunkGenerations.push(gen);
+  latestRecordedGeneration = gen;
   chunkFrameIndex++;
+  retrySealCurrentChunkIfPossible();
+}
+
+function updateInflightSealFrames(delta: number): void {
+  inflightSealFrames = Math.max(0, inflightSealFrames + delta);
+}
+
+function retrySealCurrentChunkIfPossible(): void {
+  const currentChunkFull = chunkFrameCapacity > 0 && chunkFrameIndex >= chunkFrameCapacity;
+  if (currentChunkFull && canSealCurrentChunk()) {
+    sealCurrentChunk();
+  }
 }
 
 function sealCurrentChunk(): void {
   if (chunkGpuBuffer === null || chunkFrameIndex === 0 || stagingRing.length === 0) {
+    return;
+  }
+  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
     return;
   }
   const idx = stagingAvailable.indexOf(true);
@@ -1383,6 +1409,7 @@ function sealCurrentChunk(): void {
   };
 
   updateInflightSeals(+1);
+  updateInflightSealFrames(blockCount);
   pendingOpfsWrites++;
   checkBackpressure();
 
@@ -1401,10 +1428,12 @@ function sealCurrentChunk(): void {
 
     // Free staging immediately after data is in RAM.
     stagingAvailable[idx] = true;
-    checkBackpressure();
 
     sealedChunks.push(meta);
+    updateInflightSealFrames(-blockCount);
     updateManifestRange();
+    checkBackpressure();
+    retrySealCurrentChunkIfPossible();
 
     // Write raw (uncompressed) to OPFS, then notify the main thread so
     // Compress workers can read the chunk from OPFS.
@@ -1416,6 +1445,9 @@ function sealCurrentChunk(): void {
       checkBackpressure();
       updateInflightSeals(-1);
       postStorageQuota();
+      sendRecordingManifest();
+      queueMetricsRefresh(true);
+      retrySealCurrentChunkIfPossible();
 
       self.postMessage({
         type: 'chunkSealed',
@@ -1426,7 +1458,7 @@ function sealCurrentChunk(): void {
         rows,
         rawGridFormat: meta.gridFormat,
         storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
-      } satisfies ChunkSealedMessage);
+      });
 
       if (getRecordingPending && inflightSeals === 0) {
         getRecordingPending = false;
@@ -1441,8 +1473,10 @@ function sealCurrentChunk(): void {
     }
     stagingAvailable[idx] = true;
     pendingOpfsWrites--;
+    updateInflightSealFrames(-blockCount);
     checkBackpressure();
     updateInflightSeals(-1);
+    retrySealCurrentChunkIfPossible();
   });
 
   chunkFrameIndex = 0;
@@ -1469,10 +1503,12 @@ async function resetRecording(startGen: number): Promise<void> {
   chunkFrameIndex = 0;
   chunkGenerations = [];
   sealedChunks = [];
+  latestRecordedGeneration = null;
+  inflightSealFrames = 0;
   pendingOpfsWrites = 0;
   if (inflightSeals > 0) {
     inflightSeals = 0;
-    self.postMessage({type: 'chunksSaving', active: false} satisfies ChunksSavingMessage);
+    self.postMessage({type: 'chunksSaving', active: false});
   }
   if (backpressureActive) {
     backpressureActive = false;
@@ -1558,20 +1594,14 @@ function sendRecordingManifest(): void {
     },
     cols,
     rows
-  } satisfies RecordingMessage);
+  });
 }
 
 /**
  * True when the current generation has not yet been recorded.
  */
 function needsInitialCapture(): boolean {
-  if (chunkFrameIndex > 0) {
-    return chunkGenerations[chunkFrameIndex - 1] !== genCounter;
-  }
-  if (sealedChunks.length > 0) {
-    return sealedChunks[sealedChunks.length - 1]!.generationEnd !== genCounter;
-  }
-  return true;
+  return latestRecordedGeneration !== genCounter;
 }
 
 function captureCurrentGenerationIfNeeded(markForwardProgress: boolean = false): void {
@@ -1623,8 +1653,9 @@ function applyPendingBrush(): void {
 /**
  * Read a chunk from OPFS and decompress if needed.
  *
- * @param filename
- * @param codec
+ * @param {string} filename chunk filename.
+ * @param {string} codec chunk payload codec.
+ * @returns {Promise<ArrayBuffer>} chunk payload bytes.
  */
 async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CODEC): Promise<ArrayBuffer> {
   const dir = await ensureOpfsDir();
@@ -1639,9 +1670,11 @@ async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CO
 
 /**
  * Helper: compute total recorded frames across sealed chunks and current buffer.
+ *
+ * @returns {number} total recorded frame count currently reported to the UI.
  */
 function totalRecordedFrames(): number {
-  let count = chunkFrameIndex;
+  let count = chunkFrameIndex + inflightSealFrames;
   for (const c of sealedChunks) {
     count += c.blockCount;
   }
@@ -1793,7 +1826,7 @@ function postGeneration(): void {
     type: 'generation',
     generation: genCounter,
     fps: currentFps
-  } satisfies GenerationMessage);
+  });
 }
 
 function stepSimulation(): void {
@@ -1940,14 +1973,14 @@ function maybePostRunProgress(run: RunState, now: number): void {
 function clearRunBackpressure(): void {
   if (backpressureActive) {
     backpressureActive = false;
-    self.postMessage({type: 'backpressure', active: false} satisfies BackpressureMessage);
+    self.postMessage({type: 'backpressure', active: false});
   }
 }
 
 function markRunBackpressure(): void {
   if (!backpressureActive) {
     backpressureActive = true;
-    self.postMessage({type: 'backpressure', active: true} satisfies BackpressureMessage);
+    self.postMessage({type: 'backpressure', active: true});
   }
 }
 
@@ -2049,7 +2082,7 @@ function stopRun(reason: RunStopReason, options: StopRunOptions = {}): void {
   }
 
   if (targetRun && options.postStepping !== false && (reason === 'targetReached' || reason === 'cancelled')) {
-    self.postMessage({type: 'stepping', active: false} satisfies SteppingMessage);
+    self.postMessage({type: 'stepping', active: false});
   }
 
   if (targetRun || reason === 'cancelled') {
@@ -2294,15 +2327,7 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   console.log('[GOLT worker] Initializing WebGPU');
   canvas = offscreen;
 
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    console.error('[GOLT worker] WebGPU adapter not available');
-    throw new Error('WebGPU adapter not available');
-  }
-
-  device = await adapter.requestDevice({
-    requiredLimits: {maxBufferSize: adapter.limits.maxBufferSize, maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize}
-  });
+  device = await requestWorkerGpuDevice(GPU_LABELS.webengineDevice);
   deviceLost = false;
 
   device.lost.then(info => {
@@ -2382,6 +2407,7 @@ async function createChunkBuffer(): Promise<void> {
   await trackMajorBufferAllocation(chunkFrameCapacity * frameByteSize, chunkGpuBuffer);
   chunkFrameIndex = 0;
   chunkGenerations = [];
+  latestRecordedGeneration = null;
 }
 
 async function createStagingRing(): Promise<void> {
@@ -2451,7 +2477,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
     restartRestoredRun: false
   });
   rebuilding = true;
-  self.postMessage({type: 'rebuilding', active: true} satisfies RebuildingMessage);
+  self.postMessage({type: 'rebuilding', active: true});
 
   // Yield so that (1) the main thread can process the rebuilding message
   // And render the overlay, and (2) any in-flight mainLoop frame sees the
@@ -2711,25 +2737,27 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
 
     case 'getSnapshot': {
       readbackGrid().then(grid => {
-        self.postMessage({
+        const message = {
           type: 'snapshot',
           grid,
           generation: genCounter,
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage);
+        };
+        self.postMessage(message, [grid.buffer]);
       }).catch(() => {
         // Grid too large to read back — send empty grid.
         const empty = new Uint32Array(0);
-        self.postMessage({
+        const message = {
           type: 'snapshot',
           grid: empty,
           generation: genCounter,
           cols,
           rows,
           gridFormat: currentGridFormatMetadata()
-        } satisfies SnapshotMessage);
+        };
+        self.postMessage(message, [empty.buffer]);
       });
       break;
     }
@@ -2741,9 +2769,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.grid.byteLength !== incomingSize) {
         break;
       }
-      const gridData = incomingGridFormat.bitsPerCell === gridFormat.bitsPerCell ?
-        m.grid :
-        packFrameToWords(unpackWordsToFrame(m.grid, {cols, rows}, incomingGridFormat), {cols, rows}, gridFormat);
+      const gridData = repackPackedGrid(m.grid, {cols, rows}, incomingGridFormat, gridFormat);
       device.queue.writeBuffer(currentGrid, 0, gridData);
       genCounter = m.generation;
       await resetRecording(m.generation);
@@ -2823,6 +2849,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations.length = chunkFrameIndex;
         genCounter = chunkGenerations[frameInChunk]!;
+        latestRecordedGeneration = genCounter;
 
         const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
         bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
@@ -2873,8 +2900,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
           for (let frameIndex = 0; frameIndex <= frameInChunk; frameIndex++) {
             const storedOffset = frameIndex * storedFrameByteSize;
             const packedFrame = new Uint8Array(chunkData, storedOffset, storedFrameByteSize);
-            const unpackedFrame = unpackPackedBytesToFrame(packedFrame, {cols, rows}, storedChunkFormat);
-            const repackedFrame = packFrameToWords(unpackedFrame, {cols, rows}, gridFormat);
+            const repackedFrame = repackPackedGrid(alignPackedBytesToWords(packedFrame), {cols, rows}, storedChunkFormat, gridFormat);
             repackedPrefix.set(new Uint8Array(repackedFrame.buffer, repackedFrame.byteOffset, repackedFrame.byteLength), frameIndex * frameByteSize);
           }
           device.queue.writeBuffer(chunkGpuBuffer!, 0, repackedPrefix);
@@ -2883,6 +2909,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         chunkFrameIndex = frameInChunk + 1;
         chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
         genCounter = chunkGenerations[frameInChunk]!;
+        latestRecordedGeneration = genCounter;
 
         if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
           // Copy target frame to the grid.
@@ -2918,13 +2945,21 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.count === 1) {
         // Single step: immediate, with recording.
         captureCurrentGenerationIfNeeded(true);
-        stepSimulation();
-        stepCount++;
-        if (isRecording && canRecord()) {
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
+        const recordingReady = !isRecording || prepareRecordingStep();
+        if (recordingReady) {
+          stepSimulation();
+          stepCount++;
+          if (isRecording && canRecord()) {
+            if (chunkFrameIndex >= chunkFrameCapacity) {
+              sealCurrentChunk();
+            }
+            recordGeneration(genCounter);
           }
-          recordGeneration(genCounter);
+        } else {
+          markRunBackpressure();
+        }
+        if (recordingReady) {
+          clearRunBackpressure();
         }
         lastMetricsGen = -1;
         if (!metricsInFlight) {
@@ -2938,7 +2973,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         renderFrame();
       } else {
         // Multi-step: target-generation run, max speed, no rendering.
-        self.postMessage({type: 'stepping', active: true} satisfies SteppingMessage);
+        self.postMessage({type: 'stepping', active: true});
         captureCurrentGenerationIfNeeded(true);
         startRun(runKindForCurrentRecording(), {
           pacing: {kind: 'max'},
@@ -2965,6 +3000,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         manifest.chunks = [...sealedChunks];
         // Always post updated quota so the pending/compressed breakdown refreshes.
         postStorageQuota();
+        sendRecordingManifest();
       }
       break;
     }

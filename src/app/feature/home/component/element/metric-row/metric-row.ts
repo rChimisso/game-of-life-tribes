@@ -41,10 +41,10 @@ export class MetricRow {
    * Metric value.
    *
    * @public
-   * @type {(number | null | undefined)}
+   * @type {(number | null)}
    */
   @Input()
-  public value: number | null | undefined = null;
+  public value?: number | null = null;
 
   /**
    * Metric value format.

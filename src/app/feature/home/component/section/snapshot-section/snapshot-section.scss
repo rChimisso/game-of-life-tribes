@@ -1,21 +1,3 @@
 :host {
   display: contents;
-
-  .snapshot-progress {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #ccc;
-
-    mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    mat-progress-bar {
-      flex: 1;
-    }
-  }
 }

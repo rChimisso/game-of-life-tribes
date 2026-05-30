@@ -1,10 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
-import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
+import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
 import {StorageBar} from '../../../../../shared/component/storage-bar/storage-bar';
 import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
 import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
@@ -35,7 +35,7 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
     ApplyRestoreButtons,
     DownloadFrameRangeForm,
     DownloadMp4SettingsForm,
-    MatProgressBarModule
+    ProgressStatus
   ],
   templateUrl: './download-section.html',
   styleUrl: './download-section.scss',
@@ -88,6 +88,42 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public chunksSaving = false;
 
   /**
+   * Whether the simulation is running.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public running = false;
+
+  /**
+   * Whether a skip or step operation is active.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public stepping = false;
+
+  /**
+   * Whether a snapshot is being saved.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public savingState = false;
+
+  /**
+   * Whether a snapshot is being loaded.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public loadingState = false;
+
+  /**
    * Main download progress percentage.
    *
    * @public
@@ -95,24 +131,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   @Input({required: true})
   public downloadProgress = -1;
-
-  /**
-   * Sub-task download progress percentage.
-   *
-   * @public
-   * @type {number}
-   */
-  @Input({required: true})
-  public downloadSubProgress = -1;
-
-  /**
-   * Current download sub-task status.
-   *
-   * @public
-   * @type {string}
-   */
-  @Input({required: true})
-  public downloadStatus = '';
 
   /**
    * Current download main status.
@@ -124,6 +142,24 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadMainStatus = '';
 
   /**
+   * Whether the current download is cancelling.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public downloadCancelling = false;
+
+  /**
+   * Whether the current estimate requires compressed chunk export.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public downloadEstimateExceedsChunkThreshold = false;
+
+  /**
    * Emits the final download request.
    *
    * @public
@@ -132,6 +168,16 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   @Output()
   public readonly download = new EventEmitter<DownloadRequestPayload>();
+
+  /**
+   * Emits the current download request preview.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<DownloadRequestPayload>}
+   */
+  @Output()
+  public readonly settingsChange = new EventEmitter<DownloadRequestPayload>();
 
   /**
    * Emits a download cancellation request.
@@ -199,20 +245,12 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadMp4SettingsValid = true;
 
   /**
-   * Displayed MP4 gate message.
+   * User-facing high-memory chunk export warning.
    *
    * @public
    * @type {string}
    */
-  public displayedMp4GateMessage = '';
-
-  /**
-   * Whether the MP4 gate message is expanded.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public mp4GateMessageExpanded = false;
+  public chunkModeWarning = '';
 
   /**
    * Default preferences.
@@ -227,6 +265,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     mp4: false,
     png: false,
     allFrames: true,
+    forceChunkDownload: false,
     mp4Fps: 12,
     mp4BitrateMbps: 2,
     mp4SettingsExpanded: false,
@@ -254,6 +293,28 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
+   * Whether download option controls are disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get downloadControlsDisabled(): boolean {
+    return this.downloading || this.savingState || this.loadingState || this.stepping;
+  }
+
+  /**
+   * Download progress status displayed above the button pair.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get downloadProgressStatus(): string {
+    return this.downloadMainStatus || 'Preparing download';
+  }
+
+  /**
    * Whether the download button is disabled.
    *
    * @public
@@ -261,24 +322,50 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get downloadButtonDisabled(): boolean {
-    const noOutputsSelected =
-      !this.currentPreferences.metrics &&
-      !this.currentPreferences.saves &&
-      !this.currentPreferences.mp4 &&
-      !this.currentPreferences.png;
-    const invalidMp4Settings = this.currentPreferences.mp4 && !this.downloadMp4SettingsValid;
-    return this.downloading || this.chunksSaving || !this.downloadFrameRangeValid || invalidMp4Settings || noOutputsSelected;
+    return !this.downloadFrameRangeValid ||
+      !this.hasRecordedFrames ||
+      this.chunksSaving ||
+      this.loadingState ||
+      this.downloadCancelling ||
+      this.downloading ||
+      this.savingState ||
+      this.stepping ||
+      this.running ||
+      (this.currentPreferences.mp4 && !this.downloadMp4SettingsValid) ||
+      !(this.effectiveForceChunkDownload || this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);
   }
 
   /**
-   * Storage title display.
+   * Whether compressed chunk export is effectively selected.
    *
    * @public
    * @readonly
-   * @type {string}
+   * @type {boolean}
    */
-  public get storageTitleSize(): string {
-    return formatDecimalBytes(this.storagePendingRawBytes + this.storageCompressedBytes);
+  public get effectiveForceChunkDownload(): boolean {
+    return this.currentPreferences.forceChunkDownload || this.downloadEstimateExceedsChunkThreshold;
+  }
+
+  /**
+   * Whether the force chunk download checkbox is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get forceChunkDownloadDisabled(): boolean {
+    return this.downloadControlsDisabled || this.downloadEstimateExceedsChunkThreshold;
+  }
+
+  /**
+   * Whether the cancel button is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get cancelButtonDisabled(): boolean {
+    return !this.downloading || this.downloadCancelling;
   }
 
   /**
@@ -361,23 +448,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
-   * MP4 availability message.
-   *
-   * @public
-   * @readonly
-   * @type {(string | null)}
-   */
-  public get mp4GateMessage(): string | null {
-    const bitrateBps = this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000;
-    const overheadMultiplier = 1.1;
-    const estimatedBytes = (this.totalRecordedFrames / this.downloadMp4SettingsValue.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
-    const twoGb = 2 * 1024 * 1024 * 1024;
-    return this.downloadMp4SettingsValid && this.totalRecordedFrames > 0 && estimatedBytes > twoGb ?
-      `Estimated MP4 size (${formatBinaryBytes(estimatedBytes)}) exceeds 2 GB - MP4 will be skipped. Increase FPS, lower bitrate, or export fewer frames` :
-      null;
-  }
-
-  /**
    * Creates the download section.
    *
    * @public
@@ -392,8 +462,12 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnChanges(changes: TypedChanges<DownloadSection>): void {
     if (changes.totalRecordedFrames) {
-      this.syncMp4GateMessage();
+      this.syncFrameRangeWithTotalFrames();
     }
+    if (changes.downloadEstimateExceedsChunkThreshold && this.downloadEstimateExceedsChunkThreshold) {
+      this.chunkModeWarning = 'Estimated download memory is above 2 GiB. This download will export compressed recording chunks instead of the selected outputs.';
+    }
+    this.emitSettingsChange();
   }
 
   /**
@@ -401,7 +475,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
-    this.syncMp4GateMessage();
+    this.emitSettingsChange();
   }
 
   /**
@@ -411,7 +485,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onSettingChange(): void {
     this.savePreferences();
-    this.syncMp4GateMessage();
+    this.emitSettingsChange();
   }
 
   /**
@@ -436,21 +510,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @public
    */
   public onDownload(): void {
-    const frameRange = this.downloadFrameRangeValue.allFrames ?
-      null :
-      {
-        startFrame: +this.downloadFrameRangeValue.startFrame,
-        endFrame: +this.downloadFrameRangeValue.endFrame
-      };
-    this.download.emit({
-      metrics: this.currentPreferences.metrics,
-      mp4: this.currentPreferences.mp4 && !this.mp4GateMessage,
-      png: this.currentPreferences.png,
-      saves: this.currentPreferences.saves,
-      fps: +this.downloadMp4SettingsValue.mp4Fps,
-      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
-      frameRange
-    });
+    this.download.emit(this.createDownloadRequestPayload());
   }
 
   /**
@@ -466,6 +526,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.allFrames = allFrames;
       this.savePreferences();
     }
+    this.emitSettingsChange();
   }
 
   /**
@@ -476,6 +537,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadFrameRangeValidityChange(valid: boolean): void {
     this.downloadFrameRangeValid = valid;
+    this.emitSettingsChange();
   }
 
   /**
@@ -491,7 +553,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
       this.savePreferences();
     }
-    this.syncMp4GateMessage();
+    this.emitSettingsChange();
   }
 
   /**
@@ -502,18 +564,18 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadMp4SettingsValidityChange(valid: boolean): void {
     this.downloadMp4SettingsValid = valid;
-    this.syncMp4GateMessage();
+    this.emitSettingsChange();
   }
 
   /**
-   * Clears the MP4 gate message content after collapse.
+   * Clears the chunk mode message content after collapse.
    *
    * @public
    * @param {TransitionEvent} event
    */
-  public onMp4GateMessageTransitionEnd(event: TransitionEvent): void {
-    if (event.propertyName === 'grid-template-rows' && !this.mp4GateMessageExpanded) {
-      this.displayedMp4GateMessage = '';
+  public onChunkModeMessageTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName === 'grid-template-rows' && !this.downloadEstimateExceedsChunkThreshold) {
+      this.chunkModeWarning = '';
     }
   }
 
@@ -538,40 +600,62 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       mp4Fps: this.currentPreferences.mp4Fps,
       mp4BitrateMbps: this.currentPreferences.mp4BitrateMbps
     });
-    this.syncMp4GateMessage();
   }
 
   /**
    * @inheritdoc
    */
   protected override normalizePreferences(stored: Partial<DownloadSectionPreferences>, defaults: DownloadSectionPreferences): DownloadSectionPreferences {
-    const storedMp4Fps = stored.mp4Fps;
-    const storedMp4BitrateMbps = stored.mp4BitrateMbps;
-    const mp4Fps =
-      typeof storedMp4Fps === 'number' &&
-      Number.isInteger(storedMp4Fps) &&
-      storedMp4Fps >= 1 &&
-      storedMp4Fps <= 240 ?
-        storedMp4Fps :
-        defaults.mp4Fps;
-    const mp4BitrateMbps =
-      typeof storedMp4BitrateMbps === 'number' &&
-      Number.isInteger(storedMp4BitrateMbps) &&
-      storedMp4BitrateMbps >= 1 &&
-      storedMp4BitrateMbps <= 60 ?
-        storedMp4BitrateMbps :
-        defaults.mp4BitrateMbps;
+    const storedMp4Fps = +(stored.mp4Fps ?? defaults.mp4Fps);
+    const storedMp4BitrateMbps = +(stored.mp4BitrateMbps ?? defaults.mp4BitrateMbps);
+    const mp4Fps = Number.isInteger(storedMp4Fps) && storedMp4Fps >= 1 && storedMp4Fps <= 240 ? storedMp4Fps : defaults.mp4Fps;
+    const mp4BitrateMbps = Number.isInteger(storedMp4BitrateMbps) && storedMp4BitrateMbps >= 1 && storedMp4BitrateMbps <= 60 ? storedMp4BitrateMbps : defaults.mp4BitrateMbps;
     return {
-      metrics: typeof stored.metrics === 'boolean' ? stored.metrics : defaults.metrics,
-      saves: typeof stored.saves === 'boolean' ? stored.saves : defaults.saves,
-      mp4: typeof stored.mp4 === 'boolean' ? stored.mp4 : defaults.mp4,
-      png: typeof stored.png === 'boolean' ? stored.png : defaults.png,
-      allFrames: typeof stored.allFrames === 'boolean' ? stored.allFrames : defaults.allFrames,
+      metrics: this.forceBoolean(stored.metrics, defaults.metrics),
+      saves: this.forceBoolean(stored.saves, defaults.saves),
+      mp4: this.forceBoolean(stored.mp4, defaults.mp4),
+      png: this.forceBoolean(stored.png, defaults.png),
+      allFrames: this.forceBoolean(stored.allFrames, defaults.allFrames),
+      forceChunkDownload: this.forceBoolean(stored.forceChunkDownload, defaults.forceChunkDownload),
       mp4Fps,
       mp4BitrateMbps,
-      mp4SettingsExpanded: typeof stored.mp4SettingsExpanded === 'boolean' ? stored.mp4SettingsExpanded : defaults.mp4SettingsExpanded,
-      selectionExpanded: typeof stored.selectionExpanded === 'boolean' ? stored.selectionExpanded : defaults.selectionExpanded
+      mp4SettingsExpanded: this.forceBoolean(stored.mp4SettingsExpanded, defaults.mp4SettingsExpanded),
+      selectionExpanded: this.forceBoolean(stored.selectionExpanded, defaults.selectionExpanded)
     };
+  }
+
+  /**
+   * Creates the current download request payload.
+   *
+   * @private
+   * @returns {DownloadRequestPayload} current payload.
+   */
+  private createDownloadRequestPayload(): DownloadRequestPayload {
+    const frameRange = this.currentPreferences.allFrames ?
+      null :
+      {
+        startFrame: +this.downloadFrameRangeValue.startFrame,
+        endFrame: +this.downloadFrameRangeValue.endFrame
+      };
+    return {
+      metrics: this.currentPreferences.metrics,
+      mp4: this.currentPreferences.mp4,
+      png: this.currentPreferences.png,
+      saves: this.currentPreferences.saves,
+      fps: +this.downloadMp4SettingsValue.mp4Fps,
+      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
+      frameRange,
+      forceChunkDownload: this.effectiveForceChunkDownload
+    };
+  }
+
+  /**
+   * Emits current settings for parent-side estimate updates.
+   *
+   * @private
+   */
+  private emitSettingsChange(): void {
+    this.settingsChange.emit(this.createDownloadRequestPayload());
   }
 
   /**
@@ -587,6 +671,21 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
+   * Syncs the frame range bounds when the recording grows.
+   *
+   * @private
+   */
+  private syncFrameRangeWithTotalFrames(): void {
+    if (this.currentPreferences.allFrames) {
+      this.forceDownloadFrameRangeValue({
+        allFrames: true,
+        startFrame: 1,
+        endFrame: Math.max(1, this.totalRecordedFrames)
+      });
+    }
+  }
+
+  /**
    * Forcefully syncs the MP4 settings state passed to the child form.
    *
    * @private
@@ -596,20 +695,5 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     this.downloadMp4SettingsValue = {...value};
     this.downloadMp4SettingsFormData = {...value};
     this.downloadMp4SettingsValid = true;
-  }
-
-  /**
-   * Syncs the displayed MP4 gate message with the current warning state.
-   *
-   * @private
-   */
-  private syncMp4GateMessage(): void {
-    const nextMessage = this.currentPreferences.mp4 ? this.mp4GateMessage : null;
-    if (nextMessage) {
-      this.displayedMp4GateMessage = nextMessage;
-      this.mp4GateMessageExpanded = true;
-    } else {
-      this.mp4GateMessageExpanded = false;
-    }
   }
 }

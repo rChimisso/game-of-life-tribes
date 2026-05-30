@@ -42,5 +42,13 @@ export const GPU_LABELS = {
   interfaceMetricsShaderModule: 'interface metrics shader module',
   interfaceMetricsPipeline: 'interface metrics pipeline',
   interfaceMetricsBuffer: 'interface metrics buffer',
-  interfaceMetricsReadBuffer: 'interface metrics read buffer'
+  interfaceMetricsReadBuffer: 'interface metrics read buffer',
+  mp4ConversionFrameBuffer: 'MP4 conversion frame buffer',
+  mp4ConversionPaletteBuffer: 'MP4 conversion palette buffer',
+  mp4ConversionConfigBuffer: 'MP4 conversion config buffer',
+  mp4ConversionShaderModule: 'MP4 conversion shader module',
+  mp4ConversionPipeline: 'MP4 conversion pipeline',
+  mp4ConversionBindGroup: 'MP4 conversion bind group',
+  mp4ConversionEncoder: 'MP4 conversion encoder',
+  mp4ConversionPass: 'MP4 conversion pass'
 } as const;

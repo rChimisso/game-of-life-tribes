@@ -6,6 +6,8 @@ import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../
 import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
 import {iterateRecordedFrames, resolveRecordingFrameSelection, RecordingFrameSelection} from './frame/recording-frame-stream';
 import {createMetricsExportWriter, MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export';
+import {createMp4FrameExportWriter} from './mp4/mp4-frame-export-writer';
+import {Mp4FrameExportWriter} from './mp4/mp4-types';
 import {writeGoltStateStream} from './snapshot/golt-build-stream';
 import {GoltStateData, ParsedGoltState, SnapshotProgressReporter} from './snapshot/golt-types';
 import {readRecordingFrame} from './snapshot/recording-frame-reader';
@@ -210,10 +212,9 @@ self.onmessage = (event: DownloadWorkerEvent) => {
  */
 async function handleDownload(message: DownloadRequest): Promise<void> {
   const {opts, snapshot, recording, tribes, rules} = message;
-  logSkippedOutputs(opts);
   postProgress(0, 'Preparing download');
   throwIfCancelled();
-  const shouldWriteZip = opts.saves || opts.metrics || opts.png;
+  const shouldWriteZip = opts.saves || opts.metrics || opts.png || opts.mp4;
   const estimate = estimateDownloadWorkingSet(opts, recording, tribes.length);
   logDownloadWorkingSetEstimate(estimate);
   assertDownloadEstimateAllowed(opts, estimate);
@@ -223,7 +224,7 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
     const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
     try {
       await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
-      if ((opts.metrics || opts.png) && recording) {
+      if ((opts.metrics || opts.png || opts.mp4) && recording) {
         await writeRecordedFrameOutputs(zip, opts, recording, tribes, estimate);
       }
       throwIfCancelled();
@@ -316,7 +317,7 @@ function estimateDownloadWorkingSet(opts: DownloadRequestPayload, recording: Dow
   if (opts.saves) {
     totalBytes += recording?.manifest.chunks.reduce((maxBytes, chunk) => Math.max(maxBytes, chunk.uncompressedBytes), 0) ?? 0;
   }
-  if ((opts.metrics || opts.png) && recording && recording.manifest.chunks.length > 0) {
+  if ((opts.metrics || opts.png || opts.mp4) && recording && recording.manifest.chunks.length > 0) {
     const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
     const selectedChunks = selectedMetricChunks(recording.manifest, selection.startIndex, selection.endIndex);
     maxChunkBytes = selectedChunks.reduce((maxBytes, chunk) => {
@@ -580,7 +581,8 @@ async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPa
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
   const pngWriter = opts.png ? new PngFrameExportWriter(zip, tribes, selection.framesTotal, {shouldCancel: () => cancelRequested}) : null;
-  const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null);
+  let mp4Writer: Mp4FrameExportWriter | null = null;
+  const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null) + Number(opts.mp4);
   let framesCompleted = 0;
   try {
     postProgress(FRAME_OUTPUT_PROGRESS_START, 'Reading recorded frames');
@@ -599,6 +601,11 @@ async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPa
       }
       if (pngWriter) {
         await pngWriter.writeFrame(frame, createFrameOutputReporter(selection, framesCompleted, operationIndex, operationsPerFrame, opts));
+        operationIndex++;
+      }
+      if (opts.mp4) {
+        mp4Writer ??= await createMp4FrameExportWriter(zip, recording, selection, tribes, frame, createSharedMp4Options(opts));
+        await mp4Writer.writeFrame(frame, createFrameOutputReporter(selection, framesCompleted, operationIndex, operationsPerFrame, opts));
       }
       framesCompleted++;
       postFrameOutputProgress(selection, framesCompleted, 0, operationsPerFrame, 0, createFrameOutputStatus(opts, framesCompleted, selection.framesTotal));
@@ -610,8 +617,12 @@ async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPa
     if (pngWriter) {
       await pngWriter.finish();
     }
+    if (mp4Writer) {
+      await mp4Writer.finish();
+    }
   } finally {
     await metricsWriter?.dispose();
+    await mp4Writer?.dispose();
   }
 }
 
@@ -630,6 +641,24 @@ function createSharedMetricsOptions(estimate: DownloadWorkingSetEstimate): Metri
     },
     onWarning: postWarning,
     streamEntries: estimate.streamMetrics
+  };
+}
+
+/**
+ * Creates MP4 options for shared frame-output orchestration.
+ *
+ * @param {DownloadRequestPayload} opts selected download options.
+ * @returns {Parameters<typeof createMp4FrameExportWriter>[5]} MP4 export options.
+ */
+function createSharedMp4Options(opts: DownloadRequestPayload): Parameters<typeof createMp4FrameExportWriter>[5] {
+  return {
+    fps: opts.fps,
+    bitrate: opts.bitrate,
+    shouldCancel: () => cancelRequested,
+    onStatus: status => {
+      throwIfCancelled();
+      postProgress(FRAME_OUTPUT_PROGRESS_END, status);
+    }
   };
 }
 
@@ -679,10 +708,18 @@ function postFrameOutputProgress(selection: RecordingFrameSelection, frameIndex:
  */
 function createFrameOutputStatus(opts: DownloadRequestPayload, frameNumber: number, framesTotal: number): string {
   let status: string;
-  if (opts.metrics && opts.png) {
+  if (opts.metrics && opts.png && opts.mp4) {
+    status = `Computing metrics, writing PNG, and encoding MP4 frame ${frameNumber} / ${framesTotal}`;
+  } else if (opts.metrics && opts.png) {
     status = `Computing metrics and writing PNG frame ${frameNumber} / ${framesTotal}`;
+  } else if (opts.metrics && opts.mp4) {
+    status = `Computing metrics and encoding MP4 frame ${frameNumber} / ${framesTotal}`;
+  } else if (opts.png && opts.mp4) {
+    status = `Writing PNG and encoding MP4 frame ${frameNumber} / ${framesTotal}`;
   } else if (opts.png) {
     status = `Writing PNG frame ${frameNumber} / ${framesTotal}`;
+  } else if (opts.mp4) {
+    status = `Encoding MP4 frame ${frameNumber} / ${framesTotal}`;
   } else {
     status = 'Computing metrics';
   }
@@ -712,17 +749,6 @@ function createSaveProgressReporter(startPercent: number, endPercent: number, st
 function throwIfCancelled(): void {
   if (cancelRequested) {
     throw new DownloadCancelledError();
-  }
-}
-
-/**
- * Logs unsupported output selections for the first milestone.
- *
- * @param {DownloadRequestPayload} opts selected download options.
- */
-function logSkippedOutputs(opts: DownloadRequestPayload): void {
-  if (opts.mp4) {
-    console.log('[GOLT] MP4 export is not implemented in the new download worker yet; skipping MP4 output.');
   }
 }
 

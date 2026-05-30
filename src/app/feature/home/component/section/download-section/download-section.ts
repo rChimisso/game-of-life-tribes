@@ -244,22 +244,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadMp4SettingsValid = true;
 
   /**
-   * Displayed MP4 gate message.
-   *
-   * @public
-   * @type {string}
-   */
-  public displayedMp4GateMessage = '';
-
-  /**
-   * Whether the MP4 gate message is expanded.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public mp4GateMessageExpanded = false;
-
-  /**
    * Default preferences.
    *
    * @protected
@@ -443,23 +427,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
-   * MP4 availability message.
-   *
-   * @public
-   * @readonly
-   * @type {(string | null)}
-   */
-  public get mp4GateMessage(): string | null {
-    const bitrateBps = this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000;
-    const overheadMultiplier = 1.1;
-    const estimatedBytes = (this.totalRecordedFrames / this.downloadMp4SettingsValue.mp4Fps) * (bitrateBps / 8) * overheadMultiplier;
-    const twoGb = 2 * 1024 * 1024 * 1024;
-    return this.downloadMp4SettingsValid && this.totalRecordedFrames > 0 && estimatedBytes > twoGb ?
-      `Estimated MP4 size (${formatBinaryBytes(estimatedBytes)}) exceeds 2 GB - MP4 will be skipped. Increase FPS, lower bitrate, or export fewer frames` :
-      null;
-  }
-
-  /**
    * Creates the download section.
    *
    * @public
@@ -475,7 +442,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public ngOnChanges(changes: TypedChanges<DownloadSection>): void {
     if (changes.totalRecordedFrames) {
       this.syncFrameRangeWithTotalFrames();
-      this.syncMp4GateMessage();
     }
   }
 
@@ -484,7 +450,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
-    this.syncMp4GateMessage();
   }
 
   /**
@@ -494,7 +459,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onSettingChange(): void {
     this.savePreferences();
-    this.syncMp4GateMessage();
   }
 
   /**
@@ -527,7 +491,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       };
     this.download.emit({
       metrics: this.currentPreferences.metrics,
-      mp4: this.currentPreferences.mp4 && !this.mp4GateMessage,
+      mp4: this.currentPreferences.mp4,
       png: this.currentPreferences.png,
       saves: this.currentPreferences.saves,
       fps: +this.downloadMp4SettingsValue.mp4Fps,
@@ -574,7 +538,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
       this.savePreferences();
     }
-    this.syncMp4GateMessage();
   }
 
   /**
@@ -585,19 +548,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadMp4SettingsValidityChange(valid: boolean): void {
     this.downloadMp4SettingsValid = valid;
-    this.syncMp4GateMessage();
-  }
-
-  /**
-   * Clears the MP4 gate message content after collapse.
-   *
-   * @public
-   * @param {TransitionEvent} event
-   */
-  public onMp4GateMessageTransitionEnd(event: TransitionEvent): void {
-    if (event.propertyName === 'grid-template-rows' && !this.mp4GateMessageExpanded) {
-      this.displayedMp4GateMessage = '';
-    }
   }
 
   /**
@@ -621,7 +571,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       mp4Fps: this.currentPreferences.mp4Fps,
       mp4BitrateMbps: this.currentPreferences.mp4BitrateMbps
     });
-    this.syncMp4GateMessage();
   }
 
   /**
@@ -694,20 +643,5 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     this.downloadMp4SettingsValue = {...value};
     this.downloadMp4SettingsFormData = {...value};
     this.downloadMp4SettingsValid = true;
-  }
-
-  /**
-   * Syncs the displayed MP4 gate message with the current warning state.
-   *
-   * @private
-   */
-  private syncMp4GateMessage(): void {
-    const nextMessage = this.currentPreferences.mp4 ? this.mp4GateMessage : null;
-    if (nextMessage) {
-      this.displayedMp4GateMessage = nextMessage;
-      this.mp4GateMessageExpanded = true;
-    } else {
-      this.mp4GateMessageExpanded = false;
-    }
   }
 }

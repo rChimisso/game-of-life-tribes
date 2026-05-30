@@ -11,8 +11,5 @@
 <gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
   <gol-download-mp4-settings-form [disabled]="downloadControlsDisabled" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
 </gol-subsection>
-<span class="warning-message collapsible-message mp4-gate-message" [class.empty]="!mp4GateMessageExpanded" (transitionend)="onMp4GateMessageTransitionEnd($event)">
-  <span class="message-content">{{ displayedMp4GateMessage }}</span>
-</span>
 <gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
 <gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="cancelButtonDisabled" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />

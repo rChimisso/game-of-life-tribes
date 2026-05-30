@@ -155,6 +155,9 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public downloadCancelling = false;
 
   @Input()
+  public downloadEstimateExceedsChunkThreshold = false;
+
+  @Input()
   public maxBytes = Infinity;
 
   @Input()

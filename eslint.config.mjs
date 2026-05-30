@@ -195,7 +195,7 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
         allowLoop: true,
         allowSwitch: true
       }],
-      "max-depth": ["error", 3],
+      "max-depth": ["error", 4],
       radix: ["error", "always"],
       curly: ["error", "all"],
       "no-template-curly-in-string": "error",

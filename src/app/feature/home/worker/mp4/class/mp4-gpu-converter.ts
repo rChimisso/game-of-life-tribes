@@ -1,6 +1,6 @@
 import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
-import {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice} from '../logic/mp4-gpu-converter-logic';
+import {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4FrameUpload, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice} from '../logic/mp4-gpu-converter-logic';
 import {MP4_CONVERSION_SHADER} from '../logic/mp4-gpu-shader';
 import {buildMp4GpuPalette} from '../logic/mp4-palette';
 import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameConverterResources} from '../model/mp4-gpu-converter-types';
@@ -224,13 +224,16 @@ class Mp4GpuFrameConverter {
       size: MP4_CONVERSION_CONFIG_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    const frameBuffer = createStorageBuffer(device, GPU_LABELS.mp4ConversionFrameBuffer, firstFrame.words.byteLength);
+    const initialUpload = createMp4FrameUpload(firstFrame, outputSize);
+    const frameBuffer = createStorageBuffer(device, GPU_LABELS.mp4ConversionFrameBuffer, initialUpload.words.byteLength);
     console.log('[GOLT] MP4 GPU converter initialized', {
       outputWidth: outputSize.width,
       outputHeight: outputSize.height,
       sourceCols: firstFrame.cols,
       sourceRows: firstFrame.rows,
-      frameBytes: firstFrame.words.byteLength
+      frameBytes: firstFrame.words.byteLength,
+      uploadBytes: initialUpload.words.byteLength,
+      sampledRows: initialUpload.sampledRows
     });
     return new Mp4GpuFrameConverter({
       device,
@@ -241,7 +244,7 @@ class Mp4GpuFrameConverter {
       paletteBuffer,
       configBuffer,
       frameBuffer,
-      frameBufferBytes: firstFrame.words.byteLength
+      frameBufferBytes: initialUpload.words.byteLength
     });
   }
 
@@ -260,9 +263,10 @@ class Mp4GpuFrameConverter {
     assertNotDisposed(this.disposed);
     assertNotCancelled(shouldCancel);
     this.assertDeviceAvailable();
-    this.ensureFrameBuffer(frame.words.byteLength);
-    this.device.queue.writeBuffer(this.frameBuffer, 0, frame.words);
-    this.device.queue.writeBuffer(this.configBuffer, 0, createConversionConfig(frame, this.outputSize, this.paletteLength));
+    const upload = createMp4FrameUpload(frame, this.outputSize);
+    this.ensureFrameBuffer(upload.words.byteLength);
+    this.device.queue.writeBuffer(this.frameBuffer, 0, upload.words);
+    this.device.queue.writeBuffer(this.configBuffer, 0, createConversionConfig(frame, this.outputSize, this.paletteLength, upload.sampledRows));
     const encoder = this.device.createCommandEncoder({label: GPU_LABELS.mp4ConversionEncoder});
     const pass = encoder.beginRenderPass({
       label: GPU_LABELS.mp4ConversionPass,

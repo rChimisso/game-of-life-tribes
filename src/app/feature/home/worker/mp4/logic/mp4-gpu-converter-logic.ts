@@ -1,7 +1,7 @@
 import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
 import {requestWorkerGpuDevice} from '../../gpu/gpu-device';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
-import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT} from '../model/mp4-gpu-converter-types';
+import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameUpload} from '../model/mp4-gpu-converter-types';
 import {Mp4OutputSize} from '../model/mp4-types';
 
 import {packedColsForFormat} from '~gol/feature/home/util/grid-format';
@@ -55,7 +55,7 @@ function createStorageBuffer(device: GPUDevice, label: string, byteLength: numbe
  * @param {number} paletteLength number of GPU palette entries.
  * @returns {Uint32Array} conversion config.
  */
-function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number): Uint32Array {
+function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean): Uint32Array {
   const config = new Uint32Array(MP4_CONVERSION_CONFIG_U32_COUNT);
   config[0] = frame.cols;
   config[1] = frame.rows;
@@ -66,7 +66,39 @@ function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4Outpu
   config[6] = frame.format.bitsPerCell;
   config[7] = frame.format.cellMask;
   config[8] = Math.max(1, paletteLength);
+  config[9] = sampledRows ? 1 : 0;
   return config;
+}
+
+/**
+ * Creates compact frame upload data for MP4 conversion.
+ *
+ * @export
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {Mp4OutputSize} outputSize output video size.
+ * @returns {Mp4GpuFrameUpload} frame upload data.
+ */
+function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputSize): Mp4GpuFrameUpload {
+  const packedCols = packedColsForFormat(frame.cols, frame.format);
+  let upload: Mp4GpuFrameUpload;
+  if (outputSize.height < frame.rows) {
+    const sampled = new Uint32Array(packedCols * outputSize.height);
+    for (let outY = 0; outY < outputSize.height; outY++) {
+      const sourceY = Math.min(frame.rows - 1, Math.floor((outY + 0.5) * frame.rows / outputSize.height));
+      const sourceOffset = sourceY * packedCols;
+      sampled.set(frame.words.subarray(sourceOffset, sourceOffset + packedCols), outY * packedCols);
+    }
+    upload = {
+      words: sampled,
+      sampledRows: true
+    };
+  } else {
+    upload = {
+      words: frame.words,
+      sampledRows: false
+    };
+  }
+  return upload;
 }
 
 /**
@@ -106,4 +138,4 @@ function formatBytes(bytes: number): string {
   return gib >= 1 ? `${gib.toFixed(2)} GiB` : `${mib.toFixed(1)} MiB`;
 }
 
-export {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice};
+export {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4FrameUpload, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice};

@@ -151,6 +151,15 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public downloadCancelling = false;
 
   /**
+   * Whether the current estimate requires compressed chunk export.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public downloadEstimateExceedsChunkThreshold = false;
+
+  /**
    * Emits the final download request.
    *
    * @public
@@ -159,6 +168,16 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   @Output()
   public readonly download = new EventEmitter<DownloadRequestPayload>();
+
+  /**
+   * Emits the current download request preview.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<DownloadRequestPayload>}
+   */
+  @Output()
+  public readonly settingsChange = new EventEmitter<DownloadRequestPayload>();
 
   /**
    * Emits a download cancellation request.
@@ -238,6 +257,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     mp4: false,
     png: false,
     allFrames: true,
+    forceChunkDownload: false,
     mp4Fps: 12,
     mp4BitrateMbps: 2,
     mp4SettingsExpanded: false,
@@ -304,7 +324,42 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.stepping ||
       this.running ||
       (this.currentPreferences.mp4 && !this.downloadMp4SettingsValid) ||
-      !(this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);
+      !(this.effectiveForceChunkDownload || this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);
+  }
+
+  /**
+   * Whether compressed chunk export is effectively selected.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get effectiveForceChunkDownload(): boolean {
+    return this.currentPreferences.forceChunkDownload || this.downloadEstimateExceedsChunkThreshold;
+  }
+
+  /**
+   * Whether the force chunk download checkbox is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get forceChunkDownloadDisabled(): boolean {
+    return this.downloadControlsDisabled || this.downloadEstimateExceedsChunkThreshold;
+  }
+
+  /**
+   * User-facing high-memory chunk export warning.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get chunkModeWarning(): string {
+    return this.downloadEstimateExceedsChunkThreshold ?
+      'Estimated download memory is above 2 GiB. This download will export compressed recording chunks instead of the selected outputs.' :
+      '';
   }
 
   /**
@@ -414,6 +469,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     if (changes.totalRecordedFrames) {
       this.syncFrameRangeWithTotalFrames();
     }
+    this.emitSettingsChange();
   }
 
   /**
@@ -421,6 +477,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
+    this.emitSettingsChange();
   }
 
   /**
@@ -430,6 +487,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onSettingChange(): void {
     this.savePreferences();
+    this.emitSettingsChange();
   }
 
   /**
@@ -454,21 +512,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @public
    */
   public onDownload(): void {
-    const frameRange = this.currentPreferences.allFrames ?
-      null :
-      {
-        startFrame: +this.downloadFrameRangeValue.startFrame,
-        endFrame: +this.downloadFrameRangeValue.endFrame
-      };
-    this.download.emit({
-      metrics: this.currentPreferences.metrics,
-      mp4: this.currentPreferences.mp4,
-      png: this.currentPreferences.png,
-      saves: this.currentPreferences.saves,
-      fps: +this.downloadMp4SettingsValue.mp4Fps,
-      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
-      frameRange
-    });
+    this.download.emit(this.createDownloadRequestPayload());
   }
 
   /**
@@ -484,6 +528,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.allFrames = allFrames;
       this.savePreferences();
     }
+    this.emitSettingsChange();
   }
 
   /**
@@ -494,6 +539,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadFrameRangeValidityChange(valid: boolean): void {
     this.downloadFrameRangeValid = valid;
+    this.emitSettingsChange();
   }
 
   /**
@@ -509,6 +555,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
       this.savePreferences();
     }
+    this.emitSettingsChange();
   }
 
   /**
@@ -519,6 +566,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onDownloadMp4SettingsValidityChange(valid: boolean): void {
     this.downloadMp4SettingsValid = valid;
+    this.emitSettingsChange();
   }
 
   /**
@@ -548,33 +596,56 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @inheritdoc
    */
   protected override normalizePreferences(stored: Partial<DownloadSectionPreferences>, defaults: DownloadSectionPreferences): DownloadSectionPreferences {
-    const storedMp4Fps = stored.mp4Fps;
-    const storedMp4BitrateMbps = stored.mp4BitrateMbps;
-    const mp4Fps =
-      typeof storedMp4Fps === 'number' &&
-      Number.isInteger(storedMp4Fps) &&
-      storedMp4Fps >= 1 &&
-      storedMp4Fps <= 240 ?
-        storedMp4Fps :
-        defaults.mp4Fps;
-    const mp4BitrateMbps =
-      typeof storedMp4BitrateMbps === 'number' &&
-      Number.isInteger(storedMp4BitrateMbps) &&
-      storedMp4BitrateMbps >= 1 &&
-      storedMp4BitrateMbps <= 60 ?
-        storedMp4BitrateMbps :
-        defaults.mp4BitrateMbps;
+    const storedMp4Fps = +(stored.mp4Fps ?? defaults.mp4Fps);
+    const storedMp4BitrateMbps = +(stored.mp4BitrateMbps ?? defaults.mp4BitrateMbps);
+    const mp4Fps = Number.isInteger(storedMp4Fps) && storedMp4Fps >= 1 && storedMp4Fps <= 240 ? storedMp4Fps : defaults.mp4Fps;
+    const mp4BitrateMbps = Number.isInteger(storedMp4BitrateMbps) && storedMp4BitrateMbps >= 1 && storedMp4BitrateMbps <= 60 ? storedMp4BitrateMbps : defaults.mp4BitrateMbps;
     return {
-      metrics: typeof stored.metrics === 'boolean' ? stored.metrics : defaults.metrics,
-      saves: typeof stored.saves === 'boolean' ? stored.saves : defaults.saves,
-      mp4: typeof stored.mp4 === 'boolean' ? stored.mp4 : defaults.mp4,
-      png: typeof stored.png === 'boolean' ? stored.png : defaults.png,
-      allFrames: typeof stored.allFrames === 'boolean' ? stored.allFrames : defaults.allFrames,
+      metrics: this.forceBoolean(stored.metrics, defaults.metrics),
+      saves: this.forceBoolean(stored.saves, defaults.saves),
+      mp4: this.forceBoolean(stored.mp4, defaults.mp4),
+      png: this.forceBoolean(stored.png, defaults.png),
+      allFrames: this.forceBoolean(stored.allFrames, defaults.allFrames),
+      forceChunkDownload: this.forceBoolean(stored.forceChunkDownload, defaults.forceChunkDownload),
       mp4Fps,
       mp4BitrateMbps,
-      mp4SettingsExpanded: typeof stored.mp4SettingsExpanded === 'boolean' ? stored.mp4SettingsExpanded : defaults.mp4SettingsExpanded,
-      selectionExpanded: typeof stored.selectionExpanded === 'boolean' ? stored.selectionExpanded : defaults.selectionExpanded
+      mp4SettingsExpanded: this.forceBoolean(stored.mp4SettingsExpanded, defaults.mp4SettingsExpanded),
+      selectionExpanded: this.forceBoolean(stored.selectionExpanded, defaults.selectionExpanded)
     };
+  }
+
+  /**
+   * Creates the current download request payload.
+   *
+   * @private
+   * @returns {DownloadRequestPayload} current payload.
+   */
+  private createDownloadRequestPayload(): DownloadRequestPayload {
+    const frameRange = this.currentPreferences.allFrames ?
+      null :
+      {
+        startFrame: +this.downloadFrameRangeValue.startFrame,
+        endFrame: +this.downloadFrameRangeValue.endFrame
+      };
+    return {
+      metrics: this.currentPreferences.metrics,
+      mp4: this.currentPreferences.mp4,
+      png: this.currentPreferences.png,
+      saves: this.currentPreferences.saves,
+      fps: +this.downloadMp4SettingsValue.mp4Fps,
+      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
+      frameRange,
+      forceChunkDownload: this.effectiveForceChunkDownload
+    };
+  }
+
+  /**
+   * Emits current settings for parent-side estimate updates.
+   *
+   * @private
+   */
+  private emitSettingsChange(): void {
+    this.settingsChange.emit(this.createDownloadRequestPayload());
   }
 
   /**

@@ -14,7 +14,7 @@ struct ConvertConfig {
   bitsPerCell: u32,
   cellMask: u32,
   paletteLength: u32,
-  pad0: u32,
+  sampledRows: u32,
   pad1: u32,
   pad2: u32,
 };
@@ -34,8 +34,9 @@ fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec
   return vec4f(position, 0.0, 1.0);
 }
 
-fn readPackedState(sourceX: u32, sourceY: u32) -> u32 {
-  let wordIndex = (sourceY * config.packedCols) + (sourceX / config.cellsPerWord);
+fn readPackedState(sourceX: u32, sourceY: u32, outY: u32) -> u32 {
+  let bufferY = select(sourceY, outY, config.sampledRows != 0u);
+  let wordIndex = (bufferY * config.packedCols) + (sourceX / config.cellsPerWord);
   let word = frameWords[wordIndex];
   var state: u32;
   if (config.bitsPerCell == 32u) {
@@ -53,7 +54,7 @@ fn fragmentMain(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let outY = min(u32(position.y), config.outputHeight - 1u);
   let sourceX = min(config.sourceCols - 1u, u32(floor((f32(outX) + 0.5) * f32(config.sourceCols) / f32(config.outputWidth))));
   let sourceY = min(config.sourceRows - 1u, u32(floor((f32(outY) + 0.5) * f32(config.sourceRows) / f32(config.outputHeight))));
-  return palette[readPackedState(sourceX, sourceY)];
+  return palette[readPackedState(sourceX, sourceY, outY)];
 }
 `;
 

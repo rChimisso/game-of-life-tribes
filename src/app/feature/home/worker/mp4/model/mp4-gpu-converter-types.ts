@@ -77,6 +77,27 @@ interface Mp4GpuFrameConverterResources {
   frameBufferBytes: number;
 }
 
+/**
+ * Packed frame upload data for MP4 GPU conversion.
+ *
+ * @interface Mp4GpuFrameUpload
+ * @typedef {Mp4GpuFrameUpload}
+ */
+interface Mp4GpuFrameUpload {
+  /**
+   * Packed source words to upload.
+   *
+   * @type {Uint32Array}
+   */
+  words: Uint32Array;
+  /**
+   * Whether the upload contains sampled rows instead of the full frame.
+   *
+   * @type {boolean}
+   */
+  sampledRows: boolean;
+}
+
 export {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT};
 
-export type {Mp4GpuFrameConverterResources};
+export type {Mp4GpuFrameConverterResources, Mp4GpuFrameUpload};

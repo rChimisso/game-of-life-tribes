@@ -32,4 +32,16 @@
   gol-button-pair {
     margin-top: 12px;
   }
+
+  .chunk-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    &__warning {
+      color: #fbbf24;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+  }
 }

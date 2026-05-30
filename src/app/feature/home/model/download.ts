@@ -144,6 +144,12 @@ export interface DownloadRequestPayload {
    * @type {(DownloadFrameRange | null)}
    */
   frameRange: DownloadFrameRange | null;
+  /**
+   * Whether compressed recording chunk export is forced.
+   *
+   * @type {boolean}
+   */
+  forceChunkDownload: boolean;
 }
 
 /**
@@ -184,6 +190,12 @@ export interface DownloadSectionPreferences {
    * @type {boolean}
    */
   allFrames: boolean;
+  /**
+   * Whether compressed recording chunks should be exported instead of selected outputs.
+   *
+   * @type {boolean}
+   */
+  forceChunkDownload: boolean;
   /**
    * MP4 frames per second.
    *

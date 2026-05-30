@@ -24,6 +24,7 @@ export type SidebarEvent =
   | {action: 'setDiversityExpanded'; value: boolean}
   | {action: 'setInterfacesExpanded'; value: boolean}
   | {action: 'setGridSize'; value: Grid}
+  | {action: 'downloadSettingsChange'; value: DownloadRequestPayload}
   | {action: 'download'; value: DownloadRequestPayload}
   | {action: 'saveState'}
   | {action: 'loadState'; value: ArrayBuffer}

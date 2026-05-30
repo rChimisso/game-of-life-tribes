@@ -139,6 +139,18 @@ export abstract class PersistedPreferencesComponent<T extends object> {
   }
 
   /**
+   * Returns the given `value` if it is boolean, otherwise the `fallback`.
+   *
+   * @protected
+   * @param {unknown} value possibly boolean value.
+   * @param {boolean} fallback fallback boolean value.
+   * @returns {boolean} sanitized boolean value.
+   */
+  protected forceBoolean(value: unknown, fallback: boolean = false): boolean {
+    return typeof value === 'boolean' ? value : fallback;
+  }
+
+  /**
    * Collects current preferences.
    *
    * @protected

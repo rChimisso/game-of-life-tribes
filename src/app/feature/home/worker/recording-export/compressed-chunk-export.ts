@@ -123,24 +123,15 @@ async function rebuildBoundaryChunk(
   const format = gridFormatFromMetadata(plan.sourceChunk.gridFormat);
   const frameBytes = gridByteSize(request.recording, format);
   const selectedBytes = decoded.subarray(plan.localStart * frameBytes, (plan.localEnd + 1) * frameBytes);
-  const selectedCopy = new Uint8Array(selectedBytes.byteLength);
-  selectedCopy.set(selectedBytes);
-  const compressed = new Uint8Array(await deflateBytes(selectedCopy));
   const filename = createOutputChunkFilename(outputIndex);
-  const fileHandle = await tempDirectory.getFileHandle(`rebuilt-${filename}`, {create: true});
-  const writable = await fileHandle.createWritable();
-  try {
-    await writable.write(compressed);
-    await writable.close();
-  } catch (error) {
-    await writable.abort();
-    throw error;
-  }
+  const tempFilename = `rebuilt-${filename}`;
+  const fileHandle = await tempDirectory.getFileHandle(tempFilename, {create: true});
+  const storedBytes = await writeDeflatedBytesToOpfs(selectedBytes, fileHandle, options);
   return {
-    chunk: createOutputChunkMeta(plan, outputIndex, RAW_DEFLATE_CODEC, compressed.byteLength, selectedCopy.byteLength),
+    chunk: createOutputChunkMeta(plan, outputIndex, RAW_DEFLATE_CODEC, storedBytes, selectedBytes.byteLength),
     source: 'rebuilt',
     file: await fileHandle.getFile(),
-    cleanup: () => tempDirectory.removeEntry(`rebuilt-${filename}`)
+    cleanup: () => tempDirectory.removeEntry(tempFilename)
   };
 }
 
@@ -278,19 +269,67 @@ async function inflateBytes(bytes: Uint8Array): Promise<ArrayBuffer> {
 }
 
 /**
- * Deflates packed chunk bytes.
+ * Deflates bytes directly into an OPFS temp file.
  *
  * @async
- * @param {Uint8Array} bytes uncompressed bytes.
- * @returns {Promise<ArrayBuffer>} compressed bytes.
+ * @param {Uint8Array} bytes uncompressed bytes to deflate.
+ * @param {FileSystemFileHandle} fileHandle OPFS temp output file handle.
+ * @param {CompressedChunkExportOptions} options cancellation hooks.
+ * @returns {Promise<number>} compressed byte count written.
  */
-async function deflateBytes(bytes: Uint8Array): Promise<ArrayBuffer> {
+async function writeDeflatedBytesToOpfs(bytes: Uint8Array, fileHandle: FileSystemFileHandle, options: CompressedChunkExportOptions): Promise<number> {
   const stream = new CompressionStream(RAW_DEFLATE_CODEC);
   const writer = stream.writable.getWriter();
-  const output = new Response(stream.readable).arrayBuffer();
-  await writer.write(bytes);
-  await writer.close();
-  return output;
+  const reader = stream.readable.getReader();
+  const writable = await fileHandle.createWritable();
+  let storedBytes = 0;
+  let writerClosed = false;
+  const pump = pumpDeflatedBytesToOpfs(reader, writable, options, bytesWritten => {
+    storedBytes += bytesWritten;
+  });
+  try {
+    assertNotCancelled(options);
+    await writer.write(bytes);
+    await writer.close();
+    writerClosed = true;
+    await pump;
+    await writable.close();
+  } catch (error) {
+    if (!writerClosed) {
+      await writer.abort(error).catch(() => undefined);
+    }
+    await reader.cancel(error).catch(() => undefined);
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
+  return storedBytes;
+}
+
+/**
+ * Pumps deflated stream output into an OPFS writable stream.
+ *
+ * @async
+ * @param {ReadableStreamDefaultReader<Uint8Array>} reader deflate stream reader.
+ * @param {FileSystemWritableFileStream} writable OPFS writable stream.
+ * @param {CompressedChunkExportOptions} options cancellation hooks.
+ * @param {(bytesWritten: number) => void} onBytesWritten compressed byte callback.
+ */
+async function pumpDeflatedBytesToOpfs(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  writable: FileSystemWritableFileStream,
+  options: CompressedChunkExportOptions,
+  onBytesWritten: (bytesWritten: number) => void
+): Promise<void> {
+  let done = false;
+  while (!done) {
+    assertNotCancelled(options);
+    const result = await reader.read();
+    done = result.done;
+    if (result.value) {
+      await writable.write(result.value);
+      onBytesWritten(result.value.byteLength);
+    }
+  }
 }
 
 /**

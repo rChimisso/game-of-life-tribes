@@ -122,7 +122,6 @@ async function writeIndexedPngFrame(sink: PngByteSink, frame: PackedRecordedFram
   const compressedPumpState: CompressedPumpState = {error: null};
   let writerClosed = false;
   const cancellation = createPngCancellationState(options, () => {
-    console.log('[GOLT] PNG compressor cancellation requested');
     abortCompressorWriter(writer, new Error('PNG export cancelled'));
   });
   const compressedPump = observeCompressedPump(pumpCompressedChunks(reader, sink, options, cancellation), compressedPumpState);

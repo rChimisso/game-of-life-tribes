@@ -465,6 +465,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.storageQuotaBytes = data.quotaBytes;
     this.storagePendingRawBytes = data.pendingRawBytes;
     this.storageCompressedBytes = data.compressedBytes;
+    this.refreshDownloadEstimateFlag();
     if (data.quotaBytes <= 0) {
       return;
     }
@@ -534,6 +535,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     });
     this.dispatchCompressionJobs();
     this.notifyCompressionDrainWaiters();
+    this.refreshDownloadEstimateFlag();
   }
 
   public onUncompressedChunks(data: UncompressedChunksMessage): void {
@@ -1155,6 +1157,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.activeCompressionBytes = Math.max(0, this.activeCompressionBytes - completedBytes);
     this.dispatchCompressionJobs();
     this.notifyCompressionDrainWaiters();
+    this.refreshDownloadEstimateFlag();
   }
 
   /**
@@ -1190,8 +1193,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         ...job,
         attempts: 0
       });
+      this.refreshDownloadEstimateFlag();
     } else {
       console.warn('[GOLT] Compression job left raw after repeated retry cycles:', job.chunk.filename);
+      this.refreshDownloadEstimateFlag();
     }
   }
 
@@ -1230,6 +1235,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       console.log('[GOLT] Requeued deferred compression jobs', {count: jobs.length});
       this.dispatchCompressionJobs();
       this.notifyCompressionDrainWaiters();
+      this.refreshDownloadEstimateFlag();
     }
   }
 
@@ -1506,7 +1512,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         console.log('[GOLT] Download active compression wait started');
         await this.waitForDownloadCompression('active');
         this.throwIfDownloadCancelled();
-        console.log('[GOLT] Download active compression wait completed');
       }
 
       this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : HomePage.preparingSnapshotStatus;
@@ -1534,7 +1539,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private handleDownloadPreparationFailure(error: unknown): void {
     if (this.downloadCancelRequested || error instanceof DownloadCancelledError) {
-      console.log('[GOLT] Download preparation cancelled');
+      this.downloadMainStatus = 'Cancelling';
     } else {
       console.error('[GOLT] Download preparation failed:', error);
       this.openSnack('Download failed while preparing compression data. Try again.', 'error');
@@ -1584,7 +1589,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const pendingDownloadSideEffects: Promise<void>[] = [];
 
     const releaseDownloadUi = () => {
-      console.log('[GOLT] Download UI released');
       this.resetDownloadState();
       this.downloadCancelRequested = false;
       if (this.downloadWorker === worker) {
@@ -1595,7 +1599,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       this.engine.requestUncompressedChunks();
     };
     const terminateDownloadWorker = (reason: string) => {
-      console.log('[GOLT] Download worker terminated:', reason);
+      if (reason === 'error') {
+        console.warn('[GOLT] Download worker terminated after error');
+      }
       worker.terminate();
     };
     const cleanupDownload = () => {
@@ -1631,10 +1637,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.openSnack(`Download error: ${reason}${suggestion}`, 'error');
         cleanupDownload();
       } else if (e.data.type === 'cancelled') {
-        console.log('[GOLT] Download cancelled');
         releaseDownloadUi();
       } else if (e.data.type === 'cancel-cleanup-done') {
-        console.log('[GOLT] Download cancellation cleanup finished');
         terminateDownloadWorker('cancel cleanup done');
       } else if (e.data.type === 'done') {
         console.log('[GOLT] Download completed');

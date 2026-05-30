@@ -1323,13 +1323,16 @@ function canRecord(): boolean {
   if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || stagingRing.length === 0) {
     return false;
   }
-  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
-    return false;
-  }
   if (chunkFrameIndex < chunkFrameCapacity) {
     return true;
   }
-  // Need to seal — a staging buffer must be truly usable (available AND unmapped).
+  return canSealCurrentChunk();
+}
+
+function canSealCurrentChunk(): boolean {
+  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
+    return false;
+  }
   return stagingRing.some((buf, i) => stagingAvailable[i] && buf.mapState === 'unmapped');
 }
 
@@ -1345,6 +1348,7 @@ function recordGeneration(gen: number): void {
   chunkGenerations.push(gen);
   latestRecordedGeneration = gen;
   chunkFrameIndex++;
+  retrySealCurrentChunkIfPossible();
 }
 
 function updateInflightSealFrames(delta: number): void {
@@ -1353,13 +1357,16 @@ function updateInflightSealFrames(delta: number): void {
 
 function retrySealCurrentChunkIfPossible(): void {
   const currentChunkFull = chunkFrameCapacity > 0 && chunkFrameIndex >= chunkFrameCapacity;
-  if (currentChunkFull && canRecord()) {
+  if (currentChunkFull && canSealCurrentChunk()) {
     sealCurrentChunk();
   }
 }
 
 function sealCurrentChunk(): void {
   if (chunkGpuBuffer === null || chunkFrameIndex === 0 || stagingRing.length === 0) {
+    return;
+  }
+  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
     return;
   }
   const idx = stagingAvailable.indexOf(true);
@@ -1438,6 +1445,7 @@ function sealCurrentChunk(): void {
       checkBackpressure();
       updateInflightSeals(-1);
       postStorageQuota();
+      sendRecordingManifest();
       queueMetricsRefresh(true);
       retrySealCurrentChunkIfPossible();
 
@@ -2937,13 +2945,21 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
       if (m.count === 1) {
         // Single step: immediate, with recording.
         captureCurrentGenerationIfNeeded(true);
-        stepSimulation();
-        stepCount++;
-        if (isRecording && canRecord()) {
-          if (chunkFrameIndex >= chunkFrameCapacity) {
-            sealCurrentChunk();
+        const recordingReady = !isRecording || prepareRecordingStep();
+        if (recordingReady) {
+          stepSimulation();
+          stepCount++;
+          if (isRecording && canRecord()) {
+            if (chunkFrameIndex >= chunkFrameCapacity) {
+              sealCurrentChunk();
+            }
+            recordGeneration(genCounter);
           }
-          recordGeneration(genCounter);
+        } else {
+          markRunBackpressure();
+        }
+        if (recordingReady) {
+          clearRunBackpressure();
         }
         lastMetricsGen = -1;
         if (!metricsInFlight) {
@@ -2984,6 +3000,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         manifest.chunks = [...sealedChunks];
         // Always post updated quota so the pending/compressed breakdown refreshes.
         postStorageQuota();
+        sendRecordingManifest();
       }
       break;
     }

@@ -181,10 +181,8 @@ export class ZipWriter {
   public async abort(): Promise<void> {
     if (!this.closed) {
       if (this.abortPromise === null) {
-        console.log('[GOLT] ZIP writable abort started:', this.filename);
         this.abortPromise = this.writable.abort().then(() => {
           this.closed = true;
-          console.log('[GOLT] ZIP writable abort completed:', this.filename);
         });
       }
       await this.abortPromise;
@@ -198,11 +196,8 @@ export class ZipWriter {
    * @async
    */
   public async cleanup(): Promise<void> {
-    console.log('[GOLT] ZIP cleanup started:', this.filename);
     await this.abort();
-    console.log('[GOLT] ZIP cleanup remove started:', this.filename);
     await this.removeFile();
-    console.log('[GOLT] ZIP cleanup completed:', this.filename);
   }
 
   /**

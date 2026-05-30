@@ -128,7 +128,6 @@ export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, 
   const reader = stream.readable.getReader();
   let pumpFailure: Error | null = null;
   const cancellation = createGoltStreamCancellationState(options, () => {
-    console.log('[GOLT] Snapshot stream cancellation requested');
     abortCompressorWriter(writer, new Error('Snapshot export cancelled'));
   });
   const pump = pumpCompressedChunks(reader, sink, cancellation).catch(error => {

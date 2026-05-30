@@ -149,7 +149,6 @@ self.onmessage = (event: DownloadWorkerEvent) => {
       cancelRequested = false;
       handleDownload(event.data).catch(error => {
         if (error instanceof DownloadCancelledError || cancelRequested) {
-          console.log('[GOLT] Download worker cancelled');
           self.postMessage({type: 'cancelled'});
         } else {
           const reason = error instanceof Error ? error.message : String(error);
@@ -194,7 +193,6 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
     postProgress(10, 'Opening ZIP output');
     const zip = await ZipWriter.open(ZIP_DOWNLOAD_FILENAME);
     const unregisterZipCancel = addCancelListener(() => {
-      console.log('[GOLT] ZIP cancellation requested');
       zip.abort().catch(error => {
         console.warn('[GOLT] ZIP cancellation abort failed:', error);
       });
@@ -291,9 +289,7 @@ async function cleanupZipAfterFailure(zip: ZipWriter, error: unknown): Promise<v
  * @param {ZipWriter} zip zip writer to clean up.
  */
 function cleanupCancelledZip(zip: ZipWriter): void {
-  console.log('[GOLT] Cancelled ZIP cleanup detached');
   zip.cleanup().then(() => {
-    console.log('[GOLT] Cancelled ZIP cleanup completed');
     self.postMessage({type: 'cancel-cleanup-done'});
   }).catch(error => {
     console.warn('[GOLT] Cancelled ZIP cleanup failed:', error);

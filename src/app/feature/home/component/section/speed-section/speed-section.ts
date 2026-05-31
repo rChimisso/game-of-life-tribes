@@ -142,7 +142,7 @@ export class SpeedSection {
    * @type {string}
    */
   public get liveMetricsMessage(): string {
-    return this.liveMetricsEnabled ? 'Live metrics slow down the simulation.' : 'Live metrics are disabled.';
+    return 'Live metrics slow down the simulation.';
   }
 
   /**

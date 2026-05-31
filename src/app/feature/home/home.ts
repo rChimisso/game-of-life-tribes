@@ -1422,9 +1422,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
 
   private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number = 0): void {
     this.logSnack(message, tone);
-    const config: MatSnackBarConfig = {
-      panelClass: `snackbar-${tone}`
-    };
+    const config: MatSnackBarConfig = {panelClass: `snackbar-${tone}`};
     if (duration > 0) {
       config.duration = duration;
     }

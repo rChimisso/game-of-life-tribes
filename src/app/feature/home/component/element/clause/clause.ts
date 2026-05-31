@@ -16,6 +16,7 @@ import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {Button} from '~gol/shared/component/button/button';
 import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
+import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 
 /**
  * Rule clause editor.
@@ -33,6 +34,7 @@ import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
     NgTemplateOutlet,
     MatButtonModule,
     MatIconModule,
+    CharFilterDirective,
     CheckboxComponent,
     SelectComponent,
     SummaryComponent,

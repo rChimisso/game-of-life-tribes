@@ -11,7 +11,8 @@
 <div class="gol-grid-small">
   <div class="gol-cell-12 gol-grid-tiny" title="Brush size">
     <span class="input-label gol-cell-2">Size</span>
-    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="brushSize" (ngModelChange)="onBrushSizeChange($event)" />
+    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" [ngModel]="pendingBrushSize" (ngModelChange)="onBrushSizeChange($event)" />
+    <span class="gol-cell-6 error-message">{{ brushSizeError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
     <span class="input-label gol-cell-2">Shape</span>

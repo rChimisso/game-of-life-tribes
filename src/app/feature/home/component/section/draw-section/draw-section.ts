@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
@@ -8,6 +8,8 @@ import {InputComponent} from '../../../../../shared/component/input/input';
 import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
 import {BrushFill, BrushShape, TouchMode} from '../../../model/draw-mode';
 import {Tribe} from '../../../model/rule';
+
+import {TypedChanges} from '~gol/core/model/typed-change';
 
 /**
  * Drawing tools section.
@@ -30,7 +32,7 @@ import {Tribe} from '../../../model/rule';
   styleUrl: './draw-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DrawSection {
+export class DrawSection implements OnChanges {
   /**
    * Available tribes.
    *
@@ -75,6 +77,22 @@ export class DrawSection {
    */
   @Input({required: true})
   public brushMaxSize = 1;
+
+  /**
+   * Pending brush size shown in the input.
+   *
+   * @public
+   * @type {number}
+   */
+  public pendingBrushSize = 1;
+
+  /**
+   * Whether the user tried to exceed the max while already at the cap.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public showBrushSizeMaxError = false;
 
   /**
    * Current brush shape.
@@ -260,14 +278,61 @@ export class DrawSection {
   }
 
   /**
+   * Brush size validation message.
+   *
+   * @public
+   * @type {(string | null)}
+   */
+  public get brushSizeError(): string | null {
+    if (this.pendingBrushSize < 1) {
+      return 'Min 1';
+    }
+    if (this.showBrushSizeMaxError) {
+      return `Max ${ this.normalizedBrushMaxSize }`;
+    }
+    return null;
+  }
+
+  /**
+   * Normalized maximum brush size.
+   *
+   * @public
+   * @type {number}
+   */
+  public get normalizedBrushMaxSize(): number {
+    return Math.max(1, Math.floor(this.brushMaxSize));
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public ngOnChanges(changes: TypedChanges<DrawSection>): void {
+    if (changes.brushSize || changes.brushMaxSize) {
+      this.pendingBrushSize = this.clampBrushSize(this.brushSize);
+      this.showBrushSizeMaxError = false;
+    }
+  }
+
+  /**
    * Handles brush size changes.
    *
    * @public
    * @param {string} value
    */
   public onBrushSizeChange(value: string): void {
-    this.brushSize = this.clampBrushSize(+value || 1);
-    this.brushSizeChange.emit(String(this.brushSize));
+    const parsedBrushSize = this.parseBrushSize(value);
+    const wasAtBrushMax = this.pendingBrushSize >= this.normalizedBrushMaxSize;
+    if (parsedBrushSize > this.normalizedBrushMaxSize) {
+      this.pendingBrushSize = this.normalizedBrushMaxSize;
+      this.showBrushSizeMaxError = wasAtBrushMax;
+    } else {
+      this.pendingBrushSize = parsedBrushSize;
+      this.showBrushSizeMaxError = false;
+    }
+    if (!this.brushSizeError) {
+      this.brushSize = this.pendingBrushSize;
+      this.brushSizeChange.emit(String(this.brushSize));
+    }
   }
 
   /**
@@ -300,6 +365,18 @@ export class DrawSection {
    * @returns {number}
    */
   private clampBrushSize(size: number): number {
-    return Math.min(Math.max(1, Math.floor(+size || 1)), Math.max(1, Math.floor(this.brushMaxSize)));
+    return Math.min(Math.max(1, Math.floor(+size || 1)), this.normalizedBrushMaxSize);
+  }
+
+  /**
+   * Parses a brush size input.
+   *
+   * @private
+   * @param {(string | number)} value
+   * @returns {number}
+   */
+  private parseBrushSize(value: string | number): number {
+    const size = Math.floor(+value || 0);
+    return Math.max(0, size);
   }
 }

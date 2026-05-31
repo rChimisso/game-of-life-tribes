@@ -110,6 +110,99 @@ async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Arr
 }
 
 /**
+ * Creates active `.golt` stream cancellation state.
+ *
+ * @param {SnapshotStreamOptions} options stream cancellation options.
+ * @param {() => void} onCancel cancellation side effect.
+ * @returns {GoltStreamCancellationState} cancellation state.
+ */
+function createGoltStreamCancellationState(options: SnapshotStreamOptions, onCancel: () => void): GoltStreamCancellationState {
+  let resolveCancel: () => void = () => undefined;
+  const state: GoltStreamCancellationState = {
+    cancelled: options.shouldCancel(),
+    promise: new Promise<void>(resolve => {
+      resolveCancel = resolve;
+    }),
+    unregister: () => undefined
+  };
+  const cancel = () => {
+    if (!state.cancelled) {
+      state.cancelled = true;
+      resolveCancel();
+    }
+    onCancel();
+  };
+  state.unregister = options.onCancelRequested(cancel);
+  if (state.cancelled) {
+    resolveCancel();
+  }
+  return state;
+}
+
+/**
+ * Awaits a promise while allowing active `.golt` cancellation to win the race.
+ *
+ * @async
+ * @template T
+ * @param {Promise<T>} promise operation promise.
+ * @param {GoltStreamCancellationState} cancellation active cancellation state.
+ * @returns {Promise<T>} operation result.
+ */
+async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: GoltStreamCancellationState): Promise<T> {
+  assertGoltCancellationState(cancellation);
+  const observedPromise: Promise<GoltCancellableResult<T>> = promise.then(value => ({
+    type: 'value',
+    value
+  }), error => ({
+    type: 'error',
+    error
+  }));
+  const result = await Promise.race([observedPromise, cancellation.promise.then((): GoltCancellableResult<T> => ({type: 'cancelled'}))]);
+  if (result.type === 'error') {
+    throw result.error;
+  }
+  if (result.type === 'cancelled') {
+    throw new Error('Snapshot export cancelled');
+  }
+  return result.value;
+}
+
+/**
+ * Aborts the snapshot compressor writer.
+ *
+ * @param {WritableStreamDefaultWriter<BufferSource>} writer compressor writer.
+ * @param {unknown} reason original failure reason.
+ */
+function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>, reason: unknown): void {
+  writer.abort(reason).catch(error => {
+    console.warn('[GOLT] Failed to abort snapshot compressor after export failure:', error);
+  });
+}
+
+/**
+ * Cancels the snapshot compressor reader.
+ *
+ * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressor reader.
+ * @param {unknown} reason original failure reason.
+ */
+function cancelCompressorReader(reader: ReadableStreamDefaultReader<Uint8Array>, reason: unknown): void {
+  reader.cancel(reason).catch(error => {
+    console.warn('[GOLT] Failed to cancel snapshot compressor reader after export failure:', error);
+  });
+}
+
+/**
+ * Throws when `.golt` stream cancellation has already been requested.
+ *
+ * @param {GoltStreamCancellationState} cancellation active cancellation state.
+ */
+function assertGoltCancellationState(cancellation: GoltStreamCancellationState): void {
+  if (cancellation.cancelled) {
+    throw new Error('Snapshot export cancelled');
+  }
+}
+
+/**
  * Writes a `.golt` state file to a byte sink using a streaming-shaped deflate path.
  *
  * @export
@@ -191,102 +284,6 @@ export async function collectGoltStateStream(data: GoltStateData, reportProgress
     offset += chunk.byteLength;
   }
   return output;
-}
-
-/**
- * Creates active `.golt` stream cancellation state.
- *
- * @param {SnapshotStreamOptions} options stream cancellation options.
- * @param {() => void} onCancel cancellation side effect.
- * @returns {GoltStreamCancellationState} cancellation state.
- */
-function createGoltStreamCancellationState(options: SnapshotStreamOptions, onCancel: () => void): GoltStreamCancellationState {
-  let resolveCancel: () => void = () => undefined;
-  const state: GoltStreamCancellationState = {
-    cancelled: options.shouldCancel(),
-    promise: new Promise<void>(resolve => {
-      resolveCancel = resolve;
-    }),
-    unregister: () => undefined
-  };
-  const cancel = () => {
-    if (!state.cancelled) {
-      state.cancelled = true;
-      resolveCancel();
-    }
-    onCancel();
-  };
-  state.unregister = options.onCancelRequested(cancel);
-  if (state.cancelled) {
-    resolveCancel();
-  }
-  return state;
-}
-
-/**
- * Awaits a promise while allowing active `.golt` cancellation to win the race.
- *
- * @async
- * @template T
- * @param {Promise<T>} promise operation promise.
- * @param {GoltStreamCancellationState} cancellation active cancellation state.
- * @returns {Promise<T>} operation result.
- */
-async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: GoltStreamCancellationState): Promise<T> {
-  assertGoltCancellationState(cancellation);
-  const observedPromise: Promise<GoltCancellableResult<T>> = promise.then(value => ({
-    type: 'value',
-    value
-  }), error => ({
-    type: 'error',
-    error
-  }));
-  const result = await Promise.race([
-    observedPromise,
-    cancellation.promise.then((): GoltCancellableResult<T> => ({type: 'cancelled'}))
-  ]);
-  if (result.type === 'error') {
-    throw result.error;
-  }
-  if (result.type === 'cancelled') {
-    throw new Error('Snapshot export cancelled');
-  }
-  return result.value;
-}
-
-/**
- * Aborts the snapshot compressor writer.
- *
- * @param {WritableStreamDefaultWriter<BufferSource>} writer compressor writer.
- * @param {unknown} reason original failure reason.
- */
-function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>, reason: unknown): void {
-  writer.abort(reason).catch(error => {
-    console.warn('[GOLT] Failed to abort snapshot compressor after export failure:', error);
-  });
-}
-
-/**
- * Cancels the snapshot compressor reader.
- *
- * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressor reader.
- * @param {unknown} reason original failure reason.
- */
-function cancelCompressorReader(reader: ReadableStreamDefaultReader<Uint8Array>, reason: unknown): void {
-  reader.cancel(reason).catch(error => {
-    console.warn('[GOLT] Failed to cancel snapshot compressor reader after export failure:', error);
-  });
-}
-
-/**
- * Throws when `.golt` stream cancellation has already been requested.
- *
- * @param {GoltStreamCancellationState} cancellation active cancellation state.
- */
-function assertGoltCancellationState(cancellation: GoltStreamCancellationState): void {
-  if (cancellation.cancelled) {
-    throw new Error('Snapshot export cancelled');
-  }
 }
 
 /**

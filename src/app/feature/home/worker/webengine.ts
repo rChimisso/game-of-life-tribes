@@ -1,256 +1,306 @@
-﻿/**
- * WebGPU Game-of-Life Tribes engine.
- *
- * Runs entirely in a Web Worker on an OffscreenCanvas.
- * - Simulation: compute shader (dynamically generated from the ruleset).
- * - Rendering: full-screen quad reading from the grid storage buffer.
- * - Grid: ping-pong between two storage buffers (A and B).
- * - Cells: u8 tribe IDs packed 4-per-u32 in row-packed storage buffers.
- * - Toroidal: world wraps in both axes.
- */
-
-import '../../../core/function/timestamped-console';
-
+/* eslint-disable max-lines */
+import {Grid} from '../model/grid';
+import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
+import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings, MetricAvailability} from '../model/metrics';
+import {ChunkMeta, RecordingManifest} from '../model/recording';
+import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../model/rule';
+import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, LoadSnapshotMessage, ResizeMessage,
+  SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
+import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
+import {normalizeLiveMetricsSettings} from '../util/metric-settings';
+import {postWorkerTransfer} from '../util/worker-post';
 import {requestWorkerGpuDevice} from './gpu/gpu-device';
 import {GPU_LABELS} from './gpu/gpu-labels';
 import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/interactive/interactive';
 import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/interactive/planner';
 import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
 import renderWgsl from './render.wgsl';
-import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
-import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../model/metrics';
-import {ChunkMeta, RecordingManifest} from '../model/recording';
-import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
-import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
-import {WorkerMessage} from '../model/worker-message';
-import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
-import {normalizeLiveMetricsSettings} from '../util/metric-settings';
 import {repackPackedGrid} from './snapshot/packing/packed-repack';
+import {createBrushDispatchRects, generateBrushWgsl} from './webengine/logic/brush';
+import {generateComputeWgsl, plan2DDispatch} from './webengine/logic/compute-wgsl';
+import {buildRecordingLimitsPayload, buildStorageQuotaSnapshot, canRecord, canSealCurrentChunk, cloneRecordingChunks, computeChunkFrameCapacity, countFrames, evaluateRecordingBackpressure, majorBufferAllocationYieldBytes, maxPendingOpfsWritesForCurrentChunk, maxRecordingBufferBytes, maxSimulationBufferBytes, needsInitialCapture, recordingAvailableForCurrentFrame, recordingRawBytes, recordingStoredBytes, updateManifestRange, vramBudgetBytes} from './webengine/logic/recording';
+import {createRenderUniformData, createTribeColorData, generateRenderWgsl} from './webengine/logic/render';
+import {currentRunPacing, fixedRunStepBudget, isTargetRun, nextFixedRunAccumulator, nonRecordingMaxSpeedBatchesPerDrain, remainingTargetSteps, restoreAfterStopState, runTargetReached, shouldPostStopStepping, shouldRestartRestoredRun, skipBatchSize} from './webengine/logic/run';
+import {bufferedStepBackState, buildStepBackPrefix, resolveStepBackTarget} from './webengine/logic/step-back';
+import {BrushPreview, PendingBrush} from './webengine/model/brush';
+import {DispatchPlan2D} from './webengine/model/dispatch-plan';
+import {OPFS_DIR, RAW_DEFLATE_CODEC, RAW_PACKED_CODEC, STAGING_RING_SIZE} from './webengine/model/recording-runtime';
+import {TRIBE_COLOR_BUFFER_SIZE, UNIFORM_SIZE} from './webengine/model/render';
+import {PumpSchedule, StopRunOptions} from './webengine/model/run-control';
+import {RunKind, RunRequest, RunState, RunStopReason} from './webengine/model/run-state';
+import '../../../core/function/timestamped-console';
 
-// ---------------------------------------------------------------------------
-//  WebGPU state
-// ---------------------------------------------------------------------------
-
+/**
+ * Active worker GPU device.
+ *
+ * @type {GPUDevice}
+ */
 let device: GPUDevice;
+/**
+ * Whether the current GPU device has been lost.
+ *
+ * @type {boolean}
+ */
 let deviceLost = false;
+/**
+ * WebGPU canvas context used for presentation.
+ *
+ * @type {GPUCanvasContext}
+ */
 let context: GPUCanvasContext;
+/**
+ * Preferred presentation texture format for the worker canvas.
+ *
+ * @type {GPUTextureFormat}
+ */
 let canvasFormat: GPUTextureFormat;
+/**
+ * Offscreen canvas owned by this worker.
+ *
+ * @type {OffscreenCanvas}
+ */
 let canvas: OffscreenCanvas;
 
-// Grid data
+/**
+ * Active simulation ruleset.
+ *
+ * @type {Ruleset<readonly Tribe[]>}
+ */
 let ruleset: Ruleset<readonly Tribe[]>;
+/**
+ * Current logical grid column count.
+ *
+ * @type {number}
+ */
 let cols = 0;
+/**
+ * Current logical grid row count.
+ *
+ * @type {number}
+ */
 let rows = 0;
-let packedCols = 0; // Ceil(cols / cellsPerWord) — u32 words per row in packed grid
+/**
+ * Current packed-grid column count in storage words.
+ *
+ * @type {number}
+ */
+let packedCols = 0;
+/**
+ * Packed storage format used by the simulation buffers.
+ *
+ * @type {GridFormat}
+ */
 let gridFormat: GridFormat = GRID_FORMAT_8;
+/**
+ * Active tribe palette in simulation order.
+ *
+ * @type {Tribe[]}
+ */
 let tribes: Tribe[] = [];
+/**
+ * Lookup from tribe ID to active tribe index.
+ *
+ * @type {Map<string, number>}
+ */
 const tribeIndex = new Map<string, number>();
 
-interface DispatchPlan2D {
-  logicalWgX: number;
-  logicalWgY: number;
-  dispatchWgX: number;
-  dispatchWgY: number;
-  remapped: boolean;
-}
-
+/**
+ * Workgroup dispatch plan for simulation passes.
+ *
+ * @type {DispatchPlan2D}
+ */
 let simulationDispatchPlan: DispatchPlan2D;
+/**
+ * Workgroup dispatch plan for interactive metrics passes.
+ *
+ * @type {DispatchPlan2D}
+ */
 let metricsDispatchPlan: DispatchPlan2D;
 
-// GPU buffers
+/**
+ * First ping-pong simulation grid buffer.
+ *
+ * @type {GPUBuffer}
+ */
 let gridBufferA: GPUBuffer;
+/**
+ * Second ping-pong simulation grid buffer.
+ *
+ * @type {GPUBuffer}
+ */
 let gridBufferB: GPUBuffer;
+/**
+ * Render uniform buffer shared by draw passes.
+ *
+ * @type {GPUBuffer}
+ */
 let uniformBuffer: GPUBuffer;
+/**
+ * Storage buffer containing tribe color data.
+ *
+ * @type {GPUBuffer}
+ */
 let tribeColorBuffer: GPUBuffer;
 
-// Pipelines
+/**
+ * Render pipeline for the current canvas and grid format.
+ *
+ * @type {GPURenderPipeline}
+ */
 let renderPipeline: GPURenderPipeline;
+/**
+ * Render bind group that reads from grid buffer A.
+ *
+ * @type {GPUBindGroup}
+ */
 let renderBindGroupA: GPUBindGroup;
+/**
+ * Render bind group that reads from grid buffer B.
+ *
+ * @type {GPUBindGroup}
+ */
 let renderBindGroupB: GPUBindGroup;
+/**
+ * Simulation compute pipeline.
+ *
+ * @type {GPUComputePipeline}
+ */
 let computePipeline: GPUComputePipeline;
+/**
+ * Simulation bind group that writes from buffer A into buffer B.
+ *
+ * @type {GPUBindGroup}
+ */
 let computeBindGroupAtoB: GPUBindGroup;
+/**
+ * Simulation bind group that writes from buffer B into buffer A.
+ *
+ * @type {GPUBindGroup}
+ */
 let computeBindGroupBtoA: GPUBindGroup;
 
-// Ping-pong state: false = A is current, true = B is current.
+/**
+ * Whether the latest simulation output lives in buffer B.
+ *
+ * @type {boolean}
+ */
 let pingPong = false;
 
-// Camera
+/**
+ * Current camera zoom level.
+ *
+ * @type {number}
+ */
 let scale = 1;
+/**
+ * Current camera X offset in logical cells.
+ *
+ * @type {number}
+ */
 let offsetX = 0;
+/**
+ * Current camera Y offset in logical cells.
+ *
+ * @type {number}
+ */
 let offsetY = 0;
 
-// Timing
+/**
+ * Whether the continuous simulation loop is enabled.
+ *
+ * @type {boolean}
+ */
 let simulationRunning = false;
+/**
+ * Whether GPU resources are being rebuilt for a new layout or device.
+ *
+ * @type {boolean}
+ */
 let rebuilding = false;
+/**
+ * Target duration of one generation step in milliseconds.
+ *
+ * @type {number}
+ */
 let targetStepDuration = 100;
+/**
+ * Current simulation generation counter.
+ *
+ * @type {number}
+ */
 let genCounter = 0;
+/**
+ * Number of steps accumulated for the rolling FPS sample.
+ *
+ * @type {number}
+ */
+let stepCount = 0;
+/**
+ * Timestamp of the current rolling FPS sample window.
+ *
+ * @type {number}
+ */
+let lastFpsTime = 0;
+/**
+ * Latest computed frames-per-second estimate.
+ *
+ * @type {number}
+ */
+let currentFps = 0;
 
-// Brush compute pipeline
+/**
+ * Compute pipeline used for brush application passes.
+ *
+ * @type {GPUComputePipeline}
+ */
 let brushPipeline: GPUComputePipeline;
+/**
+ * Maximum number of wrapped brush rectangles encoded per brush stroke.
+ *
+ * @type {number}
+ */
 const BRUSH_DISPATCH_RECT_CAPACITY = 4;
+/**
+ * Size in bytes of one brush uniform payload.
+ *
+ * @type {number}
+ */
+const BRUSH_UNIFORM_SIZE = 192;
+/**
+ * Per-rectangle brush uniform buffers.
+ *
+ * @type {GPUBuffer[]}
+ */
 let brushUniformBuffers: GPUBuffer[] = [];
+/**
+ * Brush bind groups targeting grid buffer A.
+ *
+ * @type {GPUBindGroup[]}
+ */
 let brushBindGroupsA: GPUBindGroup[] = [];
+/**
+ * Brush bind groups targeting grid buffer B.
+ *
+ * @type {GPUBindGroup[]}
+ */
 let brushBindGroupsB: GPUBindGroup[] = [];
+/**
+ * Monotonic seed source for randomized brush fills.
+ *
+ * @type {number}
+ */
 let brushSeedCounter = 0;
-
 /**
- * Brush dispatch queued from a pointer stroke.
+ * Pending brush stroke to apply on the next safe update point.
  *
- * @interface PendingBrush
- * @typedef {PendingBrush}
+ * @type {(PendingBrush | null)}
  */
-interface PendingBrush {
-  /**
-   * Center x coordinate.
-   *
-   * @type {number}
-   */
-  centerX: number;
-  /**
-   * Center y coordinate.
-   *
-   * @type {number}
-   */
-  centerY: number;
-  /**
-   * Brush size in cells.
-   *
-   * @type {number}
-   */
-  brushSize: number;
-  /**
-   * Numeric brush shape.
-   *
-   * @type {number}
-   */
-  shape: number;
-  /**
-   * Numeric brush fill mode.
-   *
-   * @type {number}
-   */
-  fill: number;
-  /**
-   * Numeric tribe IDs eligible for this brush.
-   *
-   * @type {number[]}
-   */
-  tribeIds: number[];
-}
-
-/**
- * One non-wrapping segment of a wrapped brush axis.
- *
- * @interface BrushDispatchAxisSegment
- * @typedef {BrushDispatchAxisSegment}
- */
-interface BrushDispatchAxisSegment {
-  /**
-   * Destination start coordinate in grid space.
-   *
-   * @type {number}
-   */
-  destinationStart: number;
-  /**
-   * Source start coordinate in brush-local space.
-   *
-   * @type {number}
-   */
-  localStart: number;
-  /**
-   * Number of logical cells covered by this segment.
-   *
-   * @type {number}
-   */
-  span: number;
-}
-
-/**
- * One non-wrapping brush rectangle dispatched to the GPU.
- *
- * @interface BrushDispatchRect
- * @typedef {BrushDispatchRect}
- */
-interface BrushDispatchRect {
-  /**
-   * Destination start x coordinate in grid space.
-   *
-   * @type {number}
-   */
-  destinationStartX: number;
-  /**
-   * Destination start y coordinate in grid space.
-   *
-   * @type {number}
-   */
-  destinationStartY: number;
-  /**
-   * Source start x coordinate in brush-local space.
-   *
-   * @type {number}
-   */
-  localStartX: number;
-  /**
-   * Source start y coordinate in brush-local space.
-   *
-   * @type {number}
-   */
-  localStartY: number;
-  /**
-   * Rectangle width in logical cells.
-   *
-   * @type {number}
-   */
-  spanCols: number;
-  /**
-   * Rectangle height in logical cells.
-   *
-   * @type {number}
-   */
-  spanRows: number;
-}
-
-/**
- * Brush footprint preview shown during drawing.
- *
- * @interface BrushPreview
- * @typedef {BrushPreview}
- */
-interface BrushPreview {
-  /**
-   * Center x coordinate.
-   *
-   * @type {number}
-   */
-  centerX: number;
-  /**
-   * Center y coordinate.
-   *
-   * @type {number}
-   */
-  centerY: number;
-  /**
-   * Brush size in cells.
-   *
-   * @type {number}
-   */
-  brushSize: number;
-  /**
-   * Numeric brush shape.
-   *
-   * @type {number}
-   */
-  shape: number;
-  /**
-   * Whether the preview should render.
-   *
-   * @type {boolean}
-   */
-  visible: boolean;
-}
-
-// Pending brush is applied on the next rendered or simulated frame.
 let pendingBrush: PendingBrush | null = null;
+/**
+ * Brush preview state rendered over the grid.
+ *
+ * @type {BrushPreview}
+ */
 let brushPreview: BrushPreview = {
   centerX: 0,
   centerY: 0,
@@ -259,116 +309,249 @@ let brushPreview: BrushPreview = {
   visible: false
 };
 
-// Metrics: GPU histogram + boundary
+/**
+ * GPU resources backing interactive metrics passes.
+ *
+ * @type {(InteractiveMetricsResources | null)}
+ */
 let metricsResources: InteractiveMetricsResources | null = null;
+/**
+ * Last generation for which metrics were posted.
+ *
+ * @type {number}
+ */
 let lastMetricsGen = -1;
+/**
+ * Whether a metrics readback is currently in flight.
+ *
+ * @type {boolean}
+ */
 let metricsInFlight = false;
+/**
+ * Whether another metrics pass should run after the current readback completes.
+ *
+ * @type {boolean}
+ */
 let pendingMetricsRetry = false;
+/**
+ * Last timestamp when periodic metrics were queued.
+ *
+ * @type {number}
+ */
 let lastMetricsTime = 0;
+/**
+ * Current live-metrics preferences from the UI.
+ *
+ * @type {LiveMetricsSettings}
+ */
 let liveMetrics: LiveMetricsSettings = DEFAULT_LIVE_METRICS_SETTINGS;
+/**
+ * Metric sections encoded by the latest GPU metrics pass.
+ *
+ * @type {InteractiveMetricSection[]}
+ */
 let lastEncodedMetricSections: InteractiveMetricSection[] = [];
 
-// Recording state
+/**
+ * Whether recording is currently enabled.
+ *
+ * @type {boolean}
+ */
 let isRecording = false;
+/**
+ * Whether recording is waiting for the next forward step before capturing.
+ *
+ * @type {boolean}
+ */
 let recordingAwaitingForward = false;
+/**
+ * Recording manifest mirrored to the main thread.
+ *
+ * @type {RecordingManifest}
+ */
 let manifest: RecordingManifest = {
   chunks: [],
   generationStart: 0,
   generationEnd: 0,
   gridFormat: gridFormatMetadata(GRID_FORMAT_8)
 };
+/**
+ * Next monotonically increasing recording chunk ID.
+ *
+ * @type {number}
+ */
 let nextChunkId = 0;
+/**
+ * Sealed recording chunks already persisted or queued for persistence.
+ *
+ * @type {ChunkMeta[]}
+ */
 let sealedChunks: ChunkMeta[] = [];
+/**
+ * Whether a recording manifest request is waiting for seals to finish.
+ *
+ * @type {boolean}
+ */
+let getRecordingPending = false;
 
-type RunStopCondition = {kind: 'none'} | {kind: 'targetGeneration'; generation: number};
-type RunPacing = {kind: 'max'} | {kind: 'fixedGenPerSecond'; genPerSecond: number};
-type RunKind = 'nonRecording' | 'recording';
-type RunStopReason = 'manual' | 'targetReached' | 'cancelled' | 'restart' | 'rebuild' | 'deviceLost' | 'error';
-
-interface RunRequest {
-  pacing: RunPacing;
-  stopCondition: RunStopCondition;
-  restoreAfterStop?: {
-    running: boolean;
-    targetStepDuration: number;
-  };
-}
-
-interface RunState {
-  kind: RunKind;
-  request: RunRequest;
-  token: number;
-  pumpPending: boolean;
-  lastFrameTime: number;
-  stepAccumulator: number;
-  lastProgressTime: number;
-  lastRenderTime: number;
-}
-
+/**
+ * Currently active run-loop state, if any.
+ *
+ * @type {(RunState | null)}
+ */
 let activeRun: RunState | null = null;
+/**
+ * Token source used to invalidate stale run pumps.
+ *
+ * @type {number}
+ */
 let nextRunToken = 0;
-let gpuCatchUpPending = false; // Prevents rendering while GPU drains after max speed.
+/**
+ * Whether a deferred render is waiting for GPU work completion.
+ *
+ * @type {boolean}
+ */
+let gpuCatchUpPending = false;
 
-// GPU chunk accumulation
+/**
+ * GPU buffer holding the currently open recording chunk.
+ *
+ * @type {(GPUBuffer | null)}
+ */
 let chunkGpuBuffer: GPUBuffer | null = null;
+/**
+ * Number of frames currently written into the open recording chunk.
+ *
+ * @type {number}
+ */
 let chunkFrameIndex = 0;
+/**
+ * Generation numbers stored in the open recording chunk.
+ *
+ * @type {number[]}
+ */
 let chunkGenerations: number[] = [];
+/**
+ * Latest generation captured into recording buffers.
+ *
+ * @type {(number | null)}
+ */
 let latestRecordedGeneration: number | null = null;
+/**
+ * Maximum frame capacity of the open recording chunk.
+ *
+ * @type {number}
+ */
 let chunkFrameCapacity = 64;
+/**
+ * Byte size of one packed simulation frame.
+ *
+ * @type {number}
+ */
 let frameByteSize = 0;
 
-// Staging ring for async readback of sealed chunks
-const STAGING_RING_SIZE = 3;
+/**
+ * Readback staging buffers used for chunk sealing.
+ *
+ * @type {GPUBuffer[]}
+ */
 let stagingRing: GPUBuffer[] = [];
+/**
+ * Availability flags for each staging buffer slot.
+ *
+ * @type {boolean[]}
+ */
 let stagingAvailable: boolean[] = [];
 
-// OPFS persistence state
-const OPFS_DIR = 'gol-recording';
-const RAW_PACKED_CODEC = 'raw-packed';
-const RAW_DEFLATE_CODEC = 'deflate-raw';
+/**
+ * OPFS directory handle used for recording chunk storage.
+ *
+ * @type {(FileSystemDirectoryHandle | null)}
+ */
 let opfsDirHandle: FileSystemDirectoryHandle | null = null;
+/**
+ * Shared in-flight OPFS reset promise.
+ *
+ * @type {(Promise<void> | null)}
+ */
 let opfsResetPromise: Promise<void> | null = null;
+/**
+ * Number of chunk seals currently in flight.
+ *
+ * @type {number}
+ */
 let inflightSeals = 0;
+/**
+ * Number of recorded frames currently owned by in-flight seals.
+ *
+ * @type {number}
+ */
 let inflightSealFrames = 0;
+/**
+ * Number of pending OPFS write operations.
+ *
+ * @type {number}
+ */
 let pendingOpfsWrites = 0;
-const MAX_PENDING_OPFS_WRITES = 12;
+/**
+ * Whether recording backpressure is currently active.
+ *
+ * @type {boolean}
+ */
 let backpressureActive = false;
-let sealEpoch = 0; // Incremented on rebuild; stale callbacks silently bail.
+/**
+ * Epoch used to invalidate stale seal completions after resets.
+ *
+ * @type {number}
+ */
+let sealEpoch = 0;
 
-const MAX_TRIBES = 256;
-const TRIBE_COLOR_BUFFER_SIZE = MAX_TRIBES * Uint32Array.BYTES_PER_ELEMENT;
-
-// Chunk + staging buffer cap (each buffer) for normal multi-frame chunks.
-// Frames at or above this size fall back to single-frame chunks up to RECORDING_MAX_FRAME_BYTES.
-const CHUNK_BUFFER_CAP = 256 * 1024 * 1024; // 256 MB
-
-// Yield between major rebuild allocations so the browser can catch up.
-const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024; // 512 MB
-
-// Storage cap for OPFS
-const STORAGE_CAP = 128 * 1024 * 1024 * 1024; // 128 GB
-
+/**
+ * Bytes allocated since the last rebuild yield point.
+ *
+ * @type {number}
+ */
 let rebuildAllocatedBytesSinceYield = 0;
+/**
+ * Remaining tracked major allocations before rebuild completion.
+ *
+ * @type {number}
+ */
 let rebuildMajorAllocationsRemaining = 0;
+/**
+ * Buffers allocated since the last rebuild yield point.
+ *
+ * @type {GPUBuffer[]}
+ */
 let rebuildPendingAllocationBuffers: GPUBuffer[] = [];
 
+/**
+ * Normalizes unknown worker errors into a user-facing reason string.
+ *
+ * @param {unknown} error thrown worker error.
+ * @returns {string} normalized error reason.
+ */
 function workerErrorReason(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+  switch (true) {
+    case error instanceof Error: return error.message;
+    case typeof error === 'string': return error;
+    case error && typeof error === 'object' && 'message' in error && typeof error.message === 'string': return error.message;
+    default: return String(error ?? 'Unknown worker error');
   }
-  if (typeof error === 'string') {
-    return error;
-  }
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-    return error.message;
-  }
-  return String(error ?? 'Unknown worker error');
 }
 
+/**
+ * Reports a worker error through logs and the UI-facing worker protocol.
+ *
+ * @param {unknown} error thrown worker error.
+ */
 function reportWorkerError(error: unknown): void {
   console.error('[GOLT worker] Worker GPU error:', error);
   stopRun('error', {
-    render: false, postStepping: false, restore: false, restartRestoredRun: false
+    render: false,
+    postStepping: false,
+    restore: false,
+    restartRestoredRun: false
   });
   simulationRunning = false;
   self.postMessage({type: 'gpuError', reason: workerErrorReason(error)});
@@ -384,82 +567,65 @@ self.addEventListener('unhandledrejection', event => {
   reportWorkerError(event.reason);
 });
 
+/**
+ * Waits until all queued GPU work is complete.
+ *
+ * @async
+ */
 async function waitForGpuQueueIdle(): Promise<void> {
   await device.queue.onSubmittedWorkDone();
 }
 
+/**
+ * Resets rebuild-time tracking for large buffer allocations.
+ *
+ * @param {boolean} includeRecordingBuffers whether recording buffers are included in the rebuild.
+ */
 function resetRebuildAllocationTracking(includeRecordingBuffers: boolean): void {
   rebuildAllocatedBytesSinceYield = 0;
   rebuildMajorAllocationsRemaining = 2 + (includeRecordingBuffers ? 1 + STAGING_RING_SIZE : 0);
   rebuildPendingAllocationBuffers = [];
 }
 
+/**
+ * Clears tracked rebuild buffers and yields until the GPU catches up.
+ *
+ * @async
+ */
 async function waitForTrackedBufferAllocations(): Promise<void> {
-  if (rebuildPendingAllocationBuffers.length === 0) {
-    return;
+  if (rebuildPendingAllocationBuffers.length > 0) {
+    const encoder = device.createCommandEncoder({label: GPU_LABELS.trackedAllocationClearEncoder});
+    for (const buffer of rebuildPendingAllocationBuffers) {
+      encoder.clearBuffer(buffer);
+    }
+    device.queue.submit([encoder.finish()]);
+    await waitForGpuQueueIdle();
+    rebuildPendingAllocationBuffers = [];
   }
-  const encoder = device.createCommandEncoder({label: GPU_LABELS.trackedAllocationClearEncoder});
-  for (const buffer of rebuildPendingAllocationBuffers) {
-    encoder.clearBuffer(buffer);
-  }
-  device.queue.submit([encoder.finish()]);
-  await waitForGpuQueueIdle();
-  rebuildPendingAllocationBuffers = [];
 }
 
+/**
+ * Tracks one large rebuild allocation and yields when the running total gets too high.
+ *
+ * @async
+ * @param {number} byteSize allocated byte size.
+ * @param {GPUBuffer} buffer allocated GPU buffer.
+ */
 async function trackMajorBufferAllocation(byteSize: number, buffer: GPUBuffer): Promise<void> {
-  if (!rebuilding || rebuildMajorAllocationsRemaining <= 0) {
-    return;
+  if (rebuilding && rebuildMajorAllocationsRemaining > 0) {
+    rebuildAllocatedBytesSinceYield += byteSize;
+    rebuildMajorAllocationsRemaining--;
+    rebuildPendingAllocationBuffers.push(buffer);
+    if (rebuildAllocatedBytesSinceYield >= majorBufferAllocationYieldBytes(currentMaxSimulationBytes()) && rebuildMajorAllocationsRemaining > 0) {
+      await waitForTrackedBufferAllocations();
+      rebuildAllocatedBytesSinceYield = 0;
+    }
   }
-  rebuildAllocatedBytesSinceYield += byteSize;
-  rebuildMajorAllocationsRemaining--;
-  rebuildPendingAllocationBuffers.push(buffer);
-  if (rebuildAllocatedBytesSinceYield >= majorBufferAllocationYieldBytes() && rebuildMajorAllocationsRemaining > 0) {
-    await waitForTrackedBufferAllocations();
-    rebuildAllocatedBytesSinceYield = 0;
-  }
 }
 
-function majorBufferAllocationYieldBytes(): number {
-  return Math.min(maxSimulationBufferBytes(), MAJOR_BUFFER_ALLOCATION_YIELD_BYTES);
-}
-
-function maxSimulationBufferBytes(): number {
-  return Math.min(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
-}
-
-function maxRecordingBufferBytes(): number {
-  return Math.min(maxSimulationBufferBytes(), RECORDING_MAX_FRAME_BYTES);
-}
-
-function vramBudgetBytes(): number {
-  return Math.max(maxSimulationBufferBytes() * 2, maxRecordingBufferBytes() * 6);
-}
-
-function recordingAvailableForCurrentFrame(): boolean {
-  return frameByteSize > 0 && frameByteSize <= maxRecordingBufferBytes();
-}
-
-function simulationBufferBytes(): number {
-  if (frameByteSize <= 0) {
-    return 0;
-  }
-  return frameByteSize * 2 +
-    UNIFORM_SIZE +
-    TRIBE_COLOR_BUFFER_SIZE +
-    BRUSH_UNIFORM_SIZE +
-    HISTOGRAM_BUFFER_SIZE * 2 +
-    BOUNDARY_BUFFER_SIZE * 2;
-}
-
-function recordingBufferBytes(): number {
-  if (chunkFrameCapacity < 1 || frameByteSize <= 0) {
-    return 0;
-  }
-  const chunkBytes = chunkFrameCapacity * frameByteSize;
-  return chunkBytes * (1 + STAGING_RING_SIZE);
-}
-
+/**
+ * Destroys the current recording and staging buffers.
+ */
 function destroyRecordingBuffers(): void {
   chunkGpuBuffer?.destroy();
   chunkGpuBuffer = null;
@@ -475,6 +641,9 @@ function destroyRecordingBuffers(): void {
   inflightSealFrames = 0;
 }
 
+/**
+ * Destroys buffers that are rebuilt when the simulation layout changes.
+ */
 function destroyRebuildableBuffers(): void {
   gridBufferA?.destroy();
   gridBufferB?.destroy();
@@ -487,6 +656,11 @@ function destroyRebuildableBuffers(): void {
   destroyRecordingBuffers();
 }
 
+/**
+ * Updates the count of in-flight chunk seals and posts activity changes.
+ *
+ * @param {number} delta delta to apply to the in-flight seal count.
+ */
 function updateInflightSeals(delta: number): void {
   const wasSaving = inflightSeals > 0;
   inflightSeals += delta;
@@ -496,61 +670,81 @@ function updateInflightSeals(delta: number): void {
   }
 }
 
+/**
+ * Recomputes recording backpressure and posts state changes when needed.
+ */
 function checkBackpressure(): void {
-  if (chunkFrameCapacity < 1 || stagingRing.length === 0) {
-    if (backpressureActive) {
-      backpressureActive = false;
-      self.postMessage({type: 'backpressure', active: false});
-    }
-    return;
-  }
-  const maxPendingWrites = maxPendingOpfsWritesForCurrentChunk();
-  const stagingFull = !stagingAvailable.some(v => v) && chunkFrameIndex >= chunkFrameCapacity;
-  const opfsFull = pendingOpfsWrites >= maxPendingWrites;
-  let pressure: boolean;
-  if (backpressureActive) {
-    // Hysteresis: deactivate only when well below thresholds.
-    const stagingOk = stagingAvailable.some(v => v);
-    const opfsOk = pendingOpfsWrites <= Math.floor(maxPendingWrites / 2);
-    pressure = !(stagingOk && opfsOk);
-  } else {
-    pressure = stagingFull || opfsFull;
-  }
+  const pressure = evaluateRecordingBackpressure(chunkFrameCapacity, stagingAvailable, pendingOpfsWrites, maxPendingOpfsWritesForCurrentChunk(chunkFrameCapacity, frameByteSize), backpressureActive, chunkFrameIndex);
   if (pressure !== backpressureActive) {
     backpressureActive = pressure;
     self.postMessage({type: 'backpressure', active: pressure});
   }
 }
 
+/**
+ * Posts the current storage quota estimate through the worker protocol.
+ *
+ * @async
+ */
 async function postStorageQuota(): Promise<void> {
-  const estimate = await navigator.storage.estimate();
-  const quotaBytes = Math.min(estimate.quota ?? STORAGE_CAP / 128, STORAGE_CAP);
-  const usedBytes = estimate.usage ?? 0;
-  let pendingRawBytes = 0;
-  let compressedBytes = 0;
-  for (const c of sealedChunks) {
-    if (c.codec === RAW_PACKED_CODEC) {
-      pendingRawBytes += c.storedBytes;
-    } else {
-      compressedBytes += c.storedBytes;
-    }
-  }
-  // Worst-case bytes in GPU buffers not yet written to OPFS:
-  // 1 chunk buffer being filled + STAGING_RING_SIZE staging buffers in flight.
-  const chunkCapBytes = chunkFrameCapacity * frameByteSize;
-  const gpuBufferMarginBytes = isRecording ? (1 + STAGING_RING_SIZE) * chunkCapBytes : 0;
   self.postMessage({
     type: 'storageQuota',
-    usedBytes,
-    quotaBytes,
-    pendingRawBytes,
-    compressedBytes,
-    gpuBufferMarginBytes
+    ...buildStorageQuotaSnapshot(await navigator.storage.estimate(), sealedChunks, chunkFrameCapacity, frameByteSize, isRecording)
   });
 }
 
-let getRecordingPending = false;
+/**
+ * Returns the maximum safe simulation buffer size for the current device.
+ *
+ * @returns {number} maximum simulation buffer size in bytes.
+ */
+function currentMaxSimulationBytes(): number {
+  return maxSimulationBufferBytes(device.limits.maxBufferSize, device.limits.maxStorageBufferBindingSize);
+}
 
+/**
+ * Returns the maximum safe recording frame size for the current device.
+ *
+ * @returns {number} maximum recording frame size in bytes.
+ */
+function currentMaxRecordingBytes(): number {
+  return maxRecordingBufferBytes(currentMaxSimulationBytes());
+}
+
+/**
+ * Returns whether recording supports the current frame size.
+ *
+ * @returns {boolean} true when recording is available for the current frame.
+ */
+function recordingAvailableNow(): boolean {
+  return recordingAvailableForCurrentFrame(frameByteSize, currentMaxRecordingBytes());
+}
+
+/**
+ * Returns whether the current recording chunk can be sealed immediately.
+ *
+ * @returns {boolean} true when the current chunk can be sealed.
+ */
+function canSealCurrentChunkNow(): boolean {
+  return canSealCurrentChunk(pendingOpfsWrites, maxPendingOpfsWritesForCurrentChunk(chunkFrameCapacity, frameByteSize), stagingAvailable, stagingRing);
+}
+
+/**
+ * Returns whether the current frame can be recorded immediately.
+ *
+ * @returns {boolean} true when recording can proceed.
+ */
+function canRecordNow(): boolean {
+  return canRecord(recordingAvailableNow(), chunkFrameCapacity, chunkGpuBuffer, stagingRing, chunkFrameIndex, canSealCurrentChunkNow());
+}
+
+/**
+ * Decompresses one raw-deflate payload into an ArrayBuffer.
+ *
+ * @async
+ * @param {ArrayBuffer} compressed compressed payload bytes.
+ * @returns {Promise<ArrayBuffer>} decompressed payload bytes.
+ */
 async function decompressPayload(compressed: ArrayBuffer): Promise<ArrayBuffer> {
   const ds = new DecompressionStream(RAW_DEFLATE_CODEC);
   const writer = ds.writable.getWriter();
@@ -578,474 +772,36 @@ async function decompressPayload(compressed: ArrayBuffer): Promise<ArrayBuffer> 
   return result.buffer;
 }
 
-// FPS tracking
-let stepCount = 0;
-let lastFpsTime = 0;
-let currentFps = 0;
-
-function plan2DDispatch(logicalWgX: number, logicalWgY: number, limit = device.limits.maxComputeWorkgroupsPerDimension): DispatchPlan2D {
-  if (logicalWgX <= limit && logicalWgY <= limit) {
-    return {
-      logicalWgX,
-      logicalWgY,
-      dispatchWgX: logicalWgX,
-      dispatchWgY: logicalWgY,
-      remapped: false
-    };
-  }
-
-  const totalLogicalWorkgroups = logicalWgX * logicalWgY;
-  const dispatchWgX = Math.min(totalLogicalWorkgroups, limit);
-  const dispatchWgY = Math.ceil(totalLogicalWorkgroups / dispatchWgX);
-
-  if (dispatchWgY > limit) {
-    throw new Error(`Grid requires ${logicalWgX}x${logicalWgY} logical workgroups, which cannot be remapped within the WebGPU per-dimension dispatch limit ${limit}.`);
-  }
-
-  return {
-    logicalWgX,
-    logicalWgY,
-    dispatchWgX,
-    dispatchWgY,
-    remapped: true
-  };
+/**
+ * Current logical grid dimensions.
+ *
+ * @returns {Grid} logical grid dimensions.
+ */
+function currentGridSize(): Grid {
+  return {cols, rows};
 }
 
+/**
+ * Builds the simulation compute dispatch plan for the current packed grid.
+ *
+ * @returns {DispatchPlan2D} simulation dispatch plan.
+ */
 function createSimulationDispatchPlan(): DispatchPlan2D {
-  return plan2DDispatch(Math.ceil(packedCols / 16), Math.ceil(rows / 16));
+  return plan2DDispatch(Math.ceil(packedCols / 16), Math.ceil(rows / 16), device.limits.maxComputeWorkgroupsPerDimension);
 }
 
+/**
+ * Builds the metrics compute dispatch plan for the current logical grid.
+ *
+ * @returns {DispatchPlan2D} metrics dispatch plan.
+ */
 function createMetricsDispatchPlan(): DispatchPlan2D {
-  return plan2DDispatch(Math.ceil(cols / 16), Math.ceil(rows / 16));
+  return plan2DDispatch(Math.ceil(cols / 16), Math.ceil(rows / 16), device.limits.maxComputeWorkgroupsPerDimension);
 }
 
-// ---------------------------------------------------------------------------
-//  Compute shader codegen
-// ---------------------------------------------------------------------------
-
-function pushDispatchPlanWgslConstants(lines: string[], plan: DispatchPlan2D): void {
-  if (!plan.remapped) {
-    return;
-  }
-  lines.push(`const LOGICAL_WG_X: u32 = ${plan.logicalWgX}u;`);
-  lines.push(`const DISPATCH_WG_X: u32 = ${plan.dispatchWgX}u;`);
-}
-
-function pushGridFormatWgslConstants(lines: string[]): void {
-  lines.push(`const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;`);
-  lines.push(`const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;`);
-  lines.push(`const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;`);
-  lines.push(`const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;`);
-  lines.push(`const CELL_MASK: u32 = ${gridFormat.cellMask}u;`);
-}
-
-function pushReadCellWgsl(lines: string[], storageVar: string, packedColsExpr: string): void {
-  lines.push('fn readCell(x: u32, y: u32) -> u32 {');
-  lines.push(`  let wordIdx = y * ${packedColsExpr} + (x >> WORD_SHIFT);`);
-  lines.push('  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;');
-  lines.push(`  return (${storageVar}[wordIdx] >> shift) & CELL_MASK;`);
-  lines.push('}');
-}
-
-function pushLogicalInvocation2DWgsl(lines: string[], plan: DispatchPlan2D, xName: string): void {
-  if (plan.remapped) {
-    lines.push('  let flatWg = workgroup_id.y * DISPATCH_WG_X + workgroup_id.x;');
-    lines.push('  let logicalWgX = flatWg % LOGICAL_WG_X;');
-    lines.push('  let logicalWgY = flatWg / LOGICAL_WG_X;');
-    lines.push('');
-    lines.push(`  let ${xName} = logicalWgX * 16u + local_invocation_id.x;`);
-    lines.push('  let y = logicalWgY * 16u + local_invocation_id.y;');
-    return;
-  }
-
-  lines.push(`  let ${xName} = gid.x;`);
-  lines.push('  let y = gid.y;');
-}
-
-function generateComputeWgsl(): string {
-  const lines: string[] = [];
-  const pc = packedCols;
-  const dispatchPlan = simulationDispatchPlan;
-
-  lines.push('// Auto-generated simulation compute shader.');
-  lines.push(`// Tribes: ${tribes.map(t => t.id).join(', ')}`);
-  lines.push(`// Rules: ${ruleset.rules.length}`);
-  lines.push('');
-  lines.push('@group(0) @binding(0) var<storage, read> gridIn: array<u32>;');
-  lines.push('@group(0) @binding(1) var<storage, read_write> gridOut: array<u32>;');
-  lines.push('');
-  lines.push(`const COLS: u32 = ${ cols }u;`);
-  lines.push(`const ROWS: u32 = ${ rows }u;`);
-  lines.push(`const PACKED_COLS: u32 = ${ pc }u;`);
-  pushDispatchPlanWgslConstants(lines, dispatchPlan);
-  pushGridFormatWgslConstants(lines);
-  lines.push('');
-
-  // Helper: read a cell's tribe ID from packed grid.
-  pushReadCellWgsl(lines, 'gridIn', 'PACKED_COLS');
-  lines.push('');
-
-  // Generate applyRules function containing all rule logic.
-  const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
-  const activeRules = ruleset.rules.filter(rule => !rule.muted);
-  lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
-
-  // Precompute neighbor count variables for each unique tribe set used in count clauses.
-  const countSets = collectCountSets(activeRules.map(r => r.clause));
-  const countVarMap = new Map<string, string>();
-  let countIdx = 0;
-  for (const key of countSets) {
-    const varName = `count_${ countIdx++}`;
-    countVarMap.set(key, varName);
-  }
-
-  for (const [key, varName] of countVarMap) {
-    const tribeIds = key.split(',').map(Number);
-    const neighbors = getNeighborVarNames();
-    const checks = neighbors.map(n => {
-      const conditions = tribeIds.map(id => `${n } == ${ id }u`);
-      return `select(0u, 1u, ${ conditions.join(' || ') })`;
-    });
-    lines.push(`  let ${ varName } = ${ checks.join(' + ') };`);
-  }
-  if (countSets.size > 0) {
-    lines.push('');
-  }
-
-  // Precompute equality group counts.
-  const equalitySets = collectEqualitySets(activeRules.map(r => r.clause));
-  const eqVarMap = new Map<string, string>();
-  let eqIdx = 0;
-  for (const key of equalitySets) {
-    if (countVarMap.has(key)) {
-      eqVarMap.set(key, countVarMap.get(key)!);
-    } else {
-      const varName = `eq_count_${ eqIdx++}`;
-      eqVarMap.set(key, varName);
-    }
-  }
-  for (const [key, varName] of eqVarMap) {
-    if (countVarMap.has(key)) {
-      continue;
-    }
-    const tribeIds = key.split(',').map(Number);
-    const neighbors = getNeighborVarNames();
-    const checks = neighbors.map(n => {
-      const conditions = tribeIds.map(id => `${n } == ${ id }u`);
-      return `select(0u, 1u, ${ conditions.join(' || ') })`;
-    });
-    lines.push(`  let ${ varName } = ${ checks.join(' + ') };`);
-  }
-  if (equalitySets.size > 0 && eqIdx > 0) {
-    lines.push('');
-  }
-
-  // Default: dead tribe.
-  lines.push(`  var result: u32 = ${ deadIdx }u;`);
-  lines.push('');
-
-  // Rule chain: first matching rule wins.
-  for (let ri = 0; ri < activeRules.length; ri++) {
-    const rule = activeRules[ri]!;
-    const condExpr = generateClauseExpr(rule.clause, countVarMap, eqVarMap);
-    const targetIdx = resolveTribeTarget(rule.tribe);
-    if (ri === 0) {
-      lines.push(`  if (${ condExpr }) {`);
-    } else {
-      lines.push(`  } else if (${ condExpr }) {`);
-    }
-    lines.push(`    result = ${ targetIdx }u;`);
-  }
-  if (activeRules.length > 0) {
-    lines.push('  }');
-  }
-  lines.push('');
-  lines.push('  return result;');
-  lines.push('}');
-  lines.push('');
-
-  // Main compute function: each thread processes one packed u32 word.
-  lines.push('@compute @workgroup_size(16, 16)');
-  if (dispatchPlan.remapped) {
-    lines.push('fn main(@builtin(workgroup_id) workgroup_id: vec3u, @builtin(local_invocation_id) local_invocation_id: vec3u) {');
-  } else {
-    lines.push('fn main(@builtin(global_invocation_id) gid: vec3u) {');
-  }
-  pushLogicalInvocation2DWgsl(lines, dispatchPlan, 'px');
-  lines.push('  if (px >= PACKED_COLS || y >= ROWS) { return; }');
-  lines.push('');
-  lines.push('  let baseX = px << WORD_SHIFT;');
-  lines.push('  var packed: u32 = 0u;');
-  lines.push('');
-  lines.push('  for (var i: u32 = 0u; i < CELLS_PER_WORD; i = i + 1u) {');
-  lines.push('    let x = baseX + i;');
-  lines.push('    if (x >= COLS) { break; }');
-  lines.push('');
-  lines.push('    let selfTribe = readCell(x, y);');
-
-  // Read 8 neighbors using readCell(wrappedX, wrappedY).
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) {
-        continue;
-      }
-      const name = neighborVarName(dx, dy);
-      const xExpr = wrapExpr('x', dx, 'COLS');
-      const yExpr = wrapExpr('y', dy, 'ROWS');
-      lines.push(`    let ${ name } = readCell(${ xExpr }, ${ yExpr });`);
-    }
-  }
-  lines.push('');
-  lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & CELL_MASK) << (i << CELL_SHIFT));');
-  lines.push('  }');
-  lines.push('');
-  lines.push('  gridOut[y * PACKED_COLS + px] = packed;');
-  lines.push('}');
-
-  return lines.join('\n');
-}
-
-function neighborVarName(dx: number, dy: number): string {
-  let xName = 'C';
-  if (dx === -1) {
-    xName = 'L';
-  } else if (dx === 1) {
-    xName = 'R';
-  }
-
-  let yName = 'C';
-  if (dy === -1) {
-    yName = 'T';
-  } else if (dy === 1) {
-    yName = 'B';
-  }
-
-  return `n${ yName }${xName}`;
-}
-
-function getNeighborVarNames(): string[] {
-  const names: string[] = [];
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (dx === 0 && dy === 0) {
-        continue;
-      }
-      names.push(neighborVarName(dx, dy));
-    }
-  }
-  return names;
-}
-
-function wrapExpr(varName: string, delta: number, limit: string): string {
-  if (delta === 0) {
-    return varName;
-  }
-  if (delta === -1) {
-    return `(${ varName } + ${ limit } - 1u) % ${ limit}`;
-  }
-  return `(${ varName } + 1u) % ${ limit}`;
-}
-
-function resolveTribeIds(tribeNames: string[]): number[] {
-  const ids: number[] = [];
-  for (const name of tribeNames) {
-    if (name === ANY_TRIBE_ID) {
-      for (let i = 0; i < tribes.length; i++) {
-        ids.push(i);
-      }
-    } else {
-      const idx = tribeIndex.get(name);
-      if (idx !== undefined) {
-        ids.push(idx);
-      }
-    }
-  }
-  return [...new Set(ids)];
-}
-
-function resolveTribeTarget(tribeName: string): number {
-  if (tribeName === ANY_TRIBE_ID) {
-    return 0;
-  }
-  return tribeIndex.get(tribeName) ?? 0;
-}
-
-function collectCountSets(clauses: Clause<Tribe[]>[]): Set<string> {
-  const result = new Set<string>();
-  for (const c of clauses) {
-    collectCountSetsRec(c, result);
-  }
-  return result;
-}
-
-function collectCountSetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
-  switch (c.kind) {
-    case EMPTY_CLAUSE_KIND:
-    case IS_CLAUSE_KIND:
-      break;
-    case NONE_CLAUSE_KIND:
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND:
-    case COUNT_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      result.add(ids.join(','));
-      break;
-    }
-    case NOT_CLAUSE_KIND:
-      collectCountSetsRec(c.clause, result);
-      break;
-    case AND_CLAUSE_KIND:
-    case OR_CLAUSE_KIND:
-    case XOR_CLAUSE_KIND:
-      for (const sub of c.clauses) {
-        collectCountSetsRec(sub, result);
-      }
-      break;
-  }
-}
-
-function collectEqualitySets(clauses: Clause<Tribe[]>[]): Set<string> {
-  const result = new Set<string>();
-  for (const c of clauses) {
-    collectEqualitySetsRec(c, result);
-  }
-  return result;
-}
-
-function collectEqualitySetsRec(c: Clause<Tribe[]>, result: Set<string>): void {
-  switch (c.kind) {
-    case EMPTY_CLAUSE_KIND:
-    case IS_CLAUSE_KIND:
-    case COUNT_CLAUSE_KIND:
-    case NONE_CLAUSE_KIND:
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND:
-      break;
-    case COMPARISON_CLAUSE_KIND: {
-      const ids1 = resolveTribeIds(c.tribe1 as string[]).sort();
-      const ids2 = resolveTribeIds(c.tribe2 as string[]).sort();
-      result.add(ids1.join(','));
-      result.add(ids2.join(','));
-      break;
-    }
-    case NOT_CLAUSE_KIND:
-      collectEqualitySetsRec(c.clause, result);
-      break;
-    case AND_CLAUSE_KIND:
-    case OR_CLAUSE_KIND:
-    case XOR_CLAUSE_KIND:
-      for (const sub of c.clauses) {
-        collectEqualitySetsRec(sub, result);
-      }
-      break;
-  }
-}
-
-function generateClauseExpr(
-  c: Clause<Tribe[]>,
-  countVarMap: Map<string, string>,
-  eqVarMap: Map<string, string>,
-): string {
-  switch (c.kind) {
-    case EMPTY_CLAUSE_KIND:
-      return 'false';
-    case IS_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]);
-      if (ids.length === 0) {
-        return 'false';
-      }
-      if (ids.length === tribes.length) {
-        return 'true';
-      }
-      const checks = ids.map(id => `selfTribe == ${ id }u`);
-      return `(${ checks.join(' || ') })`;
-    }
-    case COUNT_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      const varName = countVarMap.get(ids.join(','))!;
-      return `(${ varName } >= ${ c.interval[0] }u && ${ varName } <= ${ c.interval[1] }u)`;
-    }
-    case NONE_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      const varName = countVarMap.get(ids.join(','))!;
-      return `(${ varName } >= 0u && ${ varName } <= 0u)`;
-    }
-    case EXACTLY_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      const varName = countVarMap.get(ids.join(','))!;
-      return `(${ varName } >= ${ c.value }u && ${ varName } <= ${ c.value }u)`;
-    }
-    case MIN_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      const varName = countVarMap.get(ids.join(','))!;
-      return `(${ varName } >= ${ c.value }u && ${ varName } <= 8u)`;
-    }
-    case MAX_CLAUSE_KIND: {
-      const ids = resolveTribeIds(c.tribes as string[]).sort();
-      const varName = countVarMap.get(ids.join(','))!;
-      return `(${ varName } >= 0u && ${ varName } <= ${ c.value }u)`;
-    }
-    case COMPARISON_CLAUSE_KIND: {
-      const var1 = eqVarMap.get(resolveTribeIds(c.tribe1 as string[]).sort().join(','))!;
-      const margin = Math.max(-8, Math.min(8, c.margin ?? 0));
-      const rightExpr = `(i32(${eqVarMap.get(resolveTribeIds(c.tribe2 as string[]).sort().join(','))!}) + ${ margin }i)`;
-      switch (c.operator) {
-        case '≠':
-          return `(i32(${var1}) != ${rightExpr})`;
-        case '>':
-          return `(i32(${var1}) > ${rightExpr})`;
-        case '<':
-          return `(i32(${var1}) < ${rightExpr})`;
-        case '≥':
-          return `(i32(${var1}) >= ${rightExpr})`;
-        case '≤':
-          return `(i32(${var1}) <= ${rightExpr})`;
-        case '=':
-        default:
-          return `(i32(${var1}) == ${rightExpr})`;
-      }
-    }
-    case NOT_CLAUSE_KIND:
-      return `!(${ generateClauseExpr(c.clause, countVarMap, eqVarMap) })`;
-    case AND_CLAUSE_KIND: {
-      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
-      return `(${ parts.join(' && ') })`;
-    }
-    case OR_CLAUSE_KIND: {
-      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
-      return `(${ parts.join(' || ') })`;
-    }
-    case XOR_CLAUSE_KIND: {
-      const parts = c.clauses.map(sub => generateClauseExpr(sub, countVarMap, eqVarMap));
-      const oddExpr = parts.map(p => `select(0u, 1u, ${ p })`).join(' + ');
-      return `(((${ oddExpr }) & 1u) == 1u)`;
-    }
-    default:
-      return 'false';
-  }
-}
-
-// ---------------------------------------------------------------------------
-//  Uniform layout (must match render.wgsl Uniforms struct)
-//
-//  Offset  0: canvas_size  vec2f    8 bytes
-//  Offset  8: scale        f32      4 bytes
-//  Offset 12: pad                   4 bytes
-//  Offset 16: offset_frac  vec2f    8 bytes
-//  Offset 24: grid_size    vec2u    8 bytes
-//  Offset 32: offset_cell  vec2u    8 bytes
-//  Offset 40: tribe_count  u32      4 bytes
-//  Offset 44: pad                   4 bytes
-//  Offset 48: preview_center vec2i  8 bytes
-//  Offset 56: preview_size u32      4 bytes
-//  Offset 60: preview_shape u32     4 bytes
-//  Offset 64: preview_visible u32   4 bytes
-//  Total: 80 bytes
-// ---------------------------------------------------------------------------
-const UNIFORM_SIZE = 80;
-
+/**
+ * Recreates the uniform buffer used by the render pipeline.
+ */
 function createUniformBuffer(): void {
   uniformBuffer?.destroy();
   uniformBuffer = device.createBuffer({
@@ -1055,85 +811,72 @@ function createUniformBuffer(): void {
   });
 }
 
+/**
+ * Writes the current render uniforms into the GPU uniform buffer.
+ */
 function writeUniforms(): void {
-  const data = new ArrayBuffer(UNIFORM_SIZE);
-  const f32 = new Float32Array(data);
-  const i32 = new Int32Array(data);
-  const u32 = new Uint32Array(data);
-  const renderOffsetX = ((offsetX % cols) + cols) % cols;
-  const renderOffsetY = ((offsetY % rows) + rows) % rows;
-  const offsetCellX = Math.floor(renderOffsetX);
-  const offsetCellY = Math.floor(renderOffsetY);
-
-  f32[0] = canvas.width;
-  f32[1] = canvas.height;
-  f32[2] = scale;
-  // F32[3] = padding
-  f32[4] = renderOffsetX - offsetCellX;
-  f32[5] = renderOffsetY - offsetCellY;
-  u32[6] = cols;
-  u32[7] = rows;
-  u32[8] = offsetCellX;
-  u32[9] = offsetCellY;
-  u32[10] = tribes.length;
-  i32[12] = brushPreview.centerX;
-  i32[13] = brushPreview.centerY;
-  u32[14] = brushPreview.brushSize;
-  u32[15] = brushPreview.shape;
-  u32[16] = brushPreview.visible ? 1 : 0;
-
+  const data = createRenderUniformData({
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    scale,
+    offsetX,
+    offsetY,
+    grid: currentGridSize(),
+    tribeCount: tribes.length,
+    brushPreview
+  });
   device.queue.writeBuffer(uniformBuffer, 0, data);
 }
 
-// ---------------------------------------------------------------------------
-//  Buffer management
-// ---------------------------------------------------------------------------
-
+/**
+ * Computes the byte size of one packed simulation grid buffer.
+ *
+ * @returns {number} packed grid buffer size in bytes.
+ */
 function gridBufferSize(): number {
   return gridByteSize({cols, rows}, gridFormat);
 }
 
+/**
+ * Returns the metadata representation of the active grid format.
+ *
+ * @returns {GridFormatMetadata} active grid format metadata.
+ */
 function currentGridFormatMetadata(): GridFormatMetadata {
   return gridFormatMetadata(gridFormat);
 }
 
+/**
+ * Recreates the main ping-pong grid buffers for the current simulation layout.
+ *
+ * @async
+ */
 async function createGridBuffers(): Promise<void> {
   const byteSize = gridBufferSize();
-
   gridBufferA = device.createBuffer({
     label: GPU_LABELS.gridBufferA,
     size: byteSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
   await trackMajorBufferAllocation(byteSize, gridBufferA);
-
   gridBufferB = device.createBuffer({
     label: GPU_LABELS.gridBufferB,
     size: byteSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
   });
   await trackMajorBufferAllocation(byteSize, gridBufferB);
-
-  // Dead tribe always maps to index 0 → packed representation is all-zero.
-  // GPU clearBuffer zeroes the buffers with no JS heap allocation.
   const enc = device.createCommandEncoder({label: GPU_LABELS.gridClearEncoder});
   enc.clearBuffer(gridBufferA);
   enc.clearBuffer(gridBufferB);
   device.queue.submit([enc.finish()]);
-
   pingPong = false;
 }
 
+/**
+ * Recreates the tribe-color lookup buffer for the active tribe palette.
+ */
 function createTribeColorBuffer(): void {
-  const data = new Uint32Array(MAX_TRIBES);
-  for (let i = 0; i < tribes.length; i++) {
-    const hex = tribes[i]!.color;
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    data[i] = r | (g << 8) | (b << 16);
-  }
-
+  const data = createTribeColorData(tribes);
   if (tribeColorBuffer) {
     tribeColorBuffer.destroy();
   }
@@ -1145,26 +888,18 @@ function createTribeColorBuffer(): void {
   device.queue.writeBuffer(tribeColorBuffer, 0, data);
 }
 
-function generateRenderWgsl(): string {
-  return renderWgsl
-    .replace('__CELLS_PER_WORD__', `${gridFormat.cellsPerWord}u`)
-    .replace('__WORD_SHIFT__', `${gridFormat.wordShift}u`)
-    .replace('__CELL_SHIFT__', `${gridFormat.cellShift}u`)
-    .replace('__CELL_INDEX_MASK__', `${gridFormat.cellIndexMask}u`)
-    .replace('__CELL_MASK__', `${gridFormat.cellMask}u`);
-}
-
-// ---------------------------------------------------------------------------
-//  Pipeline creation
-// ---------------------------------------------------------------------------
-
+/**
+ * Recreates the render pipeline for the current canvas format.
+ */
 function createRenderPipeline(): void {
-  const module = device.createShaderModule({label: GPU_LABELS.renderShaderModule, code: generateRenderWgsl()});
-
+  const module = device.createShaderModule({label: GPU_LABELS.renderShaderModule, code: generateRenderWgsl(renderWgsl, gridFormat)});
   renderPipeline = device.createRenderPipeline({
     label: GPU_LABELS.renderPipeline,
     layout: 'auto',
-    vertex: {module, entryPoint: 'vs_main'},
+    vertex: {
+      module,
+      entryPoint: 'vs_main'
+    },
     fragment: {
       module,
       entryPoint: 'fs_main',
@@ -1176,44 +911,45 @@ function createRenderPipeline(): void {
   });
 }
 
+/**
+ * Recreates the render bind groups for the ping-pong grid buffers.
+ */
 function createRenderBindGroups(): void {
   renderBindGroupA = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: uniformBuffer} }, {binding: 1, resource: {buffer: gridBufferA} }, {binding: 2, resource: {buffer: tribeColorBuffer} }]
   });
-
   renderBindGroupB = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: uniformBuffer} }, {binding: 1, resource: {buffer: gridBufferB} }, {binding: 2, resource: {buffer: tribeColorBuffer} }]
   });
 }
 
+/**
+ * Recreates the simulation compute pipeline and its bind groups.
+ */
 function createComputePipeline(): void {
   simulationDispatchPlan = createSimulationDispatchPlan();
-  const wgsl = generateComputeWgsl();
+  const wgsl = generateComputeWgsl(ruleset, tribes, packedCols, currentGridSize(), simulationDispatchPlan, gridFormat, tribeIndex);
   const module = device.createShaderModule({label: GPU_LABELS.simulationShaderModule, code: wgsl});
-
   computePipeline = device.createComputePipeline({
     label: GPU_LABELS.simulationPipeline,
     layout: 'auto',
     compute: {module, entryPoint: 'main'}
   });
-
   computeBindGroupAtoB = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: gridBufferB} }]
   });
-
   computeBindGroupBtoA = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: gridBufferA} }]
   });
 }
 
-// ---------------------------------------------------------------------------
-//  Metrics compute pipelines (histogram + boundary)
-// ---------------------------------------------------------------------------
-
+/**
+ * Recreates the interactive metrics pipelines and backing resources.
+ */
 function createMetricsPipelines(): void {
   metricsDispatchPlan = createMetricsDispatchPlan();
   metricsResources = createInteractiveMetricsResources({
@@ -1225,177 +961,20 @@ function createMetricsPipelines(): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-//  Brush compute shader
-// ---------------------------------------------------------------------------
-
-//  BrushParams uniform layout (14 x u32 = 56 bytes):
-//    0: packedCols       4: brushSize
-//    8: shape           12: fill
-//   16: deadId          20: seed
-//   24: tribeCount      28: destinationStartX
-//   32: destinationStartY 36: localStartX
-//   40: localStartY     44: spanCols
-//   48: spanRows        52: pad
-const BRUSH_UNIFORM_SIZE = 192; // 56 bytes header + 32*4 = 128 bytes tribe array = 184, rounded to 192
-
-function generateBrushWgsl(): string {
-  return `
-struct BrushParams {
-  packedCols: u32,
-  brushSize: u32,
-  shape: u32,      // 0=square 1=round 2=diamond 3=vline, 4=hline
-  fill: u32,        // 0=full 1=spray 2=outline
-  deadId: u32,
-  seed: u32,
-  tribeCount: u32,
-  destinationStartX: u32,
-  destinationStartY: u32,
-  localStartX: u32,
-  localStartY: u32,
-  spanCols: u32,
-  spanRows: u32,
-  pad: u32,
-  tribeIds: array<u32, 32>,
-}
-
-@group(0) @binding(0) var<storage, read_write> grid: array<u32>;
-@group(0) @binding(1) var<uniform> params: BrushParams;
-
-const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
-const WORD_SHIFT: u32 = ${gridFormat.wordShift}u;
-const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;
-const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;
-const CELL_MASK: u32 = ${gridFormat.cellMask}u;
-
-fn pcg(inp: u32) -> u32 {
-  var state = inp * 747796405u + 2891336453u;
-  var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-  return (word >> 22u) ^ word;
-}
-
-fn writePackedWord(wordIdx: u32, writeMask: u32, writeBits: u32) {
-  let old = grid[wordIdx];
-  let updated = (old & ~writeMask) | (writeBits & writeMask);
-  grid[wordIdx] = updated;
-}
-
-fn inShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
-  if (bx < 0 || by < 0 || bx >= i32(size) || by >= i32(size)) { return false; }
-  let hf = f32(size - 1u) / 2.0;
-  let fdx = f32(bx) - hf;
-  let fdy = f32(by) - hf;
-  switch (shape) {
-    case 1u: { // round
-      let r = f32(size) / 2.0 - 0.25;
-      return fdx * fdx + fdy * fdy <= r * r;
-    }
-    case 2u: { // diamond
-      return abs(fdx) + abs(fdy) <= f32(size) / 2.0;
-    }
-    case 3u: { // vline
-      return bx == i32(size - 1u) / 2;
-    }
-    case 4u: { // hline
-      return by == i32(size - 1u) / 2;
-    }
-    default: { // 0 = square
-      return true; // bounds already checked above
-    }
-  }
-}
-
-fn onBorder(bx: i32, by: i32, size: u32, shape: u32) -> bool {
-  if (!inShape(bx, by, size, shape)) { return false; }
-  return !inShape(bx - 1, by, size, shape)
-      || !inShape(bx + 1, by, size, shape)
-      || !inShape(bx, by - 1, size, shape)
-      || !inShape(bx, by + 1, size, shape);
-}
-
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) gid: vec3u) {
-  let startWord = params.destinationStartX >> WORD_SHIFT;
-  let endWordExclusive = (params.destinationStartX + params.spanCols + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
-  let spanWords = endWordExclusive - startWord;
-  let wordOffset = gid.x;
-  let rowOffset = gid.y;
-  if (wordOffset >= spanWords || rowOffset >= params.spanRows) { return; }
-
-  let cy = params.destinationStartY + rowOffset;
-  let localBy = params.localStartY + rowOffset;
-  let wordX = startWord + wordOffset;
-  let wordIdx = cy * params.packedCols + wordX;
-  let wordBaseCellX = wordX << WORD_SHIFT;
-  let rectEndX = params.destinationStartX + params.spanCols;
-
-  var writeMask = 0u;
-  var writeBits = 0u;
-
-  for (var lane = 0u; lane < CELLS_PER_WORD; lane++) {
-    let cx = wordBaseCellX + lane;
-    let insideRect = cx >= params.destinationStartX && cx < rectEndX;
-    if (insideRect) {
-      let localBx = params.localStartX + (cx - params.destinationStartX);
-      let bx = i32(localBx);
-      let by = i32(localBy);
-      var insideShape = false;
-      if (params.fill == 2u) {
-        insideShape = onBorder(bx, by, params.brushSize, params.shape);
-      } else {
-        insideShape = inShape(bx, by, params.brushSize, params.shape);
-      }
-
-      if (insideShape) {
-        let idx = localBy * params.brushSize + localBx;
-        let spatialHash = (cx * 73856093u) ^ (cy * 19349663u);
-        let h = pcg(params.seed ^ idx ^ spatialHash);
-        let selectedTribe = params.tribeIds[h % params.tribeCount];
-        var shouldWrite = true;
-        var value = selectedTribe;
-
-        if (params.fill == 1u && ((h >> 16u) & 1u) != 0u) {
-          if (selectedTribe != params.deadId) {
-            value = params.deadId;
-          } else {
-            shouldWrite = false;
-          }
-        }
-
-        if (shouldWrite) {
-          let shift = (lane & CELL_INDEX_MASK) << CELL_SHIFT;
-          let mask = CELL_MASK << shift;
-          writeMask |= mask;
-          writeBits = (writeBits & ~mask) | ((value & CELL_MASK) << shift);
-        }
-      }
-    }
-  }
-
-  if (writeMask != 0u) {
-    writePackedWord(wordIdx, writeMask, writeBits);
-  }
-}
-`;
-}
-
 /**
  * Creates the brush compute pipeline and per-rectangle uniform resources.
  */
 function createBrushPipeline(): void {
-  const module = device.createShaderModule({label: GPU_LABELS.brushShaderModule, code: generateBrushWgsl()});
-
+  const module = device.createShaderModule({label: GPU_LABELS.brushShaderModule, code: generateBrushWgsl(gridFormat)});
   brushPipeline = device.createComputePipeline({
     label: GPU_LABELS.brushPipeline,
     layout: 'auto',
     compute: {module, entryPoint: 'main'}
   });
-
   brushUniformBuffers.forEach(buffer => buffer.destroy());
   brushUniformBuffers = [];
   brushBindGroupsA = [];
   brushBindGroupsB = [];
-
   for (let i = 0; i < BRUSH_DISPATCH_RECT_CAPACITY; i++) {
     const brushUniformBuffer = device.createBuffer({
       label: `${GPU_LABELS.brushUniformBuffer} ${i}`,
@@ -1415,84 +994,6 @@ function createBrushPipeline(): void {
 }
 
 /**
- * Splits one brush axis into non-wrapping destination segments.
- *
- * @param {number} center brush center on the target axis.
- * @param {number} brushSize brush size in logical cells.
- * @param {number} limit grid extent on the target axis.
- * @returns {BrushDispatchAxisSegment[]} one or two non-wrapping segments.
- */
-function createBrushAxisSegments(center: number, brushSize: number, limit: number): BrushDispatchAxisSegment[] {
-  const half = Math.floor((brushSize - 1) / 2);
-  const rawStart = center - half;
-  const rawEndExclusive = rawStart + brushSize;
-  const segments: BrushDispatchAxisSegment[] = [];
-
-  if (rawStart >= 0 && rawEndExclusive <= limit) {
-    segments.push({
-      destinationStart: rawStart,
-      localStart: 0,
-      span: brushSize
-    });
-  } else if (rawStart < 0) {
-    const wrappedSpan = -rawStart;
-    segments.push({
-      destinationStart: limit - wrappedSpan,
-      localStart: 0,
-      span: wrappedSpan
-    });
-    segments.push({
-      destinationStart: 0,
-      localStart: wrappedSpan,
-      span: brushSize - wrappedSpan
-    });
-  } else {
-    const nonWrappedSpan = limit - rawStart;
-    segments.push({
-      destinationStart: rawStart,
-      localStart: 0,
-      span: nonWrappedSpan
-    });
-    segments.push({
-      destinationStart: 0,
-      localStart: nonWrappedSpan,
-      span: rawEndExclusive - limit
-    });
-  }
-
-  return segments.filter(segment => segment.span > 0);
-}
-
-/**
- * Produces the non-wrapping rectangles required for one wrapped brush stroke.
- *
- * @param {number} centerX brush center x coordinate.
- * @param {number} centerY brush center y coordinate.
- * @param {number} brushSize brush size in logical cells.
- * @returns {BrushDispatchRect[]} up to four non-overlapping rectangles.
- */
-function createBrushDispatchRects(centerX: number, centerY: number, brushSize: number): BrushDispatchRect[] {
-  const xSegments = createBrushAxisSegments(centerX, brushSize, cols);
-  const ySegments = createBrushAxisSegments(centerY, brushSize, rows);
-  const rects: BrushDispatchRect[] = [];
-
-  for (const ySegment of ySegments) {
-    for (const xSegment of xSegments) {
-      rects.push({
-        destinationStartX: xSegment.destinationStart,
-        destinationStartY: ySegment.destinationStart,
-        localStartX: xSegment.localStart,
-        localStartY: ySegment.localStart,
-        spanCols: xSegment.span,
-        spanRows: ySegment.span
-      });
-    }
-  }
-
-  return rects;
-}
-
-/**
  * Encodes the wrapped brush stroke as one or more non-overlapping rectangle dispatches.
  *
  * @param {GPUCommandEncoder} encoder destination command encoder.
@@ -1506,9 +1007,8 @@ function createBrushDispatchRects(centerX: number, centerY: number, brushSize: n
 function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeIds: number[]): void {
   const deadId = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const seed = brushSeedCounter++;
-  const rects = createBrushDispatchRects(centerX, centerY, brushSize);
+  const rects = createBrushDispatchRects(centerX, centerY, brushSize, currentGridSize());
   const bindGroups = pingPong ? brushBindGroupsB : brushBindGroupsA;
-
   for (const [index, rect] of rects.entries()) {
     const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
     const u32View = new Uint32Array(data);
@@ -1529,30 +1029,40 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
     for (let i = 0; i < tribeIds.length && i < 32; i++) {
       u32View[14 + i] = tribeIds[i]!;
     }
-
-    device.queue.writeBuffer(brushUniformBuffers[index], 0, data);
-
-    const startWord = Math.floor(rect.destinationStartX / gridFormat.cellsPerWord);
-    const endWordExclusive = Math.ceil((rect.destinationStartX + rect.spanCols) / gridFormat.cellsPerWord);
-    const spanWords = endWordExclusive - startWord;
-    const wgBrushX = Math.ceil(spanWords / 8);
-    const wgBrushY = Math.ceil(rect.spanRows / 8);
-    const pass = encoder.beginComputePass({label: GPU_LABELS.brushPass});
-    pass.setPipeline(brushPipeline);
-    pass.setBindGroup(0, bindGroups[index]);
-    pass.dispatchWorkgroups(wgBrushX, wgBrushY);
-    pass.end();
+    const brushUniformBuffer = brushUniformBuffers[index];
+    const bindGroup = bindGroups[index];
+    if (brushUniformBuffer && bindGroup) {
+      device.queue.writeBuffer(brushUniformBuffer, 0, data);
+      const startWord = Math.floor(rect.destinationStartX / gridFormat.cellsPerWord);
+      const endWordExclusive = Math.ceil((rect.destinationStartX + rect.spanCols) / gridFormat.cellsPerWord);
+      const spanWords = endWordExclusive - startWord;
+      const wgBrushX = Math.ceil(spanWords / 8);
+      const wgBrushY = Math.ceil(rect.spanRows / 8);
+      const pass = encoder.beginComputePass({label: GPU_LABELS.brushPass});
+      pass.setPipeline(brushPipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.dispatchWorkgroups(wgBrushX, wgBrushY);
+      pass.end();
+    } else {
+      console.error('[GOLT worker] Brush dispatch resources are out of sync with the wrapped brush rectangles.', {
+        index,
+        rectCount: rects.length,
+        bindGroupCount: bindGroups.length,
+        uniformBufferCount: brushUniformBuffers.length
+      });
+      throw new Error('Brush dispatch resources are out of sync with the wrapped brush rectangles.');
+    }
   }
 }
 
-// ---------------------------------------------------------------------------
-//  Pack / unpack helpers
-// ---------------------------------------------------------------------------
-
+/**
+ * Reads back the active packed grid from GPU memory.
+ *
+ * @returns {Promise<Uint32Array>} copy of the active packed grid.
+ */
 function readbackGrid(): Promise<Uint32Array> {
-  const currentGrid = pingPong ? gridBufferB : gridBufferA;
+  const activeGridBuffer = pingPong ? gridBufferB : gridBufferA;
   const byteSize = gridBufferSize();
-
   let readBuffer: GPUBuffer;
   try {
     readBuffer = device.createBuffer({
@@ -1564,11 +1074,9 @@ function readbackGrid(): Promise<Uint32Array> {
     console.warn('GPU readback buffer allocation failed:', e);
     return Promise.reject(new Error(`Failed to allocate ${byteSize} byte readback buffer`));
   }
-
   const encoder = device.createCommandEncoder({label: GPU_LABELS.gridReadbackEncoder});
-  encoder.copyBufferToBuffer(currentGrid, 0, readBuffer, 0, byteSize);
+  encoder.copyBufferToBuffer(activeGridBuffer, 0, readBuffer, 0, byteSize);
   device.queue.submit([encoder.finish()]);
-
   return readBuffer.mapAsync(GPUMapMode.READ).then(() => {
     const copy = new Uint32Array(readBuffer.getMappedRange().slice(0));
     readBuffer.unmap();
@@ -1577,231 +1085,163 @@ function readbackGrid(): Promise<Uint32Array> {
   });
 }
 
-// ---------------------------------------------------------------------------
-//  GPU chunk recording + staging + OPFS persistence
-// ---------------------------------------------------------------------------
-
+/**
+ * Recomputes the frame capacity of the active recording chunk.
+ */
 function computeChunkCapacity(): void {
   frameByteSize = gridBufferSize();
-  if (!recordingAvailableForCurrentFrame()) {
-    chunkFrameCapacity = 0;
-    return;
-  }
-  const maxChunkBytes = targetChunkBytes();
-  chunkFrameCapacity = Math.max(1, Math.floor(maxChunkBytes / frameByteSize));
+  chunkFrameCapacity = computeChunkFrameCapacity(frameByteSize, currentMaxRecordingBytes());
 }
 
-function targetChunkBytes(): number {
-  if (frameByteSize >= CHUNK_BUFFER_CAP) {
-    return frameByteSize;
-  }
-  return Math.min(Math.max(CHUNK_BUFFER_CAP, frameByteSize), maxRecordingBufferBytes());
-}
-
-function maxPendingOpfsWritesForCurrentChunk(): number {
-  if (chunkFrameCapacity < 1 || frameByteSize <= 0) {
-    return MAX_PENDING_OPFS_WRITES;
-  }
-  const estimatedChunkBytes = Math.max(frameByteSize, chunkFrameCapacity * frameByteSize);
-  const budgetLimited = Math.floor(OPFS_PENDING_WRITE_BYTE_BUDGET / estimatedChunkBytes);
-  return Math.max(1, Math.min(MAX_PENDING_OPFS_WRITES, budgetLimited || 1));
-}
-
+/**
+ * Posts the current recording-limit state through the worker protocol.
+ */
 function postRecordingLimits(): void {
-  const recordingAvailable = recordingAvailableForCurrentFrame();
   self.postMessage({
     type: 'limits',
-    maxBytes: maxSimulationBufferBytes(),
-    vramBudgetBytes: vramBudgetBytes(),
-    frameByteSize,
-    recordingAvailable,
-    vramSimulationBytes: simulationBufferBytes(),
-    vramRecordingBytes: recordingBufferBytes(),
-    gridFormat: currentGridFormatMetadata()
+    ...buildRecordingLimitsPayload(currentMaxSimulationBytes(), frameByteSize, chunkFrameCapacity, UNIFORM_SIZE + TRIBE_COLOR_BUFFER_SIZE + BRUSH_UNIFORM_SIZE + HISTOGRAM_BUFFER_SIZE * 2 + BOUNDARY_BUFFER_SIZE * 2, currentGridFormatMetadata())
   });
 }
 
-function canRecord(): boolean {
-  if (!recordingAvailableForCurrentFrame()) {
-    return false;
-  }
-  if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || stagingRing.length === 0) {
-    return false;
-  }
-  if (chunkFrameIndex < chunkFrameCapacity) {
-    return true;
-  }
-  return canSealCurrentChunk();
-}
-
-function canSealCurrentChunk(): boolean {
-  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
-    return false;
-  }
-  return stagingRing.some((buf, i) => stagingAvailable[i] && buf.mapState === 'unmapped');
-}
-
+/**
+ * Copies the active generation into the current recording chunk.
+ *
+ * @param {number} gen generation being recorded.
+ */
 function recordGeneration(gen: number): void {
-  if (chunkFrameCapacity < 1 || chunkGpuBuffer === null || chunkFrameIndex >= chunkFrameCapacity) {
-    return; // Safety: prevent out-of-bounds GPU copy
+  if (chunkFrameCapacity >= 1 && chunkGpuBuffer !== null && chunkFrameIndex < chunkFrameCapacity) {
+    const activeGridBuffer = pingPong ? gridBufferB : gridBufferA;
+    const offset = chunkFrameIndex * frameByteSize;
+    const enc = device.createCommandEncoder({label: GPU_LABELS.recordingFrameCopyEncoder});
+    enc.copyBufferToBuffer(activeGridBuffer, 0, chunkGpuBuffer, offset, frameByteSize);
+    device.queue.submit([enc.finish()]);
+    chunkGenerations.push(gen);
+    latestRecordedGeneration = gen;
+    chunkFrameIndex++;
+    retrySealCurrentChunkIfPossible();
   }
-  const currentGrid = pingPong ? gridBufferB : gridBufferA;
-  const offset = chunkFrameIndex * frameByteSize;
-  const enc = device.createCommandEncoder({label: GPU_LABELS.recordingFrameCopyEncoder});
-  enc.copyBufferToBuffer(currentGrid, 0, chunkGpuBuffer, offset, frameByteSize);
-  device.queue.submit([enc.finish()]);
-  chunkGenerations.push(gen);
-  latestRecordedGeneration = gen;
-  chunkFrameIndex++;
-  retrySealCurrentChunkIfPossible();
 }
 
+/**
+ * Updates the count of frames currently held by in-flight chunk seals.
+ *
+ * @param {number} delta delta to apply to the in-flight sealed-frame count.
+ */
 function updateInflightSealFrames(delta: number): void {
   inflightSealFrames = Math.max(0, inflightSealFrames + delta);
 }
 
+/**
+ * Seals the current chunk as soon as both chunk fullness and backpressure allow it.
+ */
 function retrySealCurrentChunkIfPossible(): void {
   const currentChunkFull = chunkFrameCapacity > 0 && chunkFrameIndex >= chunkFrameCapacity;
-  if (currentChunkFull && canSealCurrentChunk()) {
+  if (currentChunkFull && canSealCurrentChunkNow()) {
     sealCurrentChunk();
   }
 }
 
+/**
+ * Moves the current recording chunk into a staging buffer and schedules persistence.
+ */
 function sealCurrentChunk(): void {
-  if (chunkGpuBuffer === null || chunkFrameIndex === 0 || stagingRing.length === 0) {
-    return;
-  }
-  if (pendingOpfsWrites >= maxPendingOpfsWritesForCurrentChunk()) {
-    return;
-  }
-  const idx = stagingAvailable.indexOf(true);
-  if (idx < 0) {
-    return;
-  }
-  stagingAvailable[idx] = false;
-  const stagingBuf = stagingRing[idx]!;
-
-  // Safety: never use a staging buffer that is still mapped/pending.
-  if (stagingBuf.mapState !== 'unmapped') {
-    stagingAvailable[idx] = true;
-    return;
-  }
-
-  const byteLen = chunkFrameIndex * frameByteSize;
-
-  const chunkId = nextChunkId++;
-  const generations = [...chunkGenerations];
-  const genStart = generations[0]!;
-  const genEnd = generations[generations.length - 1]!;
-  const filename = `chunk-${String(chunkId).padStart(6, '0')}.bin`;
-  const blockCount = chunkFrameIndex;
-
-  const enc = device.createCommandEncoder({label: GPU_LABELS.recordingSealCopyEncoder});
-  enc.copyBufferToBuffer(chunkGpuBuffer, 0, stagingBuf, 0, byteLen);
-  device.queue.submit([enc.finish()]);
-
-  const meta: ChunkMeta = {
-    chunkId,
-    generationStart: genStart,
-    generationEnd: genEnd,
-    blockCount,
-    codec: RAW_PACKED_CODEC,
-    uncompressedBytes: byteLen,
-    storedBytes: byteLen,
-    gridFormat: currentGridFormatMetadata(),
-    generations,
-    filename
-  };
-
-  updateInflightSeals(+1);
-  updateInflightSealFrames(blockCount);
-  pendingOpfsWrites++;
-  checkBackpressure();
-
-  const epoch = sealEpoch;
-
-  stagingBuf.mapAsync(GPUMapMode.READ).then(async() => {
-    const mapped = stagingBuf.getMappedRange();
-    const rawPayload = new ArrayBuffer(byteLen);
-    new Uint8Array(rawPayload).set(new Uint8Array(mapped, 0, byteLen));
-    stagingBuf.unmap();
-
-    // Stale callback after a rebuild — ignore silently.
-    if (epoch !== sealEpoch) {
-      return;
-    }
-
-    // Free staging immediately after data is in RAM.
-    stagingAvailable[idx] = true;
-
-    sealedChunks.push(meta);
-    updateInflightSealFrames(-blockCount);
-    updateManifestRange();
-    checkBackpressure();
-    retrySealCurrentChunkIfPossible();
-
-    // Write raw (uncompressed) to OPFS, then notify the main thread so
-    // Compress workers can read the chunk from OPFS.
-    writeChunkToOpfs(meta, rawPayload).then(() => {
-      if (epoch !== sealEpoch) {
-        return;
+  const recordingBuffer = chunkGpuBuffer;
+  if (recordingBuffer !== null && chunkFrameIndex > 0 && stagingRing.length > 0 && pendingOpfsWrites < maxPendingOpfsWritesForCurrentChunk(chunkFrameCapacity, frameByteSize)) {
+    const idx = stagingAvailable.indexOf(true);
+    if (idx >= 0) {
+      stagingAvailable[idx] = false;
+      const stagingBuf = stagingRing[idx]!;
+      if (stagingBuf.mapState === 'unmapped') {
+        const byteLen = chunkFrameIndex * frameByteSize;
+        const chunkId = nextChunkId++;
+        const generations = [...chunkGenerations];
+        const genStart = generations[0]!;
+        const genEnd = generations[generations.length - 1]!;
+        const filename = `chunk-${String(chunkId).padStart(6, '0')}.bin`;
+        const blockCount = chunkFrameIndex;
+        const enc = device.createCommandEncoder({label: GPU_LABELS.recordingSealCopyEncoder});
+        enc.copyBufferToBuffer(recordingBuffer, 0, stagingBuf, 0, byteLen);
+        device.queue.submit([enc.finish()]);
+        const meta: ChunkMeta = {
+          chunkId,
+          generationStart: genStart,
+          generationEnd: genEnd,
+          blockCount,
+          codec: RAW_PACKED_CODEC,
+          uncompressedBytes: byteLen,
+          storedBytes: byteLen,
+          gridFormat: currentGridFormatMetadata(),
+          generations,
+          filename
+        };
+        updateInflightSeals(+1);
+        updateInflightSealFrames(blockCount);
+        pendingOpfsWrites++;
+        checkBackpressure();
+        const epoch = sealEpoch;
+        stagingBuf.mapAsync(GPUMapMode.READ).then(async() => {
+          const mapped = stagingBuf.getMappedRange();
+          const rawPayload = new ArrayBuffer(byteLen);
+          new Uint8Array(rawPayload).set(new Uint8Array(mapped, 0, byteLen));
+          stagingBuf.unmap();
+          if (epoch === sealEpoch) {
+            stagingAvailable[idx] = true;
+            sealedChunks.push(meta);
+            updateInflightSealFrames(-blockCount);
+            updateManifestRange(manifest, sealedChunks, chunkGenerations);
+            checkBackpressure();
+            retrySealCurrentChunkIfPossible();
+            writeChunkToOpfs(meta, rawPayload).then(() => {
+              if (epoch === sealEpoch) {
+                pendingOpfsWrites--;
+                checkBackpressure();
+                updateInflightSeals(-1);
+                postStorageQuota();
+                sendRecordingManifest();
+                queueMetricsRefresh(true);
+                retrySealCurrentChunkIfPossible();
+                self.postMessage({
+                  type: 'chunkSealed',
+                  filename: meta.filename,
+                  rawBytes: byteLen,
+                  blockCount: meta.blockCount,
+                  cols,
+                  rows,
+                  rawGridFormat: meta.gridFormat,
+                  storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
+                });
+                if (getRecordingPending && inflightSeals === 0) {
+                  getRecordingPending = false;
+                  sendRecordingManifest();
+                }
+              }
+            });
+          }
+        }).catch(() => {
+          if (epoch === sealEpoch) {
+            stagingAvailable[idx] = true;
+            pendingOpfsWrites--;
+            updateInflightSealFrames(-blockCount);
+            checkBackpressure();
+            updateInflightSeals(-1);
+            retrySealCurrentChunkIfPossible();
+          }
+        });
+        chunkFrameIndex = 0;
+        chunkGenerations = [];
+      } else {
+        stagingAvailable[idx] = true;
       }
-      pendingOpfsWrites--;
-      checkBackpressure();
-      updateInflightSeals(-1);
-      postStorageQuota();
-      sendRecordingManifest();
-      queueMetricsRefresh(true);
-      retrySealCurrentChunkIfPossible();
-
-      self.postMessage({
-        type: 'chunkSealed',
-        filename: meta.filename,
-        rawBytes: byteLen,
-        blockCount: meta.blockCount,
-        cols,
-        rows,
-        rawGridFormat: meta.gridFormat,
-        storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
-      });
-
-      if (getRecordingPending && inflightSeals === 0) {
-        getRecordingPending = false;
-        sendRecordingManifest();
-      }
-    });
-  }).catch(() => {
-    // MapAsync failed (e.g. device lost / buffer destroyed on rebuild).
-    // Stale epoch — just ignore.
-    if (epoch !== sealEpoch) {
-      return;
     }
-    stagingAvailable[idx] = true;
-    pendingOpfsWrites--;
-    updateInflightSealFrames(-blockCount);
-    checkBackpressure();
-    updateInflightSeals(-1);
-    retrySealCurrentChunkIfPossible();
-  });
-
-  chunkFrameIndex = 0;
-  chunkGenerations = [];
+  }
 }
 
-function updateManifestRange(): void {
-  if (sealedChunks.length > 0) {
-    manifest.generationStart = sealedChunks[0]!.generationStart;
-    manifest.generationEnd = sealedChunks[sealedChunks.length - 1]!.generationEnd;
-  }
-  if (chunkGenerations.length > 0) {
-    if (sealedChunks.length === 0) {
-      manifest.generationStart = chunkGenerations[0]!;
-    }
-    manifest.generationEnd = chunkGenerations[chunkGenerations.length - 1]!;
-  }
-  manifest.chunks = [...sealedChunks];
-}
-
+/**
+ * Resets recording state, buffers, and OPFS storage for a fresh recording session.
+ *
+ * @async
+ * @param {number} startGen generation to use as the new manifest start.
+ */
 async function resetRecording(startGen: number): Promise<void> {
   sealEpoch++;
   nextChunkId = 0;
@@ -1831,6 +1271,12 @@ async function resetRecording(startGen: number): Promise<void> {
   postStorageQuota();
 }
 
+/**
+ * Returns the OPFS directory handle used to store recording chunks.
+ *
+ * @async
+ * @returns {Promise<FileSystemDirectoryHandle>} recording OPFS directory handle.
+ */
 async function ensureOpfsDir(): Promise<FileSystemDirectoryHandle> {
   if (opfsResetPromise) {
     await opfsResetPromise;
@@ -1842,6 +1288,13 @@ async function ensureOpfsDir(): Promise<FileSystemDirectoryHandle> {
   return opfsDirHandle;
 }
 
+/**
+ * Writes one sealed chunk payload to OPFS.
+ *
+ * @async
+ * @param {ChunkMeta} meta sealed chunk metadata.
+ * @param {ArrayBuffer} payload raw chunk payload.
+ */
 async function writeChunkToOpfs(meta: ChunkMeta, payload: ArrayBuffer): Promise<void> {
   const dir = await ensureOpfsDir();
   const file = await dir.getFileHandle(meta.filename, {create: true});
@@ -1850,6 +1303,12 @@ async function writeChunkToOpfs(meta: ChunkMeta, payload: ArrayBuffer): Promise<
   await writable.close();
 }
 
+/**
+ * Deletes the provided chunk files from OPFS.
+ *
+ * @async
+ * @param {string[]} filenames chunk filenames to delete.
+ */
 async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
   const dir = await ensureOpfsDir();
   for (const name of filenames) {
@@ -1861,38 +1320,44 @@ async function deleteChunksFromOpfs(filenames: string[]): Promise<void> {
   }
 }
 
+/**
+ * Recreates the recording OPFS directory from scratch.
+ *
+ * @async
+ */
 async function resetOpfsDir(): Promise<void> {
   if (opfsResetPromise) {
     await opfsResetPromise;
-    return;
-  }
-
-  opfsResetPromise = (async() => {
-    const root = await navigator.storage.getDirectory();
-    opfsDirHandle = null;
-    try {
-      await root.removeEntry(OPFS_DIR, {recursive: true});
-    } catch (e) {
-      if (!(e instanceof DOMException && e.name === 'NotFoundError')) {
-        console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
+  } else {
+    opfsResetPromise = (async() => {
+      const root = await navigator.storage.getDirectory();
+      opfsDirHandle = null;
+      try {
+        await root.removeEntry(OPFS_DIR, {recursive: true});
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === 'NotFoundError')) {
+          console.warn(`Failed to remove OPFS directory ${OPFS_DIR}:`, e);
+        }
       }
+      opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
+    })();
+    try {
+      await opfsResetPromise;
+    } finally {
+      opfsResetPromise = null;
     }
-    opfsDirHandle = await root.getDirectoryHandle(OPFS_DIR, {create: true});
-  })();
-
-  try {
-    await opfsResetPromise;
-  } finally {
-    opfsResetPromise = null;
   }
 }
 
+/**
+ * Posts the current recording manifest through the worker protocol.
+ */
 function sendRecordingManifest(): void {
-  updateManifestRange();
+  updateManifestRange(manifest, sealedChunks, chunkGenerations);
   self.postMessage({
     type: 'recording',
     manifest: {
-      chunks: sealedChunks.map(c => ({...c, generations: [...c.generations]})),
+      chunks: cloneRecordingChunks(sealedChunks),
       generationStart: manifest.generationStart,
       generationEnd: manifest.generationEnd,
       gridFormat: currentGridFormatMetadata()
@@ -1903,35 +1368,24 @@ function sendRecordingManifest(): void {
 }
 
 /**
- * True when the current generation has not yet been recorded.
+ * Records the current generation when recording is active and capture is still pending.
+ *
+ * @param {boolean} [markForwardProgress=false] whether forward progress should clear the initial-recording gate.
  */
-function needsInitialCapture(): boolean {
-  return latestRecordedGeneration !== genCounter;
-}
-
 function captureCurrentGenerationIfNeeded(markForwardProgress: boolean = false): void {
-  if (!isRecording) {
-    return;
-  }
-
-  if (markForwardProgress) {
-    if (recordingAwaitingForward) {
-      if (!canRecord()) {
-        return;
-      }
+  if (isRecording) {
+    let captureAllowed = !recordingAwaitingForward;
+    if (markForwardProgress && recordingAwaitingForward && canRecordNow()) {
       recordingAwaitingForward = false;
+      captureAllowed = true;
     }
-  } else if (recordingAwaitingForward) {
-    return;
+    if (captureAllowed && needsInitialCapture(latestRecordedGeneration, genCounter) && canRecordNow()) {
+      if (chunkFrameIndex >= chunkFrameCapacity) {
+        sealCurrentChunk();
+      }
+      recordGeneration(genCounter);
+    }
   }
-
-  if (!needsInitialCapture() || !canRecord()) {
-    return;
-  }
-  if (chunkFrameIndex >= chunkFrameCapacity) {
-    sealCurrentChunk();
-  }
-  recordGeneration(genCounter);
 }
 
 /**
@@ -1949,7 +1403,6 @@ function applyPendingBrush(): void {
     const encoder = device.createCommandEncoder({label: GPU_LABELS.brushEncoder});
     dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
     device.queue.submit([encoder.finish()]);
-    // If the current generation was already recorded, overwrite the last frame to reflect the draw.
     if (shouldOverwriteRecordedFrame) {
       recordGeneration(genCounter);
     }
@@ -1975,185 +1428,112 @@ async function readChunkFromOpfs(filename: string, codec: string = RAW_PACKED_CO
 }
 
 /**
- * Helper: compute total recorded frames across sealed chunks and current buffer.
+ * Returns the availability of each live metric section for the current grid and settings.
  *
- * @returns {number} total recorded frame count currently reported to the UI.
+ * @returns {MetricAvailability} availability by live metric section.
  */
-function totalRecordedFrames(): number {
-  let count = chunkFrameIndex + inflightSealFrames;
-  for (const c of sealedChunks) {
-    count += c.blockCount;
-  }
-  return count;
-}
-
-function currentMetricAvailability() {
+function currentMetricAvailability(): MetricAvailability {
   return planInteractiveMetricAvailability(cols, rows, liveMetrics.enabled, liveMetrics.sections);
 }
 
+/**
+ * Returns the interactive metric sections that can be encoded for the current grid.
+ *
+ * @returns {InteractiveMetricSection[]} enabled interactive metric sections.
+ */
 function currentMetricSections(): InteractiveMetricSection[] {
   return activeInteractiveMetricSections(currentMetricAvailability());
 }
 
+/**
+ * Encodes the enabled interactive metrics passes into the provided GPU command encoder.
+ *
+ * @param {GPUCommandEncoder} encoder command encoder receiving the metrics passes.
+ */
 function runMetricsGpu(encoder: GPUCommandEncoder): void {
   lastEncodedMetricSections = currentMetricSections();
-  if (!metricsResources) {
-    return;
+  if (metricsResources && lastEncodedMetricSections.length > 0) {
+    encodeInteractiveMetrics({
+      device,
+      encoder,
+      resources: metricsResources,
+      sourceBuffer: pingPong ? gridBufferB : gridBufferA,
+      dispatchPlan: metricsDispatchPlan,
+      enabledSections: lastEncodedMetricSections
+    });
   }
-  if (lastEncodedMetricSections.length === 0) {
-    return;
-  }
-  encodeInteractiveMetrics({
-    device,
-    encoder,
-    resources: metricsResources,
-    sourceBuffer: pingPong ? gridBufferB : gridBufferA,
-    dispatchPlan: metricsDispatchPlan,
-    enabledSections: lastEncodedMetricSections
-  });
 }
 
+/**
+ * Reads back encoded metrics buffers and posts the resulting metrics message.
+ */
 function readMetricsAndPost(): void {
   const gen = genCounter;
-  if (!metricsResources || gen === lastMetricsGen || metricsInFlight) {
-    return;
-  }
-  const resources = metricsResources;
-  const encodedSections = [...lastEncodedMetricSections];
-  const availability = currentMetricAvailability();
-  lastMetricsGen = gen;
-  metricsInFlight = true;
-
-  readInteractiveMetrics({
-    resources,
-    enabledSections: encodedSections
-  }).then(readback => {
-    const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
-    const totalFrames = totalRecordedFrames();
-    const message = buildInteractiveMetricMessage({
-      generation: gen,
-      tribes,
-      deadTribeIndex: deadIdx,
-      readback,
-      enabledSections: encodedSections,
-      availability,
-      liveMetricSettings: liveMetrics.sections,
-      cols,
-      rows,
-      totalFrames,
-      fps: currentFps,
-      canStepBack: totalFrames > 1,
-      recordingBytes: sealedChunks.reduce((sum, c) => sum + c.storedBytes, 0),
-      recordingRawBytes: sealedChunks.reduce((sum, c) => sum + c.uncompressedBytes, 0)
-    });
-
-    metricsInFlight = false;
-    self.postMessage(message);
-
-    // Re-run if a step-back (or similar) requested metrics while we were in-flight.
-    if (pendingMetricsRetry) {
-      pendingMetricsRetry = false;
-      lastMetricsGen = -1;
-      if (canEncodeInteractiveMetrics()) {
-        const retryEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-        runMetricsGpu(retryEncoder);
-        device.queue.submit([retryEncoder.finish()]);
-        readMetricsAndPost();
-      } else {
-        pendingMetricsRetry = true;
+  if (metricsResources && gen !== lastMetricsGen && !metricsInFlight) {
+    const encodedSections = [...lastEncodedMetricSections];
+    const availability = currentMetricAvailability();
+    lastMetricsGen = gen;
+    metricsInFlight = true;
+    readInteractiveMetrics({resources: metricsResources, enabledSections: encodedSections}).then(readback => {
+      const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
+      const totalFrames = countFrames(sealedChunks, chunkFrameIndex + inflightSealFrames);
+      const message = buildInteractiveMetricMessage({
+        generation: gen,
+        tribes,
+        deadTribeIndex: deadIdx,
+        readback,
+        enabledSections: encodedSections,
+        availability,
+        liveMetricSettings: liveMetrics.sections,
+        cols,
+        rows,
+        totalFrames,
+        fps: currentFps,
+        canStepBack: totalFrames > 1,
+        recordingBytes: recordingStoredBytes(sealedChunks),
+        recordingRawBytes: recordingRawBytes(sealedChunks)
+      });
+      metricsInFlight = false;
+      self.postMessage(message);
+      if (pendingMetricsRetry) {
+        pendingMetricsRetry = false;
+        lastMetricsGen = -1;
+        if (canEncodeInteractiveMetrics()) {
+          const retryEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
+          runMetricsGpu(retryEncoder);
+          device.queue.submit([retryEncoder.finish()]);
+          readMetricsAndPost();
+        } else {
+          pendingMetricsRetry = true;
+        }
       }
-    }
-  }).catch(() => {
-    // Buffer destroyed during rebuild — just mark metrics as no longer in-flight.
-    metricsInFlight = false;
-  });
-}
-
-// ---------------------------------------------------------------------------
-//  Simulation step
-// ---------------------------------------------------------------------------
-
-/**
- * Batch multiple simulation steps into a single GPU submit.
- * Much lighter on the GPU command queue than calling stepSimulation() N times.
- */
-function skipBatchSize(): number {
-  const cells = cols * rows;
-  if (cells > 10_000_000) {
-    return 10;
+    }).catch(() => {
+      metricsInFlight = false;
+    });
   }
-  if (cells > 1_000_000) {
-    return 50;
-  }
-  if (cells > 100_000) {
-    return 200;
-  }
-  return 1000;
 }
 
 /**
- * Maximum fixed-speed work encoded from one animation frame.
+ * Encodes multiple simulation steps into a single command submission.
  *
- * @param {RunKind} kind active run kind.
- * @returns {number} simulation step budget.
+ * @param {number} count number of generations to encode.
  */
-function fixedRunStepBudget(kind: RunKind): number {
-  if (kind === 'recording') {
-    return Number.MAX_SAFE_INTEGER;
-  }
-  return skipBatchSize() * nonRecordingMaxSpeedBatchesPerDrain();
-}
-
-/**
- * Drops unreachable fixed-speed debt after the bounded frame work is encoded.
- *
- * @param {RunState} run active run state.
- * @param {number} startingAccumulator accumulator value before frame work.
- * @param {number} duration target step duration in milliseconds.
- * @param {number} dueSteps steps requested by the current accumulator.
- * @param {number} completedSteps steps actually encoded this frame.
- * @param {number} stepBudget maximum steps allowed this frame.
- */
-function settleFixedRunAccumulator(run: RunState, startingAccumulator: number, duration: number, dueSteps: number, completedSteps: number, stepBudget: number): void {
-  const remainingAccumulator = startingAccumulator - duration * completedSteps;
-  if (dueSteps > completedSteps || dueSteps > stepBudget) {
-    run.stepAccumulator = Math.min(remainingAccumulator, duration);
-  } else {
-    run.stepAccumulator = remainingAccumulator;
-  }
-}
-
-function nonRecordingMaxSpeedBatchesPerDrain(): number {
-  const cells = cols * rows;
-  if (cells > 10_000_000) {
-    return 2;
-  }
-  if (cells > 1_000_000) {
-    return 4;
-  }
-  if (cells > 100_000) {
-    return 8;
-  }
-  return 16;
-}
-
 function batchStep(count: number): void {
-  if (count <= 0) {
-    return;
+  if (count > 0) {
+    const plan = simulationDispatchPlan;
+    const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationBatchEncoder});
+    for (let i = 0; i < count; i++) {
+      const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
+      pass.setPipeline(computePipeline);
+      pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
+      pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
+      pass.end();
+      pingPong = !pingPong;
+      genCounter++;
+    }
+    device.queue.submit([encoder.finish()]);
+    stepCount += count;
   }
-  const plan = simulationDispatchPlan;
-  const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationBatchEncoder});
-  for (let i = 0; i < count; i++) {
-    const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
-    pass.setPipeline(computePipeline);
-    pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
-    pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
-    pass.end();
-    pingPong = !pingPong;
-    genCounter++;
-  }
-  device.queue.submit([encoder.finish()]);
-  stepCount += count;
 }
 
 /**
@@ -2167,43 +1547,29 @@ function postGeneration(): void {
   });
 }
 
+/**
+ * Encodes and submits one simulation generation.
+ */
 function stepSimulation(): void {
   const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationSingleStepEncoder});
   const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
-
   const plan = simulationDispatchPlan;
   pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
   pass.end();
-
   device.queue.submit([encoder.finish()]);
-
   pingPong = !pingPong;
   genCounter++;
 }
 
-// ---------------------------------------------------------------------------
-//  Render frame
-// ---------------------------------------------------------------------------
-
+/**
+ * Renders the current grid when the WebGPU presentation path is ready.
+ */
 function renderFrame(): void {
-  const renderReady = Boolean(
-    device &&
-    context &&
-    uniformBuffer &&
-    renderPipeline &&
-    renderBindGroupA &&
-    renderBindGroupB &&
-    !rebuilding &&
-    !deviceLost
-  );
-
-  if (renderReady) {
+  if (device && context && uniformBuffer && renderPipeline && renderBindGroupA && renderBindGroupB && !rebuilding && !deviceLost) {
     writeUniforms();
-
     const textureView = context.getCurrentTexture().createView();
-
     const encoder = device.createCommandEncoder({label: GPU_LABELS.renderEncoder});
     const pass = encoder.beginRenderPass({
       label: GPU_LABELS.renderPass,
@@ -2221,22 +1587,19 @@ function renderFrame(): void {
         }
       ]
     });
-
     pass.setPipeline(renderPipeline);
     pass.setBindGroup(0, pingPong ? renderBindGroupB : renderBindGroupA);
     pass.draw(3);
     pass.end();
-
     device.queue.submit([encoder.finish()]);
   }
 }
 
-// ---------------------------------------------------------------------------
-//  Main loop
-// ---------------------------------------------------------------------------
-
-type PumpSchedule = 'raf' | 'drain' | 'microtask';
-
+/**
+ * Updates the rolling FPS estimate once enough time has elapsed.
+ *
+ * @param {number} now current high-resolution timestamp.
+ */
 function updateFps(now: number): void {
   if (lastFpsTime === 0) {
     lastFpsTime = now;
@@ -2249,36 +1612,29 @@ function updateFps(now: number): void {
   }
 }
 
+/**
+ * Chooses the active run kind from the current recording state.
+ *
+ * @returns {RunKind} run kind for the next run pump.
+ */
 function runKindForCurrentRecording(): RunKind {
-  return isRecording && recordingAvailableForCurrentFrame() ? 'recording' : 'nonRecording';
+  return isRecording && recordingAvailableNow() ? 'recording' : 'nonRecording';
 }
 
-function currentRunPacing(): RunPacing {
-  if (targetStepDuration <= 0) {
-    return {kind: 'max'};
-  }
-  return {kind: 'fixedGenPerSecond', genPerSecond: 1000 / targetStepDuration};
-}
-
-function isTargetRun(run: RunState): boolean {
-  return run.request.stopCondition.kind === 'targetGeneration';
-}
-
-function runTargetReached(run: RunState): boolean {
-  return run.request.stopCondition.kind === 'targetGeneration' && genCounter >= run.request.stopCondition.generation;
-}
-
-function remainingTargetSteps(run: RunState): number {
-  if (run.request.stopCondition.kind !== 'targetGeneration') {
-    return Number.POSITIVE_INFINITY;
-  }
-  return Math.max(0, run.request.stopCondition.generation - genCounter);
-}
-
+/**
+ * Checks whether interactive metrics can be encoded on the current device state.
+ *
+ * @returns {boolean} `true` when a metrics pass can be submitted.
+ */
 function canEncodeInteractiveMetrics(): boolean {
-  return Boolean(device && metricsResources && !rebuilding && !deviceLost);
+  return !!(device && metricsResources && !rebuilding && !deviceLost);
 }
 
+/**
+ * Schedules a fresh interactive metrics readback, optionally invalidating the cache first.
+ *
+ * @param {boolean} [force=false] whether to force a refresh even when the generation is unchanged.
+ */
 function queueMetricsRefresh(force: boolean = false): void {
   if (force) {
     lastMetricsGen = -1;
@@ -2295,90 +1651,111 @@ function queueMetricsRefresh(force: boolean = false): void {
   }
 }
 
+/**
+ * Forces a metrics refresh before rendering the current frame.
+ */
 function refreshMetricsAndRender(): void {
   queueMetricsRefresh(true);
   renderFrame();
 }
 
+/**
+ * Starts a periodic metrics refresh after simulation work completes.
+ *
+ * @param {number} now current high-resolution timestamp.
+ * @param {boolean} didStep whether the loop encoded at least one generation.
+ */
 function maybeRunPeriodicMetrics(now: number, didStep: boolean): void {
-  if (!didStep) {
-    return;
-  }
-  const metricsElapsed = now - lastMetricsTime;
-  if ((metricsElapsed >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
+  if (didStep && (now - lastMetricsTime >= 1000 || lastMetricsTime === 0) && !metricsInFlight) {
     lastMetricsTime = now;
     queueMetricsRefresh();
   }
 }
 
+/**
+ * Posts coarse-grained run progress for long-running max-speed and target runs.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} now current high-resolution timestamp.
+ */
 function maybePostRunProgress(run: RunState, now: number): void {
-  if (run.request.pacing.kind !== 'max' && !isTargetRun(run)) {
-    return;
-  }
-  if (now - run.lastProgressTime >= 1000) {
+  if ((run.request.pacing.kind === 'max' || isTargetRun(run)) && now - run.lastProgressTime >= 1000) {
     run.lastProgressTime = now;
     postGeneration();
   }
 }
 
-function clearRunBackpressure(): void {
-  if (backpressureActive) {
-    backpressureActive = false;
-    self.postMessage({type: 'backpressure', active: false});
+/**
+ * Updates the current run backpressure notification.
+ * 
+ * @param {boolean} active whether backpressure is active.
+ */
+function setRunBackpressure(active: boolean): void {
+  if (backpressureActive !== active) {
+    backpressureActive = active;
+    self.postMessage({type: 'backpressure', active});
   }
 }
 
-function markRunBackpressure(): void {
-  if (!backpressureActive) {
-    backpressureActive = true;
-    self.postMessage({type: 'backpressure', active: true});
-  }
-}
-
+/**
+ * Ensures recording state is ready before encoding the next generation.
+ *
+ * @returns {boolean} `true` when recording can proceed.
+ */
 function prepareRecordingStep(): boolean {
-  if (!canRecord()) {
-    return false;
-  }
-  if (chunkFrameIndex >= chunkFrameCapacity) {
+  let recordingReady = canRecordNow();
+  if (recordingReady && chunkFrameIndex >= chunkFrameCapacity) {
     sealCurrentChunk();
+    recordingReady = canRecordNow();
   }
-  return canRecord();
+  return recordingReady;
 }
 
+/**
+ * Schedules an idle render frame when no active run owns the loop.
+ */
 function scheduleIdleFrame(): void {
-  if (rebuilding || deviceLost || activeRun) {
-    return;
+  if (!rebuilding && !deviceLost && !activeRun) {
+    self.requestAnimationFrame(mainLoop);
   }
-  self.requestAnimationFrame(mainLoop);
 }
 
+/**
+ * Schedules the next run pump using the requested wake-up strategy.
+ *
+ * @param {PumpSchedule} schedule scheduling strategy for the next pump.
+ */
 function scheduleRunPump(schedule: PumpSchedule): void {
   const run = activeRun;
-  if (!run || run.pumpPending || rebuilding || deviceLost) {
-    return;
-  }
-  const {token} = run;
-  run.pumpPending = true;
-  const pump = (): void => {
-    if (!activeRun || activeRun.token !== token) {
-      return;
-    }
-    activeRun.pumpPending = false;
-    pumpRun(performance.now());
-  };
-  if (schedule === 'raf') {
-    self.requestAnimationFrame(() => pump());
-  } else if (schedule === 'drain') {
-    device.queue.onSubmittedWorkDone().then(pump).catch(() => {
-      if (activeRun?.token === token) {
+  if (run && !run.pumpPending && !rebuilding && !deviceLost) {
+    const {token} = run;
+    run.pumpPending = true;
+    const pump = (): void => {
+      if (activeRun && activeRun.token === token) {
         activeRun.pumpPending = false;
+        pumpRun(performance.now());
       }
-    });
-  } else {
-    queueMicrotask(pump);
+    };
+    if (schedule === 'raf') {
+      self.requestAnimationFrame(() => pump());
+    } else if (schedule === 'drain') {
+      device.queue.onSubmittedWorkDone().then(pump).catch(() => {
+        if (activeRun?.token === token) {
+          activeRun.pumpPending = false;
+        }
+      });
+    } else {
+      queueMicrotask(pump);
+    }
   }
 }
 
+/**
+ * Starts a new active run and schedules its first pump.
+ *
+ * @param {RunKind} kind active run kind.
+ * @param {RunRequest} request run pacing and stop conditions.
+ */
 function startRun(kind: RunKind, request: RunRequest): void {
   if (activeRun) {
     stopRun('restart', {
@@ -2401,70 +1778,85 @@ function startRun(kind: RunKind, request: RunRequest): void {
   scheduleRunPump(request.pacing.kind === 'fixedGenPerSecond' ? 'raf' : 'microtask');
 }
 
+/**
+ * Starts the continuous simulation loop when simulation is enabled.
+ */
 function startContinuousRun(): void {
-  if (!simulationRunning) {
-    return;
+  if (simulationRunning) {
+    startRun(runKindForCurrentRecording(), {
+      pacing: currentRunPacing(targetStepDuration),
+      stopCondition: {kind: 'none'}
+    });
   }
-  startRun(runKindForCurrentRecording(), {
-    pacing: currentRunPacing(),
-    stopCondition: {kind: 'none'}
-  });
 }
 
-interface StopRunOptions {
-  render?: boolean;
-  postStepping?: boolean;
-  restore?: boolean;
-  restartRestoredRun?: boolean;
-}
-
-function stopRun(reason: RunStopReason, options: StopRunOptions = {}): void {
-  const run = activeRun;
-  if (!run) {
-    return;
-  }
-  activeRun = null;
-  nextRunToken++;
-
-  const targetRun = isTargetRun(run);
-  const shouldRestore = options.restore !== false && !!run.request.restoreAfterStop;
-  if (shouldRestore && run.request.restoreAfterStop) {
-    simulationRunning = run.request.restoreAfterStop.running;
-    targetStepDuration = run.request.restoreAfterStop.targetStepDuration;
-  }
-
-  if (targetRun && options.postStepping !== false && (reason === 'targetReached' || reason === 'cancelled')) {
-    self.postMessage({type: 'stepping', active: false});
-  }
-
+/**
+ * Updates run backpressure state after a stop.
+ *
+ * @param {RunStopReason} reason reason the run is stopping.
+ * @param {boolean} targetRun whether the run stops at a target generation.
+ */
+function finalizeStopBackpressure(reason: RunStopReason, targetRun: boolean): void {
   if (targetRun || reason === 'cancelled') {
-    clearRunBackpressure();
+    setRunBackpressure(false);
   } else if (backpressureActive) {
     checkBackpressure();
   }
+}
 
-  if (options.render !== false && !rebuilding && !deviceLost) {
-    refreshMetricsAndRender();
-  }
-
-  if (options.restartRestoredRun !== false && shouldRestore && simulationRunning && !rebuilding && !deviceLost) {
-    startContinuousRun();
-  } else {
-    scheduleIdleFrame();
+/**
+ * Stops the active run and applies the requested cleanup behavior.
+ *
+ * @param {RunStopReason} reason reason the run is stopping.
+ * @param {StopRunOptions} [options={}] stop-time side-effect controls.
+ */
+function stopRun(reason: RunStopReason, options: StopRunOptions = {}): void {
+  const run = activeRun;
+  if (run) {
+    activeRun = null;
+    nextRunToken++;
+    const targetRun = isTargetRun(run);
+    const restoreAfterStop = restoreAfterStopState(run, options);
+    const restored = Boolean(restoreAfterStop);
+    if (restoreAfterStop) {
+      simulationRunning = restoreAfterStop.running;
+      targetStepDuration = restoreAfterStop.targetStepDuration;
+    }
+    if (shouldPostStopStepping(reason, targetRun, options)) {
+      self.postMessage({type: 'stepping', active: false});
+    }
+    finalizeStopBackpressure(reason, targetRun);
+    if (options.render !== false && !rebuilding && !deviceLost) {
+      refreshMetricsAndRender();
+    }
+    if (shouldRestartRestoredRun(options, restored, simulationRunning, rebuilding, deviceLost)) {
+      startContinuousRun();
+    } else {
+      scheduleIdleFrame();
+    }
   }
 }
 
+/**
+ * Cancels the current target run and optionally updates the restored running flag.
+ *
+ * @param {boolean} restoreRunning whether the restored run should resume as running.
+ */
 function cancelTargetRun(restoreRunning: boolean): void {
   const run = activeRun;
-  if (!run || !isTargetRun(run)) {
-    return;
+  if (run && isTargetRun(run)) {
+    if (run.request.restoreAfterStop) {
+      run.request.restoreAfterStop.running = restoreRunning;
+    }
+    stopRun('cancelled');
   }
-  if (run.request.restoreAfterStop) {
-    run.request.restoreAfterStop.running = restoreRunning;
-  }
-  stopRun('cancelled');
 }
 
+/**
+ * Restarts the active run after a recording-mode change.
+ *
+ * @param {RunRequest} request run request to resume with.
+ */
 function restartActiveRunForRecordingChange(request: RunRequest): void {
   stopRun('restart', {
     render: false,
@@ -2475,64 +1867,91 @@ function restartActiveRunForRecordingChange(request: RunRequest): void {
   startRun(runKindForCurrentRecording(), request);
 }
 
+/**
+ * Handles a recording stall by yielding until GPU or storage backpressure clears.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} now current high-resolution timestamp.
+ * @param {boolean} didStep whether the current pump encoded at least one step.
+ */
 function handleRecordingBlocked(run: RunState, now: number, didStep: boolean): void {
-  markRunBackpressure();
+  setRunBackpressure(true);
   maybePostRunProgress(run, now);
   maybeRunPeriodicMetrics(now, didStep);
   scheduleRunPump('drain');
 }
 
+/**
+ * Pumps a max-speed non-recording run until the per-drain batch budget is exhausted.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} now current high-resolution timestamp.
+ */
 function pumpNonRecordingMaxRun(run: RunState, now: number): void {
-  const batchSize = skipBatchSize();
-  const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain();
+  const grid = currentGridSize();
+  const batchSize = skipBatchSize(grid);
+  const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain(grid);
   let didStep = false;
   for (let i = 0; i < batchesPerDrain; i++) {
-    const remaining = remainingTargetSteps(run);
+    const remaining = remainingTargetSteps(run, genCounter);
     if (remaining <= 0) {
       break;
     }
-    const batch = Math.min(batchSize, remaining);
-    batchStep(batch);
+    batchStep(Math.min(batchSize, remaining));
     didStep = true;
   }
-
   maybePostRunProgress(run, now);
-  if (runTargetReached(run)) {
+  if (runTargetReached(run, genCounter)) {
     stopRun('targetReached');
-    return;
-  }
-  if (didStep) {
+  } else if (didStep) {
     scheduleRunPump('drain');
   } else {
     scheduleRunPump('raf');
   }
 }
 
+/**
+ * Pumps a max-speed recording run within the current frame deadline.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} now current high-resolution timestamp.
+ */
 function pumpRecordingMaxRun(run: RunState, now: number): void {
   captureCurrentGenerationIfNeeded(true);
   let didStep = false;
+  let blocked = false;
   const deadline = performance.now() + 14;
-  while (remainingTargetSteps(run) > 0 && performance.now() < deadline) {
-    if (!prepareRecordingStep()) {
+  while (remainingTargetSteps(run, genCounter) > 0 && performance.now() < deadline) {
+    if (prepareRecordingStep()) {
+      stepSimulation();
+      stepCount++;
+      didStep = true;
+      recordGeneration(genCounter);
+    } else {
       handleRecordingBlocked(run, now, didStep);
-      return;
+      blocked = true;
+      break;
     }
-    stepSimulation();
-    stepCount++;
-    didStep = true;
-    recordGeneration(genCounter);
   }
-
-  clearRunBackpressure();
-  maybePostRunProgress(run, now);
-  maybeRunPeriodicMetrics(now, didStep);
-  if (runTargetReached(run)) {
-    stopRun('targetReached');
-    return;
+  if (!blocked) {
+    setRunBackpressure(false);
+    maybePostRunProgress(run, now);
+    maybeRunPeriodicMetrics(now, didStep);
+    if (runTargetReached(run, genCounter)) {
+      stopRun('targetReached');
+    } else {
+      scheduleRunPump('raf');
+    }
   }
-  scheduleRunPump('raf');
 }
 
+/**
+ * Pumps a fixed-rate non-recording run and optionally drains extra accumulated work.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} duration target step duration in milliseconds.
+ * @param {number} now current high-resolution timestamp.
+ */
 function pumpNonRecordingFixedRun(run: RunState, duration: number, now: number): void {
   if (run.lastFrameTime === 0) {
     run.lastFrameTime = now;
@@ -2540,34 +1959,36 @@ function pumpNonRecordingFixedRun(run: RunState, duration: number, now: number):
   const delta = now - run.lastFrameTime;
   run.lastFrameTime = now;
   run.stepAccumulator += delta;
-
   const startingAccumulator = run.stepAccumulator;
   const dueSteps = Math.floor(run.stepAccumulator / duration);
-  const stepBudget = fixedRunStepBudget(run.kind);
-  const steps = Math.min(dueSteps, remainingTargetSteps(run), stepBudget);
+  const stepBudget = fixedRunStepBudget(run.kind, currentGridSize());
+  const steps = Math.min(dueSteps, remainingTargetSteps(run, genCounter), stepBudget);
   const didStep = steps > 0;
   if (didStep) {
     batchStep(steps);
   }
-  settleFixedRunAccumulator(run, startingAccumulator, duration, dueSteps, steps, stepBudget);
-
+  run.stepAccumulator = nextFixedRunAccumulator(startingAccumulator, duration, dueSteps, steps, stepBudget);
   maybePostRunProgress(run, now);
-  if (runTargetReached(run)) {
+  if (runTargetReached(run, genCounter)) {
     stopRun('targetReached');
-    return;
-  }
-  const shouldDrain = didStep && dueSteps > steps;
-  if (!isTargetRun(run)) {
-    const renderElapsed = now - run.lastRenderTime;
-    if (!shouldDrain || renderElapsed >= 33 || run.lastRenderTime === 0) {
+  } else {
+    const shouldDrain = didStep && dueSteps > steps;
+    if (!isTargetRun(run) && !shouldDrain || now - run.lastRenderTime >= 33 || run.lastRenderTime === 0) {
       run.lastRenderTime = now;
       renderFrame();
       maybeRunPeriodicMetrics(now, didStep);
     }
+    scheduleRunPump(shouldDrain ? 'drain' : 'raf');
   }
-  scheduleRunPump(shouldDrain ? 'drain' : 'raf');
 }
 
+/**
+ * Pumps a fixed-rate recording run within the current frame deadline.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} duration target step duration in milliseconds.
+ * @param {number} now current high-resolution timestamp.
+ */
 function pumpRecordingFixedRun(run: RunState, duration: number, now: number): void {
   captureCurrentGenerationIfNeeded(true);
   if (run.lastFrameTime === 0) {
@@ -2576,106 +1997,115 @@ function pumpRecordingFixedRun(run: RunState, duration: number, now: number): vo
   const delta = now - run.lastFrameTime;
   run.lastFrameTime = now;
   run.stepAccumulator += delta;
-
   let didStep = false;
   let stepsThisPump = 0;
   const startingAccumulator = run.stepAccumulator;
-  const stepBudget = fixedRunStepBudget(run.kind);
+  const stepBudget = fixedRunStepBudget(run.kind, currentGridSize());
   const dueSteps = Math.floor(run.stepAccumulator / duration);
   const deadline = performance.now() + 14;
-  while (run.stepAccumulator >= duration && remainingTargetSteps(run) > 0 && stepsThisPump < stepBudget && performance.now() < deadline) {
-    if (!prepareRecordingStep()) {
+  let blocked = false;
+  while (run.stepAccumulator >= duration && remainingTargetSteps(run, genCounter) > 0 && stepsThisPump < stepBudget && performance.now() < deadline) {
+    if (prepareRecordingStep()) {
+      stepSimulation();
+      stepCount++;
+      stepsThisPump++;
+      run.stepAccumulator -= duration;
+      didStep = true;
+      recordGeneration(genCounter);
+    } else {
       handleRecordingBlocked(run, now, didStep);
-      return;
+      blocked = true;
+      break;
     }
-    stepSimulation();
-    stepCount++;
-    stepsThisPump++;
-    run.stepAccumulator -= duration;
-    didStep = true;
-    recordGeneration(genCounter);
   }
-  settleFixedRunAccumulator(run, startingAccumulator, duration, dueSteps, stepsThisPump, stepBudget);
-
-  clearRunBackpressure();
-  maybePostRunProgress(run, now);
-  if (runTargetReached(run)) {
-    stopRun('targetReached');
-    return;
+  run.stepAccumulator = nextFixedRunAccumulator(startingAccumulator, duration, dueSteps, stepsThisPump, stepBudget);
+  if (!blocked) {
+    setRunBackpressure(false);
+    maybePostRunProgress(run, now);
+    if (runTargetReached(run, genCounter)) {
+      stopRun('targetReached');
+    } else {
+      if (!isTargetRun(run)) {
+        renderFrame();
+        maybeRunPeriodicMetrics(now, didStep);
+      }
+      scheduleRunPump('raf');
+    }
   }
-  if (!isTargetRun(run)) {
-    renderFrame();
-    maybeRunPeriodicMetrics(now, didStep);
-  }
-  scheduleRunPump('raf');
 }
 
+/**
+ * Dispatches the active run pump for the current animation-frame timestamp.
+ *
+ * @param {number} now current high-resolution timestamp.
+ */
 function pumpRun(now: number): void {
   const run = activeRun;
-  if (!run) {
-    return;
-  }
-  if (rebuilding || deviceLost) {
-    return;
-  }
-  updateFps(now);
-  if (!isTargetRun(run)) {
-    applyPendingBrush();
-  }
-  if (runTargetReached(run)) {
-    stopRun('targetReached');
-    return;
-  }
-
-  if (run.request.pacing.kind === 'max') {
-    if (run.kind === 'recording') {
-      pumpRecordingMaxRun(run, now);
-    } else {
-      pumpNonRecordingMaxRun(run, now);
+  if (run && !rebuilding && !deviceLost) {
+    updateFps(now);
+    if (!isTargetRun(run)) {
+      applyPendingBrush();
     }
-    return;
-  }
-
-  const duration = 1000 / run.request.pacing.genPerSecond;
-  if (run.kind === 'recording') {
-    pumpRecordingFixedRun(run, duration, now);
-  } else {
-    pumpNonRecordingFixedRun(run, duration, now);
+    if (runTargetReached(run, genCounter)) {
+      stopRun('targetReached');
+    } else if (run.request.pacing.kind === 'max') {
+      if (run.kind === 'recording') {
+        pumpRecordingMaxRun(run, now);
+      } else {
+        pumpNonRecordingMaxRun(run, now);
+      }
+    } else {
+      const duration = 1000 / run.request.pacing.genPerSecond;
+      if (run.kind === 'recording') {
+        pumpRecordingFixedRun(run, duration, now);
+      } else {
+        pumpNonRecordingFixedRun(run, duration, now);
+      }
+    }
   }
 }
 
+/**
+ * Dispatches the active run pump for the current animation-frame timestamp.
+ *
+ * @param {number} now current high-resolution timestamp.
+ */
 function mainLoop(now: number): void {
   if (rebuilding || deviceLost) {
     self.requestAnimationFrame(mainLoop);
-    return;
+  } else {
+    updateFps(now);
+    if (!activeRun) {
+      applyPendingBrush();
+      if (targetStepDuration > 0 && !gpuCatchUpPending) {
+        renderFrame();
+      }
+      self.requestAnimationFrame(mainLoop);
+    }
   }
-
-  updateFps(now);
-  if (activeRun) {
-    return;
-  }
-
-  applyPendingBrush();
-  if (targetStepDuration > 0 && !gpuCatchUpPending) {
-    renderFrame();
-  }
-  self.requestAnimationFrame(mainLoop);
 }
 
-// ---------------------------------------------------------------------------
-//  Initialization
-// ---------------------------------------------------------------------------
-
+/**
+ * Selects the simulation grid format that satisfies both the request and device limits.
+ *
+ * @param {Ruleset<readonly Tribe[]>} rs ruleset being initialized.
+ * @param {GridFormatMetadata} requested requested simulation grid format.
+ * @returns {GridFormat} selected packed grid format.
+ */
 function selectSimulationGridFormat(rs: Ruleset<readonly Tribe[]>, requested: GridFormatMetadata): GridFormat {
-  const maxBytes = device ? maxSimulationBufferBytes() : Number.POSITIVE_INFINITY;
-  if (isSupportedBitsPerCell(requested.bitsPerCell) &&
-      validatePackingAgainstStateCount(requested.bitsPerCell, rs.tribes.length) &&
-      fitsGridFormatInMaxBytes(rs, gridFormatFromBits(requested.bitsPerCell), maxBytes)) {
+  const maxBytes = device ? currentMaxSimulationBytes() : Number.POSITIVE_INFINITY;
+  if (isSupportedBitsPerCell(requested.bitsPerCell) && validatePackingAgainstStateCount(requested.bitsPerCell, rs.tribes.length) && fitsGridFormatInMaxBytes(rs, gridFormatFromBits(requested.bitsPerCell), maxBytes)) {
     return gridFormatFromBits(requested.bitsPerCell);
   }
   return smallestValidSimulationGridFormat(rs.tribes.length, rs, maxBytes);
 }
 
+/**
+ * Initializes worker-local ruleset state from the current configuration.
+ *
+ * @param {Ruleset<readonly Tribe[]>} rs active ruleset.
+ * @param {GridFormatMetadata} simulationGridFormat requested simulation grid format.
+ */
 function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFormatMetadata): void {
   ruleset = rs;
   cols = rs.cols;
@@ -2684,18 +2114,20 @@ function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFo
   packedCols = packedColsForFormat(cols, gridFormat);
   tribes = [...rs.tribes];
   manifest.gridFormat = currentGridFormatMetadata();
-
   tribeIndex.clear();
   tribes.forEach((t, i) => tribeIndex.set(t.id, i));
 }
 
+/**
+ * Initializes the WebGPU device and presentation context for the worker canvas.
+ *
+ * @param {OffscreenCanvas} offscreen worker-owned rendering surface.
+ */
 async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
   console.log('[GOLT worker] Initializing WebGPU');
   canvas = offscreen;
-
   device = await requestWorkerGpuDevice(GPU_LABELS.webengineDevice);
   deviceLost = false;
-
   device.lost.then(info => {
     const reason = info.message || info.reason || 'unknown';
     console.error('[GOLT worker] GPU device lost:', reason);
@@ -2710,37 +2142,40 @@ async function initWebGPU(offscreen: OffscreenCanvas): Promise<void> {
     rebuilding = true;
     self.postMessage({type: 'deviceLost', reason});
   });
-
   self.postMessage({
     type: 'limits',
-    maxBytes: maxSimulationBufferBytes(),
-    vramBudgetBytes: vramBudgetBytes(),
+    maxBytes: currentMaxSimulationBytes(),
+    vramBudgetBytes: vramBudgetBytes(currentMaxSimulationBytes(), currentMaxRecordingBytes()),
     frameByteSize: 0,
     recordingAvailable: true,
     vramSimulationBytes: 0,
     vramRecordingBytes: 0,
     gridFormat: currentGridFormatMetadata()
   });
-
   const nextContext = canvas.getContext('webgpu');
-  if (!nextContext) {
+  if (nextContext) {
+    context = nextContext;
+    canvasFormat = navigator.gpu.getPreferredCanvasFormat();
+    context.configure({
+      device,
+      format: canvasFormat,
+      alphaMode: 'opaque'
+    });
+    console.log('[GOLT worker] WebGPU initialized', {
+      canvasFormat,
+      maxBufferSize: device.limits.maxBufferSize,
+      maxStorageBufferBindingSize: device.limits.maxStorageBufferBindingSize
+    });
+  } else {
     throw new Error('WebGPU canvas context not available');
   }
-  context = nextContext;
-  canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-
-  context.configure({
-    device,
-    format: canvasFormat,
-    alphaMode: 'opaque'
-  });
-  console.log('[GOLT worker] WebGPU initialized', {
-    canvasFormat,
-    maxBufferSize: device.limits.maxBufferSize,
-    maxStorageBufferBindingSize: device.limits.maxStorageBufferBindingSize
-  });
 }
 
+/**
+ * Restores the WebGPU device after loss and reconfigures worker state.
+ *
+ * @returns {Promise<boolean>} `true` when device restore succeeds.
+ */
 async function restoreWebGPUDevice(): Promise<boolean> {
   try {
     console.log('[GOLT worker] Restoring WebGPU device');
@@ -2764,6 +2199,9 @@ async function restoreWebGPUDevice(): Promise<boolean> {
   }
 }
 
+/**
+ * Restores the WebGPU device after loss and reconfigures worker state.
+ */
 async function createChunkBuffer(): Promise<void> {
   chunkGpuBuffer = device.createBuffer({
     label: GPU_LABELS.recordingChunkBuffer,
@@ -2776,6 +2214,9 @@ async function createChunkBuffer(): Promise<void> {
   latestRecordedGeneration = null;
 }
 
+/**
+ * Creates the GPU buffer that accumulates one recording chunk before readback.
+ */
 async function createStagingRing(): Promise<void> {
   const size = chunkFrameCapacity * frameByteSize;
   stagingRing = [];
@@ -2792,16 +2233,22 @@ async function createStagingRing(): Promise<void> {
   }
 }
 
+/**
+ * Creates the mapped staging buffers used to read recorded chunks back to the CPU.
+ */
 async function initOpfs(): Promise<void> {
   await resetOpfsDir();
 }
 
+/**
+ * Resets the OPFS workspace used for recording chunks.
+ */
 async function buildPipelines(): Promise<void> {
   console.log('[GOLT worker] Building GPU resources', {
     cols,
     rows,
     bitsPerCell: gridFormat.bitsPerCell,
-    recordingAvailable: recordingAvailableForCurrentFrame()
+    recordingAvailable: recordingAvailableNow()
   });
   createUniformBuffer();
   computeChunkCapacity();
@@ -2813,13 +2260,13 @@ async function buildPipelines(): Promise<void> {
   createBrushPipeline();
   createMetricsPipelines();
   await initOpfs();
-  if (recordingAvailableForCurrentFrame()) {
+  if (recordingAvailableNow()) {
     await createChunkBuffer();
     await createStagingRing();
   } else {
     console.warn('[GOLT worker] Recording buffers disabled for current frame size', {
       frameByteSize,
-      maxRecordingBufferBytes: maxRecordingBufferBytes()
+      maxRecordingBufferBytes: currentMaxRecordingBytes()
     });
     destroyRecordingBuffers();
     isRecording = false;
@@ -2830,6 +2277,11 @@ async function buildPipelines(): Promise<void> {
   console.log('[GOLT worker] GPU resources ready');
 }
 
+/**
+ * Builds the GPU resources required for simulation, rendering, metrics, and recording.
+ *
+ * @returns {Promise<void>} resolves when all requested resources are ready.
+ */
 async function rebuildForNewRuleset(): Promise<boolean> {
   console.log('[GOLT worker] Rebuild started', {
     cols,
@@ -2844,56 +2296,21 @@ async function rebuildForNewRuleset(): Promise<boolean> {
   });
   rebuilding = true;
   self.postMessage({type: 'rebuilding', active: true});
-
-  // Yield so that (1) the main thread can process the rebuilding message
-  // And render the overlay, and (2) any in-flight mainLoop frame sees the
-  // `rebuilding` flag and bails out before touching GPU state.
   try {
     await waitForGpuQueueIdle();
   } catch {
-    // Queue waits can reject after device loss. Rebuild handles that below.
+    console.warn('[GOLT worker] Queue idle wait rejected during rebuild');
   }
-
-  if (deviceLost && !await restoreWebGPUDevice()) {
-    return false;
+  let rebuildSucceeded = !deviceLost;
+  if (deviceLost) {
+    rebuildSucceeded = await restoreWebGPUDevice();
   }
-
-  destroyRebuildableBuffers();
-  createUniformBuffer();
-
-  computeChunkCapacity();
-  resetRebuildAllocationTracking(recordingAvailableForCurrentFrame());
-
-  try {
-    await createGridBuffers();
-    createTribeColorBuffer();
-    createRenderPipeline();
-    createComputePipeline();
-    createBrushPipeline();
-    createRenderBindGroups();
-    createMetricsPipelines();
-    if (recordingAvailableForCurrentFrame()) {
-      await createChunkBuffer();
-      await createStagingRing();
-    } else {
-      destroyRecordingBuffers();
-      isRecording = false;
-      recordingAwaitingForward = false;
-    }
-    await waitForTrackedBufferAllocations();
-    postRecordingLimits();
-  } catch (err) {
-    // GPU buffer allocation failed — post error, stay in rebuilding state
-    // So mainLoop does not attempt GPU work, then attempt recovery without
-    // Recording buffers.
-    const reason = err instanceof Error ? err.message : String(err);
-    console.error('[GOLT worker] GPU rebuild failed:', reason);
-    self.postMessage({type: 'gpuError', reason});
+  if (rebuildSucceeded) {
+    destroyRebuildableBuffers();
+    createUniformBuffer();
+    computeChunkCapacity();
+    resetRebuildAllocationTracking(recordingAvailableNow());
     try {
-      destroyRebuildableBuffers();
-      createUniformBuffer();
-      resetRebuildAllocationTracking(false);
-      // Retry core-only: grid + render + compute, no recording.
       await createGridBuffers();
       createTribeColorBuffer();
       createRenderPipeline();
@@ -2901,528 +2318,602 @@ async function rebuildForNewRuleset(): Promise<boolean> {
       createBrushPipeline();
       createRenderBindGroups();
       createMetricsPipelines();
-      // Disable recording since chunk/staging buffers failed.
-      isRecording = false;
-      recordingAwaitingForward = false;
-      frameByteSize = gridBufferSize();
-      destroyRecordingBuffers();
-      console.warn('[GOLT worker] GPU rebuild recovered with recording disabled');
+      if (recordingAvailableNow()) {
+        await createChunkBuffer();
+        await createStagingRing();
+      } else {
+        destroyRecordingBuffers();
+        isRecording = false;
+        recordingAwaitingForward = false;
+      }
       await waitForTrackedBufferAllocations();
       postRecordingLimits();
-    } catch (e) {
-      console.error('[GOLT worker] GPU rebuild recovery failed:', e);
-      return false;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error('[GOLT worker] GPU rebuild failed:', reason);
+      self.postMessage({type: 'gpuError', reason});
+      try {
+        destroyRebuildableBuffers();
+        createUniformBuffer();
+        resetRebuildAllocationTracking(false);
+        await createGridBuffers();
+        createTribeColorBuffer();
+        createRenderPipeline();
+        createComputePipeline();
+        createBrushPipeline();
+        createRenderBindGroups();
+        createMetricsPipelines();
+        isRecording = false;
+        recordingAwaitingForward = false;
+        frameByteSize = gridBufferSize();
+        destroyRecordingBuffers();
+        console.warn('[GOLT worker] GPU rebuild recovered with recording disabled');
+        await waitForTrackedBufferAllocations();
+        postRecordingLimits();
+      } catch (e) {
+        console.error('[GOLT worker] GPU rebuild recovery failed:', e);
+        rebuildSucceeded = false;
+      }
     }
   }
-  rebuilding = false;
-  self.postMessage({type: 'rebuilding', active: false});
-  console.log('[GOLT worker] Rebuild completed', {
-    recordingAvailable: recordingAvailableForCurrentFrame(),
-    frameByteSize
-  });
-  return true;
+  if (rebuildSucceeded) {
+    rebuilding = false;
+    self.postMessage({type: 'rebuilding', active: false});
+    console.log('[GOLT worker] Rebuild completed', {
+      recordingAvailable: recordingAvailableNow(),
+      frameByteSize
+    });
+  }
+  return rebuildSucceeded;
 }
 
-// ---------------------------------------------------------------------------
-//  Message handler
-// ---------------------------------------------------------------------------
+/**
+ * Schedules a callback after pending GPU catch-up work finishes.
+ *
+ * @param {() => void} onComplete callback to run after the GPU queue drains.
+ */
+function scheduleGpuCatchUpCompletion(onComplete: () => void): void {
+  gpuCatchUpPending = true;
+  device.queue.onSubmittedWorkDone().then(() => {
+    gpuCatchUpPending = false;
+    onComplete();
+  }).catch(() => {
+    gpuCatchUpPending = false;
+  });
+}
 
-self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
-  const m = ev.data;
-  switch (m.type) {
-    case 'init': {
-      console.log('[GOLT worker] Init message received', {
-        cols: m.ruleset.cols,
-        rows: m.ruleset.rows,
-        recording: m.recording,
-        running: m.running,
-        speed: m.speed
-      });
-      isRecording = m.recording;
-      liveMetrics = normalizeLiveMetricsSettings(m.liveMetrics);
-      recordingAwaitingForward = isRecording;
-      initRuleset(m.ruleset, m.simulationGridFormat);
-      await initWebGPU(m.canvas);
-      await buildPipelines();
-      if (!metricsInFlight) {
-        const initEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-        runMetricsGpu(initEncoder);
-        device.queue.submit([initEncoder.finish()]);
-        readMetricsAndPost();
-      } else {
-        pendingMetricsRetry = true;
-      }
-      postStorageQuota();
+/**
+ * Waits until all in-flight seal callbacks finish updating OPFS state.
+ */
+async function waitForInflightSeals(): Promise<void> {
+  if (inflightSeals > 0) {
+    await new Promise<void>(resolve => {
+      const interval = setInterval(() => {
+        if (inflightSeals === 0) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 10);
+    });
+  }
+}
 
-      simulationRunning = m.running;
-      targetStepDuration = m.speed < 0 ? 0 : 1000 / m.speed;
+/**
+ * Handles the initial worker boot message.
+ *
+ * @param {InitMessage} message init message.
+ */
+async function handleInitMessage(message: InitMessage): Promise<void> {
+  console.log('[GOLT worker] Init message received', {
+    cols: message.ruleset.cols,
+    rows: message.ruleset.rows,
+    recording: message.recording,
+    running: message.running,
+    speed: message.speed
+  });
+  isRecording = message.recording;
+  liveMetrics = normalizeLiveMetricsSettings(message.liveMetrics);
+  recordingAwaitingForward = isRecording;
+  initRuleset(message.ruleset, message.simulationGridFormat);
+  await initWebGPU(message.canvas);
+  await buildPipelines();
+  queueMetricsRefresh(true);
+  postStorageQuota();
+  simulationRunning = message.running;
+  targetStepDuration = message.speed < 0 ? 0 : 1000 / message.speed;
+  if (simulationRunning) {
+    startContinuousRun();
+  } else {
+    scheduleIdleFrame();
+  }
+}
+
+/**
+ * Handles live-metrics settings updates.
+ *
+ * @param {SetLiveMetricsMessage} message live-metrics message.
+ */
+function handleSetLiveMetricsMessage(message: SetLiveMetricsMessage): void {
+  liveMetrics = normalizeLiveMetricsSettings(message.liveMetrics);
+  queueMetricsRefresh(true);
+}
+
+/**
+ * Handles ruleset changes that require GPU resource rebuilds.
+ *
+ * @param {SetRulesetMessage} message ruleset update message.
+ */
+async function handleSetRulesetMessage(message: SetRulesetMessage): Promise<void> {
+  console.log('[GOLT worker] Ruleset update received', {
+    cols: message.ruleset.cols,
+    rows: message.ruleset.rows,
+    tribes: message.ruleset.tribes.length
+  });
+  const maxSimulationBytes = currentMaxSimulationBytes();
+  const fittingFormat = smallestFittingSimulationGridFormat(message.ruleset.tribes.length, message.ruleset, maxSimulationBytes);
+  if (!fittingFormat) {
+    const requiredFormat = requiredGridFormatForStateCount(message.ruleset.tribes.length);
+    const reason = `Requested ruleset requires at least ${requiredFormat.bitsPerCell}-bit packing, which exceeds the current GPU frame size limit.`;
+    console.error('[GOLT worker] Rebuild rejected:', reason, {
+      cols: message.ruleset.cols,
+      rows: message.ruleset.rows,
+      tribes: message.ruleset.tribes.length,
+      maxBytes: maxSimulationBytes
+    });
+    self.postMessage({type: 'gpuError', reason});
+  } else {
+    stopRun('rebuild', {
+      render: false,
+      postStepping: false,
+      restore: false,
+      restartRestoredRun: false
+    });
+    initRuleset(message.ruleset, message.simulationGridFormat);
+    const rebuilt = await rebuildForNewRuleset();
+    if (rebuilt) {
+      genCounter = 0;
+      await resetRecording(0);
+      queueMetricsRefresh(true);
       if (simulationRunning) {
         startContinuousRun();
       } else {
         scheduleIdleFrame();
       }
-      break;
-    }
-
-    case 'setLiveMetrics': {
-      liveMetrics = normalizeLiveMetricsSettings(m.liveMetrics);
-      lastMetricsGen = -1;
-      queueMetricsRefresh(true);
-      break;
-    }
-
-    case 'setRuleset': {
-      console.log('[GOLT worker] Ruleset update received', {
-        cols: m.ruleset.cols,
-        rows: m.ruleset.rows,
-        tribes: m.ruleset.tribes.length
-      });
-      const fittingFormat = smallestFittingSimulationGridFormat(
-        m.ruleset.tribes.length,
-        m.ruleset,
-        maxSimulationBufferBytes()
-      );
-      if (fittingFormat) {
-        stopRun('rebuild', {
-          render: false,
-          postStepping: false,
-          restore: false,
-          restartRestoredRun: false
-        });
-        initRuleset(m.ruleset, m.simulationGridFormat);
-        const rebuilt = await rebuildForNewRuleset();
-        if (rebuilt) {
-          genCounter = 0;
-          lastMetricsGen = -1;
-          await resetRecording(0);
-          if (simulationRunning) {
-            startContinuousRun();
-          } else {
-            scheduleIdleFrame();
-          }
-          // Post initial metrics for the fresh (empty) grid.
-          if (!metricsInFlight) {
-            const resetEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-            runMetricsGpu(resetEncoder);
-            device.queue.submit([resetEncoder.finish()]);
-            readMetricsAndPost();
-          } else {
-            pendingMetricsRetry = true;
-          }
-        }
-      } else {
-        const requiredFormat = requiredGridFormatForStateCount(m.ruleset.tribes.length);
-        const reason = `Requested ruleset requires at least ${requiredFormat.bitsPerCell}-bit packing, which exceeds the current GPU frame size limit.`;
-        console.error('[GOLT worker] Rebuild rejected:', reason, {
-          cols: m.ruleset.cols,
-          rows: m.ruleset.rows,
-          tribes: m.ruleset.tribes.length,
-          maxBytes: maxSimulationBufferBytes()
-        });
-        self.postMessage({type: 'gpuError', reason});
-      }
-      break;
-    }
-
-    case 'setRunning':
-      simulationRunning = m.running;
-      if (m.running) {
-        if (!activeRun) {
-          startContinuousRun();
-        }
-        break;
-      }
-      if (activeRun && isTargetRun(activeRun)) {
-        cancelTargetRun(false);
-      } else if (activeRun) {
-        stopRun('manual');
-      } else {
-        if (backpressureActive) {
-          checkBackpressure();
-        }
-        refreshMetricsAndRender();
-        scheduleIdleFrame();
-      }
-      break;
-
-    case 'setSpeed': {
-      const wasMaxSpeed = targetStepDuration <= 0;
-      const newDuration = m.speed < 0 ? 0 : 1000 / m.speed;
-      targetStepDuration = newDuration;
-      if (activeRun && !isTargetRun(activeRun) && simulationRunning) {
-        stopRun('restart', {
-          render: false,
-          postStepping: false,
-          restore: false,
-          restartRestoredRun: false
-        });
-        if (wasMaxSpeed && newDuration > 0) {
-          gpuCatchUpPending = true;
-          device.queue.onSubmittedWorkDone().then(() => {
-            gpuCatchUpPending = false;
-            renderFrame();
-            startContinuousRun();
-          });
-        } else {
-          startContinuousRun();
-        }
-      } else if (simulationRunning && !activeRun) {
-        startContinuousRun();
-      } else if (wasMaxSpeed && newDuration > 0) {
-        gpuCatchUpPending = true;
-        device.queue.onSubmittedWorkDone().then(() => {
-          gpuCatchUpPending = false;
-          renderFrame();
-          scheduleIdleFrame();
-        });
-      }
-      break;
-    }
-
-    case 'camera':
-      scale = m.scale;
-      offsetX = m.offsetX;
-      offsetY = m.offsetY;
-      break;
-
-    case 'resize':
-      canvas.width = m.width;
-      canvas.height = m.height;
-      break;
-
-    case 'draw': {
-      const ids = m.tribes.map(t => tribeIndex.get(t)).filter((v): v is number => v !== undefined);
-      if (ids.length > 0) {
-        const shapeMap: Record<string, number> = {
-          square: 0,
-          round: 1,
-          diamond: 2,
-          vline: 3,
-          hline: 4
-        };
-        const fillMap: Record<string, number> = {
-          full: 0,
-          spray: 1,
-          outline: 2
-        };
-        const shape = shapeMap[m.shape] ?? 0;
-        const fill = fillMap[m.fill] ?? 0;
-        pendingBrush = {
-          centerX: m.x,
-          centerY: m.y,
-          brushSize: m.size,
-          shape,
-          fill,
-          tribeIds: ids
-        };
-      }
-      break;
-    }
-
-    case 'brushPreview': {
-      const shapeMap: Record<string, number> = {
-        square: 0,
-        round: 1,
-        diamond: 2,
-        vline: 3,
-        hline: 4
-      };
-      brushPreview = {
-        centerX: m.x,
-        centerY: m.y,
-        brushSize: m.size,
-        shape: shapeMap[m.shape] ?? 0,
-        visible: m.visible
-      };
-      if (!activeRun && !rebuilding && !deviceLost && targetStepDuration <= 0) {
-        renderFrame();
-      }
-      break;
-    }
-
-    case 'getSnapshot': {
-      readbackGrid().then(grid => {
-        const message = {
-          type: 'snapshot',
-          grid,
-          generation: genCounter,
-          cols,
-          rows,
-          gridFormat: currentGridFormatMetadata()
-        };
-        self.postMessage(message, [grid.buffer]);
-      }).catch(() => {
-        // Grid too large to read back — send empty grid.
-        const empty = new Uint32Array(0);
-        const message = {
-          type: 'snapshot',
-          grid: empty,
-          generation: genCounter,
-          cols,
-          rows,
-          gridFormat: currentGridFormatMetadata()
-        };
-        self.postMessage(message, [empty.buffer]);
-      });
-      break;
-    }
-
-    case 'loadSnapshot': {
-      const currentGrid = pingPong ? gridBufferB : gridBufferA;
-      const incomingGridFormat = gridFormatFromMetadata(m.gridFormat);
-      const incomingSize = gridByteSize({cols, rows}, incomingGridFormat);
-      if (m.grid.byteLength !== incomingSize) {
-        break;
-      }
-      const gridData = repackPackedGrid(m.grid, {cols, rows}, incomingGridFormat, gridFormat);
-      device.queue.writeBuffer(currentGrid, 0, gridData);
-      genCounter = m.generation;
-      await resetRecording(m.generation);
-      break;
-    }
-
-    case 'setRecording': {
-      const runToRestart = activeRun?.request;
-      if (m.recording && recordingAvailableForCurrentFrame() && !isRecording) {
-        isRecording = true;
-        recordingAwaitingForward = true;
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const encoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-          runMetricsGpu(encoder);
-          device.queue.submit([encoder.finish()]);
-          readMetricsAndPost();
-        } else {
-          pendingMetricsRetry = true;
-        }
-        postStorageQuota();
-      } else if (!m.recording || !recordingAvailableForCurrentFrame()) {
-        if (m.recording && !recordingAvailableForCurrentFrame()) {
-          console.warn('[GOLT worker] Recording requested but unavailable for current frame size', {
-            frameByteSize,
-            maxRecordingBufferBytes: maxRecordingBufferBytes()
-          });
-        }
-        isRecording = false;
-        recordingAwaitingForward = false;
-      }
-      if (runToRestart && activeRun) {
-        restartActiveRunForRecordingChange(runToRestart);
-      } else if (!activeRun && simulationRunning) {
-        startContinuousRun();
-      }
-      break;
-    }
-
-    case 'getRecording': {
-      // Flush queued GPU work, capture the current generation if needed,
-      // Then seal the current chunk and wait for all writes.
-      if (getRecordingPending) {
-        break;
-      }
-      await waitForGpuQueueIdle();
-      captureCurrentGenerationIfNeeded(false);
-      if (chunkFrameIndex > 0) {
-        sealCurrentChunk();
-      }
-      if (inflightSeals > 0) {
-        getRecordingPending = true;
-      } else {
-        sendRecordingManifest();
-      }
-      break;
-    }
-
-    case 'stepBack': {
-      // Build global index of all recorded frames.
-      let sealedFrameCount = 0;
-      for (const c of sealedChunks) {
-        sealedFrameCount += c.blockCount;
-      }
-      const totalFrames = sealedFrameCount + chunkFrameIndex;
-      const k = Math.min(m.count, totalFrames - 1);
-      if (k <= 0) {
-        break;
-      }
-      const targetFrameGlobal = totalFrames - 1 - k;
-
-      const currentGrid = pingPong ? gridBufferB : gridBufferA;
-
-      if (targetFrameGlobal >= sealedFrameCount) {
-        // Target is in the current GPU chunk buffer — fast GPU path.
-        const frameInChunk = targetFrameGlobal - sealedFrameCount;
-        chunkFrameIndex = frameInChunk + 1;
-        chunkGenerations.length = chunkFrameIndex;
-        genCounter = chunkGenerations[frameInChunk]!;
-        latestRecordedGeneration = genCounter;
-
-        const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
-        bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
-        device.queue.submit([bEnc.finish()]);
-      } else {
-        // Target is in a sealed chunk — wait for in-flight seals to ensure OPFS is up-to-date.
-        if (inflightSeals > 0) {
-          await new Promise<void>(resolve => {
-            const interval = setInterval(() => {
-              if (inflightSeals === 0) {
-                clearInterval(interval);
-                resolve();
-              }
-            }, 10);
-          });
-          // Recalculate after await — sealedChunks may have been updated.
-          sealedFrameCount = 0;
-          for (const c of sealedChunks) {
-            sealedFrameCount += c.blockCount;
-          }
-        }
-
-        // Read from OPFS.
-        let accumulated = 0;
-        let targetSealedIdx = 0;
-        let frameInChunk = 0;
-        for (let si = 0; si < sealedChunks.length; si++) {
-          const c = sealedChunks[si]!;
-          if (targetFrameGlobal < accumulated + c.blockCount) {
-            targetSealedIdx = si;
-            frameInChunk = targetFrameGlobal - accumulated;
-            break;
-          }
-          accumulated += c.blockCount;
-        }
-
-        const chunk = sealedChunks[targetSealedIdx]!;
-        const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
-        const storedChunkFormat = gridFormatFromMetadata(chunk.gridFormat);
-        const storedFrameByteSize = gridByteSize({cols, rows}, storedChunkFormat);
-
-        // Load frames 0..frameInChunk into the GPU chunk buffer.
-        if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
-          const prefixBytes = (frameInChunk + 1) * frameByteSize;
-          device.queue.writeBuffer(chunkGpuBuffer!, 0, new Uint8Array(chunkData, 0, prefixBytes));
-        } else {
-          const repackedPrefix = new Uint8Array((frameInChunk + 1) * frameByteSize);
-          for (let frameIndex = 0; frameIndex <= frameInChunk; frameIndex++) {
-            const storedOffset = frameIndex * storedFrameByteSize;
-            const packedFrame = new Uint8Array(chunkData, storedOffset, storedFrameByteSize);
-            const repackedFrame = repackPackedGrid(alignPackedBytesToWords(packedFrame), {cols, rows}, storedChunkFormat, gridFormat);
-            repackedPrefix.set(new Uint8Array(repackedFrame.buffer, repackedFrame.byteOffset, repackedFrame.byteLength), frameIndex * frameByteSize);
-          }
-          device.queue.writeBuffer(chunkGpuBuffer!, 0, repackedPrefix);
-          device.queue.writeBuffer(currentGrid, 0, repackedPrefix.subarray(frameInChunk * frameByteSize, (frameInChunk + 1) * frameByteSize));
-        }
-        chunkFrameIndex = frameInChunk + 1;
-        chunkGenerations = chunk.generations.slice(0, frameInChunk + 1);
-        genCounter = chunkGenerations[frameInChunk]!;
-        latestRecordedGeneration = genCounter;
-
-        if (storedChunkFormat.bitsPerCell === gridFormat.bitsPerCell) {
-          // Copy target frame to the grid.
-          const bEnc = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
-          bEnc.copyBufferToBuffer(chunkGpuBuffer!, frameInChunk * frameByteSize, currentGrid, 0, frameByteSize);
-          device.queue.submit([bEnc.finish()]);
-        }
-
-        // Delete the target chunk and all subsequent sealed chunks from OPFS.
-        const removed = sealedChunks.splice(targetSealedIdx);
-        const filenames = removed.map(c => c.filename);
-        deleteChunksFromOpfs(filenames);
-      }
-
-      updateManifestRange();
-      postStorageQuota();
-
-      lastMetricsGen = -1;
-      if (!metricsInFlight) {
-        const bEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-        runMetricsGpu(bEncoder);
-        device.queue.submit([bEncoder.finish()]);
-        readMetricsAndPost();
-      } else {
-        pendingMetricsRetry = true;
-      }
-      renderFrame();
-      break;
-    }
-
-    case 'stepForward': {
-      applyPendingBrush();
-      if (m.count === 1) {
-        // Single step: immediate, with recording.
-        captureCurrentGenerationIfNeeded(true);
-        const recordingReady = !isRecording || prepareRecordingStep();
-        if (recordingReady) {
-          stepSimulation();
-          stepCount++;
-          if (isRecording && canRecord()) {
-            if (chunkFrameIndex >= chunkFrameCapacity) {
-              sealCurrentChunk();
-            }
-            recordGeneration(genCounter);
-          }
-        } else {
-          markRunBackpressure();
-        }
-        if (recordingReady) {
-          clearRunBackpressure();
-        }
-        lastMetricsGen = -1;
-        if (!metricsInFlight) {
-          const fEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-          runMetricsGpu(fEncoder);
-          device.queue.submit([fEncoder.finish()]);
-          readMetricsAndPost();
-        } else {
-          pendingMetricsRetry = true;
-        }
-        renderFrame();
-      } else {
-        // Multi-step: target-generation run, max speed, no rendering.
-        self.postMessage({type: 'stepping', active: true});
-        captureCurrentGenerationIfNeeded(true);
-        startRun(runKindForCurrentRecording(), {
-          pacing: {kind: 'max'},
-          stopCondition: {kind: 'targetGeneration', generation: genCounter + m.count},
-          restoreAfterStop: {
-            running: simulationRunning,
-            targetStepDuration
-          }
-        });
-      }
-      break;
-    }
-
-    case 'cancelStepping': {
-      cancelTargetRun(activeRun?.request.restoreAfterStop?.running ?? simulationRunning);
-      break;
-    }
-    case 'updateChunkCodec': {
-      const chunk = sealedChunks.find(c => c.filename === m.filename);
-      if (chunk) {
-        chunk.codec = m.codec;
-        chunk.storedBytes = m.storedBytes;
-        chunk.gridFormat = m.gridFormat;
-        manifest.chunks = [...sealedChunks];
-        // Always post updated quota so the pending/compressed breakdown refreshes.
-        postStorageQuota();
-        sendRecordingManifest();
-      }
-      break;
-    }
-    case 'getUncompressedChunks': {
-      const rawChunks = sealedChunks
-        .filter(c => c.codec === RAW_PACKED_CODEC)
-        .map(c => ({
-          filename: c.filename,
-          rawBytes: c.uncompressedBytes,
-          blockCount: c.blockCount,
-          cols,
-          rows,
-          rawGridFormat: c.gridFormat,
-          storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
-        }));
-      self.postMessage({type: 'uncompressedChunks', chunks: rawChunks});
-      break;
     }
   }
+}
+
+/**
+ * Handles simulation running-state changes.
+ *
+ * @param {SetRunningMessage} message running-state message.
+ */
+function handleSetRunningMessage(message: SetRunningMessage): void {
+  simulationRunning = message.running;
+  if (message.running) {
+    if (!activeRun) {
+      startContinuousRun();
+    }
+  } else if (activeRun && isTargetRun(activeRun)) {
+    cancelTargetRun(false);
+  } else if (activeRun) {
+    stopRun('manual');
+  } else {
+    if (backpressureActive) {
+      checkBackpressure();
+    }
+    refreshMetricsAndRender();
+    scheduleIdleFrame();
+  }
+}
+
+/**
+ * Handles simulation speed changes.
+ *
+ * @param {SetSpeedMessage} message speed update message.
+ */
+function handleSetSpeedMessage(message: SetSpeedMessage): void {
+  const wasMaxSpeed = targetStepDuration <= 0;
+  const newDuration = message.speed < 0 ? 0 : 1000 / message.speed;
+  targetStepDuration = newDuration;
+  if (activeRun && !isTargetRun(activeRun) && simulationRunning) {
+    stopRun('restart', {
+      render: false,
+      postStepping: false,
+      restore: false,
+      restartRestoredRun: false
+    });
+    if (wasMaxSpeed && newDuration > 0) {
+      scheduleGpuCatchUpCompletion(() => {
+        renderFrame();
+        startContinuousRun();
+      });
+    } else {
+      startContinuousRun();
+    }
+  } else if (simulationRunning && !activeRun) {
+    startContinuousRun();
+  } else if (wasMaxSpeed && newDuration > 0) {
+    scheduleGpuCatchUpCompletion(() => {
+      renderFrame();
+      scheduleIdleFrame();
+    });
+  }
+}
+
+/**
+ * Handles camera updates.
+ *
+ * @param {CameraMessage} message camera message.
+ */
+function handleCameraMessage(message: CameraMessage): void {
+  scale = message.scale;
+  offsetX = message.offsetX;
+  offsetY = message.offsetY;
+}
+
+/**
+ * Handles canvas resize updates.
+ *
+ * @param {ResizeMessage} message resize message.
+ */
+function handleResizeMessage(message: ResizeMessage): void {
+  canvas.width = message.width;
+  canvas.height = message.height;
+}
+
+/**
+ * Handles queued brush draw requests.
+ *
+ * @param {DrawMessage} message draw message.
+ */
+function handleDrawMessage(message: DrawMessage): void {
+  const ids = message.tribes.map(tribe => tribeIndex.get(tribe)).filter((value): value is number => value !== undefined);
+  if (ids.length > 0) {
+    const shapeMap: Record<string, number> = {
+      square: 0,
+      round: 1,
+      diamond: 2,
+      vline: 3,
+      hline: 4
+    };
+    const fillMap: Record<string, number> = {
+      full: 0,
+      spray: 1,
+      outline: 2
+    };
+    pendingBrush = {
+      centerX: message.x,
+      centerY: message.y,
+      brushSize: message.size,
+      shape: shapeMap[message.shape] ?? 0,
+      fill: fillMap[message.fill] ?? 0,
+      tribeIds: ids
+    };
+  }
+}
+
+/**
+ * Handles brush preview updates.
+ *
+ * @param {BrushPreviewMessage} message brush-preview message.
+ */
+function handleBrushPreviewMessage(message: BrushPreviewMessage): void {
+  const shapeMap: Record<string, number> = {
+    square: 0,
+    round: 1,
+    diamond: 2,
+    vline: 3,
+    hline: 4
+  };
+  brushPreview = {
+    centerX: message.x,
+    centerY: message.y,
+    brushSize: message.size,
+    shape: shapeMap[message.shape] ?? 0,
+    visible: message.visible
+  };
+  if (!activeRun && !rebuilding && !deviceLost && targetStepDuration <= 0) {
+    renderFrame();
+  }
+}
+
+/**
+ * Handles snapshot readback requests.
+ */
+async function handleGetSnapshotMessage(): Promise<void> {
+  try {
+    const grid = await readbackGrid();
+    postWorkerTransfer({
+      type: 'snapshot',
+      grid,
+      generation: genCounter,
+      cols,
+      rows,
+      gridFormat: currentGridFormatMetadata()
+    }, [grid.buffer]);
+  } catch {
+    const empty = new Uint32Array(0);
+    postWorkerTransfer({
+      type: 'snapshot',
+      grid: empty,
+      generation: genCounter,
+      cols,
+      rows,
+      gridFormat: currentGridFormatMetadata()
+    }, [empty.buffer]);
+  }
+}
+
+/**
+ * Handles snapshot restore requests.
+ *
+ * @param {LoadSnapshotMessage} message snapshot-restore message.
+ */
+async function handleLoadSnapshotMessage(message: LoadSnapshotMessage): Promise<void> {
+  const incomingGridFormat = gridFormatFromMetadata(message.gridFormat);
+  const grid = currentGridSize();
+  if (message.grid.byteLength === gridByteSize(grid, incomingGridFormat)) {
+    const gridData = repackPackedGrid(message.grid, grid, incomingGridFormat, gridFormat);
+    device.queue.writeBuffer(pingPong ? gridBufferB : gridBufferA, 0, gridData);
+    genCounter = message.generation;
+    await resetRecording(message.generation);
+  }
+}
+
+/**
+ * Handles recording enablement changes.
+ *
+ * @param {SetRecordingMessage} message recording toggle message.
+ */
+function handleSetRecordingMessage(message: SetRecordingMessage): void {
+  const runToRestart = activeRun?.request;
+  const recordingAvailable = recordingAvailableNow();
+  if (message.recording && recordingAvailable && !isRecording) {
+    isRecording = true;
+    recordingAwaitingForward = true;
+    queueMetricsRefresh(true);
+    postStorageQuota();
+  } else if (!message.recording || !recordingAvailable) {
+    if (message.recording && !recordingAvailable) {
+      console.warn('[GOLT worker] Recording requested but unavailable for current frame size', {frameByteSize, maxRecordingBufferBytes: currentMaxRecordingBytes()});
+    }
+    isRecording = false;
+    recordingAwaitingForward = false;
+  }
+  if (runToRestart && activeRun) {
+    restartActiveRunForRecordingChange(runToRestart);
+  } else if (!activeRun && simulationRunning) {
+    startContinuousRun();
+  }
+}
+
+/**
+ * Handles recording manifest requests.
+ */
+async function handleGetRecordingMessage(): Promise<void> {
+  if (!getRecordingPending) {
+    await waitForGpuQueueIdle();
+    captureCurrentGenerationIfNeeded(false);
+    if (chunkFrameIndex > 0) {
+      sealCurrentChunk();
+    }
+    if (inflightSeals > 0) {
+      getRecordingPending = true;
+    } else {
+      sendRecordingManifest();
+    }
+  }
+}
+
+/**
+ * Handles recorded step-back navigation.
+ *
+ * @param {StepBackMessage} message step-back message.
+ */
+async function handleStepBackMessage(message: StepBackMessage): Promise<void> {
+  let sealedCount = countFrames(sealedChunks);
+  const target = resolveStepBackTarget(sealedChunks, sealedCount, chunkFrameIndex, message.count);
+  if (target) {
+    const activeGridBuffer = pingPong ? gridBufferB : gridBufferA;
+    if (target.source === 'buffered') {
+      const bufferedState = bufferedStepBackState(chunkGenerations, target);
+      chunkFrameIndex = bufferedState.chunkFrameIndex;
+      chunkGenerations.length = chunkFrameIndex;
+      genCounter = bufferedState.generation;
+      latestRecordedGeneration = genCounter;
+      const encoder = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
+      encoder.copyBufferToBuffer(chunkGpuBuffer!, target.frameInChunk * frameByteSize, activeGridBuffer, 0, frameByteSize);
+      device.queue.submit([encoder.finish()]);
+    } else {
+      if (inflightSeals > 0) {
+        await waitForInflightSeals();
+        sealedCount = countFrames(sealedChunks);
+      }
+      const chunk = sealedChunks[target.sealedIndex]!;
+      const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
+      const grid = currentGridSize();
+      const storedChunkFormat = gridFormatFromMetadata(chunk.gridFormat);
+      const restoredPrefix = buildStepBackPrefix(chunkData, target.frameInChunk, frameByteSize, grid, storedChunkFormat, gridFormat);
+      device.queue.writeBuffer(chunkGpuBuffer!, 0, restoredPrefix.chunkPrefix);
+      if (!restoredPrefix.sameFormat && restoredPrefix.activeFrame) {
+        device.queue.writeBuffer(activeGridBuffer, 0, restoredPrefix.activeFrame);
+      }
+      chunkFrameIndex = target.frameInChunk + 1;
+      chunkGenerations = chunk.generations.slice(0, target.frameInChunk + 1);
+      genCounter = chunkGenerations[target.frameInChunk]!;
+      latestRecordedGeneration = genCounter;
+      if (restoredPrefix.sameFormat) {
+        const encoder = device.createCommandEncoder({label: GPU_LABELS.recordingRestoreCopyEncoder});
+        encoder.copyBufferToBuffer(chunkGpuBuffer!, target.frameInChunk * frameByteSize, activeGridBuffer, 0, frameByteSize);
+        device.queue.submit([encoder.finish()]);
+      }
+      const removed = sealedChunks.splice(target.sealedIndex);
+      deleteChunksFromOpfs(removed.map(removedChunk => removedChunk.filename));
+    }
+    updateManifestRange(manifest, sealedChunks, chunkGenerations);
+    postStorageQuota();
+    queueMetricsRefresh(true);
+    renderFrame();
+  }
+}
+
+/**
+ * Handles one immediate forward simulation step.
+ */
+function handleSingleStepForward(): void {
+  applyPendingBrush();
+  captureCurrentGenerationIfNeeded(true);
+  const recordingReady = !isRecording || prepareRecordingStep();
+  if (recordingReady) {
+    stepSimulation();
+    stepCount++;
+    if (isRecording && canRecordNow()) {
+      if (chunkFrameIndex >= chunkFrameCapacity) {
+        sealCurrentChunk();
+      }
+      recordGeneration(genCounter);
+    }
+    setRunBackpressure(false);
+  } else {
+    setRunBackpressure(true);
+  }
+  queueMetricsRefresh(true);
+  renderFrame();
+}
+
+/**
+ * Handles multi-step forward runs by starting a temporary target-generation run.
+ *
+ * @param {number} count number of generations to advance.
+ */
+function handleTargetStepForward(count: number): void {
+  self.postMessage({type: 'stepping', active: true});
+  captureCurrentGenerationIfNeeded(true);
+  startRun(runKindForCurrentRecording(), {
+    pacing: {kind: 'max'},
+    stopCondition: {kind: 'targetGeneration', generation: genCounter + count},
+    restoreAfterStop: {running: simulationRunning, targetStepDuration}
+  });
+}
+
+/**
+ * Handles step-forward requests.
+ *
+ * @param {StepForwardMessage} message step-forward message.
+ */
+function handleStepForwardMessage(message: StepForwardMessage): void {
+  if (message.count === 1) {
+    handleSingleStepForward();
+  } else {
+    handleTargetStepForward(message.count);
+  }
+}
+
+/**
+ * Handles cancellation of an active target-generation run.
+ */
+function handleCancelSteppingMessage(): void {
+  cancelTargetRun(activeRun?.request.restoreAfterStop?.running ?? simulationRunning);
+}
+
+/**
+ * Handles chunk codec updates from the compression worker.
+ *
+ * @param {UpdateChunkCodecMessage} message chunk-codec update message.
+ */
+function handleUpdateChunkCodecMessage(message: UpdateChunkCodecMessage): void {
+  const chunk = sealedChunks.find(sealedChunk => sealedChunk.filename === message.filename);
+  if (chunk) {
+    chunk.codec = message.codec;
+    chunk.storedBytes = message.storedBytes;
+    chunk.gridFormat = message.gridFormat;
+    manifest.chunks = [...sealedChunks];
+    postStorageQuota();
+    sendRecordingManifest();
+  }
+}
+
+/**
+ * Handles requests for currently uncompressed chunks.
+ */
+function handleGetUncompressedChunksMessage(): void {
+  const rawChunks = sealedChunks.filter(chunk => chunk.codec === RAW_PACKED_CODEC).map(chunk => ({
+    filename: chunk.filename,
+    rawBytes: chunk.uncompressedBytes,
+    blockCount: chunk.blockCount,
+    cols,
+    rows,
+    rawGridFormat: chunk.gridFormat,
+    storageGridFormat: gridFormatMetadata(chooseTightStorageGridFormat(ruleset.tribes.length))
+  }));
+  self.postMessage({type: 'uncompressedChunks', chunks: rawChunks});
+}
+
+/**
+ * Dispatches one incoming worker message to its concrete handler.
+ *
+ * @param {WorkerMessage} message incoming worker message.
+ */
+async function dispatchWorkerMessage(message: WorkerMessage): Promise<void> {
+  switch (message.type) {
+    case 'init':
+      await handleInitMessage(message);
+      break;
+    case 'setLiveMetrics':
+      handleSetLiveMetricsMessage(message);
+      break;
+    case 'setRuleset':
+      await handleSetRulesetMessage(message);
+      break;
+    case 'setRunning':
+      handleSetRunningMessage(message);
+      break;
+    case 'setSpeed':
+      handleSetSpeedMessage(message);
+      break;
+    case 'camera':
+      handleCameraMessage(message);
+      break;
+    case 'resize':
+      handleResizeMessage(message);
+      break;
+    case 'draw':
+      handleDrawMessage(message);
+      break;
+    case 'brushPreview':
+      handleBrushPreviewMessage(message);
+      break;
+    case 'getSnapshot':
+      await handleGetSnapshotMessage();
+      break;
+    case 'loadSnapshot':
+      await handleLoadSnapshotMessage(message);
+      break;
+    case 'setRecording':
+      handleSetRecordingMessage(message);
+      break;
+    case 'getRecording':
+      await handleGetRecordingMessage();
+      break;
+    case 'stepBack':
+      await handleStepBackMessage(message);
+      break;
+    case 'stepForward':
+      handleStepForwardMessage(message);
+      break;
+    case 'cancelStepping':
+      handleCancelSteppingMessage();
+      break;
+    case 'updateChunkCodec':
+      handleUpdateChunkCodecMessage(message);
+      break;
+    case 'getUncompressedChunks':
+      handleGetUncompressedChunksMessage();
+      break;
+  }
+}
+
+self.onmessage = async(event: MessageEvent<WorkerMessage>) => {
+  await dispatchWorkerMessage(event.data);
 };

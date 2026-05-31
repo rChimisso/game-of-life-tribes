@@ -1,7 +1,7 @@
 import {ExtinctionTracker, TribeExtinctionState} from './extinction-types';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
 import {OfflineMetricsTribe} from '../core/offline';
-import {OfflineMetricEntry} from '../core/offline-types';
+import {ExtinctionEpisode, OfflineMetricEntry} from '../core/offline-types';
 
 /**
  * Creates an extinction tracker for all non-dead tribes.

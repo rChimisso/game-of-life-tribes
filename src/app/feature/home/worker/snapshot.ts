@@ -1,6 +1,8 @@
 import '../../../core/function/timestamped-console';
 
+import {Grid} from '../model/grid';
 import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../util/opfs-temp';
+import {postWorkerTransfer} from '../util/worker-post';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
 import {GoltStateData, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {parseGoltStateFile} from './snapshot/parse/golt-parse';
@@ -79,25 +81,13 @@ const SNAPSHOT_SAVE_STREAM_OPTIONS: SnapshotStreamOptions = {
  * @interface SnapshotLoadedMessage
  * @typedef {SnapshotLoadedMessage}
  */
-interface SnapshotLoadedMessage {
+interface SnapshotLoadedMessage extends Grid {
   /**
    * Snapshot worker response type.
    *
    * @type {'loaded'}
    */
   type: 'loaded';
-  /**
-   * Loaded grid column count.
-   *
-   * @type {number}
-   */
-  cols: number;
-  /**
-   * Loaded grid row count.
-   *
-   * @type {number}
-   */
-  rows: number;
   /**
    * Loaded generation counter.
    *
@@ -193,7 +183,7 @@ async function saveSnapshot(snapshot: GoltStateData): Promise<void> {
   } else {
     const bytes = await buildGoltStateFile(snapshot, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
     const buffer = bytes.buffer as ArrayBuffer;
-    self.postMessage({
+    postWorkerTransfer({
       type: 'saved-buffer',
       filename,
       buffer
@@ -220,7 +210,7 @@ async function loadSnapshot(buffer: ArrayBuffer): Promise<void> {
       tribes: parsed.tribes,
       rules: parsed.rules
     };
-    self.postMessage(message, [parsed.grid.buffer]);
+    postWorkerTransfer(message, [parsed.grid.buffer]);
   } else {
     self.postMessage({type: 'invalid'});
   }

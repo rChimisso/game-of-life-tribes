@@ -53,6 +53,7 @@ function createStorageBuffer(device: GPUDevice, label: string, byteLength: numbe
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {Mp4OutputSize} outputSize output video size.
  * @param {number} paletteLength number of GPU palette entries.
+ * @param {boolean} sampledRows whether rows have been sampled for conversion.
  * @returns {Uint32Array} conversion config.
  */
 function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean): Uint32Array {

@@ -4,6 +4,7 @@ import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore
 import {Button} from '../../../../../shared/component/button/button';
 import {DEAD_TRIBE_ID, EditableTribe, Rule, Tribe} from '../../../model/rule';
 import {UpdateTribesPayload} from '../../../model/sidebar-event';
+import {TribeApplyImpact} from '../../../model/tribe-impact';
 import {TribeSaveEvent} from '../../../model/tribe-save-event';
 import {analyzeTribeApplyImpact} from '../../../util/tribe-impact';
 import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
@@ -171,9 +172,9 @@ export class TribesSection implements OnChanges {
    * Impact of applying pending tribe changes.
    *
    * @public
-   * @returns {ReturnType<typeof analyzeTribeApplyImpact>}
+   * @type {TribeApplyImpact}
    */
-  public get tribeApplyImpact() {
+  public get tribeApplyImpact(): TribeApplyImpact {
     return analyzeTribeApplyImpact(this.baselineTribes, this.editTribes, this.committedRules);
   }
 

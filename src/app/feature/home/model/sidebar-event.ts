@@ -4,7 +4,7 @@ import {BitsPerCell} from './grid-format';
 import {LiveMetricSectionSettings} from './metrics';
 import {Preset} from './preset';
 import {Rule, Tribe} from './rule';
-import {TribeRenamePair} from '../util/tribe-impact';
+import {TribeRenamePair} from './tribe-impact';
 
 import {Grid} from '~gol/feature/home/model/grid';
 

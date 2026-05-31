@@ -1,6 +1,6 @@
 import {PackedRecordedFrame, RecordingChunkRange, RecordingFrameIteratorOptions, RecordingFrameSelection} from './recording-frame-types';
 import {DownloadFrameRange} from '../../model/download';
-import {RecordingManifest} from '../../model/recording';
+import {ChunkMeta, RecordingManifest} from '../../model/recording';
 import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../../util/grid-format';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
 import {countRecordingFrames} from '../snapshot/recording/recording-frame-ref';

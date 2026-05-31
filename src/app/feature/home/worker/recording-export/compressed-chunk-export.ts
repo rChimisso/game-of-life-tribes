@@ -273,7 +273,7 @@ async function inflateBytes(bytes: Uint8Array): Promise<ArrayBuffer> {
  *
  * @async
  * @param {Uint8Array} bytes uncompressed bytes to deflate.
- * @param {FileSystemFileHandle} fileHandle OPFS temp output file handle.
+ * @param {FileSystemFileHandle} fileHandle file handle for OPFS temp output.
  * @param {CompressedChunkExportOptions} options cancellation hooks.
  * @returns {Promise<number>} compressed byte count written.
  */
@@ -310,7 +310,7 @@ async function writeDeflatedBytesToOpfs(bytes: Uint8Array, fileHandle: FileSyste
  *
  * @async
  * @param {ReadableStreamDefaultReader<Uint8Array>} reader deflate stream reader.
- * @param {FileSystemWritableFileStream} writable OPFS writable stream.
+ * @param {FileSystemWritableFileStream} writable writable stream for OPFS.
  * @param {CompressedChunkExportOptions} options cancellation hooks.
  * @param {(bytesWritten: number) => void} onBytesWritten compressed byte callback.
  */

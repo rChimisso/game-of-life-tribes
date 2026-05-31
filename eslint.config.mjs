@@ -453,12 +453,12 @@ export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), 
       "jsdoc/match-description": ["warn", {
         tags: {
           param: {
-            match: "^([a-z][\\s\\S]*[.?!])?$",
-            message: "Parameter description should begin with a lower case letter and end with a full stop."
+            match: "^([a-zA-Z][\\s\\S]*[.?!])?$",
+            message: "Parameter description should begin with a letter and end with a full stop."
           },
           returns: {
-            match: "^([a-z]|[\\s\\S]*[.?!])?$",
-            message: "Return value description should begin with a lower case letter and end with a full stop."
+            match: "^([a-zA-Z]|[\\s\\S]*[.?!])?$",
+            message: "Return value description should begin with a letter and end with a full stop."
           },
           template: {
             match: "^(extends\\s(keyof\\s)?\\{@link\\s\\S*\\}(\\s=\\s\\{@link\\s\\S*\\})?)?$",

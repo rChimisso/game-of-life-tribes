@@ -156,6 +156,7 @@ async function writeIndexedPngFrame(sink: PngByteSink, frame: PackedRecordedFram
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {IndexedPngPalette} palette indexed-color palette.
  * @param {IndexedPngFrameOptions} options png encode options.
+ * @param {PngCancellationState} cancellation active cancellation state.
  */
 async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<BufferSource>, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions, cancellation: PngCancellationState): Promise<void> {
   const decodedRow = new Uint8Array(frame.cols);
@@ -280,10 +281,7 @@ async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: P
     type: 'error',
     error
   }));
-  const result = await Promise.race([
-    observedPromise,
-    cancellation.promise.then((): PngCancellableResult<T> => ({type: 'cancelled'}))
-  ]);
+  const result = await Promise.race([observedPromise, cancellation.promise.then((): PngCancellableResult<T> => ({type: 'cancelled'}))]);
   if (result.type === 'error') {
     throw result.error;
   }

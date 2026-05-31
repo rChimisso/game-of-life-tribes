@@ -4,6 +4,4 @@
  * @export
  * @param {GPUSupportedLimits} adapterLimits adapter limits exposed by the selected GPU adapter.
  */
-type GpuAdapterLimitValidator = (adapterLimits: GPUSupportedLimits) => void;
-
-export type {GpuAdapterLimitValidator};
+export type GpuAdapterLimitValidator = (adapterLimits: GPUSupportedLimits) => void;

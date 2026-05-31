@@ -648,8 +648,4 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
     return [...current, id];
   }
-
-  private clampBrushSize(size: number): number {
-    return Math.min(Math.max(1, Math.floor(+size || 1)), this.brushMaxSize);
-  }
 }

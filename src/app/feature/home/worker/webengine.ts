@@ -23,7 +23,7 @@ import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
 import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
 import {WorkerMessage} from '../model/worker-message';
-import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
+import {alignPackedBytesToWords, chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
 import {normalizeLiveMetricsSettings} from '../util/metric-settings';
 import {repackPackedGrid} from './snapshot/packing/packed-repack';
 
@@ -87,9 +87,10 @@ let genCounter = 0;
 
 // Brush compute pipeline
 let brushPipeline: GPUComputePipeline;
-let brushUniformBuffer: GPUBuffer;
-let brushBindGroupA: GPUBindGroup;
-let brushBindGroupB: GPUBindGroup;
+const BRUSH_DISPATCH_RECT_CAPACITY = 4;
+let brushUniformBuffers: GPUBuffer[] = [];
+let brushBindGroupsA: GPUBindGroup[] = [];
+let brushBindGroupsB: GPUBindGroup[] = [];
 let brushSeedCounter = 0;
 
 /**
@@ -135,6 +136,78 @@ interface PendingBrush {
    * @type {number[]}
    */
   tribeIds: number[];
+}
+
+/**
+ * One non-wrapping segment of a wrapped brush axis.
+ *
+ * @interface BrushDispatchAxisSegment
+ * @typedef {BrushDispatchAxisSegment}
+ */
+interface BrushDispatchAxisSegment {
+  /**
+   * Destination start coordinate in grid space.
+   *
+   * @type {number}
+   */
+  destinationStart: number;
+  /**
+   * Source start coordinate in brush-local space.
+   *
+   * @type {number}
+   */
+  localStart: number;
+  /**
+   * Number of logical cells covered by this segment.
+   *
+   * @type {number}
+   */
+  span: number;
+}
+
+/**
+ * One non-wrapping brush rectangle dispatched to the GPU.
+ *
+ * @interface BrushDispatchRect
+ * @typedef {BrushDispatchRect}
+ */
+interface BrushDispatchRect {
+  /**
+   * Destination start x coordinate in grid space.
+   *
+   * @type {number}
+   */
+  destinationStartX: number;
+  /**
+   * Destination start y coordinate in grid space.
+   *
+   * @type {number}
+   */
+  destinationStartY: number;
+  /**
+   * Source start x coordinate in brush-local space.
+   *
+   * @type {number}
+   */
+  localStartX: number;
+  /**
+   * Source start y coordinate in brush-local space.
+   *
+   * @type {number}
+   */
+  localStartY: number;
+  /**
+   * Rectangle width in logical cells.
+   *
+   * @type {number}
+   */
+  spanCols: number;
+  /**
+   * Rectangle height in logical cells.
+   *
+   * @type {number}
+   */
+  spanRows: number;
 }
 
 /**
@@ -407,7 +480,10 @@ function destroyRebuildableBuffers(): void {
   gridBufferB?.destroy();
   destroyInteractiveMetricsResources(metricsResources);
   metricsResources = null;
-  brushUniformBuffer?.destroy();
+  brushUniformBuffers.forEach(buffer => buffer.destroy());
+  brushUniformBuffers = [];
+  brushBindGroupsA = [];
+  brushBindGroupsB = [];
   destroyRecordingBuffers();
 }
 
@@ -1153,32 +1229,37 @@ function createMetricsPipelines(): void {
 //  Brush compute shader
 // ---------------------------------------------------------------------------
 
-//  BrushParams uniform layout (10 x u32 = 40 bytes):
-//    0: centerX (i32)    4: centerY (i32)
-//    8: cols    (u32)   12: rows    (u32)
-//   16: brushSize (u32) 20: shape   (u32)
-//   24: fill    (u32)   28: tribeId (u32)
-//   32: deadId  (u32)   36: seed    (u32)
-const BRUSH_UNIFORM_SIZE = 176; // 44 bytes header + 32*4 = 128 bytes tribe array = 172, rounded to 176
+//  BrushParams uniform layout (14 x u32 = 56 bytes):
+//    0: packedCols       4: brushSize
+//    8: shape           12: fill
+//   16: deadId          20: seed
+//   24: tribeCount      28: destinationStartX
+//   32: destinationStartY 36: localStartX
+//   40: localStartY     44: spanCols
+//   48: spanRows        52: pad
+const BRUSH_UNIFORM_SIZE = 192; // 56 bytes header + 32*4 = 128 bytes tribe array = 184, rounded to 192
 
 function generateBrushWgsl(): string {
   return `
 struct BrushParams {
-  centerX: i32,
-  centerY: i32,
-  cols: u32,
-  rows: u32,
+  packedCols: u32,
   brushSize: u32,
   shape: u32,      // 0=square 1=round 2=diamond 3=vline, 4=hline
   fill: u32,        // 0=full 1=spray 2=outline
   deadId: u32,
   seed: u32,
   tribeCount: u32,
+  destinationStartX: u32,
+  destinationStartY: u32,
+  localStartX: u32,
+  localStartY: u32,
+  spanCols: u32,
+  spanRows: u32,
   pad: u32,
   tribeIds: array<u32, 32>,
 }
 
-@group(0) @binding(0) var<storage, read_write> grid: array<atomic<u32>>;
+@group(0) @binding(0) var<storage, read_write> grid: array<u32>;
 @group(0) @binding(1) var<uniform> params: BrushParams;
 
 const CELLS_PER_WORD: u32 = ${gridFormat.cellsPerWord}u;
@@ -1193,19 +1274,10 @@ fn pcg(inp: u32) -> u32 {
   return (word >> 22u) ^ word;
 }
 
-fn writePackedCell(cx: u32, cy: u32, value: u32) {
-  let packed_cols = (params.cols + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
-  let wordIdx = cy * packed_cols + (cx >> WORD_SHIFT);
-  let shift = (cx & CELL_INDEX_MASK) << CELL_SHIFT;
-  let mask = CELL_MASK << shift;
-  let newBits = (value & CELL_MASK) << shift;
-  var old = atomicLoad(&grid[wordIdx]);
-  loop {
-    let updated = (old & ~mask) | newBits;
-    let result = atomicCompareExchangeWeak(&grid[wordIdx], old, updated);
-    if (result.exchanged) { break; }
-    old = result.old_value;
-  }
+fn writePackedWord(wordIdx: u32, writeMask: u32, writeBits: u32) {
+  let old = grid[wordIdx];
+  let updated = (old & ~writeMask) | (writeBits & writeMask);
+  grid[wordIdx] = updated;
 }
 
 fn inShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
@@ -1243,46 +1315,73 @@ fn onBorder(bx: i32, by: i32, size: u32, shape: u32) -> bool {
 
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3u) {
-  let bx = i32(gid.x);
-  let by = i32(gid.y);
-  if (bx >= i32(params.brushSize) || by >= i32(params.brushSize)) { return; }
-  let idx = u32(by) * params.brushSize + u32(bx);
+  let startWord = params.destinationStartX >> WORD_SHIFT;
+  let endWordExclusive = (params.destinationStartX + params.spanCols + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
+  let spanWords = endWordExclusive - startWord;
+  let wordOffset = gid.x;
+  let rowOffset = gid.y;
+  if (wordOffset >= spanWords || rowOffset >= params.spanRows) { return; }
 
-  // Shape test.
-  if (params.fill == 2u) {
-    if (!onBorder(bx, by, params.brushSize, params.shape)) { return; }
-  } else {
-    if (!inShape(bx, by, params.brushSize, params.shape)) { return; }
-  }
+  let cy = params.destinationStartY + rowOffset;
+  let localBy = params.localStartY + rowOffset;
+  let wordX = startWord + wordOffset;
+  let wordIdx = cy * params.packedCols + wordX;
+  let wordBaseCellX = wordX << WORD_SHIFT;
+  let rectEndX = params.destinationStartX + params.spanCols;
 
-  // Toroidal wrapping.
-  let half = i32(params.brushSize - 1u) / 2;
-  let dx = bx - half;
-  let dy = by - half;
-  let cx = ((params.centerX + dx) % i32(params.cols) + i32(params.cols)) % i32(params.cols);
-  let cy = ((params.centerY + dy) % i32(params.rows) + i32(params.rows)) % i32(params.rows);
+  var writeMask = 0u;
+  var writeBits = 0u;
 
-  // Pick a random tribe from the list.
-  let spatialHash = (u32(cx) * 73856093u) ^ (u32(cy) * 19349663u);
-  let h = pcg(params.seed ^ idx ^ spatialHash);
-  let selectedTribe = params.tribeIds[h % params.tribeCount];
-
-  // Spray fill: 50% chance to skip/set-dead (use high bits to avoid
-  // correlation with tribe selection which uses low bits via modulo).
-  if (params.fill == 1u) {
-    if (((h >> 16u) & 1u) != 0u) {
-      if (selectedTribe != params.deadId) {
-        writePackedCell(u32(cx), u32(cy), params.deadId);
+  for (var lane = 0u; lane < CELLS_PER_WORD; lane++) {
+    let cx = wordBaseCellX + lane;
+    let insideRect = cx >= params.destinationStartX && cx < rectEndX;
+    if (insideRect) {
+      let localBx = params.localStartX + (cx - params.destinationStartX);
+      let bx = i32(localBx);
+      let by = i32(localBy);
+      var insideShape = false;
+      if (params.fill == 2u) {
+        insideShape = onBorder(bx, by, params.brushSize, params.shape);
+      } else {
+        insideShape = inShape(bx, by, params.brushSize, params.shape);
       }
-      return;
+
+      if (insideShape) {
+        let idx = localBy * params.brushSize + localBx;
+        let spatialHash = (cx * 73856093u) ^ (cy * 19349663u);
+        let h = pcg(params.seed ^ idx ^ spatialHash);
+        let selectedTribe = params.tribeIds[h % params.tribeCount];
+        var shouldWrite = true;
+        var value = selectedTribe;
+
+        if (params.fill == 1u && ((h >> 16u) & 1u) != 0u) {
+          if (selectedTribe != params.deadId) {
+            value = params.deadId;
+          } else {
+            shouldWrite = false;
+          }
+        }
+
+        if (shouldWrite) {
+          let shift = (lane & CELL_INDEX_MASK) << CELL_SHIFT;
+          let mask = CELL_MASK << shift;
+          writeMask |= mask;
+          writeBits = (writeBits & ~mask) | ((value & CELL_MASK) << shift);
+        }
+      }
     }
   }
 
-  writePackedCell(u32(cx), u32(cy), selectedTribe);
+  if (writeMask != 0u) {
+    writePackedWord(wordIdx, writeMask, writeBits);
+  }
 }
 `;
 }
 
+/**
+ * Creates the brush compute pipeline and per-rectangle uniform resources.
+ */
 function createBrushPipeline(): void {
   const module = device.createShaderModule({label: GPU_LABELS.brushShaderModule, code: generateBrushWgsl()});
 
@@ -1292,54 +1391,158 @@ function createBrushPipeline(): void {
     compute: {module, entryPoint: 'main'}
   });
 
-  brushUniformBuffer?.destroy();
-  brushUniformBuffer = device.createBuffer({
-    label: GPU_LABELS.brushUniformBuffer,
-    size: BRUSH_UNIFORM_SIZE,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-  });
+  brushUniformBuffers.forEach(buffer => buffer.destroy());
+  brushUniformBuffers = [];
+  brushBindGroupsA = [];
+  brushBindGroupsB = [];
 
-  brushBindGroupA = device.createBindGroup({
-    layout: brushPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
-  });
-
-  brushBindGroupB = device.createBindGroup({
-    layout: brushPipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
-  });
+  for (let i = 0; i < BRUSH_DISPATCH_RECT_CAPACITY; i++) {
+    const brushUniformBuffer = device.createBuffer({
+      label: `${GPU_LABELS.brushUniformBuffer} ${i}`,
+      size: BRUSH_UNIFORM_SIZE,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    });
+    brushUniformBuffers.push(brushUniformBuffer);
+    brushBindGroupsA.push(device.createBindGroup({
+      layout: brushPipeline.getBindGroupLayout(0),
+      entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
+    }));
+    brushBindGroupsB.push(device.createBindGroup({
+      layout: brushPipeline.getBindGroupLayout(0),
+      entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: brushUniformBuffer} }]
+    }));
+  }
 }
 
+/**
+ * Splits one brush axis into non-wrapping destination segments.
+ *
+ * @param {number} center brush center on the target axis.
+ * @param {number} brushSize brush size in logical cells.
+ * @param {number} limit grid extent on the target axis.
+ * @returns {BrushDispatchAxisSegment[]} one or two non-wrapping segments.
+ */
+function createBrushAxisSegments(center: number, brushSize: number, limit: number): BrushDispatchAxisSegment[] {
+  const half = Math.floor((brushSize - 1) / 2);
+  const rawStart = center - half;
+  const rawEndExclusive = rawStart + brushSize;
+  const segments: BrushDispatchAxisSegment[] = [];
+
+  if (rawStart >= 0 && rawEndExclusive <= limit) {
+    segments.push({
+      destinationStart: rawStart,
+      localStart: 0,
+      span: brushSize
+    });
+  } else if (rawStart < 0) {
+    const wrappedSpan = -rawStart;
+    segments.push({
+      destinationStart: limit - wrappedSpan,
+      localStart: 0,
+      span: wrappedSpan
+    });
+    segments.push({
+      destinationStart: 0,
+      localStart: wrappedSpan,
+      span: brushSize - wrappedSpan
+    });
+  } else {
+    const nonWrappedSpan = limit - rawStart;
+    segments.push({
+      destinationStart: rawStart,
+      localStart: 0,
+      span: nonWrappedSpan
+    });
+    segments.push({
+      destinationStart: 0,
+      localStart: nonWrappedSpan,
+      span: rawEndExclusive - limit
+    });
+  }
+
+  return segments.filter(segment => segment.span > 0);
+}
+
+/**
+ * Produces the non-wrapping rectangles required for one wrapped brush stroke.
+ *
+ * @param {number} centerX brush center x coordinate.
+ * @param {number} centerY brush center y coordinate.
+ * @param {number} brushSize brush size in logical cells.
+ * @returns {BrushDispatchRect[]} up to four non-overlapping rectangles.
+ */
+function createBrushDispatchRects(centerX: number, centerY: number, brushSize: number): BrushDispatchRect[] {
+  const xSegments = createBrushAxisSegments(centerX, brushSize, cols);
+  const ySegments = createBrushAxisSegments(centerY, brushSize, rows);
+  const rects: BrushDispatchRect[] = [];
+
+  for (const ySegment of ySegments) {
+    for (const xSegment of xSegments) {
+      rects.push({
+        destinationStartX: xSegment.destinationStart,
+        destinationStartY: ySegment.destinationStart,
+        localStartX: xSegment.localStart,
+        localStartY: ySegment.localStart,
+        spanCols: xSegment.span,
+        spanRows: ySegment.span
+      });
+    }
+  }
+
+  return rects;
+}
+
+/**
+ * Encodes the wrapped brush stroke as one or more non-overlapping rectangle dispatches.
+ *
+ * @param {GPUCommandEncoder} encoder destination command encoder.
+ * @param {number} centerX brush center x coordinate.
+ * @param {number} centerY brush center y coordinate.
+ * @param {number} brushSize brush size in logical cells.
+ * @param {number} shape numeric brush shape.
+ * @param {number} fill numeric brush fill mode.
+ * @param {number[]} tribeIds numeric tribe IDs eligible for this brush.
+ */
 function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeIds: number[]): void {
   const deadId = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const seed = brushSeedCounter++;
+  const rects = createBrushDispatchRects(centerX, centerY, brushSize);
+  const bindGroups = pingPong ? brushBindGroupsB : brushBindGroupsA;
 
-  const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
-  const i32View = new Int32Array(data);
-  const u32View = new Uint32Array(data);
-  i32View[0] = centerX;
-  i32View[1] = centerY;
-  u32View[2] = cols;
-  u32View[3] = rows;
-  u32View[4] = brushSize;
-  u32View[5] = shape;
-  u32View[6] = fill;
-  u32View[7] = deadId;
-  u32View[8] = seed;
-  u32View[9] = tribeIds.length;
-  u32View[10] = 0; // Pad
-  for (let i = 0; i < tribeIds.length && i < 32; i++) {
-    u32View[11 + i] = tribeIds[i]!;
+  for (const [index, rect] of rects.entries()) {
+    const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
+    const u32View = new Uint32Array(data);
+    u32View[0] = packedCols;
+    u32View[1] = brushSize;
+    u32View[2] = shape;
+    u32View[3] = fill;
+    u32View[4] = deadId;
+    u32View[5] = seed;
+    u32View[6] = tribeIds.length;
+    u32View[7] = rect.destinationStartX;
+    u32View[8] = rect.destinationStartY;
+    u32View[9] = rect.localStartX;
+    u32View[10] = rect.localStartY;
+    u32View[11] = rect.spanCols;
+    u32View[12] = rect.spanRows;
+    u32View[13] = 0;
+    for (let i = 0; i < tribeIds.length && i < 32; i++) {
+      u32View[14 + i] = tribeIds[i]!;
+    }
+
+    device.queue.writeBuffer(brushUniformBuffers[index], 0, data);
+
+    const startWord = Math.floor(rect.destinationStartX / gridFormat.cellsPerWord);
+    const endWordExclusive = Math.ceil((rect.destinationStartX + rect.spanCols) / gridFormat.cellsPerWord);
+    const spanWords = endWordExclusive - startWord;
+    const wgBrushX = Math.ceil(spanWords / 8);
+    const wgBrushY = Math.ceil(rect.spanRows / 8);
+    const pass = encoder.beginComputePass({label: GPU_LABELS.brushPass});
+    pass.setPipeline(brushPipeline);
+    pass.setBindGroup(0, bindGroups[index]);
+    pass.dispatchWorkgroups(wgBrushX, wgBrushY);
+    pass.end();
   }
-
-  device.queue.writeBuffer(brushUniformBuffer, 0, data);
-
-  const wgBrush = Math.ceil(brushSize / 8);
-  const pass = encoder.beginComputePass({label: GPU_LABELS.brushPass});
-  pass.setPipeline(brushPipeline);
-  pass.setBindGroup(0, pingPong ? brushBindGroupB : brushBindGroupA);
-  pass.dispatchWorkgroups(wgBrush, wgBrush);
-  pass.end();
 }
 
 // ---------------------------------------------------------------------------
@@ -2774,33 +2977,49 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         rows: m.ruleset.rows,
         tribes: m.ruleset.tribes.length
       });
-      stopRun('rebuild', {
-        render: false,
-        postStepping: false,
-        restore: false,
-        restartRestoredRun: false
-      });
-      initRuleset(m.ruleset, m.simulationGridFormat);
-      const rebuilt = await rebuildForNewRuleset();
-      if (!rebuilt) {
-        break;
-      }
-      genCounter = 0;
-      lastMetricsGen = -1;
-      await resetRecording(0);
-      if (simulationRunning) {
-        startContinuousRun();
+      const fittingFormat = smallestFittingSimulationGridFormat(
+        m.ruleset.tribes.length,
+        m.ruleset,
+        maxSimulationBufferBytes()
+      );
+      if (fittingFormat) {
+        stopRun('rebuild', {
+          render: false,
+          postStepping: false,
+          restore: false,
+          restartRestoredRun: false
+        });
+        initRuleset(m.ruleset, m.simulationGridFormat);
+        const rebuilt = await rebuildForNewRuleset();
+        if (rebuilt) {
+          genCounter = 0;
+          lastMetricsGen = -1;
+          await resetRecording(0);
+          if (simulationRunning) {
+            startContinuousRun();
+          } else {
+            scheduleIdleFrame();
+          }
+          // Post initial metrics for the fresh (empty) grid.
+          if (!metricsInFlight) {
+            const resetEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
+            runMetricsGpu(resetEncoder);
+            device.queue.submit([resetEncoder.finish()]);
+            readMetricsAndPost();
+          } else {
+            pendingMetricsRetry = true;
+          }
+        }
       } else {
-        scheduleIdleFrame();
-      }
-      // Post initial metrics for the fresh (empty) grid.
-      if (!metricsInFlight) {
-        const resetEncoder = device.createCommandEncoder({label: GPU_LABELS.interactiveMetricsEncoder});
-        runMetricsGpu(resetEncoder);
-        device.queue.submit([resetEncoder.finish()]);
-        readMetricsAndPost();
-      } else {
-        pendingMetricsRetry = true;
+        const requiredFormat = requiredGridFormatForStateCount(m.ruleset.tribes.length);
+        const reason = `Requested ruleset requires at least ${requiredFormat.bitsPerCell}-bit packing, which exceeds the current GPU frame size limit.`;
+        console.error('[GOLT worker] Rebuild rejected:', reason, {
+          cols: m.ruleset.cols,
+          rows: m.ruleset.rows,
+          tribes: m.ruleset.tribes.length,
+          maxBytes: maxSimulationBufferBytes()
+        });
+        self.postMessage({type: 'gpuError', reason});
       }
       break;
     }

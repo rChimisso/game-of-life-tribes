@@ -87,6 +87,17 @@ export function chooseTightStorageGridFormat(stateCount: number): GridFormat {
 }
 
 /**
+ * Returns the minimum grid format required for a state count.
+ *
+ * @export
+ * @param {number} totalStateCount
+ * @returns {GridFormat}
+ */
+export function requiredGridFormatForStateCount(totalStateCount: number): GridFormat {
+  return chooseTightStorageGridFormat(totalStateCount);
+}
+
+/**
  * Resolves a grid format from bits per cell.
  *
  * @export
@@ -107,13 +118,26 @@ export function gridFormatFromBits(bitsPerCell: BitsPerCell): GridFormat {
  * @returns {GridFormat}
  */
 export function smallestValidSimulationGridFormat(totalStateCount: number, grid: Grid = {cols: 3, rows: 3}, maxBytes = Number.POSITIVE_INFINITY): GridFormat {
+  return smallestFittingSimulationGridFormat(totalStateCount, grid, maxBytes) ?? GRID_FORMAT_32;
+}
+
+/**
+ * Finds the smallest simulation grid format that fits the byte budget.
+ *
+ * @export
+ * @param {number} totalStateCount
+ * @param {Grid} [grid]
+ * @param {number} [maxBytes]
+ * @returns {(GridFormat | null)}
+ */
+export function smallestFittingSimulationGridFormat(totalStateCount: number, grid: Grid = {cols: 3, rows: 3}, maxBytes = Number.POSITIVE_INFINITY): GridFormat | null {
   for (const bitsPerCell of SUPPORTED_SIMULATION_BITS_PER_CELL) {
     const format = gridFormatFromBits(bitsPerCell);
     if (validatePackingAgainstStateCount(bitsPerCell, totalStateCount) && fitsGridFormatInMaxBytes(grid, format, maxBytes)) {
       return format;
     }
   }
-  return GRID_FORMAT_32;
+  return null;
 }
 
 /**

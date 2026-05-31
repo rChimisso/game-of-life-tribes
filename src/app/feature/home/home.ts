@@ -17,7 +17,7 @@ import {OPFS_PENDING_WRITE_BYTE_BUDGET} from './model/recording-limits';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
-import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
+import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
 import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
 import {clearTempOpfsDirectory} from './util/opfs-temp';
 import {applyRuleTribeRenames} from './util/tribe-impact';
@@ -729,10 +729,27 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         break;
       case 'applyPreset': {
         const preset = ev.value;
-        const newRuleset = structuredClone(preset.ruleset);
-        newRuleset.cols = this.ruleset.cols;
-        newRuleset.rows = this.ruleset.rows;
-        shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
+        const currentGrid = {
+          cols: this.ruleset.cols,
+          rows: this.ruleset.rows
+        };
+        const requiredFormat = requiredGridFormatForStateCount(preset.ruleset.tribes.length);
+        const fittingFormat = smallestFittingSimulationGridFormat(
+          preset.ruleset.tribes.length,
+          currentGrid,
+          this.currentMaxBytes()
+        );
+        if (fittingFormat) {
+          const newRuleset = structuredClone(preset.ruleset);
+          newRuleset.cols = currentGrid.cols;
+          newRuleset.rows = currentGrid.rows;
+          shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
+        } else {
+          this.openSnack(
+            `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`,
+            'error'
+          );
+        }
         break;
       }
     }

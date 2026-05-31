@@ -54,6 +54,9 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public panMode = false;
 
   @Input()
+  public inputBlocked = false;
+
+  @Input()
   public brushSize = 1;
 
   @Input()
@@ -132,114 +135,122 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const cx = ev.clientX - rect.left;
-    const cy = ev.clientY - rect.top;
-    // World point under cursor before zoom.
-    const worldX = cx / this.scale + this.offsetX;
-    const worldY = cy / this.scale + this.offsetY;
-    // Zoom, with cursor stability.
-    const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
-    this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-    // Keep cursor-point stable.
-    this.offsetX = worldX - cx / this.scale;
-    this.offsetY = worldY - cy / this.scale;
-    // Update camera.
-    this.sendCamera();
+    if (!this.inputBlocked) {
+      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+      const cx = ev.clientX - rect.left;
+      const cy = ev.clientY - rect.top;
+      // World point under cursor before zoom.
+      const worldX = cx / this.scale + this.offsetX;
+      const worldY = cy / this.scale + this.offsetY;
+      // Zoom, with cursor stability.
+      const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
+      this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
+      // Keep cursor-point stable.
+      this.offsetX = worldX - cx / this.scale;
+      this.offsetY = worldY - cy / this.scale;
+      // Update camera.
+      this.sendCamera();
+    }
   }
 
   public onPointerDown(ev: PointerEvent): void {
     ev.preventDefault();
-    (document.activeElement as HTMLElement)?.blur?.();
-    (ev.target as Element).setPointerCapture(ev.pointerId);
-    this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
-    if (ev.button === 2) {
-      this.mode = 'pan';
-      this.primaryPointerId = ev.pointerId;
-      this.clearBrushPreview();
-      return;
-    }
-    if (this.pointers.size >= 2) {
-      this.mode = 'pinch';
-      this.touchPendingDraw = null;
-      this.clearBrushPreview();
-      this.lastPinchDist = this.currentPinchDist();
-      return;
-    }
-    if (ev.pointerType === 'touch' && this.panMode) {
-      this.mode = 'pan';
-      this.primaryPointerId = ev.pointerId;
-      this.clearBrushPreview();
-    } else if (ev.pointerType === 'touch') {
-      this.touchPendingDraw = {x: ev.clientX, y: ev.clientY};
-      this.primaryPointerId = ev.pointerId;
-      this.updateBrushPreview(ev.clientX, ev.clientY);
-    } else {
-      this.mode = 'draw';
-      this.primaryPointerId = ev.pointerId;
-      this.drawAtPoint(ev.clientX, ev.clientY);
+    if (!this.inputBlocked) {
+      (document.activeElement as HTMLElement)?.blur?.();
+      (ev.target as Element).setPointerCapture(ev.pointerId);
+      this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+      if (ev.button === 2) {
+        this.mode = 'pan';
+        this.primaryPointerId = ev.pointerId;
+        this.clearBrushPreview();
+        return;
+      }
+      if (this.pointers.size >= 2) {
+        this.mode = 'pinch';
+        this.touchPendingDraw = null;
+        this.clearBrushPreview();
+        this.lastPinchDist = this.currentPinchDist();
+        return;
+      }
+      if (ev.pointerType === 'touch' && this.panMode) {
+        this.mode = 'pan';
+        this.primaryPointerId = ev.pointerId;
+        this.clearBrushPreview();
+      } else if (ev.pointerType === 'touch') {
+        this.touchPendingDraw = {x: ev.clientX, y: ev.clientY};
+        this.primaryPointerId = ev.pointerId;
+        this.updateBrushPreview(ev.clientX, ev.clientY);
+      } else {
+        this.mode = 'draw';
+        this.primaryPointerId = ev.pointerId;
+        this.drawAtPoint(ev.clientX, ev.clientY);
+      }
     }
   }
 
   public onPointerMove(ev: PointerEvent): void {
-    if (this.pointers.has(ev.pointerId)) {
-      const prev = this.pointers.get(ev.pointerId)!;
-      this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
+    if (!this.inputBlocked) {
+      if (this.pointers.has(ev.pointerId)) {
+        const prev = this.pointers.get(ev.pointerId)!;
+        this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
 
-      if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
-        const dx = ev.clientX - prev.x;
-        const dy = ev.clientY - prev.y;
-        this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
-        this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
-        this.sendCamera();
-      } else if (this.mode === 'pinch' || this.pointers.size >= 2) {
-        this.mode = 'pinch';
-        this.touchPendingDraw = null;
-        this.clearBrushPreview();
-        const dist = this.currentPinchDist();
-        if (this.lastPinchDist > 0 && dist > 0) {
-          const mid = this.currentPinchMid();
-          const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-          const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
-          const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
-          const factor = dist / this.lastPinchDist;
-          this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-          this.offsetX = worldX - (mid.x - rect.left) / this.scale;
-          this.offsetY = worldY - (mid.y - rect.top) / this.scale;
+        if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
+          const dx = ev.clientX - prev.x;
+          const dy = ev.clientY - prev.y;
+          this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
+          this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
           this.sendCamera();
-        }
-        this.lastPinchDist = dist;
-      } else {
-        if (this.touchPendingDraw) {
-          this.mode = 'draw';
-          this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+        } else if (this.mode === 'pinch' || this.pointers.size >= 2) {
+          this.mode = 'pinch';
           this.touchPendingDraw = null;
+          this.clearBrushPreview();
+          const dist = this.currentPinchDist();
+          if (this.lastPinchDist > 0 && dist > 0) {
+            const mid = this.currentPinchMid();
+            const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+            const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
+            const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
+            const factor = dist / this.lastPinchDist;
+            this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
+            this.offsetX = worldX - (mid.x - rect.left) / this.scale;
+            this.offsetY = worldY - (mid.y - rect.top) / this.scale;
+            this.sendCamera();
+          }
+          this.lastPinchDist = dist;
+        } else {
+          if (this.touchPendingDraw) {
+            this.mode = 'draw';
+            this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+            this.touchPendingDraw = null;
+          }
+          if (this.mode === 'draw') {
+            this.drawAtPoint(ev.clientX, ev.clientY);
+          }
         }
-        if (this.mode === 'draw') {
-          this.drawAtPoint(ev.clientX, ev.clientY);
-        }
+      } else {
+        this.updateBrushPreview(ev.clientX, ev.clientY);
       }
-    } else {
-      this.updateBrushPreview(ev.clientX, ev.clientY);
     }
   }
 
   public onPointerUp(ev: PointerEvent): void {
-    this.pointers.delete(ev.pointerId);
+    if (!this.inputBlocked) {
+      this.pointers.delete(ev.pointerId);
 
-    if (ev.pointerId === this.primaryPointerId) {
-      if (this.touchPendingDraw && this.mode !== 'pinch') {
-        this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+      if (ev.pointerId === this.primaryPointerId) {
+        if (this.touchPendingDraw && this.mode !== 'pinch') {
+          this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
+        }
+        this.touchPendingDraw = null;
+        this.primaryPointerId = -1;
       }
-      this.touchPendingDraw = null;
-      this.primaryPointerId = -1;
-    }
 
-    if (this.pointers.size === 0) {
-      this.mode = 'idle';
-      this.lastPinchDist = 0;
-    } else if (this.pointers.size === 1) {
-      this.lastPinchDist = 0;
+      if (this.pointers.size === 0) {
+        this.mode = 'idle';
+        this.lastPinchDist = 0;
+      } else if (this.pointers.size === 1) {
+        this.lastPinchDist = 0;
+      }
     }
   }
 
@@ -249,7 +260,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {PointerEvent} _ev pointer event.
    */
   public onPointerLeave(_ev: PointerEvent): void {
-    if (this.pointers.size === 0) {
+    if (!this.inputBlocked && this.pointers.size === 0) {
       this.clearBrushPreview();
     }
   }
@@ -470,8 +481,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {TypedChanges<Engine<T>>} changes input changes.
    */
   private syncBrushPreviewInputChanges(changes: TypedChanges<Engine<T>>): void {
+    if (changes.inputBlocked && this.inputBlocked) {
+      this.resetInteractionState();
+    }
     const brushPreviewInputChanged = changes.brushSize || changes.brushShape || changes.panMode;
-    if (brushPreviewInputChanged && this.lastPreviewCell) {
+    if (brushPreviewInputChanged && this.lastPreviewCell && !this.inputBlocked) {
       if (this.panMode) {
         this.clearBrushPreview();
       } else {
@@ -509,6 +523,20 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     } else {
       this.clearBrushPreview();
     }
+  }
+
+  /**
+   * Clears transient input state while an overlay owns the canvas surface.
+   *
+   * @private
+   */
+  private resetInteractionState(): void {
+    this.pointers.clear();
+    this.mode = 'idle';
+    this.primaryPointerId = -1;
+    this.touchPendingDraw = null;
+    this.lastPinchDist = 0;
+    this.clearBrushPreview();
   }
 
   /**

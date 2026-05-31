@@ -325,6 +325,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return this.maxSpeed ? -1 : this.speed;
   }
 
+  public get overlayActive(): boolean {
+    return this.gpuErrorMessage !== null || this.rebuilding || this.backpressure || this.stepping || this.maxSpeed;
+  }
+
   /**
    * Whether an active download is waiting for cancellation to complete.
    *
@@ -845,6 +849,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         (document.activeElement as HTMLElement)?.blur?.();
         this.cdr.markForCheck();
       }
+      return;
+    }
+    if (this.overlayActive) {
       return;
     }
     if (this.activeElementBlocksShortcut(document.activeElement)) {

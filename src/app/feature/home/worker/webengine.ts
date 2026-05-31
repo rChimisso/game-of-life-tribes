@@ -1985,34 +1985,47 @@ function stepSimulation(): void {
 // ---------------------------------------------------------------------------
 
 function renderFrame(): void {
-  writeUniforms();
+  const renderReady = Boolean(
+    device &&
+    context &&
+    uniformBuffer &&
+    renderPipeline &&
+    renderBindGroupA &&
+    renderBindGroupB &&
+    !rebuilding &&
+    !deviceLost
+  );
 
-  const textureView = context.getCurrentTexture().createView();
+  if (renderReady) {
+    writeUniforms();
 
-  const encoder = device.createCommandEncoder({label: GPU_LABELS.renderEncoder});
-  const pass = encoder.beginRenderPass({
-    label: GPU_LABELS.renderPass,
-    colorAttachments: [
-      {
-        view: textureView,
-        loadOp: 'clear',
-        storeOp: 'store',
-        clearValue: {
-          r: 0,
-          g: 0,
-          b: 0,
-          a: 1
+    const textureView = context.getCurrentTexture().createView();
+
+    const encoder = device.createCommandEncoder({label: GPU_LABELS.renderEncoder});
+    const pass = encoder.beginRenderPass({
+      label: GPU_LABELS.renderPass,
+      colorAttachments: [
+        {
+          view: textureView,
+          loadOp: 'clear',
+          storeOp: 'store',
+          clearValue: {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 1
+          }
         }
-      }
-    ]
-  });
+      ]
+    });
 
-  pass.setPipeline(renderPipeline);
-  pass.setBindGroup(0, pingPong ? renderBindGroupB : renderBindGroupA);
-  pass.draw(3);
-  pass.end();
+    pass.setPipeline(renderPipeline);
+    pass.setBindGroup(0, pingPong ? renderBindGroupB : renderBindGroupA);
+    pass.draw(3);
+    pass.end();
 
-  device.queue.submit([encoder.finish()]);
+    device.queue.submit([encoder.finish()]);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -2902,7 +2915,7 @@ self.onmessage = async(ev: MessageEvent<WorkerMessage>) => {
         shape: shapeMap[m.shape] ?? 0,
         visible: m.visible
       };
-      if (!activeRun && !rebuilding && !deviceLost) {
+      if (!activeRun && !rebuilding && !deviceLost && targetStepDuration <= 0) {
         renderFrame();
       }
       break;

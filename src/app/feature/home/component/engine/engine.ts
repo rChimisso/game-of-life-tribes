@@ -9,6 +9,16 @@ import {normalizeLiveMetricsSettings} from '../../util/metric-settings';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
+/**
+ * Canvas-backed simulation engine component.
+ *
+ * @export
+ * @class Engine
+ * @typedef {Engine}
+ * @implements {AfterViewInit}
+ * @implements {OnChanges}
+ * @implements {OnDestroy}
+ */
 @Component({
   selector: 'gol-engine',
   templateUrl: './engine.html',
@@ -26,133 +36,397 @@ import {TypedChanges} from '~gol/core/model/typed-change';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChanges, OnDestroy {
+  /**
+   * Engine canvas element reference.
+   *
+   * @public
+   * @type {ElementRef<HTMLCanvasElement>}
+   */
   @ViewChild('engineCanvas', {static: true})
   public canvasRef!: ElementRef<HTMLCanvasElement>;
 
+  /**
+   * Current simulation ruleset.
+   *
+   * @public
+   * @type {Ruleset<T>}
+   */
   @Input()
   public ruleset!: Ruleset<T>;
 
+  /**
+   * Current simulation grid format.
+   *
+   * @public
+   * @type {GridFormatMetadata}
+   */
   @Input()
   public simulationGridFormat: GridFormatMetadata = {bitsPerCell: 8};
 
+  /**
+   * Simulation speed multiplier.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public speed = 1;
 
+  /**
+   * Simulation run state.
+   *
+   * @public
+   * @type {'running' | 'paused'}
+   */
   @Input()
   public state: 'running' | 'paused' = 'paused';
 
+  /**
+   * Whether recording is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public isRecording = false;
 
+  /**
+   * Live metrics configuration.
+   *
+   * @public
+   * @type {LiveMetricsSettings}
+   */
   @Input()
   public liveMetrics: LiveMetricsSettings = DEFAULT_LIVE_METRICS_SETTINGS;
 
+  /**
+   * Tribe ids used by drawing.
+   *
+   * @public
+   * @type {string[]}
+   */
   @Input()
   public drawTribes: string[] = [];
 
+  /**
+   * Whether touch interactions should pan instead of draw.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public panMode = false;
 
+  /**
+   * Whether canvas input is blocked by page overlays.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public inputBlocked = false;
 
+  /**
+   * Brush size in cells.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public brushSize = 1;
 
+  /**
+   * Brush shape.
+   *
+   * @public
+   * @type {BrushShape}
+   */
   @Input()
   public brushShape: BrushShape = 'square';
 
+  /**
+   * Brush fill mode.
+   *
+   * @public
+   * @type {BrushFill}
+   */
   @Input()
   public brushFill: BrushFill = 'full';
 
+  /**
+   * Metrics output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<MetricMessage>}
+   */
   @Output()
   public readonly metrics = new EventEmitter<MetricMessage>();
 
+  /**
+   * Snapshot output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<SnapshotMessage>}
+   */
   @Output()
   public readonly snapshot = new EventEmitter<SnapshotMessage>();
 
+  /**
+   * Recording output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<RecordingMessage>}
+   */
   @Output()
   public readonly recording = new EventEmitter<RecordingMessage>();
 
+  /**
+   * Engine limits output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<LimitsMessage>}
+   */
   @Output()
   public readonly limits = new EventEmitter<LimitsMessage>();
 
+  /**
+   * Stepping status output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<SteppingMessage>}
+   */
   @Output()
   public readonly stepping = new EventEmitter<SteppingMessage>();
 
+  /**
+   * Chunk-saving status output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<ChunksSavingMessage>}
+   */
   @Output()
   public readonly chunksSaving = new EventEmitter<ChunksSavingMessage>();
 
+  /**
+   * Backpressure status output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<BackpressureMessage>}
+   */
   @Output()
   public readonly backpressure = new EventEmitter<BackpressureMessage>();
 
+  /**
+   * Storage quota output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<StorageQuotaMessage>}
+   */
   @Output()
   public readonly storageQuota = new EventEmitter<StorageQuotaMessage>();
 
+  /**
+   * Sealed chunk output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<ChunkSealedMessage>}
+   */
   @Output()
   public readonly chunkSealed = new EventEmitter<ChunkSealedMessage>();
 
+  /**
+   * Uncompressed chunks output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<UncompressedChunksMessage>}
+   */
   @Output()
   public readonly uncompressedChunks = new EventEmitter<UncompressedChunksMessage>();
 
+  /**
+   * Generation output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<GenerationMessage>}
+   */
   @Output()
   public readonly generation = new EventEmitter<GenerationMessage>();
 
+  /**
+   * Rebuild status output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<RebuildingMessage>}
+   */
   @Output()
   public readonly rebuilding = new EventEmitter<RebuildingMessage>();
 
+  /**
+   * Device-loss output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<DeviceLostMessage>}
+   */
   @Output()
   public readonly deviceLost = new EventEmitter<DeviceLostMessage>();
 
+  /**
+   * GPU error output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<GpuErrorMessage>}
+   */
   @Output()
   public readonly gpuError = new EventEmitter<GpuErrorMessage>();
 
+  /**
+   * Base maximum camera scale.
+   *
+   * @private
+   * @readonly
+   * @type {number}
+   */
   private static readonly baseMaxScale = 128;
 
+  /**
+   * Render worker instance.
+   *
+   * @private
+   * @type {(Worker | undefined)}
+   */
   private worker?: Worker;
 
+  /**
+   * Current camera scale.
+   *
+   * @private
+   * @type {number}
+   */
   private scale = 1;
 
+  /**
+   * Current camera x offset.
+   *
+   * @private
+   * @type {number}
+   */
   private offsetX = 0;
 
+  /**
+   * Current camera y offset.
+   *
+   * @private
+   * @type {number}
+   */
   private offsetY = 0;
 
+  /**
+   * Minimum camera scale.
+   *
+   * @private
+   * @type {number}
+   */
   private minScale = 1;
 
+  /**
+   * Maximum camera scale.
+   *
+   * @private
+   * @type {number}
+   */
   private maxScale = Engine.baseMaxScale;
 
+  /**
+   * Active pointers by id.
+   *
+   * @private
+   * @readonly
+   * @type {Map<number, {x: number; y: number}>}
+   */
   private readonly pointers = new Map<number, {x: number; y: number}>();
 
+  /**
+   * Current pointer interaction mode.
+   *
+   * @private
+   * @type {'idle' | TouchMode | 'pinch'}
+   */
   private mode: 'idle' | TouchMode | 'pinch' = 'idle';
 
+  /**
+   * Primary pointer id for the active interaction.
+   *
+   * @private
+   * @type {number}
+   */
   private primaryPointerId = -1;
 
+  /**
+   * Deferred touch draw point.
+   *
+   * @private
+   * @type {({x: number; y: number} | null)}
+   */
   private touchPendingDraw: {x: number; y: number} | null = null;
 
+  /**
+   * Previous pinch distance in client pixels.
+   *
+   * @private
+   * @type {number}
+   */
   private lastPinchDist = 0;
 
+  /**
+   * Last cell used by the brush preview.
+   *
+   * @private
+   * @type {({x: number; y: number} | null)}
+   */
   private lastPreviewCell: {x: number; y: number} | null = null;
 
+  /**
+   * Zooms the canvas around the wheel pointer position.
+   *
+   * @public
+   * @param {WheelEvent} ev wheel event.
+   */
   public onWheel(ev: WheelEvent): void {
     ev.preventDefault();
     if (!this.inputBlocked) {
       const rect = this.canvasRef.nativeElement.getBoundingClientRect();
       const cx = ev.clientX - rect.left;
       const cy = ev.clientY - rect.top;
-      // World point under cursor before zoom.
       const worldX = cx / this.scale + this.offsetX;
       const worldY = cy / this.scale + this.offsetY;
-      // Zoom, with cursor stability.
       const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
       this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-      // Keep cursor-point stable.
       this.offsetX = worldX - cx / this.scale;
       this.offsetY = worldY - cy / this.scale;
-      // Update camera.
       this.sendCamera();
     }
   }
 
+  /**
+   * Starts a draw, pan, or pinch interaction.
+   *
+   * @public
+   * @param {PointerEvent} ev pointer event.
+   */
   public onPointerDown(ev: PointerEvent): void {
     ev.preventDefault();
     if (!this.inputBlocked) {
@@ -188,12 +462,17 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
+  /**
+   * Updates the active pointer interaction or hover preview.
+   *
+   * @public
+   * @param {PointerEvent} ev pointer event.
+   */
   public onPointerMove(ev: PointerEvent): void {
     if (!this.inputBlocked) {
       if (this.pointers.has(ev.pointerId)) {
         const prev = this.pointers.get(ev.pointerId)!;
         this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
-
         if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
           const dx = ev.clientX - prev.x;
           const dy = ev.clientY - prev.y;
@@ -233,10 +512,15 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
+  /**
+   * Finishes the active pointer interaction for one pointer.
+   *
+   * @public
+   * @param {PointerEvent} ev pointer event.
+   */
   public onPointerUp(ev: PointerEvent): void {
     if (!this.inputBlocked) {
       this.pointers.delete(ev.pointerId);
-
       if (ev.pointerId === this.primaryPointerId) {
         if (this.touchPendingDraw && this.mode !== 'pinch') {
           this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
@@ -244,7 +528,6 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         this.touchPendingDraw = null;
         this.primaryPointerId = -1;
       }
-
       if (this.pointers.size === 0) {
         this.mode = 'idle';
         this.lastPinchDist = 0;
@@ -265,39 +548,47 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
+  /**
+   * Disables the browser context menu on the canvas surface.
+   *
+   * @public
+   * @param {Event} ev context menu event.
+   */
   public disableCtx(ev: Event): void {
     ev.preventDefault();
   }
 
+  /**
+   * Resizes the worker canvas and refreshes camera constraints.
+   *
+   * @public
+   */
   public onResize(): void {
     if (!this.ruleset) {
       return;
     }
     const rect = this.canvasRef.nativeElement.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-
-    // Tell the worker to resize the OffscreenCanvas.
     this.worker?.postMessage({
       type: 'resize',
       width: Math.round(rect.width * dpr),
       height: Math.round(rect.height * dpr)
     });
-
-    // Recompute min-scale and clamp.
     this.computeMinScale();
     this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale));
     this.sendCamera();
   }
 
+  /**
+   * @inheritdoc
+   */
   public ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
-
     this.worker = new Worker(new URL('../../worker/webengine.ts', import.meta.url), {type: 'module'});
-
     this.worker.onmessage = (ev: MessageEvent) => {
       switch (ev.data?.type) {
         case 'metrics': this.metrics.emit(ev.data); break;
@@ -317,14 +608,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
         default: console.warn('Unknown message from worker:', ev.data); break;
       }
     };
-
     this.worker.onerror = (err: ErrorEvent) => {
       this.gpuError.emit({
         type: 'gpuError',
         reason: err.message || 'Worker crashed unexpectedly'
       });
     };
-
     const offscreen = canvas.transferControlToOffscreen();
     this.worker.postMessage({
       type: 'init',
@@ -336,14 +625,26 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       running: this.state === 'running',
       liveMetrics: normalizeLiveMetricsSettings(this.liveMetrics)
     }, [offscreen]);
-
     this.resetCamera();
   }
 
+  /**
+   * Requests a snapshot from the engine worker.
+   *
+   * @public
+   */
   public requestSnapshot(): void {
     this.worker?.postMessage({type: 'getSnapshot'});
   }
 
+  /**
+   * Loads a snapshot into the engine worker.
+   *
+   * @public
+   * @param {Uint32Array} grid snapshot grid.
+   * @param {number} generation snapshot generation.
+   * @param {GridFormatMetadata} gridFormat snapshot grid format.
+   */
   public loadSnapshot(grid: Uint32Array, generation: number, gridFormat: GridFormatMetadata): void {
     this.worker?.postMessage({
       type: 'loadSnapshot',
@@ -353,30 +654,74 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }, [grid.buffer]);
   }
 
+  /**
+   * Updates recording state in the engine worker.
+   *
+   * @public
+   * @param {boolean} recording whether recording is enabled.
+   */
   public setRecording(recording: boolean): void {
     this.worker?.postMessage({type: 'setRecording', recording});
   }
 
+  /**
+   * Updates simulation run state in the engine worker.
+   *
+   * @public
+   * @param {boolean} running whether the simulation should run.
+   */
   public setRunning(running: boolean): void {
     this.worker?.postMessage({type: 'setRunning', running});
   }
 
+  /**
+   * Requests the current recording manifest from the engine worker.
+   *
+   * @public
+   */
   public requestRecording(): void {
     this.worker?.postMessage({type: 'getRecording'});
   }
 
+  /**
+   * Requests a backward stepping operation.
+   *
+   * @public
+   * @param {number} count step count.
+   */
   public stepBack(count: number): void {
     this.worker?.postMessage({type: 'stepBack', count});
   }
 
+  /**
+   * Requests a forward stepping operation.
+   *
+   * @public
+   * @param {number} count step count.
+   */
   public stepForward(count: number): void {
     this.worker?.postMessage({type: 'stepForward', count});
   }
 
+  /**
+   * Cancels the active stepping operation.
+   *
+   * @public
+   */
   public cancelStepping(): void {
     this.worker?.postMessage({type: 'cancelStepping'});
   }
 
+  /**
+   * Updates one recording chunk codec after compression completes.
+   *
+   * @public
+   * @param {string} filename chunk filename.
+   * @param {number} rawBytes raw chunk byte count.
+   * @param {string} codec stored chunk codec.
+   * @param {number} storedBytes stored chunk byte count.
+   * @param {GridFormatMetadata} gridFormat stored chunk grid format.
+   */
   public updateChunkCodec(filename: string, rawBytes: number, codec: string, storedBytes: number, gridFormat: GridFormatMetadata): void {
     this.worker?.postMessage({
       type: 'updateChunkCodec',
@@ -388,10 +733,18 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     });
   }
 
+  /**
+   * Requests chunks that still need compression.
+   *
+   * @public
+   */
   public requestUncompressedChunks(): void {
     this.worker?.postMessage({type: 'getUncompressedChunks'});
   }
 
+  /**
+   * @inheritdoc
+   */
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
     if (this.worker) {
       if (changes.state) {
@@ -424,20 +777,30 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     }
   }
 
+  /**
+   * @inheritdoc
+   */
   public ngOnDestroy(): void {
     this.worker?.terminate();
   }
 
+  /**
+   * Computes the minimum and maximum camera scale for the current grid.
+   *
+   * @private
+   */
   private computeMinScale(): void {
     const el = this.canvasRef.nativeElement;
     const rect = el.getBoundingClientRect();
-    // Min scale (CSS px/cell): entire grid visible, no duplicates.
     this.minScale = Math.max(rect.width / this.ruleset.cols, rect.height / this.ruleset.rows);
-    // If fitting the whole grid already requires going beyond the base limit,
-    // Raise the zoom cap so tiny grids can avoid repeated tiled cells.
     this.maxScale = Math.max(Engine.baseMaxScale, this.minScale);
   }
 
+  /**
+   * Resets the camera to the full-grid view.
+   *
+   * @private
+   */
   private resetCamera(): void {
     this.computeMinScale();
     this.scale = this.minScale;
@@ -446,6 +809,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     this.sendCamera();
   }
 
+  /**
+   * Sends the current camera to the worker.
+   *
+   * @private
+   */
   private sendCamera(): void {
     const dpr = window.devicePixelRatio || 1;
     this.worker?.postMessage({
@@ -456,6 +824,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     });
   }
 
+  /**
+   * Calculates the distance between the first two active pointers.
+   *
+   * @private
+   * @returns {number} distance in client pixels.
+   */
   private currentPinchDist(): number {
     const pts = [...this.pointers.values()];
     if (pts.length < 2) {
@@ -466,6 +840,12 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  /**
+   * Calculates the midpoint between the first two active pointers.
+   *
+   * @private
+   * @returns {{ x: number; y: number }} midpoint in client pixels.
+   */
   private currentPinchMid(): {x: number; y: number} {
     const pts = [...this.pointers.values()];
     return {

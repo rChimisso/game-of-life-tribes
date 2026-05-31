@@ -2914,6 +2914,11 @@ async function dispatchWorkerMessage(message: WorkerMessage): Promise<void> {
   }
 }
 
+/**
+ * Worker entrypoint for simulation logic and recording.
+ * 
+ * @param {MessageEvent<WorkerMessage>} event worker message event.
+ */
 self.onmessage = async(event: MessageEvent<WorkerMessage>) => {
   await dispatchWorkerMessage(event.data);
 };

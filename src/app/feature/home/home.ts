@@ -97,6 +97,12 @@ interface QueuedCompressionJob {
   styleUrl: './home.scss'
 })
 export class HomePage extends PersistedPreferencesComponent<HomePreferences> implements OnDestroy {
+  /**
+   * Engine component instance.
+   *
+   * @public
+   * @type {Engine<Tribe[]>}
+   */
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
 
   /**
@@ -153,85 +159,319 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private static readonly compressionRetryDelayMs = 2000;
 
+  /**
+   * Current simulation ruleset.
+   *
+   * @public
+   * @type {Ruleset}
+   */
   public ruleset: Ruleset = CONWAY_PRESET.ruleset;
 
+  /**
+   * Current simulation run state.
+   *
+   * @public
+   * @type {'running' | 'paused'}
+   */
   public state: 'running' | 'paused' = 'paused';
 
+  /**
+   * Current fixed simulation speed.
+   *
+   * @public
+   * @type {number}
+   */
   public speed = 1;
 
+  /**
+   * Whether max-speed mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public maxSpeed = false;
 
+  /**
+   * Whether recording is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public recording = false;
 
+  /**
+   * Tribe ids currently selected for drawing.
+   *
+   * @public
+   * @type {string[]}
+   */
   public drawTribes: string[] = ['Alive'];
 
+  /**
+   * Whether delete drawing mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public deleteMode = false;
 
+  /**
+   * Whether touch pan mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public panMode = false;
 
+  /**
+   * Latest metrics emitted by the engine.
+   *
+   * @public
+   * @type {(MetricMessage | null)}
+   */
   public latestMetrics: MetricMessage | null = null;
 
+  /**
+   * Whether live metrics are enabled.
+   *
+   * @public
+   * @type {boolean}
+   */
   public liveMetricsEnabled = true;
 
+  /**
+   * Live metric section settings.
+   *
+   * @public
+   * @type {LiveMetricSectionSettings}
+   */
   public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
 
+  /**
+   * Whether the population metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   public populationExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.populationExpanded;
 
+  /**
+   * Whether the diversity metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   public diversityExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.diversityExpanded;
 
+  /**
+   * Whether the interfaces metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   public interfacesExpanded = DEFAULT_METRICS_SECTION_PREFERENCES.interfacesExpanded;
 
+  /**
+   * Live metrics input passed to the engine.
+   *
+   * @public
+   * @type {LiveMetricsSettings}
+   */
   public liveMetrics: LiveMetricsSettings = {
     enabled: this.liveMetricsEnabled,
     sections: this.liveMetricSettings
   };
 
+  /**
+   * Brush size in cells.
+   *
+   * @public
+   * @type {number}
+   */
   public brushSize = 1;
 
+  /**
+   * Brush shape.
+   *
+   * @public
+   * @type {BrushShape}
+   */
   public brushShape: BrushShape = 'square';
 
+  /**
+   * Brush fill mode.
+   *
+   * @public
+   * @type {BrushFill}
+   */
   public brushFill: BrushFill = 'full';
 
+  /**
+   * Current download progress percentage.
+   *
+   * @public
+   * @type {number}
+   */
   public downloadProgress = -1;
 
+  /**
+   * Main download status text.
+   *
+   * @public
+   * @type {string}
+   */
   public downloadMainStatus = '';
 
+  /**
+   * Whether the current download estimate exceeds the chunk threshold.
+   *
+   * @public
+   * @type {boolean}
+   */
   public downloadEstimateExceedsChunkThreshold = false;
 
+  /**
+   * Maximum available bytes for simulation storage.
+   *
+   * @public
+   * @type {number}
+   */
   public maxBytes = Infinity;
 
+  /**
+   * VRAM budget in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public vramBudgetBytes = Infinity;
 
+  /**
+   * Current frame byte size.
+   *
+   * @public
+   * @type {number}
+   */
   public frameByteSize = 0;
 
+  /**
+   * Simulation grid format.
+   *
+   * @public
+   * @type {GridFormatMetadata}
+   */
   public simulationGridFormat = gridFormatMetadata(smallestValidSimulationGridFormat(this.ruleset.tribes.length, this.ruleset));
 
+  /**
+   * Simulation VRAM usage in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public vramSimulationBytes = 0;
 
+  /**
+   * Recording VRAM usage in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public vramRecordingBytes = 0;
 
+  /**
+   * Whether recording is available for the current grid.
+   *
+   * @public
+   * @type {boolean}
+   */
   public recordingAvailable = true;
 
+  /**
+   * Whether a stepping operation is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public stepping = false;
 
+  /**
+   * Whether recording chunks are being saved.
+   *
+   * @public
+   * @type {boolean}
+   */
   public chunksSaving = false;
 
+  /**
+   * Whether the engine is applying backpressure.
+   *
+   * @public
+   * @type {boolean}
+   */
   public backpressure = false;
 
+  /**
+   * Whether the engine is rebuilding.
+   *
+   * @public
+   * @type {boolean}
+   */
   public rebuilding = false;
 
+  /**
+   * Current GPU error message.
+   *
+   * @public
+   * @type {(string | null)}
+   */
   public gpuErrorMessage: string | null = null;
 
+  /**
+   * Storage used in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public storageUsedBytes = 0;
 
+  /**
+   * Storage quota in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public storageQuotaBytes = 0;
 
+  /**
+   * Pending raw storage bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public storagePendingRawBytes = 0;
 
+  /**
+   * Compressed storage bytes.
+   *
+   * @public
+   * @type {number}
+   */
   public storageCompressedBytes = 0;
 
+  /**
+   * Whether snapshot saving is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public savingState = false;
 
+  /**
+   * Whether snapshot loading is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   public loadingState = false;
 
   /**
@@ -258,28 +498,102 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   public snapshotProgressStatus = '';
 
+  /**
+   * Highest storage quota warning level already shown.
+   *
+   * @private
+   * @type {0 | 25 | 50 | 75 | 100}
+   */
   private quotaWarningLevel: 0 | 25 | 50 | 75 | 100 = 0;
 
+  /**
+   * Snapshot waiting for engine rebuild completion.
+   *
+   * @private
+   * @type {({grid: Uint32Array; generation: number; gridFormat: GridFormatMetadata} | null)}
+   */
   private pendingStateLoad: {grid: Uint32Array; generation: number; gridFormat: GridFormatMetadata} | null = null;
 
+  /**
+   * Background compression worker pool.
+   *
+   * @private
+   * @type {Worker[]}
+   */
   private compressPool: Worker[] = [];
 
+  /**
+   * Round-robin compression worker index.
+   *
+   * @private
+   * @type {number}
+   */
   private compressPoolIndex = 0;
 
+  /**
+   * Compression jobs waiting for dispatch.
+   *
+   * @private
+   * @type {QueuedCompressionJob[]}
+   */
   private pendingCompressionJobs: QueuedCompressionJob[] = [];
 
+  /**
+   * Compression jobs deferred after retry exhaustion.
+   *
+   * @private
+   * @type {QueuedCompressionJob[]}
+   */
   private deferredCompressionJobs: QueuedCompressionJob[] = [];
 
+  /**
+   * Compression jobs currently active by filename.
+   *
+   * @private
+   * @readonly
+   * @type {Map<string, QueuedCompressionJob>}
+   */
   private readonly activeCompressionJobs = new Map<string, QueuedCompressionJob>();
 
+  /**
+   * Pending compression retry timers.
+   *
+   * @private
+   * @type {ReturnType<typeof setTimeout>[]}
+   */
   private compressionRetryTimers: ReturnType<typeof setTimeout>[] = [];
 
+  /**
+   * Raw bytes currently active in compression workers.
+   *
+   * @private
+   * @type {number}
+   */
   private activeCompressionBytes = 0;
 
+  /**
+   * Whether compression dispatch is paused for download preparation.
+   *
+   * @private
+   * @type {boolean}
+   */
   private compressionDispatchPaused = false;
 
+  /**
+   * Promise resolvers waiting for compression queue changes.
+   *
+   * @private
+   * @readonly
+   * @type {Set<() => void>}
+   */
   private readonly compressionDrainResolvers = new Set<() => void>();
 
+  /**
+   * Active download worker.
+   *
+   * @private
+   * @type {(Worker | null)}
+   */
   private downloadWorker: Worker | null = null;
 
   /**
@@ -290,22 +604,78 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private downloadCancelRequested = false;
 
+  /**
+   * Current single-tribe draw index.
+   *
+   * @private
+   * @type {number}
+   */
   private drawTribeIndex = 1;
 
+  /**
+   * Pending snapshot resolver for request/response flows.
+   *
+   * @private
+   * @type {(((snap: SnapshotMessage) => void) | null)}
+   */
   private pendingSnapshotResolve: ((snap: SnapshotMessage) => void) | null = null;
 
+  /**
+   * Pending recording resolver for request/response flows.
+   *
+   * @private
+   * @type {(((rec: RecordingMessage) => void) | null)}
+   */
   private pendingRecordingResolve: ((rec: RecordingMessage) => void) | null = null;
 
+  /**
+   * Latest recording manifest received from the engine.
+   *
+   * @private
+   * @type {(RecordingMessage | null)}
+   */
   private latestRecordingManifest: RecordingMessage | null = null;
 
+  /**
+   * Latest download request preview from the sidebar.
+   *
+   * @private
+   * @type {(DownloadRequestPayload | null)}
+   */
   private downloadRequestPreview: DownloadRequestPayload | null = null;
 
+  /**
+   * Controller for document-level listeners.
+   *
+   * @private
+   * @readonly
+   * @type {AbortController}
+   */
   private readonly keydownListenerController = new AbortController();
 
+  /**
+   * Active screen wake lock.
+   *
+   * @private
+   * @type {(WakeLockSentinel | null)}
+   */
   private wakeLock: WakeLockSentinel | null = null;
 
+  /**
+   * Whether a wake lock request is in flight.
+   *
+   * @private
+   * @type {boolean}
+   */
   private wakeLockRequestPending = false;
 
+  /**
+   * Minimum progress UI visibility duration.
+   *
+   * @private
+   * @readonly
+   * @type {number}
+   */
   private readonly minimumProgressVisibleMs = 1000;
 
   /**
@@ -317,14 +687,35 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   protected override readonly defaultPreferences: HomePreferences = DEFAULT_HOME_PREFERENCES;
 
+  /**
+   * Current ruleset tribes.
+   *
+   * @public
+   * @readonly
+   * @type {readonly Tribe[]}
+   */
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
   }
 
+  /**
+   * Effective simulation speed sent to the engine.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get effectiveSpeed(): number {
     return this.maxSpeed ? -1 : this.speed;
   }
 
+  /**
+   * Whether a blocking overlay owns engine input.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
   public get overlayActive(): boolean {
     return this.gpuErrorMessage !== null || this.rebuilding || this.backpressure || this.stepping || this.maxSpeed;
   }
@@ -340,6 +731,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return this.downloadCancelRequested;
   }
 
+  /**
+   * Creates the home page and restores persisted preferences.
+   *
+   * @public
+   * @param {ChangeDetectorRef} cdr change detector.
+   * @param {MatSnackBar} snackBar snackbar service.
+   */
   public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar) {
     super('golt-home-prefs');
     console.log('[GOLT] Home page initialized');
@@ -354,6 +752,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     });
   }
 
+  /**
+   * @inheritdoc
+   */
   public ngOnDestroy(): void {
     console.log('[GOLT] Home page destroyed');
     this.keydownListenerController.abort();
@@ -361,11 +762,23 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.releaseWakeLock();
   }
 
+  /**
+   * Stores the latest metrics emitted by the engine.
+   *
+   * @public
+   * @param {MetricMessage} data metrics message.
+   */
   public onMetrics(data: MetricMessage): void {
     this.latestMetrics = data;
     this.cdr.markForCheck();
   }
 
+  /**
+   * Updates the visible generation counter from the engine.
+   *
+   * @public
+   * @param {GenerationMessage} data generation message.
+   */
   public onGeneration(data: GenerationMessage): void {
     if (this.latestMetrics) {
       this.latestMetrics = {
@@ -399,6 +812,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies engine limits and derived recording availability.
+   *
+   * @public
+   * @param {LimitsMessage} data limits message.
+   */
   public onLimits(data: LimitsMessage): void {
     this.maxBytes = data.maxBytes;
     this.vramBudgetBytes = data.vramBudgetBytes;
@@ -417,21 +836,45 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies stepping status from the engine.
+   *
+   * @public
+   * @param {SteppingMessage} data stepping status.
+   */
   public onStepping(data: SteppingMessage): void {
     this.stepping = data.active;
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies chunk-saving status from the engine.
+   *
+   * @public
+   * @param {ChunksSavingMessage} data chunk-saving status.
+   */
   public onChunksSaving(data: ChunksSavingMessage): void {
     this.chunksSaving = data.active;
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies engine backpressure status.
+   *
+   * @public
+   * @param {BackpressureMessage} data backpressure status.
+   */
   public onBackpressure(data: BackpressureMessage): void {
     this.backpressure = data.active;
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies engine rebuild status.
+   *
+   * @public
+   * @param {RebuildingMessage} data rebuild status.
+   */
   public onRebuilding(data: RebuildingMessage): void {
     console.log(`[GOLT] Engine rebuild ${data.active ? 'started' : 'completed'}`);
     this.rebuilding = data.active;
@@ -447,6 +890,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Handles engine device-loss failures.
+   *
+   * @public
+   * @param {DeviceLostMessage} data device-loss message.
+   */
   public onDeviceLost(data: DeviceLostMessage): void {
     console.error('[GOLT] GPU device lost:', data.reason);
     this.setRunState('paused');
@@ -455,6 +904,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Handles engine GPU errors.
+   *
+   * @public
+   * @param {GpuErrorMessage} data GPU error message.
+   */
   public onGpuError(data: GpuErrorMessage): void {
     console.error('[GOLT] GPU error:', data.reason);
     this.setRunState('paused');
@@ -464,6 +919,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Applies storage quota updates and warning thresholds.
+   *
+   * Decimal used bytes are compared against binary quota bytes to match the existing storage warning policy.
+   *
+   * @public
+   * @param {StorageQuotaMessage} data storage quota message.
+   */
   public onStorageQuota(data: StorageQuotaMessage): void {
     this.storageUsedBytes = data.usedBytes;
     this.storageQuotaBytes = data.quotaBytes;
@@ -473,8 +936,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     if (data.quotaBytes <= 0) {
       return;
     }
-    // Mixed byte formats: used in decimal GB, quota in binary GiB.
-    // Include GPU buffer margin (worst-case data in flight not yet on disk).
     const effectiveUsed = data.usedBytes + data.gpuBufferMarginBytes;
     const usedDecimalGiga = effectiveUsed / 1e9;
     const quotaBinaryGiga = data.quotaBytes / (1024 ** 3);
@@ -528,6 +989,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.cdr.markForCheck();
   }
 
+  /**
+   * Queues a sealed recording chunk for background compression.
+   *
+   * @public
+   * @param {ChunkSealedMessage} data sealed chunk message.
+   */
   public onChunkSealed(data: ChunkSealedMessage): void {
     if (this.compressPool.length === 0) {
       this.initCompressPool();
@@ -542,12 +1009,24 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.refreshDownloadEstimateFlag();
   }
 
+  /**
+   * Requeues engine-reported chunks that are still uncompressed.
+   *
+   * @public
+   * @param {UncompressedChunksMessage} data uncompressed chunks message.
+   */
   public onUncompressedChunks(data: UncompressedChunksMessage): void {
     for (const chunk of data.chunks) {
       this.onChunkSealed({type: 'chunkSealed', ...chunk});
     }
   }
 
+  /**
+   * Handles a snapshot emitted by the engine.
+   *
+   * @public
+   * @param {SnapshotMessage} snap snapshot message.
+   */
   public onSnapshot(snap: SnapshotMessage): void {
     if (this.pendingSnapshotResolve) {
       this.pendingSnapshotResolve(snap);
@@ -566,6 +1045,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Handles a recording manifest emitted by the engine.
+   *
+   * @public
+   * @param {RecordingMessage} rec recording manifest message.
+   */
   public onRecording(rec: RecordingMessage): void {
     this.latestRecordingManifest = rec;
     this.refreshDownloadEstimateFlag();
@@ -575,9 +1060,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Handles a sidebar command.
+   *
+   * @public
+   * @param {SidebarEvent} ev sidebar event.
+   */
   public onSidebarEvent(ev: SidebarEvent): void {
     let shouldSavePreferences = false;
-
     switch (ev.action) {
       case 'toggleRun':
         this.toggleRun();
@@ -753,7 +1243,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         break;
       }
     }
-
     if (shouldSavePreferences) {
       this.savePreferences();
     }
@@ -839,6 +1328,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Applies a ruleset and selects a valid simulation grid format.
+   *
+   * @private
+   * @param {Ruleset} newRuleset ruleset to apply.
+   * @param {boolean} preferSmallestFormat whether to prefer the smallest valid format.
+   * @returns {boolean} true when persisted draw preferences changed.
+   */
   private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): boolean {
     this.rebuilding = true;
     this.simulationGridFormat = preferSmallestFormat ?
@@ -853,11 +1350,18 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return this.clampBrushSize();
   }
 
+  /**
+   * Handles global keyboard shortcuts.
+   *
+   * While stepping, only the spacebar shortcut remains active so it can cancel the step.
+   *
+   * @private
+   * @param {KeyboardEvent} ev keyboard event.
+   */
   private handleKeydown(ev: KeyboardEvent): void {
     if (this.downloadProgress >= 0) {
       return;
     }
-    // While stepping, only allow spacebar (to cancel the step).
     if (this.stepping) {
       if (ev.key === ' ') {
         this.cancelStepping();
@@ -892,6 +1396,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Handles playback keyboard shortcuts.
+   *
+   * @private
+   * @param {string} key pressed key.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
   private handlePlaybackShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
     switch (key) {
       case ' ':
@@ -929,6 +1440,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Handles draw selection keyboard shortcuts.
+   *
+   * @private
+   * @param {string} key pressed key.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
   private handleSelectionShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
     switch (key) {
       case 'ArrowUp':
@@ -969,6 +1487,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Handles brush keyboard shortcuts.
+   *
+   * @private
+   * @param {string} key pressed key.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
   private handleBrushShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
     switch (key) {
       case '+': {
@@ -994,6 +1519,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Checks whether the focused element should block keyboard shortcuts.
+   *
+   * @private
+   * @param {(Element | null)} active focused element.
+   * @returns {boolean} true when shortcut handling should be blocked.
+   */
   private activeElementBlocksShortcut(active: Element | null): boolean {
     if (active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) {
       return true;
@@ -1005,6 +1537,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return false;
   }
 
+  /**
+   * Toggles simulation run state.
+   *
+   * @private
+   */
   private toggleRun(): void {
     if (this.stepping) {
       this.cancelStepping();
@@ -1013,10 +1550,21 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.setRunState(this.state === 'paused' ? 'running' : 'paused');
   }
 
+  /**
+   * Cancels active stepping.
+   *
+   * @private
+   */
   private cancelStepping(): void {
     this.engine.cancelStepping();
   }
 
+  /**
+   * Sets simulation run state.
+   *
+   * @private
+   * @param {'running' | 'paused'} state next run state.
+   */
   private setRunState(state: 'running' | 'paused'): void {
     if (this.state !== state) {
       console.log(`[GOLT] Simulation ${state}`);
@@ -1028,6 +1576,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.syncWakeLock();
   }
 
+  /**
+   * Synchronizes wake lock state with simulation state.
+   *
+   * @private
+   */
   private syncWakeLock(): void {
     if (this.state === 'running' && document.visibilityState === 'visible') {
       this.requestWakeLock();
@@ -1036,6 +1589,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Requests a wake lock while the simulation is running.
+   *
+   * @private
+   */
   private requestWakeLock(): void {
     if (this.wakeLock || this.wakeLockRequestPending || document.visibilityState !== 'visible') {
       return;
@@ -1065,6 +1623,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       });
   }
 
+  /**
+   * Releases the active wake lock.
+   *
+   * @private
+   */
   private releaseWakeLock(): void {
     const lock = this.wakeLock;
     this.wakeLock = null;
@@ -1075,18 +1638,48 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     lock.release().catch(error => console.warn('Failed to release screen wake lock:', error));
   }
 
+  /**
+   * Handles document visibility changes for wake lock recovery.
+   *
+   * @private
+   */
   private onVisibilityChange(): void {
     this.syncWakeLock();
   }
 
+  /**
+   * Current storage budget for the simulation grid.
+   *
+   * @private
+   * @returns {number} current maximum bytes.
+   */
   private currentMaxBytes(): number {
     return this.maxBytes > 0 ? this.maxBytes : Number.POSITIVE_INFINITY;
   }
 
+  /**
+   * Resolves the smallest simulation grid format that fits a ruleset.
+   *
+   * @private
+   * @param {Ruleset} ruleset ruleset to evaluate.
+   * @param {number} cols grid columns.
+   * @param {number} rows grid rows.
+   * @returns {GridFormatMetadata} selected grid format metadata.
+   */
   private smallestSimulationGridFormatForRuleset(ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
     return gridFormatMetadata(smallestValidSimulationGridFormat(ruleset.tribes.length, {cols, rows}, this.currentMaxBytes()));
   }
 
+  /**
+   * Resolves a preferred simulation grid format or falls back to the smallest fitting format.
+   *
+   * @private
+   * @param {(GridFormatMetadata | null | undefined)} preferred preferred grid format.
+   * @param {Ruleset} ruleset ruleset to evaluate.
+   * @param {number} cols grid columns.
+   * @param {number} rows grid rows.
+   * @returns {GridFormatMetadata} selected grid format metadata.
+   */
   private resolveSimulationGridFormat(preferred: GridFormatMetadata | null | undefined, ruleset: Ruleset = this.ruleset, cols = ruleset.cols, rows = ruleset.rows): GridFormatMetadata {
     if (preferred?.bitsPerCell !== undefined && isSupportedBitsPerCell(preferred.bitsPerCell) &&
         validatePackingAgainstStateCount(preferred.bitsPerCell, ruleset.tribes.length) &&
@@ -1096,6 +1689,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return this.smallestSimulationGridFormatForRuleset(ruleset, cols, rows);
   }
 
+  /**
+   * Terminates compression workers and clears pending compression state.
+   *
+   * @private
+   */
   private terminateCompressWorker(): void {
     for (const w of this.compressPool) {
       w.terminate();
@@ -1347,6 +1945,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Resumes compression dispatch after a download wait.
+   *
+   * @private
+   */
   private resumeCompressionPool(): void {
     this.compressionDispatchPaused = false;
     for (const worker of this.compressPool) {
@@ -1366,6 +1969,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return enabled ? 'enabled' : 'disabled';
   }
 
+  /**
+   * Synchronizes live metrics inputs from local preference state.
+   *
+   * @private
+   */
   private syncLiveMetrics(): void {
     this.liveMetrics = {
       enabled: this.liveMetricsEnabled,
@@ -1373,6 +1981,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     };
   }
 
+  /**
+   * Creates the background compression worker pool.
+   *
+   * @private
+   */
   private initCompressPool(): void {
     const poolSize = Math.max(1, (navigator.hardwareConcurrency ?? 4) - 2);
     for (let i = 0; i < poolSize; i++) {
@@ -1390,6 +2003,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Requests cancellation for the active or preparing download.
+   *
+   * @private
+   */
   private cancelDownload(): void {
     console.log('[GOLT] Cancelling download');
     this.downloadCancelRequested = true;
@@ -1427,6 +2045,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Restarts the simulation state and clears transient recording data.
+   *
+   * @private
+   */
   private restart(): void {
     console.log('[GOLT] Restart requested');
     this.snackBar.dismiss();
@@ -1444,6 +2067,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.latestMetrics = null;
   }
 
+  /**
+   * Opens a snackbar and logs the same message.
+   *
+   * @private
+   * @param {string} message snackbar message.
+   * @param {'info' | 'warning' | 'error'} tone snackbar tone.
+   * @param {number} duration snackbar duration in milliseconds.
+   */
   private openSnack(message: string, tone: 'info' | 'warning' | 'error', duration: number = 0): void {
     this.logSnack(message, tone);
     const config: MatSnackBarConfig = {panelClass: `snackbar-${tone}`};
@@ -1474,6 +2105,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Clamps the brush size to the current grid.
+   *
+   * @private
+   * @returns {boolean} true when the brush size changed.
+   */
   private clampBrushSize(): boolean {
     const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
     const nextBrushSize = Math.min(this.brushSize, max);
@@ -1482,6 +2119,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return changed;
   }
 
+  /**
+   * Prepares a consistent snapshot and optional recording manifest for download.
+   *
+   * @private
+   * @async
+   * @param {DownloadRequestPayload} opts download options.
+   */
   private async downloadZip(opts: DownloadRequestPayload): Promise<void> {
     this.downloadCancelRequested = false;
     this.downloadRequestPreview = opts;
@@ -1494,17 +2138,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       forceChunkDownload: opts.forceChunkDownload,
       frameRange: opts.frameRange
     });
-
-    // Pause the simulation so the download captures a consistent state.
     if (this.state === 'running') {
       this.setRunState('paused');
       this.engine.setRunning(false);
     }
-
     this.downloadProgress = 0;
     this.downloadMainStatus = needFrames ? 'Saving pending recording frames' : HomePage.preparingSnapshotStatus;
     this.cdr.markForCheck();
-
     try {
       console.log('[GOLT] Clearing temporary OPFS files before download');
       await clearTempOpfsDirectory();
@@ -1522,7 +2162,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.downloadMainStatus = HomePage.waitingCompressionJobsStatus;
         this.cdr.markForCheck();
       }
-
       const initialEstimate = estimateDownloadWorkingSet(opts, flushedRecording, this.tribes.length);
       const initialMode = resolveDownloadMode(initialEstimate, opts.forceChunkDownload);
       this.downloadEstimateExceedsChunkThreshold = initialEstimate.totalBytes > DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES;
@@ -1535,7 +2174,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         await this.waitForDownloadCompression('active');
         this.throwIfDownloadCancelled();
       }
-
       this.downloadMainStatus = needFrames ? 'Refreshing recording manifest' : HomePage.preparingSnapshotStatus;
       this.cdr.markForCheck();
       const snapshotP = this.requestDownloadSnapshot();
@@ -1609,7 +2247,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const worker = new Worker(new URL('./worker/download.ts', import.meta.url), {type: 'module'});
     this.downloadWorker = worker;
     const pendingDownloadSideEffects: Promise<void>[] = [];
-
     const releaseDownloadUi = () => {
       this.resetDownloadState();
       this.downloadCancelRequested = false;
@@ -1630,13 +2267,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       releaseDownloadUi();
       terminateDownloadWorker('done');
     };
-
     worker.onerror = () => {
       console.error('[GOLT] Download worker failed unexpectedly');
       this.openSnack('Download failed unexpectedly. Try again.', 'error');
       cleanupDownload();
     };
-
     worker.onmessage = async(e: MessageEvent) => {
       if (e.data.type === 'progress') {
         this.downloadProgress = e.data.percent;
@@ -1696,6 +2331,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }, transferables);
   }
 
+  /**
+   * Loads a saved GOLT state from a file buffer.
+   *
+   * @private
+   * @async
+   * @param {ArrayBuffer} buffer snapshot file buffer.
+   */
   private async loadState(buffer: ArrayBuffer): Promise<void> {
     const startedAt = performance.now();
     this.loadingState = true;
@@ -1717,6 +2359,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Saves the current engine snapshot as a GOLT file.
+   *
+   * @private
+   * @async
+   * @param {SnapshotMessage} snap snapshot to save.
+   */
   private async saveGoltState(snap: SnapshotMessage): Promise<void> {
     const startedAt = performance.now();
     console.log('[GOLT] Clearing temporary OPFS files before snapshot save');
@@ -1726,10 +2375,26 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.downloadBlob(saved.blob, saved.filename);
   }
 
+  /**
+   * Builds a GOLT file from a snapshot.
+   *
+   * @private
+   * @async
+   * @param {SnapshotMessage} snap snapshot to encode.
+   * @returns {Promise<SnapshotSaveOutput>} saved snapshot output.
+   */
   private async buildGoltFile(snap: SnapshotMessage): Promise<SnapshotSaveOutput> {
     return this.runSnapshotSaveWorker(snap);
   }
 
+  /**
+   * Parses a GOLT file buffer.
+   *
+   * @private
+   * @async
+   * @param {ArrayBuffer} buffer file buffer.
+   * @returns {Promise<ParsedGoltState | null>} parsed state or null when invalid.
+   */
   private async parseGoltFile(buffer: ArrayBuffer): Promise<ParsedGoltState | null> {
     return this.runSnapshotLoadWorker(buffer);
   }
@@ -1813,6 +2478,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     });
   }
 
+  /**
+   * Starts a browser download for a blob.
+   *
+   * @private
+   * @param {Blob} blob download data.
+   * @param {string} filename download filename.
+   */
   private downloadBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1822,6 +2494,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     URL.revokeObjectURL(url);
   }
 
+  /**
+   * Runs the snapshot worker in save mode.
+   *
+   * @private
+   * @param {SnapshotMessage} snap snapshot to save.
+   * @returns {Promise<SnapshotSaveOutput>} saved snapshot output.
+   */
   private runSnapshotSaveWorker(snap: SnapshotMessage): Promise<SnapshotSaveOutput> {
     return new Promise<SnapshotSaveOutput>((resolve, reject) => {
       const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
@@ -1877,6 +2556,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     });
   }
 
+  /**
+   * Runs the snapshot worker in load mode.
+   *
+   * @private
+   * @param {ArrayBuffer} buffer snapshot file buffer.
+   * @returns {Promise<ParsedGoltState | null>} parsed state or null when invalid.
+   */
   private runSnapshotLoadWorker(buffer: ArrayBuffer): Promise<ParsedGoltState | null> {
     return new Promise((resolve, reject) => {
       const worker = new Worker(new URL('./worker/snapshot.ts', import.meta.url), {type: 'module'});
@@ -1968,6 +2654,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.setSnapshotProgress('indeterminate', null, '');
   }
 
+  /**
+   * Keeps progress UI visible for a minimum duration.
+   *
+   * @private
+   * @async
+   * @param {number} startedAt operation start timestamp.
+   */
   private async waitForMinimumVisibleTime(startedAt: number): Promise<void> {
     const elapsed = performance.now() - startedAt;
     if (elapsed < this.minimumProgressVisibleMs) {
@@ -1975,6 +2668,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
   }
 
+  /**
+   * Normalizes persisted draw-section preferences.
+   *
+   * @private
+   * @param {(Partial<DrawSectionPreferences> | undefined)} stored stored preferences.
+   * @param {DrawSectionPreferences} defaults default preferences.
+   * @returns {DrawSectionPreferences} normalized preferences.
+   */
   private normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {
     const normalizedStored = stored ?? {};
     return {
@@ -1984,6 +2685,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     };
   }
 
+  /**
+   * Normalizes persisted speed-section preferences.
+   *
+   * @private
+   * @param {(Partial<SpeedSectionPreferences> | undefined)} stored stored preferences.
+   * @param {SpeedSectionPreferences} defaults default preferences.
+   * @returns {SpeedSectionPreferences} normalized preferences.
+   */
   private normalizeSpeedSectionPreferences(stored: Partial<SpeedSectionPreferences> | undefined, defaults: SpeedSectionPreferences): SpeedSectionPreferences {
     const normalizedStored = stored ?? {};
     return {
@@ -1994,6 +2703,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     };
   }
 
+  /**
+   * Normalizes persisted metrics-section preferences.
+   *
+   * @private
+   * @param {(Partial<MetricsSectionPreferences> | undefined)} stored stored preferences.
+   * @param {MetricsSectionPreferences} defaults default preferences.
+   * @returns {MetricsSectionPreferences} normalized preferences.
+   */
   private normalizeMetricsSectionPreferences(stored: Partial<MetricsSectionPreferences> | undefined, defaults: MetricsSectionPreferences): MetricsSectionPreferences {
     const normalizedStored = stored ?? {};
     return {

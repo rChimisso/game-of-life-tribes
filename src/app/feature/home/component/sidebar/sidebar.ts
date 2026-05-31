@@ -33,6 +33,15 @@ import {Grid} from '~gol/feature/home/model/grid';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
+/**
+ * Home controls sidebar.
+ *
+ * @export
+ * @class Sidebar
+ * @typedef {Sidebar}
+ * @extends {PersistedPreferencesComponent<SidebarPreferences>}
+ * @implements {OnDestroy}
+ */
 @Component({
   selector: 'gol-sidebar',
   standalone: true,
@@ -64,123 +73,363 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
   }
 })
 export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> implements OnDestroy {
+  /**
+   * Current ruleset tribes.
+   *
+   * @public
+   * @type {readonly Tribe[]}
+   */
   @Input()
   public tribes: readonly Tribe[] = [];
 
+  /**
+   * Tribe ids currently selected for drawing.
+   *
+   * @public
+   * @type {string[]}
+   */
   @Input()
   public drawTribes: string[] = [];
 
+  /**
+   * Simulation speed.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public speed = 10;
 
+  /**
+   * Whether max-speed mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public maxSpeed = false;
 
+  /**
+   * Whether recording is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public recording = false;
 
+  /**
+   * Whether the simulation is running.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public running = false;
 
+  /**
+   * Whether a stepping operation is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public stepping = false;
 
+  /**
+   * Whether the engine is applying backpressure.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public backpressure = false;
 
+  /**
+   * Whether the engine is rebuilding.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public rebuilding = false;
 
+  /**
+   * Grid column count.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public gridCols = 100;
 
+  /**
+   * Grid row count.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public gridRows = 100;
 
+  /**
+   * Simulation grid format.
+   *
+   * @public
+   * @type {GridFormatMetadata}
+   */
   @Input()
   public simulationGridFormat: GridFormatMetadata = {bitsPerCell: 8};
 
+  /**
+   * Latest engine metrics.
+   *
+   * @public
+   * @type {(MetricMessage | null)}
+   */
   @Input()
   public metrics: MetricMessage | null = null;
 
+  /**
+   * Whether live metrics are enabled.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public liveMetricsEnabled = true;
 
+  /**
+   * Live metrics section settings.
+   *
+   * @public
+   * @type {LiveMetricSectionSettings}
+   */
   @Input()
   public liveMetricSettings: LiveMetricSectionSettings = DEFAULT_LIVE_METRIC_SECTION_SETTINGS;
 
+  /**
+   * Whether the population metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public populationExpanded = true;
 
+  /**
+   * Whether the diversity metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public diversityExpanded = true;
 
+  /**
+   * Whether the interfaces metrics section is expanded.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public interfacesExpanded = true;
 
+  /**
+   * Whether recording chunks are being saved.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public chunksSaving = false;
 
+  /**
+   * Whether recording is available for the current grid.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public recordingAvailable = true;
 
+  /**
+   * Current frame byte size.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public frameByteSize = 0;
 
+  /**
+   * Whether delete drawing mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public deleteMode = false;
 
+  /**
+   * Whether touch pan mode is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public panMode = false;
 
+  /**
+   * Current ruleset.
+   *
+   * @public
+   * @type {Ruleset}
+   */
   @Input()
   public ruleset!: Ruleset;
 
+  /**
+   * Brush size in cells.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public brushSize = 1;
 
+  /**
+   * Brush shape.
+   *
+   * @public
+   * @type {BrushShape}
+   */
   @Input()
   public brushShape: BrushShape = 'square';
 
+  /**
+   * Brush fill mode.
+   *
+   * @public
+   * @type {BrushFill}
+   */
   @Input()
   public brushFill: BrushFill = 'full';
 
+  /**
+   * Current download progress percentage.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public downloadProgress = -1;
 
+  /**
+   * Main download status text.
+   *
+   * @public
+   * @type {string}
+   */
   @Input()
   public downloadMainStatus = '';
 
+  /**
+   * Whether download cancellation is pending.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public downloadCancelling = false;
 
+  /**
+   * Whether the download estimate exceeds the chunk threshold.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public downloadEstimateExceedsChunkThreshold = false;
 
+  /**
+   * Maximum available bytes for simulation storage.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public maxBytes = Infinity;
 
+  /**
+   * VRAM budget in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public vramBudgetBytes = Infinity;
 
+  /**
+   * Simulation VRAM usage in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public vramSimulationBytes = 0;
 
+  /**
+   * Recording VRAM usage in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public vramRecordingBytes = 0;
 
+  /**
+   * Pending raw storage bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public storagePendingRawBytes = 0;
 
+  /**
+   * Compressed storage bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public storageCompressedBytes = 0;
 
+  /**
+   * Storage quota in bytes.
+   *
+   * @public
+   * @type {number}
+   */
   @Input()
   public storageQuotaBytes = 0;
 
+  /**
+   * Whether snapshot saving is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public savingState = false;
 
+  /**
+   * Whether snapshot loading is active.
+   *
+   * @public
+   * @type {boolean}
+   */
   @Input()
   public loadingState = false;
 
@@ -211,25 +460,80 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   @Input()
   public snapshotProgressStatus = '';
 
+  /**
+   * Sidebar event output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<SidebarEvent>}
+   */
   @Output()
   public readonly sidebarEvent = new EventEmitter<SidebarEvent>();
 
+  /**
+   * Whether the sidebar is collapsed.
+   *
+   * @public
+   * @type {boolean}
+   */
   public collapsed = true;
 
-  // Sidebar resize
+  /**
+   * Desktop sidebar width in CSS pixels.
+   *
+   * @public
+   * @type {number}
+   */
   public sidebarWidth = 300;
 
-  // Bottom sheet (mobile)
+  /**
+   * Mobile bottom sheet translate value.
+   *
+   * @public
+   * @type {string}
+   */
   public sheetTranslate = 'calc(100% - 0px)';
 
+  /**
+   * Whether the closed-state transition should be suppressed.
+   *
+   * @public
+   * @type {boolean}
+   */
   public suppressClosedTransition = false;
 
+  /**
+   * Mobile layout media query.
+   *
+   * @private
+   * @readonly
+   * @type {(MediaQueryList | null)}
+   */
   private readonly mobileLayoutQuery: MediaQueryList | null = null;
 
+  /**
+   * Animation frame used to reset transition suppression.
+   *
+   * @private
+   * @type {(number | null)}
+   */
   private transitionResetFrame: number | null = null;
 
+  /**
+   * Cleanup animation frame used to reset transition suppression.
+   *
+   * @private
+   * @type {(number | null)}
+   */
   private transitionResetCleanupFrame: number | null = null;
 
+  /**
+   * Controller for mobile layout listeners.
+   *
+   * @private
+   * @readonly
+   * @type {AbortController}
+   */
   private readonly mobileLayoutListenerController = new AbortController();
 
   /**
@@ -241,18 +545,46 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   protected override readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
 
+  /**
+   * Current generation shown in the playback section.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get generationCounter(): number {
     return this.metrics?.generation ?? 0;
   }
 
+  /**
+   * Whether a download is currently active.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
   public get downloading(): boolean {
     return this.downloadProgress >= 0;
   }
 
+  /**
+   * Total VRAM usage shown in the sidebar section title.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
   public get vramTitleSize(): string {
     return formatBinaryBytes(this.vramSimulationBytes + this.vramRecordingBytes);
   }
 
+  /**
+   * Formatted detected VRAM budget.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
   public get vramQuotaFormatted(): string {
     return Number.isFinite(this.vramBudgetBytes) ? formatBinaryBytes(this.vramBudgetBytes) : 'Detecting…';
   }
@@ -279,34 +611,82 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     return formatBinaryBytes(this.storageQuotaBytes);
   }
 
+  /**
+   * Formatted simulation VRAM usage.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
   public get vramSimulationFormatted(): string {
     return formatBinaryBytes(this.vramSimulationBytes);
   }
 
+  /**
+   * Formatted recording VRAM usage.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
   public get vramRecordingFormatted(): string {
     return formatBinaryBytes(this.vramRecordingBytes);
   }
 
+  /**
+   * Simulation VRAM bar percentage.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get vramSimulationPct(): number {
     return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramSimulationBytes / this.vramBudgetBytes) * 100 : 0;
   }
 
+  /**
+   * Recording VRAM bar percentage.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get vramRecordingPct(): number {
     return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramRecordingBytes / this.vramBudgetBytes) * 100 : 0;
   }
 
+  /**
+   * Tooltip for the VRAM usage bar.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
   public get vramBarTooltip(): string {
     return `${this.vramSimulationFormatted} simulation / ${this.vramRecordingFormatted} recording / ${this.vramQuotaFormatted} budget`;
   }
 
+  /**
+   * Total value used by the VRAM usage bar.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get vramBarTotal(): number {
     if (Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0) {
       return this.vramBudgetBytes;
     }
-
     return this.vramSimulationBytes + this.vramRecordingBytes;
   }
 
+  /**
+   * VRAM usage bar segments.
+   *
+   * @public
+   * @readonly
+   * @type {StorageBarSegment[]}
+   */
   public get vramSegments(): StorageBarSegment[] {
     return [
       {
@@ -324,10 +704,25 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     ];
   }
 
+  /**
+   * Maximum allowed brush size for the current grid.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
   public get brushMaxSize(): number {
     return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
   }
 
+  /**
+   * Creates the sidebar and restores persisted layout preferences.
+   *
+   * @public
+   * @param {ElementRef} elRef sidebar host element.
+   * @param {NgZone} zone Angular zone.
+   * @param {ChangeDetectorRef} cdr change detector.
+   */
   public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
     super('golt-sidebar-prefs');
     if (typeof window !== 'undefined' && 'matchMedia' in window) {
@@ -343,11 +738,19 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     this.restorePreferences();
   }
 
+  /**
+   * @inheritdoc
+   */
   public ngOnDestroy(): void {
     this.mobileLayoutListenerController.abort();
     this.clearPendingTransitionReset();
   }
 
+  /**
+   * Toggles the sidebar open state.
+   *
+   * @public
+   */
   public toggle(): void {
     this.clearPendingTransitionReset();
     this.suppressClosedTransition = false;
@@ -357,14 +760,33 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
   }
 
+  /**
+   * Emits a typed sidebar action.
+   *
+   * @public
+   * @param {SidebarEvent['action']} action action name.
+   * @param {unknown} value optional action payload.
+   */
   public emit(action: SidebarEvent['action'], value?: unknown): void {
     this.sidebarEvent.emit(value === undefined ? {action} as SidebarEvent : {action, value} as SidebarEvent);
   }
 
+  /**
+   * Toggles one tribe in the draw selection.
+   *
+   * @public
+   * @param {string} id tribe id.
+   */
   public onTribeChange(id: string): void {
     this.emit('selectTribes', this.toggleTribeSelection(id));
   }
 
+  /**
+   * Emits a speed change from a form value.
+   *
+   * @public
+   * @param {string} value speed form value.
+   */
   public onSpeedChange(value: string): void {
     const n = +value;
     if (n > 0) {
@@ -372,14 +794,32 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
   }
 
+  /**
+   * Emits max-speed state changes.
+   *
+   * @public
+   * @param {boolean} checked whether max speed is enabled.
+   */
   public onMaxSpeedChange(checked: boolean): void {
     this.emit('setMaxSpeed', checked);
   }
 
+  /**
+   * Emits recording state changes.
+   *
+   * @public
+   * @param {boolean} checked whether recording was requested.
+   */
   public onRecordingChange(checked: boolean): void {
     this.emit('setRecording', checked && this.recordingAvailable);
   }
 
+  /**
+   * Emits live metrics enabled state changes.
+   *
+   * @public
+   * @param {boolean} checked whether live metrics are enabled.
+   */
   public onLiveMetricsEnabledChange(checked: boolean): void {
     this.emit('setLiveMetrics', {
       enabled: checked,
@@ -387,6 +827,12 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     });
   }
 
+  /**
+   * Emits live metric section settings changes.
+   *
+   * @public
+   * @param {LiveMetricSectionSettings} settings metric section settings.
+   */
   public onLiveMetricSettingsChange(settings: LiveMetricSectionSettings): void {
     this.emit('setLiveMetrics', {
       enabled: this.liveMetricsEnabled,
@@ -394,14 +840,32 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     });
   }
 
+  /**
+   * Emits an applied grid size.
+   *
+   * @public
+   * @param {Grid} value grid size.
+   */
   public onGridSizeApply(value: Grid): void {
     this.emit('setGridSize', value);
   }
 
+  /**
+   * Emits an applied grid packing value.
+   *
+   * @public
+   * @param {BitsPerCell} value bits per cell.
+   */
   public onPackingApply(value: BitsPerCell): void {
     this.emit('setPacking', value);
   }
 
+  /**
+   * Emits a clamped brush size change from a form value.
+   *
+   * @public
+   * @param {string} value brush size form value.
+   */
   public onBrushSizeChange(value: string): void {
     const n = Math.min(Math.max(1, +value || 1), this.brushMaxSize);
     if (n > 0) {
@@ -409,62 +873,118 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
   }
 
+  /**
+   * Emits a brush shape change.
+   *
+   * @public
+   * @param {BrushShape} shape brush shape.
+   */
   public onBrushShapeChange(shape: BrushShape): void {
     this.emit('setBrushShape', shape);
   }
 
+  /**
+   * Emits a brush fill change.
+   *
+   * @public
+   * @param {BrushFill} fill brush fill.
+   */
   public onBrushFillChange(fill: BrushFill): void {
     this.emit('setBrushFill', fill);
   }
 
+  /**
+   * Emits population section expansion changes.
+   *
+   * @public
+   * @param {boolean} expanded whether the section is expanded.
+   */
   public onPopulationExpandedChange(expanded: boolean): void {
     this.emit('setPopulationExpanded', expanded);
   }
 
+  /**
+   * Emits diversity section expansion changes.
+   *
+   * @public
+   * @param {boolean} expanded whether the section is expanded.
+   */
   public onDiversityExpandedChange(expanded: boolean): void {
     this.emit('setDiversityExpanded', expanded);
   }
 
+  /**
+   * Emits interfaces section expansion changes.
+   *
+   * @public
+   * @param {boolean} expanded whether the section is expanded.
+   */
   public onInterfacesExpandedChange(expanded: boolean): void {
     this.emit('setInterfacesExpanded', expanded);
   }
 
+  /**
+   * Emits touch interaction mode changes.
+   *
+   * @public
+   * @param {TouchMode} mode touch mode.
+   */
   public onTouchModeChange(mode: TouchMode): void {
     if ((mode === 'pan') !== this.panMode) {
       this.emit('togglePanMode');
     }
   }
 
+  /**
+   * Emits a committed tribes update.
+   *
+   * @public
+   * @param {UpdateTribesPayload} payload tribes update payload.
+   */
   public applyTribes(payload: UpdateTribesPayload): void {
     this.emit('updateTribes', payload);
   }
 
+  /**
+   * Emits a selected preset.
+   *
+   * @public
+   * @param {Preset} preset selected preset.
+   */
   public applyPreset(preset: Preset): void {
     this.emit('applyPreset', preset);
   }
 
+  /**
+   * Emits a committed rules update.
+   *
+   * @public
+   * @param {UpdateRulesPayload} payload rules update payload.
+   */
   public applyRules(payload: UpdateRulesPayload): void {
     this.emit('updateRules', payload);
   }
 
+  /**
+   * Starts mobile bottom-sheet dragging.
+   *
+   * @public
+   * @param {PointerEvent} event pointer event.
+   */
   public onSheetDragStart(event: PointerEvent): void {
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
-
     event.preventDefault();
-
     const startY = event.clientY;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement;
     const handle = event.currentTarget as HTMLElement | null;
     const panelHeight = panel.offsetHeight;
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     const currentTranslateY = panel.getBoundingClientRect().bottom - viewportHeight;
-
     panel.classList.add('dragging');
     document.body.style.userSelect = 'none';
     handle?.setPointerCapture?.(event.pointerId);
-
     const cleanup = () => {
       panel.classList.remove('dragging');
       document.body.style.userSelect = '';
@@ -473,7 +993,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
       document.removeEventListener('pointerup', onEnd);
       document.removeEventListener('pointercancel', onEnd);
     };
-
     const onMove = (e: PointerEvent) => {
       if (e.pointerId === event.pointerId) {
         e.preventDefault();
@@ -483,34 +1002,35 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
         this.cdr.detectChanges();
       }
     };
-
     const onEnd = (e: PointerEvent) => {
       if (e.pointerId === event.pointerId) {
         const dy = e.clientY - startY;
         const finalTranslate = Math.max(0, currentTranslateY + dy);
-        // If dragged down more than 50% of the panel height, close.
         if (finalTranslate > panelHeight * 0.5) {
           this.collapsed = true;
           this.sheetTranslate = '0px';
         } else {
-          // Stay at dragged position.
           this.sheetTranslate = `${finalTranslate}px`;
         }
         this.cdr.detectChanges();
         cleanup();
       }
     };
-
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onEnd);
     document.addEventListener('pointercancel', onEnd);
   }
 
+  /**
+   * Starts desktop sidebar resizing.
+   *
+   * @public
+   * @param {PointerEvent} event pointer event.
+   */
   public onResizeStart(event: PointerEvent): void {
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
-
     event.preventDefault();
     event.stopPropagation();
     document.body.style.userSelect = 'none';
@@ -518,10 +1038,8 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     const startWidth = this.sidebarWidth;
     const handle = event.currentTarget as HTMLElement | null;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement | null;
-
     handle?.setPointerCapture?.(event.pointerId);
     panel?.classList.add('resizing');
-
     const onMove = (e: PointerEvent) => {
       if (e.pointerId === event.pointerId) {
         e.preventDefault();
@@ -530,7 +1048,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
         this.cdr.detectChanges();
       }
     };
-
     const onUp = (e: PointerEvent) => {
       if (e.pointerId === event.pointerId) {
         e.preventDefault();
@@ -544,7 +1061,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
         document.removeEventListener('pointercancel', onUp);
       }
     };
-
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onUp);
@@ -598,6 +1114,11 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     return this.isDesktopLayout();
   }
 
+  /**
+   * Updates transition suppression when the responsive layout changes.
+   *
+   * @private
+   */
   private handleMobileLayoutChange(): void {
     if (this.collapsed) {
       this.suppressClosedTransition = true;
@@ -614,10 +1135,21 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
   }
 
+  /**
+   * Checks whether the sidebar is in desktop layout.
+   *
+   * @private
+   * @returns {boolean} true when the desktop layout is active.
+   */
   private isDesktopLayout(): boolean {
     return !this.mobileLayoutQuery?.matches;
   }
 
+  /**
+   * Cancels scheduled transition reset frames.
+   *
+   * @private
+   */
   private clearPendingTransitionReset(): void {
     if (this.transitionResetFrame !== null) {
       cancelAnimationFrame(this.transitionResetFrame);
@@ -629,18 +1161,23 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     }
   }
 
+  /**
+   * Resolves the next draw tribe selection.
+   *
+   * @private
+   * @param {string} id selected tribe id.
+   * @returns {string[]} next selected tribe ids.
+   */
   private toggleTribeSelection(id: string): string[] {
     if (id === DEAD_TRIBE_ID) {
       return [DEAD_TRIBE_ID];
     }
-    // If currently in delete mode (only DEAD_TRIBE_ID selected), start fresh.
     if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID) {
       return [id];
     }
     const current = this.drawTribes.filter(t => t !== DEAD_TRIBE_ID);
     const idx = current.indexOf(id);
     if (idx >= 0) {
-      // Don't allow deselecting the last tribe.
       if (current.length > 1) {
         current.splice(idx, 1);
       }

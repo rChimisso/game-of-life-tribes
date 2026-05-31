@@ -1,69 +1,11 @@
 import '../../../core/function/timestamped-console';
 
-import {Grid} from '../model/grid';
 import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../util/opfs-temp';
 import {postWorkerTransfer} from '../util/worker-post';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
 import {GoltStateData, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
+import {SnapshotLoadedMessage, SnapshotWorkerEvent, SnapshotWorkerRequest} from './snapshot/model/snapshot-worker-message';
 import {parseGoltStateFile} from './snapshot/parse/golt-parse';
-
-import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
-
-/**
- * Request to build a `.golt` snapshot file.
- *
- * @interface SnapshotSaveRequest
- * @typedef {SnapshotSaveRequest}
- */
-interface SnapshotSaveRequest {
-  /**
-   * Snapshot worker request type.
-   *
-   * @type {'save'}
-   */
-  type: 'save';
-  /**
-   * Snapshot state to serialize.
-   *
-   * @type {GoltStateData}
-   */
-  snapshot: GoltStateData;
-}
-
-/**
- * Request to parse a `.golt` snapshot file.
- *
- * @interface SnapshotLoadRequest
- * @typedef {SnapshotLoadRequest}
- */
-interface SnapshotLoadRequest {
-  /**
-   * Snapshot worker request type.
-   *
-   * @type {'load'}
-   */
-  type: 'load';
-  /**
-   * Serialized `.golt` file bytes.
-   *
-   * @type {ArrayBuffer}
-   */
-  buffer: ArrayBuffer;
-}
-
-/**
- * Snapshot worker request.
- *
- * @typedef {SnapshotWorkerRequest}
- */
-type SnapshotWorkerRequest = SnapshotSaveRequest | SnapshotLoadRequest;
-
-/**
- * Snapshot worker request event.
- *
- * @typedef {SnapshotWorkerEvent}
- */
-type SnapshotWorkerEvent = MessageEvent<SnapshotWorkerRequest>;
 
 /**
  * Snapshot stream options for standalone save operations.
@@ -74,51 +16,6 @@ const SNAPSHOT_SAVE_STREAM_OPTIONS: SnapshotStreamOptions = {
   shouldCancel: () => false,
   onCancelRequested: () => () => undefined
 };
-
-/**
- * Parsed snapshot message sent to the UI thread.
- *
- * @interface SnapshotLoadedMessage
- * @typedef {SnapshotLoadedMessage}
- */
-interface SnapshotLoadedMessage extends Grid {
-  /**
-   * Snapshot worker response type.
-   *
-   * @type {'loaded'}
-   */
-  type: 'loaded';
-  /**
-   * Loaded generation counter.
-   *
-   * @type {number}
-   */
-  generation: number;
-  /**
-   * Loaded packed grid data.
-   *
-   * @type {Uint32Array}
-   */
-  grid: Uint32Array;
-  /**
-   * Loaded grid packing format.
-   *
-   * @type {GridFormatMetadata}
-   */
-  gridFormat: GridFormatMetadata;
-  /**
-   * Loaded tribe color metadata.
-   *
-   * @type {GoltStateData['tribes']}
-   */
-  tribes: GoltStateData['tribes'];
-  /**
-   * Loaded rules metadata.
-   *
-   * @type {GoltStateData['rules']}
-   */
-  rules: GoltStateData['rules'];
-}
 
 /**
  * Worker entrypoint for `.golt` save and load operations.
@@ -174,15 +71,13 @@ async function saveSnapshot(snapshot: GoltStateData): Promise<void> {
   const filename = createSnapshotFilename(snapshot.generation);
   if (shouldStreamGoltState(snapshot)) {
     console.log('[GOLT] Snapshot worker writing OPFS-backed snapshot');
-    const file = await writeSnapshotFileToOpfs(snapshot, filename);
     self.postMessage({
       type: 'saved-file',
-      filename,
-      file
+      file: await writeSnapshotFileToOpfs(snapshot, filename),
+      filename
     });
   } else {
-    const bytes = await buildGoltStateFile(snapshot, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
-    const buffer = bytes.buffer as ArrayBuffer;
+    const {buffer} = await buildGoltStateFile(snapshot, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
     postWorkerTransfer({
       type: 'saved-buffer',
       filename,
@@ -239,14 +134,10 @@ function postSnapshotProgress(update: SnapshotProgressUpdate): void {
  * @returns {Promise<File>} OPFS-backed snapshot file.
  */
 async function writeSnapshotFileToOpfs(snapshot: GoltStateData, downloadFilename: string): Promise<File> {
-  const directory = await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR);
-  const filename = createOpfsSnapshotFilename(downloadFilename);
-  const fileHandle = await directory.getFileHandle(filename, {create: true});
+  const fileHandle = await (await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR)).getFileHandle(createOpfsSnapshotFilename(downloadFilename), {create: true});
   const writable = await fileHandle.createWritable();
   try {
-    await writeGoltStateFileToSink(snapshot, {
-      write: chunk => writable.write(chunk)
-    }, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
+    await writeGoltStateFileToSink(snapshot, {write: chunk => writable.write(chunk)}, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
     await writable.close();
   } catch (error) {
     await writable.abort();
@@ -272,6 +163,5 @@ function createSnapshotFilename(generation: number): string {
  * @returns {string} OPFS filename.
  */
 function createOpfsSnapshotFilename(downloadFilename: string): string {
-  const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  return `${Date.now()}-${suffix}-${downloadFilename}`;
+  return `${Date.now()}-${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2)}-${downloadFilename}`;
 }

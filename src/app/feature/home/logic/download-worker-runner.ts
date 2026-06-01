@@ -1,4 +1,6 @@
+import {createSnapshotPayload} from './snapshot-worker-runner';
 import {HomeDownloadWorkerCallbacks, HomeDownloadWorkerInput} from '../model/home-download';
+import {DownloadWorkerResponseEvent} from '../worker/download/model/download-worker-message';
 
 /**
  * Posts the download request payload.
@@ -8,6 +10,7 @@ import {HomeDownloadWorkerCallbacks, HomeDownloadWorkerInput} from '../model/hom
  */
 function postDownloadRequest(worker: Worker, input: HomeDownloadWorkerInput): void {
   const gridBuf = input.snapshot.grid;
+  const snapshot = createSnapshotPayload(input.snapshot, input.tribes, input.rules);
   const {recording} = input;
   const hasChunks = recording !== null && recording.manifest.chunks.length > 0;
   const transferables: ArrayBuffer[] = [];
@@ -17,22 +20,12 @@ function postDownloadRequest(worker: Worker, input: HomeDownloadWorkerInput): vo
   worker.postMessage({
     type: 'download',
     opts: input.opts,
-    snapshot: {
-      generation: input.snapshot.generation,
-      cols: input.snapshot.cols,
-      rows: input.snapshot.rows,
-      grid: gridBuf,
-      gridFormat: input.snapshot.gridFormat,
-      tribes: input.tribes.map(t => ({id: t.id, color: t.color})),
-      rules: input.rules
-    },
+    snapshot,
     recording: hasChunks ? {
       manifest: recording.manifest,
       cols: recording.cols,
       rows: recording.rows
-    } : null,
-    tribes: input.tribes.map(t => ({id: t.id, color: t.color})),
-    rules: input.rules
+    } : null
   }, transferables);
 }
 
@@ -71,7 +64,7 @@ export function startHomeDownloadWorker(input: HomeDownloadWorkerInput, callback
     callbacks.openSnack('Download failed unexpectedly. Try again.', 'error');
     cleanupDownload();
   };
-  worker.onmessage = async(e: MessageEvent) => {
+  worker.onmessage = async(e: DownloadWorkerResponseEvent) => {
     if (e.data.type === 'progress') {
       callbacks.setProgress(e.data.percent, e.data.status ?? '');
       callbacks.markForCheck();
@@ -79,10 +72,10 @@ export function startHomeDownloadWorker(input: HomeDownloadWorkerInput, callback
       callbacks.openSnack(e.data.message ?? 'Download warning.', 'warn');
     } else if (e.data.type === 'done-part') {
       console.log('[GOLT] Download part ready:', e.data.filename);
-      const blob = e.data.file instanceof Blob ? e.data.file : new Blob([e.data.buffer]);
+      const {filename, file} = e.data;
       const sideEffect = callbacks.waitForMinimumVisibleTime(input.startedAt).then(() => {
         if (!callbacks.isCancelRequested() && callbacks.getWorker() === worker) {
-          callbacks.downloadBlob(blob, e.data.filename);
+          callbacks.downloadBlob(file, filename);
         }
       });
       pendingDownloadSideEffects.push(sideEffect);

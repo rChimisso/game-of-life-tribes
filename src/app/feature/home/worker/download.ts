@@ -11,6 +11,7 @@ import {DownloadCancelListener, DownloadRequest, DownloadWorkerEvent} from './do
 import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
 import {resolveRecordingFrameSelection, iterateRecordedFrames} from './frame/recording-frame-stream';
 import {RecordingFrameSelection} from './frame/recording-frame-types';
+import {StreamCancellationOptions} from './io/model/stream';
 import {createMetricsExportWriter} from './metric/sequence/export';
 import {MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export-types';
 import {createMp4FrameExportWriter} from './mp4/logic/mp4-frame-export-factory';
@@ -18,7 +19,7 @@ import {Mp4FrameExportOptions} from './mp4/model/mp4-frame-export-types';
 import {Mp4FrameExportWriter} from './mp4/model/mp4-types';
 import {writeCompressedChunkExport} from './recording-export/compressed-chunk-export';
 import {writeGoltStateStream} from './snapshot/build/golt-build-stream';
-import {ParsedGoltState, SnapshotProgressReporter, SnapshotStreamOptions} from './snapshot/model/golt-types';
+import {ParsedGoltState, SnapshotProgressReporter} from './snapshot/model/golt-types';
 import {readRecordingFrame} from './snapshot/recording/recording-frame-reader';
 import {resolveRecordingFrameRef} from './snapshot/recording/recording-frame-ref';
 import {ZipWriter} from './zip/zip-writer';
@@ -106,7 +107,8 @@ self.onmessage = (event: DownloadWorkerEvent) => {
  * @param {DownloadRequest} message download request payload.
  */
 async function handleDownload(message: DownloadRequest): Promise<void> {
-  const {opts, snapshot, recording, tribes, rules} = message;
+  const {opts, snapshot, recording} = message;
+  const {tribes, rules} = snapshot;
   postProgress(0, 'Preparing download');
   throwIfCancelled();
   const estimate = estimateDownloadWorkingSet(opts, recording, tribes.length);
@@ -299,7 +301,7 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
       gridFormat: snapshot.gridFormat,
       tribes,
       rules
-    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, SAVE_WRITE_PROGRESS_END, 'Writing current save'), createDownloadSnapshotStreamOptions()));
+    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, SAVE_WRITE_PROGRESS_END, 'Writing current save'), createDownloadStreamCancellationOptions()));
   }
 }
 
@@ -334,7 +336,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
       gridFormat: firstRef.gridFormat,
       tribes,
       rules
-    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save'), createDownloadSnapshotStreamOptions()));
+    }, entry, createSaveProgressReporter(SAVE_WRITE_PROGRESS_START, firstEnd, 'Writing first save'), createDownloadStreamCancellationOptions()));
     if (twoEntries) {
       const lastStart = Math.min(SAVE_WRITE_PROGRESS_END, firstEnd + 1);
       postProgress(lastStart, 'Writing last save');
@@ -349,7 +351,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
         gridFormat: lastRef.gridFormat,
         tribes,
         rules
-      }, entry, createSaveProgressReporter(lastStart, SAVE_WRITE_PROGRESS_END, 'Writing last save'), createDownloadSnapshotStreamOptions()));
+      }, entry, createSaveProgressReporter(lastStart, SAVE_WRITE_PROGRESS_END, 'Writing last save'), createDownloadStreamCancellationOptions()));
     }
   } else {
     console.warn('[GOLT] Saves requested but selected recording frames could not be resolved');
@@ -369,7 +371,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
 async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
-  const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, createDownloadSnapshotStreamOptions()) : null;
+  const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, createDownloadStreamCancellationOptions()) : null;
   let mp4Writer: Mp4FrameExportWriter | null = null;
   const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null) + Number(opts.mp4);
   let framesCompleted = 0;
@@ -525,9 +527,9 @@ function createSaveProgressReporter(startPercent: number, endPercent: number, st
 /**
  * Creates snapshot stream options for ZIP save entries.
  *
- * @returns {SnapshotStreamOptions} snapshot stream cancellation options.
+ * @returns {StreamCancellationOptions} snapshot stream cancellation options.
  */
-function createDownloadSnapshotStreamOptions(): SnapshotStreamOptions {
+function createDownloadStreamCancellationOptions(): StreamCancellationOptions {
   return {shouldCancel: () => cancelRequested, onCancelRequested: addCancelListener};
 }
 

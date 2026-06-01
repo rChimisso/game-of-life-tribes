@@ -5,8 +5,8 @@ import {GOLT_TEMP_DOWNLOAD_DIR} from '../../model/opfs';
 import {ChunkMeta, RecordingManifest} from '../../model/recording';
 import {resolveRecordingFrameSelection} from '../frame/recording-frame-stream';
 import {RecordingFrameSelection} from '../frame/recording-frame-types';
+import {ByteSink} from '../io/model/stream';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
-import {ByteSink} from '../snapshot/model/golt-types';
 import {ZipWriter} from '../zip/zip-writer';
 
 /**

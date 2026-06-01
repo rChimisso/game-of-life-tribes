@@ -3,7 +3,7 @@ import {DispatchPlan2D} from '../model/dispatch-plan';
 
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Emits remapped dispatch constants when the workgroups cannot be submitted directly.
@@ -72,12 +72,11 @@ function pushLogicalInvocation2DWgsl(lines: string[], plan: DispatchPlan2D, xNam
  * Builds the mapping from unique count-set keys to WGSL variable names.
  *
  * @param {Clause<Tribe[]>[]} clauses active rule clauses.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {Map<string, string>} count variable mapping.
  */
-function buildCountVarMap(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): Map<string, string> {
-  const countSets = collectCountSets(clauses, tribes, tribeIndex);
+function buildCountVarMap(clauses: Clause<Tribe[]>[], tribeIndex: ReadonlyMap<string, number>): Map<string, string> {
+  const countSets = collectCountSets(clauses, tribeIndex);
   const countVarMap = new Map<string, string>();
   let countIdx = 0;
   for (const key of countSets) {
@@ -90,13 +89,12 @@ function buildCountVarMap(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], 
  * Builds the mapping from equality-set keys to WGSL variable names.
  *
  * @param {Clause<Tribe[]>[]} clauses active rule clauses.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {Map<string, string>} countVarMap existing count variable mapping.
  * @returns {Map<string, string>} equality variable mapping.
  */
-function buildEqualityVarMap(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, countVarMap: Map<string, string>): Map<string, string> {
-  const equalitySets = collectEqualitySets(clauses, tribes, tribeIndex);
+function buildEqualityVarMap(clauses: Clause<Tribe[]>[], tribeIndex: ReadonlyMap<string, number>, countVarMap: Map<string, string>): Map<string, string> {
+  const equalitySets = collectEqualitySets(clauses, tribeIndex);
   const eqVarMap = new Map<string, string>();
   let eqIdx = 0;
   for (const key of equalitySets) {
@@ -256,23 +254,13 @@ function wrapExpr(varName: string, delta: number, limit: string): string {
  * Resolves the numeric tribe ids for a tribe selector list.
  *
  * @param {string[]} tribeNames tribe selector names.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {number[]} numeric tribe ids.
  */
-function resolveTribeIds(tribeNames: string[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): number[] {
+function resolveTribeIds(tribeNames: string[], tribeIndex: ReadonlyMap<string, number>): number[] {
   const ids: number[] = [];
   for (const name of tribeNames) {
-    if (name === ANY_TRIBE_ID) {
-      for (let index = 0; index < tribes.length; index++) {
-        ids.push(index);
-      }
-    } else {
-      const idx = tribeIndex.get(name);
-      if (idx !== undefined) {
-        ids.push(idx);
-      }
-    }
+    ids.push(resolveRuleTribeIndex(name, tribeIndex, 'selector'));
   }
   return [...new Set(ids)];
 }
@@ -285,34 +273,49 @@ function resolveTribeIds(tribeNames: string[], tribes: readonly Tribe[], tribeIn
  * @returns {number} numeric target tribe id.
  */
 function resolveTribeTarget(tribeName: string, tribeIndex: ReadonlyMap<string, number>): number {
-  return tribeName === ANY_TRIBE_ID ? 0 : tribeIndex.get(tribeName) ?? 0;
+  return resolveRuleTribeIndex(tribeName, tribeIndex, 'target');
+}
+
+/**
+ * Resolves the numeric tribe id for one rule reference.
+ *
+ * @param {string} tribeName rule tribe name.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ * @param {'selector' | 'target'} context rule reference context.
+ * @returns {number} numeric tribe id, falling back to the dead tribe for unknown references.
+ */
+function resolveRuleTribeIndex(tribeName: string, tribeIndex: ReadonlyMap<string, number>, context: 'selector' | 'target'): number {
+  const resolved = tribeIndex.get(tribeName);
+  const dead = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
+  if (resolved === undefined) {
+    console.error(`Unknown rule ${context} tribe; using dead tribe instead.`, {tribe: tribeName});
+  }
+  return resolved ?? dead;
 }
 
 /**
  * Serializes one resolved tribe-id set into the canonical lookup key.
  *
  * @param {string[]} tribeIds selected tribe ids.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} canonical serialized tribe-set key.
  */
-function tribeSetKey(tribeIds: string[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
-  return resolveTribeIds(tribeIds, tribes, tribeIndex).sort().join(',');
+function tribeSetKey(tribeIds: string[], tribeIndex: ReadonlyMap<string, number>): string {
+  return resolveTribeIds(tribeIds, tribeIndex).sort().join(',');
 }
 
 /**
  * Traverses one or more clause trees and collects serialized tribe-set keys.
  *
  * @param {Clause<Tribe[]>[]} clauses rule clauses.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {(clause: Clause<Tribe[]>, addTribeSet: (tribeIds: string[]) => void) => void} collectFromClause per-clause collection callback.
  * @returns {Set<string>} collected serialized tribe-set keys.
  */
-function collectClauseSets(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, collectFromClause: (clause: Clause<Tribe[]>, addTribeSet: (tribeIds: string[]) => void) => void): Set<string> {
+function collectClauseSets(clauses: Clause<Tribe[]>[], tribeIndex: ReadonlyMap<string, number>, collectFromClause: (clause: Clause<Tribe[]>, addTribeSet: (tribeIds: string[]) => void) => void): Set<string> {
   const result = new Set<string>();
   const addTribeSet = (tribeIds: string[]): void => {
-    result.add(tribeSetKey(tribeIds, tribes, tribeIndex));
+    result.add(tribeSetKey(tribeIds, tribeIndex));
   };
   const visit = (clause: Clause<Tribe[]>): void => {
     collectFromClause(clause, addTribeSet);
@@ -339,12 +342,11 @@ function collectClauseSets(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[],
  * Collects the unique count-set keys required by the rule clauses.
  *
  * @param {Clause<Tribe[]>[]} clauses rule clauses.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {Set<string>} unique count-set keys.
  */
-function collectCountSets(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): Set<string> {
-  return collectClauseSets(clauses, tribes, tribeIndex, (clause, addTribeSet) => {
+function collectCountSets(clauses: Clause<Tribe[]>[], tribeIndex: ReadonlyMap<string, number>): Set<string> {
+  return collectClauseSets(clauses, tribeIndex, (clause, addTribeSet) => {
     switch (clause.kind) {
       case NONE_CLAUSE_KIND:
       case EXACTLY_CLAUSE_KIND:
@@ -361,12 +363,11 @@ function collectCountSets(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], 
  * Collects the unique equality-set keys required by the rule clauses.
  *
  * @param {Clause<Tribe[]>[]} clauses rule clauses.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {Set<string>} unique equality-set keys.
  */
-function collectEqualitySets(clauses: Clause<Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): Set<string> {
-  return collectClauseSets(clauses, tribes, tribeIndex, (clause, addTribeSet) => {
+function collectEqualitySets(clauses: Clause<Tribe[]>[], tribeIndex: ReadonlyMap<string, number>): Set<string> {
+  return collectClauseSets(clauses, tribeIndex, (clause, addTribeSet) => {
     if (clause.kind === COMPARISON_CLAUSE_KIND) {
       addTribeSet(clause.tribe1 as string[]);
       addTribeSet(clause.tribe2 as string[]);
@@ -391,17 +392,17 @@ function generateClauseExpr(clause: Clause<Tribe[]>, countVarMap: Map<string, st
     case IS_CLAUSE_KIND:
       return generateIsClauseExpr(clause.tribes as string[], tribes, tribeIndex);
     case COUNT_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribes, tribeIndex), clause.interval[0], clause.interval[1]);
+      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribeIndex), clause.interval[0], clause.interval[1]);
     case NONE_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribes, tribeIndex), 0, 0);
+      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribeIndex), 0, 0);
     case EXACTLY_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribes, tribeIndex), clause.value, clause.value);
+      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribeIndex), clause.value, clause.value);
     case MIN_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribes, tribeIndex), clause.value, 8);
+      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribeIndex), clause.value, 8);
     case MAX_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribes, tribeIndex), 0, clause.value);
+      return generateClosedRangeExpr(resolveVarName(clause.tribes as string[], countVarMap, tribeIndex), 0, clause.value);
     case COMPARISON_CLAUSE_KIND:
-      return generateComparisonClauseExpr(clause, eqVarMap, tribes, tribeIndex);
+      return generateComparisonClauseExpr(clause, eqVarMap, tribeIndex);
     case NOT_CLAUSE_KIND:
       return `!(${generateClauseExpr(clause.clause, countVarMap, eqVarMap, tribes, tribeIndex)})`;
     case AND_CLAUSE_KIND:
@@ -424,7 +425,7 @@ function generateClauseExpr(clause: Clause<Tribe[]>, countVarMap: Map<string, st
  * @returns {string} WGSL boolean expression.
  */
 function generateIsClauseExpr(tribeNames: string[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
-  const ids = resolveTribeIds(tribeNames, tribes, tribeIndex);
+  const ids = resolveTribeIds(tribeNames, tribeIndex);
   if (ids.length === 0) {
     return 'false';
   }
@@ -451,13 +452,12 @@ function generateClosedRangeExpr(varName: string, min: number, max: number): str
  *
  * @param {Extract<Clause<Tribe[]>, { kind: typeof COMPARISON_CLAUSE_KIND }>} clause comparison clause.
  * @param {Map<string, string>} eqVarMap equality variable mapping.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} WGSL comparison expression.
  */
-function generateComparisonClauseExpr(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
-  const leftTribeIds = resolveTribeIds(clause.tribe1 as string[], tribes, tribeIndex).sort().join(',');
-  const rightTribeIds = resolveTribeIds(clause.tribe2 as string[], tribes, tribeIndex).sort().join(',');
+function generateComparisonClauseExpr(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>, eqVarMap: Map<string, string>, tribeIndex: ReadonlyMap<string, number>): string {
+  const leftTribeIds = resolveTribeIds(clause.tribe1 as string[], tribeIndex).sort().join(',');
+  const rightTribeIds = resolveTribeIds(clause.tribe2 as string[], tribeIndex).sort().join(',');
   const operator = COMPARISON_OPERATOR_WGSL[clause.operator] ?? '==';
   const margin = Math.max(-8, Math.min(8, clause.margin ?? 0));
   return `(i32(${eqVarMap.get(leftTribeIds)}) ${operator} (i32(${eqVarMap.get(rightTribeIds)}) + ${margin}i))`;
@@ -482,12 +482,11 @@ function generateXorClauseExpr(clauses: Clause<Tribe[]>[], countVarMap: Map<stri
  *
  * @param {string[]} tribeNames selected tribe names.
  * @param {Map<string, string>} varMap variable mapping.
- * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} WGSL variable name.
  */
-function resolveVarName(tribeNames: string[], varMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
-  return varMap.get(resolveTribeIds(tribeNames, tribes, tribeIndex).sort().join(','))!;
+function resolveVarName(tribeNames: string[], varMap: Map<string, string>, tribeIndex: ReadonlyMap<string, number>): string {
+  return varMap.get(resolveTribeIds(tribeNames, tribeIndex).sort().join(','))!;
 }
 
 /**
@@ -539,8 +538,8 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   const lines: string[] = [];
   const activeRules = ruleset.rules.filter(rule => !rule.muted);
   const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
-  const countVarMap = buildCountVarMap(activeRules.map(rule => rule.clause), tribes, tribeIndex);
-  const eqVarMap = buildEqualityVarMap(activeRules.map(rule => rule.clause), tribes, tribeIndex, countVarMap);
+  const countVarMap = buildCountVarMap(activeRules.map(rule => rule.clause), tribeIndex);
+  const eqVarMap = buildEqualityVarMap(activeRules.map(rule => rule.clause), tribeIndex, countVarMap);
   lines.push('// Auto-generated simulation compute shader.');
   lines.push(`// Tribes: ${tribes.map(tribe => tribe.id).join(', ')}`);
   lines.push(`// Rules: ${ruleset.rules.length}`);

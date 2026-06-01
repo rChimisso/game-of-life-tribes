@@ -44,19 +44,12 @@ export interface EditableTribe<T extends string = string> extends Tribe<T> {
 }
 
 /**
- * Type utility for allowed tribes in rules and clauses.
+ * Concrete tribe id used in rules and clauses.
  *
- * @typedef {AllowedTribe}
+ * @typedef {TribeId}
  * @template {readonly Tribe[]} T
  */
-export type AllowedTribe<T extends readonly Tribe[]> = T[number]['id'] | typeof ANY_TRIBE_ID;
-
-/**
- * Tribe ID to identify any tribe.
- *
- * @type {"any"}
- */
-export const ANY_TRIBE_ID = 'any';
+export type TribeId<T extends readonly Tribe[]> = T[number]['id'];
 
 /**
  * Tribe ID to identify the dead tribe.
@@ -192,9 +185,9 @@ export interface IsClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes that make this clause true if the cell belongs to any of them.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
 }
 
 /**
@@ -214,9 +207,9 @@ export interface IntervalClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes that this clause counts.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Count interval for the cell's neighbors that makes this clause true.
    *
@@ -242,15 +235,15 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
   /**
    * Tribes for the left-hand side count.
    *
-   * @type {AllowedTribe<T>}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribe1: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribe1: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Tribes for the right-hand side count.
    *
-   * @type {AllowedTribe<T>}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribe2: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribe2: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Comparison operator between the two counts.
    *
@@ -283,9 +276,9 @@ export interface NoneClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes this alias counts.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
 }
 
 /**
@@ -305,9 +298,9 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes this alias counts.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Required exact neighbor count.
    *
@@ -333,9 +326,9 @@ export interface MinClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes this alias counts.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Minimum neighbor count.
    *
@@ -361,9 +354,9 @@ export interface MaxClause<T extends readonly Tribe[]> {
   /**
    * Set of tribes this alias counts.
    *
-   * @type {[AllowedTribe<T>, ...AllowedTribe<T>[]]}
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [AllowedTribe<T>, ...AllowedTribe<T>[]];
+  tribes: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Maximum neighbor count.
    *
@@ -489,9 +482,9 @@ export interface Rule<T extends readonly Tribe[]> {
   /**
    * Tribe the cell will transform into if the rule applies.
    *
-   * @type {T[number]['id'] | typeof ANY_TRIBE_ID}
+   * @type {TribeId<T>}
    */
-  tribe: AllowedTribe<T>;
+  tribe: TribeId<T>;
   /**
    * Whether this rule is temporarily disabled in the editor/runtime.
    *

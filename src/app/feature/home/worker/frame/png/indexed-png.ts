@@ -1,7 +1,8 @@
 import {packIndexedPngScanline} from './indexed-png-row-pack';
 import {writeIendChunk, writeIhdrChunk, writePlteChunk, writePngChunk, writePngSignature} from './png-crc';
-import {CompressedPumpState, IDAT_CHUNK_TYPE, IndexedPngFrameOptions, IndexedPngPalette, PNG_EXPORT_CANCELLED_ERROR_MESSAGE, PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES, PngCancellableResult, PngCancellationState} from './png-types';
-import {ByteSink} from '../../snapshot/model/golt-types';
+import {IDAT_CHUNK_TYPE, IndexedPngFrameOptions, IndexedPngPalette, PNG_EXPORT_CANCELLED_ERROR_MESSAGE, PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES} from './png-types';
+import {abortWritableStreamWriter, createStreamCancellationState, observeStreamPump, pumpReadableChunks, throwStreamPumpError, waitForCancellablePromise} from '../../io/logic/stream';
+import {ByteSink, StreamCancellationState, StreamPumpState} from '../../io/model/stream';
 import {decodePackedRow} from '../../snapshot/packing/packed-access';
 import {PackedRecordedFrame} from '../recording-frame-types';
 
@@ -13,9 +14,9 @@ import {PackedRecordedFrame} from '../recording-frame-types';
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {IndexedPngPalette} palette indexed-color palette.
  * @param {IndexedPngFrameOptions} options png encode options.
- * @param {PngCancellationState} cancellation active cancellation state.
+ * @param {StreamCancellationState} cancellation active cancellation state.
  */
-async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<BufferSource>, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions, cancellation: PngCancellationState): Promise<void> {
+async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<BufferSource>, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions, cancellation: StreamCancellationState): Promise<void> {
   const decodedRow = new Uint8Array(frame.cols);
   const scanlineBytes = 1 + Math.ceil((frame.cols * palette.bitDepth) / 8);
   const rowsPerBlock = choosePngRowsPerBlock(scanlineBytes, frame.rows);
@@ -62,11 +63,10 @@ function choosePngRowsPerBlock(scanlineBytes: number, rowsTotal: number): number
  * @param {Uint8Array} block reusable scanline block.
  * @param {number} usedRows number of rows populated in the block.
  * @param {number} scanlineBytes bytes in one packed PNG scanline.
- * @param {PngCancellationState} cancellation active cancellation state.
+ * @param {StreamCancellationState} cancellation active cancellation state.
  */
-async function writeScanlineBlock(writer: WritableStreamDefaultWriter<BufferSource>, block: Uint8Array, usedRows: number, scanlineBytes: number, cancellation: PngCancellationState): Promise<void> {
-  const usedBytes = usedRows * scanlineBytes;
-  await waitForCancellablePromise(writer.write(block.subarray(0, usedBytes).slice()), cancellation);
+async function writeScanlineBlock(writer: WritableStreamDefaultWriter<BufferSource>, block: Uint8Array, usedRows: number, scanlineBytes: number, cancellation: StreamCancellationState): Promise<void> {
+  await waitForCancellablePromise(writer.write(block.subarray(0, usedRows * scanlineBytes).slice()), cancellation, PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
 }
 
 /**
@@ -76,112 +76,13 @@ async function writeScanlineBlock(writer: WritableStreamDefaultWriter<BufferSour
  * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressor output reader.
  * @param {ByteSink} sink target png byte sink.
  * @param {IndexedPngFrameOptions} options png encode options.
- * @param {PngCancellationState} cancellation active cancellation state.
+ * @param {StreamCancellationState} cancellation active cancellation state.
  */
-async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Array>, sink: ByteSink, options: IndexedPngFrameOptions, cancellation: PngCancellationState): Promise<void> {
-  let done = false;
-  while (!done) {
+async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Array>, sink: ByteSink, options: IndexedPngFrameOptions, cancellation: StreamCancellationState): Promise<void> {
+  await pumpReadableChunks(reader, async chunk => {
     assertNotCancelled(options);
-    const result = await waitForCancellablePromise(reader.read(), cancellation);
-    done = result.done;
-    if (!done && result.value) {
-      await waitForCancellablePromise(writePngChunk(sink, IDAT_CHUNK_TYPE, result.value), cancellation);
-    }
-  }
-}
-
-/**
- * Creates active PNG cancellation state.
- *
- * @param {IndexedPngFrameOptions} options png encode options.
- * @param {() => void} onCancel cancellation side effect.
- * @returns {PngCancellationState} cancellation state.
- */
-function createPngCancellationState(options: IndexedPngFrameOptions, onCancel: () => void): PngCancellationState {
-  let resolveCancel: () => void = () => undefined;
-  const state: PngCancellationState = {
-    cancelled: options.shouldCancel(),
-    promise: new Promise<void>(resolve => {
-      resolveCancel = resolve;
-    }),
-    unregister: () => undefined
-  };
-  const cancel = () => {
-    if (!state.cancelled) {
-      state.cancelled = true;
-      resolveCancel();
-    }
-    onCancel();
-  };
-  state.unregister = options.onCancelRequested(cancel);
-  if (state.cancelled) {
-    resolveCancel();
-  }
-  return state;
-}
-
-/**
- * Awaits a promise while allowing active PNG cancellation to win the race.
- *
- * @async
- * @template T
- * @param {Promise<T>} promise operation promise.
- * @param {PngCancellationState} cancellation active cancellation state.
- * @returns {Promise<T>} operation result.
- */
-async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: PngCancellationState): Promise<T> {
-  assertPngCancellationState(cancellation);
-  const observedPromise: Promise<PngCancellableResult<T>> = promise.then(value => ({
-    type: 'value',
-    value
-  }), error => ({
-    type: 'error',
-    error
-  }));
-  const result = await Promise.race([observedPromise, cancellation.promise.then((): PngCancellableResult<T> => ({type: 'cancelled'}))]);
-  if (result.type === 'error') {
-    throw result.error;
-  }
-  if (result.type === 'cancelled') {
-    throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
-  }
-  return result.value;
-}
-
-/**
- * Observes a background compressor pump without letting it create an unhandled rejection.
- *
- * @param {Promise<void>} pump compressor pump promise.
- * @param {CompressedPumpState} state pump state to update on failure.
- * @returns {Promise<void>} observed pump promise.
- */
-function observeCompressedPump(pump: Promise<void>, state: CompressedPumpState): Promise<void> {
-  return pump.catch(error => {
-    state.error = error;
-  });
-}
-
-/**
- * Throws the captured compressor pump error, when present.
- *
- * @param {CompressedPumpState} state observed compressor pump state.
- */
-function throwCompressedPumpError(state: CompressedPumpState): void {
-  if (state.error !== null) {
-    throw state.error;
-  }
-}
-
-/**
- * Aborts the compressor writer and preserves the original export failure.
- *
- * @param {WritableStreamDefaultWriter<BufferSource>} writer compressor writer.
- * @param {unknown} reason original export failure reason.
- */
-function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>, reason: unknown): void {
-  writer.abort(reason).catch(error => {
-    console.warn('[GOLT] Failed to abort PNG compressor after export failure:', error);
-  });
+    await writePngChunk(sink, IDAT_CHUNK_TYPE, chunk);
+  }, cancellation, PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
 }
 
 /**
@@ -191,17 +92,6 @@ function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>
  */
 function assertNotCancelled(options: IndexedPngFrameOptions): void {
   if (options.shouldCancel()) {
-    throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
-  }
-}
-
-/**
- * Throws when PNG cancellation has already been requested.
- *
- * @param {PngCancellationState} cancellation active cancellation state.
- */
-function assertPngCancellationState(cancellation: PngCancellationState): void {
-  if (cancellation.cancelled) {
     throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
 }
@@ -223,25 +113,25 @@ export async function writeIndexedPngFrame(sink: ByteSink, frame: PackedRecorded
   const compression = new CompressionStream('deflate');
   const reader = compression.readable.getReader();
   const writer = compression.writable.getWriter();
-  const compressedPumpState: CompressedPumpState = {error: null};
+  const compressedPumpState: StreamPumpState = {error: null};
   let writerClosed = false;
-  const cancellation = createPngCancellationState(options, () => {
-    abortCompressorWriter(writer, new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE));
+  const cancellation = createStreamCancellationState(options, () => {
+    abortWritableStreamWriter(writer, new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE), '[GOLT] Failed to abort PNG compressor after export failure:');
   });
-  const compressedPump = observeCompressedPump(pumpCompressedChunks(reader, sink, options, cancellation), compressedPumpState);
+  const compressedPump = observeStreamPump(pumpCompressedChunks(reader, sink, options, cancellation), compressedPumpState);
   try {
     await writeCompressedScanlines(writer, frame, palette, options, cancellation);
-    throwCompressedPumpError(compressedPumpState);
-    await waitForCancellablePromise(writer.close(), cancellation);
+    throwStreamPumpError(compressedPumpState);
+    await waitForCancellablePromise(writer.close(), cancellation, PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
     writerClosed = true;
-    await waitForCancellablePromise(compressedPump, cancellation);
-    throwCompressedPumpError(compressedPumpState);
+    await waitForCancellablePromise(compressedPump, cancellation, PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
+    throwStreamPumpError(compressedPumpState);
     assertNotCancelled(options);
     await writeIendChunk(sink);
   } catch (error) {
     const pendingError = compressedPumpState.error ?? error;
     if (!writerClosed) {
-      abortCompressorWriter(writer, pendingError);
+      abortWritableStreamWriter(writer, pendingError, '[GOLT] Failed to abort PNG compressor after export failure:');
     }
     if (!options.shouldCancel()) {
       await compressedPump;

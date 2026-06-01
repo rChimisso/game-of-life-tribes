@@ -1,5 +1,6 @@
 import {readPackedCell, writePackedCell} from './packed-access';
-import {ByteSink, SnapshotProgressReporter, STREAM_REPACK_BLOCK_BYTES} from '../model/golt-types';
+import {ByteSink} from '../../io/model/stream';
+import {SnapshotProgressReporter, STREAM_REPACK_BLOCK_BYTES} from '../model/golt-types';
 
 import {gridByteSize, packedColsForFormat} from '~gol/feature/home/logic/grid-format';
 import {Grid} from '~gol/feature/home/model/grid';

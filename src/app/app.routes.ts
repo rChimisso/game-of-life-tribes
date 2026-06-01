@@ -17,32 +17,36 @@ async function hasWebGpu(): Promise<boolean> {
 }
 
 /**
- * Checks whether WebGPU API is supported in the current environment.  
- * If it is not, creates a new UrlTree that redirects to the unsupported page.
+ * Creates a route guard for WebGPU availability policy.
  *
+ * @param {boolean} requireWebGpu whether the route requires WebGPU support.
+ * @param {string} redirectPath redirect path when the policy is not met.
  * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
  */
-async function webGpuGuard(): Promise<boolean | UrlTree> {
-  const router = inject(Router);
-  if (await hasWebGpu()) {
-    return true;
-  }
-  return router.createUrlTree(['/unsupported']);
+function createWebGpuGuard(requireWebGpu: boolean, redirectPath: string): () => Promise<boolean | UrlTree> {
+  return async() => {
+    const router = inject(Router);
+    const supported = await hasWebGpu();
+    if (supported === requireWebGpu) {
+      return true;
+    }
+    return router.createUrlTree([redirectPath]);
+  };
 }
 
 /**
- * Checks whether WebGPU API is supported in the current environment.  
- * If it is, creates a new UrlTree that redirects to the 404 page, since the unsupported page should only be accessible if WebGPU is not supported.
+ * Guard for routes that require WebGPU.
  *
- * @returns {Promise<boolean | UrlTree>} whether WebGPU API is supported.
+ * @type {() => Promise<boolean | UrlTree>}
  */
-async function unsupportedGuard(): Promise<boolean | UrlTree> {
-  const router = inject(Router);
-  if (await hasWebGpu()) {
-    return router.createUrlTree(['/404']);
-  }
-  return true;
-}
+const webGpuGuard = createWebGpuGuard(true, '/unsupported');
+
+/**
+ * Guard for the unsupported route, which should only be accessible without WebGPU.
+ *
+ * @type {() => Promise<boolean | UrlTree>}
+ */
+const unsupportedGuard = createWebGpuGuard(false, '/404');
 
 /**
  * Application routes.

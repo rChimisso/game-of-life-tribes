@@ -2,7 +2,8 @@ import {AttractorTracker} from './attractor-types';
 import {COMPUTING_METRICS_STATUS, METRICS_TEXT_ENCODER, BufferedTextEntryWriter, MetricsExportOptions, MetricsFrameProgressReporter, RecordedGpuMetricBackendState} from './export-types';
 import {ExtinctionTracker} from './extinction-types';
 import {PackedRecordedFrame, RecordingFrameSelection} from '../../frame/recording-frame-types';
-import {ByteSink, STREAM_REPACK_BLOCK_BYTES} from '../../snapshot/model/golt-types';
+import {ByteSink} from '../../io/model/stream';
+import {STREAM_REPACK_BLOCK_BYTES} from '../../snapshot/model/golt-types';
 import {computeOfflineMetricEntryAsync} from '../core/offline';
 import {OfflineMetricComputeOptions, PreviousOfflineMetricFrame} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
@@ -189,16 +190,6 @@ export async function computeMetricWithFallback(
     metric = await computeOfflineMetricEntryAsync(frame, tribes, previous, options);
   }
   return metric;
-}
-
-/**
- * Creates a unique temporary Metrics CSV filename.
- *
- * @returns {string} temporary filename.
- */
-export function createUniqueMetricsTempFilename(): string {
-  const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  return `${Date.now()}-${suffix}-metrics.csv`;
 }
 
 /**

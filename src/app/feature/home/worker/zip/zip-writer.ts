@@ -1,9 +1,20 @@
 import {finalizeCrc32, updateCrc32} from './zip-crc32';
 import {ZipEntrySink, ZipEntryWriter} from './zip-types';
-import {createUniqueOpfsFilename, setUint64} from './zip-writer-logic';
 import {CentralDirectoryRecord, ZIP64_END_OF_CENTRAL_DIRECTORY, ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR, ZIP64_EXTRA_FIELD, ZIP64_LIMIT, ZIP_CENTRAL_DIRECTORY, ZIP_DATA_DESCRIPTOR, ZIP_END_OF_CENTRAL_DIRECTORY, ZIP_LOCAL_FILE_HEADER} from './zip-writer-model';
-import {openTempOpfsDirectory} from '../../logic/opfs-temp';
+import {createUniqueFilename, openTempOpfsDirectory} from '../../logic/opfs-temp';
 import {GOLT_TEMP_DOWNLOAD_DIR} from '../../model/opfs';
+
+/**
+ * Writes a little-endian unsigned 64-bit integer.
+ *
+ * @param {DataView} view target data view.
+ * @param {number} offset byte offset.
+ * @param {number} value integer value.
+ */
+function setUint64(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value % 0x100000000, true);
+  view.setUint32(offset + 4, Math.floor(value / 0x100000000), true);
+}
 
 /**
  * OPFS-backed ZIP writer using data descriptors for streamed entries.
@@ -84,7 +95,7 @@ export class ZipWriter {
   public static async open(visibleFilename = 'gol-export.zip'): Promise<ZipWriter> {
     const directory = await ZipWriter.openDirectory();
     await ZipWriter.removeStaleFiles(directory);
-    const filename = createUniqueOpfsFilename(visibleFilename);
+    const filename = createUniqueFilename(visibleFilename);
     const fileHandle = await directory.getFileHandle(filename, {create: true});
     return new ZipWriter(await fileHandle.createWritable(), directory, fileHandle, filename);
   }

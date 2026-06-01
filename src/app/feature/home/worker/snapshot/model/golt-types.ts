@@ -98,22 +98,6 @@ export interface GoltHeader extends Grid {
 }
 
 /**
- * Streaming sink used by snapshot and ZIP writers.
- *
- * @interface ByteSink
- * @typedef {ByteSink}
- */
-export interface ByteSink {
-  /**
-   * Writes one byte chunk.
-   *
-   * @param {Uint8Array} chunk chunk to write.
-   * @returns {Promise<void>} promise resolved after the write completes.
-   */
-  write(chunk: Uint8Array): Promise<void>;
-}
-
-/**
  * Snapshot progress update.
  *
  * @interface SnapshotProgressUpdate
@@ -146,24 +130,3 @@ export interface SnapshotProgressUpdate {
  * @typedef {SnapshotProgressReporter}
  */
 export type SnapshotProgressReporter = (update: SnapshotProgressUpdate) => void;
-
-/**
- * Cancellation hooks used by streaming snapshot writers.
- *
- * @interface SnapshotStreamOptions
- * @typedef {SnapshotStreamOptions}
- */
-export interface SnapshotStreamOptions {
-  /**
-   * Returns whether the active stream has been cancelled.
-   *
-   * @type {() => boolean}
-   */
-  shouldCancel: () => boolean;
-  /**
-   * Registers a listener for active stream cancellation.
-   *
-   * @type {(listener: () => void) => () => void}
-   */
-  onCancelRequested: (listener: () => void) => () => void;
-}

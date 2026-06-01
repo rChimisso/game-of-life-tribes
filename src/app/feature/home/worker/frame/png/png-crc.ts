@@ -1,5 +1,5 @@
 import {EMPTY_CHUNK_DATA, IndexedPngBitDepth, PNG_SIGNATURE, PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES, TEXT_ENCODER} from './png-types';
-import {ByteSink} from '../../snapshot/model/golt-types';
+import {ByteSink} from '../../io/model/stream';
 import {finalizeCrc32, updateCrc32} from '../../zip/zip-crc32';
 
 /**

@@ -2,8 +2,8 @@ import {SnapshotSaveOutput} from '../model/home-snapshot';
 import {Rule, Tribe} from '../model/rule';
 import {SnapshotMessage} from '../model/worker-message';
 import {ParsedGoltState} from '../worker/snapshot/model/golt-types';
+import {SnapshotWorkerResponseEvent} from '../worker/snapshot/model/snapshot-worker-message';
 
-import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
@@ -12,6 +12,26 @@ import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/pr
  * @typedef {SnapshotProgressCallback}
  */
 export type SnapshotProgressCallback = (mode: ProgressStatusMode | undefined, percent: number | null, status: string) => void;
+
+/**
+ * Creates the canonical `.golt` snapshot payload shared by save and download workers.
+ *
+ * @param {SnapshotMessage} snap engine snapshot.
+ * @param {readonly Tribe[]} tribes current tribe metadata.
+ * @param {Rule<Tribe[]>[]} rules current rule metadata.
+ * @returns {ParsedGoltState} serializable snapshot payload.
+ */
+export function createSnapshotPayload(snap: SnapshotMessage, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): ParsedGoltState {
+  return {
+    generation: snap.generation,
+    cols: snap.cols,
+    rows: snap.rows,
+    grid: snap.grid,
+    gridFormat: snap.gridFormat,
+    tribes: tribes.map(t => ({id: t.id, color: t.color})),
+    rules
+  };
+}
 
 /**
  * Runs the snapshot worker in save mode.
@@ -29,17 +49,8 @@ export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tr
       worker.terminate();
       reject(new Error('Snapshot worker failed unexpectedly'));
     };
-    worker.onmessage = (event: MessageEvent) => {
-      const message = event.data as {
-        type: 'saved-buffer' | 'saved-file' | 'progress' | 'error';
-        filename?: string;
-        buffer?: ArrayBuffer;
-        file?: File;
-        mode?: ProgressStatusMode;
-        percent?: number | null;
-        status?: string;
-        reason?: string;
-      };
+    worker.onmessage = (event: SnapshotWorkerResponseEvent) => {
+      const {data: message} = event;
       if (message.type === 'saved-buffer' && message.buffer instanceof ArrayBuffer && message.filename) {
         worker.terminate();
         resolve({
@@ -64,15 +75,7 @@ export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tr
     };
     worker.postMessage({
       type: 'save',
-      snapshot: {
-        generation: snap.generation,
-        cols: snap.cols,
-        rows: snap.rows,
-        grid: snap.grid,
-        gridFormat: snap.gridFormat,
-        tribes: tribes.map(t => ({id: t.id, color: t.color})),
-        rules
-      }
+      snapshot: createSnapshotPayload(snap, tribes, rules)
     }, [snap.grid.buffer]);
   });
 }
@@ -91,21 +94,8 @@ export function runSnapshotLoadWorker(buffer: ArrayBuffer, onProgress: SnapshotP
       worker.terminate();
       reject(new Error('Snapshot worker failed unexpectedly'));
     };
-    worker.onmessage = (event: MessageEvent) => {
-      const message = event.data as {
-        type: 'loaded' | 'invalid' | 'progress' | 'error';
-        cols?: number;
-        rows?: number;
-        generation?: number;
-        grid?: Uint32Array;
-        gridFormat?: GridFormatMetadata;
-        tribes?: readonly Tribe[];
-        rules?: Rule<Tribe[]>[];
-        mode?: ProgressStatusMode;
-        percent?: number | null;
-        status?: string;
-        reason?: string;
-      };
+    worker.onmessage = (event: SnapshotWorkerResponseEvent) => {
+      const {data: message} = event;
       if (
         message.type === 'loaded' &&
         typeof message.cols === 'number' &&

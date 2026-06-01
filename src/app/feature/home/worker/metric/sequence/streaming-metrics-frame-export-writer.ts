@@ -1,5 +1,5 @@
 import {BaseMetricsFrameExportWriter} from './base-metrics-frame-export-writer';
-import {assertNotCancelled, buildMetricsJsonSummary, createBufferedTextEntryWriter, createUniqueMetricsTempFilename, isMissingOpfsEntry} from './export-logic';
+import {assertNotCancelled, buildMetricsJsonSummary, createBufferedTextEntryWriter, isMissingOpfsEntry} from './export-logic';
 import {METRICS_TEXT_ENCODER, BufferedTextEntryWriter, MetricsExportOptions, StreamingMetricsFrameExportResources} from './export-types';
 import {RecordingFrameSelection} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
@@ -7,7 +7,7 @@ import {buildMetricsCsvHeader, buildMetricsCsvRow} from '../core/csv';
 import {OfflineMetricEntry} from '../core/offline-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
 
-import {openTempOpfsDirectory} from '~gol/feature/home/logic/opfs-temp';
+import {createUniqueFilename, openTempOpfsDirectory} from '~gol/feature/home/logic/opfs-temp';
 import {GOLT_TEMP_METRICS_DIR} from '~gol/feature/home/model/opfs';
 import {Recording} from '~gol/feature/home/model/recording';
 import {Tribe} from '~gol/feature/home/model/rule';
@@ -152,7 +152,7 @@ export class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWri
     gpuBackend: RecordedGpuMetricBackend | null
   ): Promise<StreamingMetricsFrameExportWriter> {
     const directory = await openTempOpfsDirectory(GOLT_TEMP_METRICS_DIR);
-    const filename = createUniqueMetricsTempFilename();
+    const filename = createUniqueFilename('metrics.csv');
     const fileHandle = await directory.getFileHandle(filename, {create: true});
     const writable = await fileHandle.createWritable();
     const writer = new StreamingMetricsFrameExportWriter(zip, recording, selection, tribes, options, gpuBackend, {

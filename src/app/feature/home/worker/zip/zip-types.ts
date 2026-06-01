@@ -1,4 +1,4 @@
-import {ByteSink} from '../snapshot/model/golt-types';
+import {ByteSink} from '../io/model/stream';
 
 /**
  * Writable ZIP entry stream.

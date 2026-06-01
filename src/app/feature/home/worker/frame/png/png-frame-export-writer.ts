@@ -1,12 +1,21 @@
 import {writeIndexedPngFrame} from './indexed-png';
 import {buildIndexedPngPalette} from './indexed-png-palette';
-import {createPngFrameEntryPath} from './png-frame-entry-path';
 import {PngFrameExportOptions, PngFrameProgressReporter} from './png-frame-export-types';
 import {IndexedPngPalette} from './png-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {PackedRecordedFrame} from '../recording-frame-types';
 
 import {Tribe} from '~gol/feature/home/model/rule';
+
+/**
+ * Sanitizes a generation number for use in a filename.
+ *
+ * @param {number} generation generation number.
+ * @returns {string} filename-safe generation.
+ */
+function sanitizeGeneration(generation: number): string {
+  return generation < 0 ? `neg${Math.abs(generation)}` : String(generation);
+}
 
 /**
  * Writes recorded frames as indexed-color PNG ZIP entries.
@@ -94,6 +103,7 @@ export class PngFrameExportWriter {
    * @returns {string} PNG ZIP entry path.
    */
   private createEntryPath(frame: PackedRecordedFrame): string {
-    return createPngFrameEntryPath(this.framesWritten, this.filenameFrameWidth, frame.generation);
+    const frameNumberText = String(this.framesWritten).padStart(this.filenameFrameWidth, '0');
+    return `frames/frame-${frameNumberText}-gen${sanitizeGeneration(frame.generation)}.png`;
   }
 }

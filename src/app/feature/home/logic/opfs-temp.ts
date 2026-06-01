@@ -68,6 +68,25 @@ function isLockedOpfsEntry(error: unknown): boolean {
 }
 
 /**
+ * Creates a unique id token with a crypto UUID when available.
+ *
+ * @returns {string} unique token.
+ */
+function createUniqueToken(): string {
+  return typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+}
+
+/**
+ * Creates a timestamped temporary filename.
+ *
+ * @param {string} suffix filename suffix.
+ * @returns {string} temporary filename.
+ */
+export function createUniqueFilename(suffix: string): string {
+  return `${Date.now()}-${createUniqueToken()}-${suffix}`;
+}
+
+/**
  * Opens a temporary OPFS subdirectory.
  *
  * @async

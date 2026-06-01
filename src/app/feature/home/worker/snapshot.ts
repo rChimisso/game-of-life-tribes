@@ -1,19 +1,20 @@
 import '~gol/core/function/timestamped-console';
 
-import {openTempOpfsDirectory} from '../logic/opfs-temp';
+import {createUniqueFilename, openTempOpfsDirectory} from '../logic/opfs-temp';
 import {postWorkerTransfer} from '../logic/worker-post';
 import {GOLT_TEMP_SNAPSHOT_DIR} from '../model/opfs';
+import {StreamCancellationOptions} from './io/model/stream';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
-import {ParsedGoltState, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
+import {ParsedGoltState, SnapshotProgressUpdate} from './snapshot/model/golt-types';
 import {SnapshotLoadedMessage, SnapshotWorkerEvent, SnapshotWorkerRequest} from './snapshot/model/snapshot-worker-message';
 import {parseGoltStateFile} from './snapshot/parse/golt-parse';
 
 /**
  * Snapshot stream options for standalone save operations.
  *
- * @type {SnapshotStreamOptions}
+ * @type {StreamCancellationOptions}
  */
-const SNAPSHOT_SAVE_STREAM_OPTIONS: SnapshotStreamOptions = {
+const SNAPSHOT_SAVE_STREAM_OPTIONS: StreamCancellationOptions = {
   shouldCancel: () => false,
   onCancelRequested: () => () => undefined
 };
@@ -135,7 +136,7 @@ function postSnapshotProgress(update: SnapshotProgressUpdate): void {
  * @returns {Promise<File>} OPFS-backed snapshot file.
  */
 async function writeSnapshotFileToOpfs(snapshot: ParsedGoltState, downloadFilename: string): Promise<File> {
-  const fileHandle = await (await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR)).getFileHandle(createOpfsSnapshotFilename(downloadFilename), {create: true});
+  const fileHandle = await (await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR)).getFileHandle(createUniqueFilename(downloadFilename), {create: true});
   const writable = await fileHandle.createWritable();
   try {
     await writeGoltStateFileToSink(snapshot, {write: chunk => writable.write(chunk)}, postSnapshotProgress, SNAPSHOT_SAVE_STREAM_OPTIONS);
@@ -155,14 +156,4 @@ async function writeSnapshotFileToOpfs(snapshot: ParsedGoltState, downloadFilena
  */
 function createSnapshotFilename(generation: number): string {
   return `gol-state-gen${generation}.golt`;
-}
-
-/**
- * Creates a unique temporary OPFS snapshot filename.
- *
- * @param {string} downloadFilename user-visible download filename.
- * @returns {string} OPFS filename.
- */
-function createOpfsSnapshotFilename(downloadFilename: string): string {
-  return `${Date.now()}-${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2)}-${downloadFilename}`;
 }

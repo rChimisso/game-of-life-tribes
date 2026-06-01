@@ -17,16 +17,6 @@ export async function removeStaleMp4Files(directory: FileSystemDirectoryHandle):
 }
 
 /**
- * Creates a unique temporary MP4 filename.
- *
- * @returns {string} temporary filename.
- */
-export function createUniqueMp4TempFilename(): string {
-  const suffix = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  return `${Date.now()}-${suffix}-simulation.mp4`;
-}
-
-/**
  * Checks for a missing OPFS entry error.
  *
  * @param {unknown} error error thrown by OPFS.

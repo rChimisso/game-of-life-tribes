@@ -6,7 +6,7 @@ import {isBinaryLogicalClause} from './util/clause';
 import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Clause/rule summary component.
@@ -88,8 +88,7 @@ export class SummaryComponent implements OnChanges {
     [NONE_CLAUSE_KIND]: 'none of ',
     [EXACTLY_CLAUSE_KIND]: 'exactly ',
     [MIN_CLAUSE_KIND]: 'min ',
-    [MAX_CLAUSE_KIND]: 'max ',
-    [ANY_TRIBE_ID]: ANY_TRIBE_ID
+    [MAX_CLAUSE_KIND]: 'max '
   };
 
   /**
@@ -114,20 +113,11 @@ export class SummaryComponent implements OnChanges {
   private tribeColorById = new Map<string, string>();
 
   /**
-   * Set of all tribe IDs.
-   *
-   * @private
-   * @type {Set<string>}
-   */
-  private allTribeIds = new Set<string>();
-
-  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<SummaryComponent>): void {
     if (changes.tribeColors) {
       this.tribeColorById = new Map(this.tribeColors.map(tribe => [tribe.id, tribe.color]));
-      this.allTribeIds = new Set(this.tribeColors.map(tribe => tribe.id));
     }
     if (changes.clause || changes.tribeColors) {
       this.displayParts = this.clause ? this.buildClauseSummaryParts(this.clause) : [];
@@ -257,9 +247,6 @@ export class SummaryComponent implements OnChanges {
     switch (normalized.kind) {
       case 'empty':
         break;
-      case 'any':
-        this.appendSummaryText(parts, this.summaryTokens.any);
-        break;
       case 'tribes':
         const last = parts.at(-1);
         if (last?.kind === 'tribes') {
@@ -276,17 +263,10 @@ export class SummaryComponent implements OnChanges {
    *
    * @private
    * @param {ReadonlySet<string>} tribes tribe IDs to normalize.
-   * @returns {{kind: 'empty'} | {kind: 'any'} | {kind: 'tribes'; tribes: string[]}} normalized tribe selection.
+   * @returns {{kind: 'empty'} | {kind: 'tribes'; tribes: string[]}} normalized tribe selection.
    */
-  private normalizeTribeSelection(tribes: ReadonlySet<string>): {kind: 'empty'} | {kind: 'any'} | {kind: 'tribes'; tribes: string[]} {
-    switch (true) {
-      case tribes.size === 0:
-        return {kind: 'empty'};
-      case tribes.has(ANY_TRIBE_ID) || (this.allTribeIds.size > 0 && this.allTribeIds.isSubsetOf(tribes)):
-        return {kind: 'any'};
-      default:
-        return {kind: 'tribes', tribes: [...tribes]};
-    }
+  private normalizeTribeSelection(tribes: ReadonlySet<string>): {kind: 'empty'} | {kind: 'tribes'; tribes: string[]} {
+    return tribes.size === 0 ? {kind: 'empty'} : {kind: 'tribes', tribes: [...tribes]};
   }
 
   /**

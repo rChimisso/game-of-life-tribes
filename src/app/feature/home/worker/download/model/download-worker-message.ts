@@ -2,7 +2,6 @@ import {ParsedGoltState} from '../../snapshot/model/golt-types';
 
 import {DownloadRequestPayload} from '~gol/feature/home/model/download';
 import {DownloadEstimateRecording} from '~gol/feature/home/model/download-estimate';
-import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Download worker request payload.
@@ -35,18 +34,6 @@ export interface DownloadRequest {
    * @type {DownloadEstimateRecording}
    */
   recording: DownloadEstimateRecording;
-  /**
-   * Snapshot tribe color metadata.
-   *
-   * @type {readonly Tribe[]}
-   */
-  tribes: readonly Tribe[];
-  /**
-   * Snapshot rules metadata.
-   *
-   * @type {Rule<Tribe[]>[]}
-   */
-  rules: Rule<Tribe[]>[];
 }
 
 /**
@@ -84,3 +71,158 @@ export type DownloadWorkerEvent = MessageEvent<WorkerInput>;
  * @typedef {DownloadCancelListener}
  */
 export type DownloadCancelListener = () => void;
+
+/**
+ * Download progress response.
+ *
+ * @interface DownloadProgressMessage
+ * @typedef {DownloadProgressMessage}
+ */
+export interface DownloadProgressMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'progress'}
+   */
+  type: 'progress';
+  /**
+   * Download progress percent.
+   *
+   * @type {number}
+   */
+  percent: number;
+  /**
+   * Progress status text.
+   *
+   * @type {string}
+   */
+  status: string;
+}
+
+/**
+ * Download warning response.
+ *
+ * @interface DownloadWarningMessage
+ * @typedef {DownloadWarningMessage}
+ */
+export interface DownloadWarningMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'warning'}
+   */
+  type: 'warning';
+  /**
+   * Warning message.
+   *
+   * @type {string}
+   */
+  message: string;
+}
+
+/**
+ * Download output part response.
+ *
+ * @interface DownloadDonePartMessage
+ * @typedef {DownloadDonePartMessage}
+ */
+export interface DownloadDonePartMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'done-part'}
+   */
+  type: 'done-part';
+  /**
+   * User-visible filename.
+   *
+   * @type {string}
+   */
+  filename: string;
+  /**
+   * Download file output.
+   *
+   * @type {File}
+   */
+  file: File;
+}
+
+/**
+ * Download error response.
+ *
+ * @interface DownloadErrorMessage
+ * @typedef {DownloadErrorMessage}
+ */
+export interface DownloadErrorMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'error'}
+   */
+  type: 'error';
+  /**
+   * Error reason.
+   *
+   * @type {string}
+   */
+  reason: string;
+}
+
+/**
+ * Download cancelled response.
+ *
+ * @interface DownloadCancelledMessage
+ * @typedef {DownloadCancelledMessage}
+ */
+export interface DownloadCancelledMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'cancelled'}
+   */
+  type: 'cancelled';
+}
+
+/**
+ * Cancelled ZIP cleanup completion response.
+ *
+ * @interface DownloadCancelCleanupDoneMessage
+ * @typedef {DownloadCancelCleanupDoneMessage}
+ */
+export interface DownloadCancelCleanupDoneMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'cancel-cleanup-done'}
+   */
+  type: 'cancel-cleanup-done';
+}
+
+/**
+ * Download completed response.
+ *
+ * @interface DownloadDoneMessage
+ * @typedef {DownloadDoneMessage}
+ */
+export interface DownloadDoneMessage {
+  /**
+   * Download worker response type.
+   *
+   * @type {'done'}
+   */
+  type: 'done';
+}
+
+/**
+ * Download worker response.
+ *
+ * @typedef {DownloadWorkerMessage}
+ */
+export type DownloadWorkerMessage = DownloadProgressMessage | DownloadWarningMessage | DownloadDonePartMessage | DownloadErrorMessage | DownloadCancelledMessage | DownloadCancelCleanupDoneMessage | DownloadDoneMessage;
+
+/**
+ * Download worker response event.
+ *
+ * @typedef {DownloadWorkerResponseEvent}
+ */
+export type DownloadWorkerResponseEvent = MessageEvent<DownloadWorkerMessage>;

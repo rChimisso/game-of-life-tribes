@@ -1,6 +1,8 @@
+import {abortWritableStreamWriter, cancelReadableStreamReader, collectByteSinkOutput, createStreamCancellationState, pumpReadableChunks, waitForCancellablePromise} from '../../io/logic/stream';
+import {ByteSink, StreamCancellationOptions} from '../../io/model/stream';
 import {createGoltPrefix} from '../logic/golt-format';
 import {RAW_DEFLATE_CODEC} from '../model/golt-format';
-import {ByteSink, ParsedGoltState, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
+import {ParsedGoltState, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE, SnapshotProgressReporter} from '../model/golt-types';
 import {repackPackedGrid, writeRepackedGridToSink} from '../packing/packed-repack';
 
 import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '~gol/feature/home/logic/grid-format';
@@ -25,195 +27,15 @@ function createGoltHeaderBytes(data: ParsedGoltState, targetFormat: GridFormat):
 }
 
 /**
- * Cancellation state shared by `.golt` stream operations.
- *
- * @interface GoltStreamCancellationState
- * @typedef {GoltStreamCancellationState}
- */
-interface GoltStreamCancellationState {
-  /**
-   * Whether cancellation has been requested.
-   *
-   * @type {boolean}
-   */
-  cancelled: boolean;
-  /**
-   * Promise resolved when cancellation is requested.
-   *
-   * @type {Promise<void>}
-   */
-  promise: Promise<void>;
-  /**
-   * Removes the active cancellation listener.
-   *
-   * @type {() => void}
-   */
-  unregister: () => void;
-}
-
-/**
- * Result of an awaited `.golt` stream operation raced against cancellation.
- *
- * @typedef {GoltCancellableResult}
- * @template T
- */
-type GoltCancellableResult<T> = {
-  /**
-   * Operation result type.
-   *
-   * @type {'value'}
-   */
-  type: 'value';
-  /**
-   * Operation result value.
-   *
-   * @type {T}
-   */
-  value: T;
-} | {
-  /**
-   * Operation result type.
-   *
-   * @type {'error'}
-   */
-  type: 'error';
-  /**
-   * Operation rejection reason.
-   *
-   * @type {unknown}
-   */
-  error: unknown;
-} | {
-  /**
-   * Operation result type.
-   *
-   * @type {'cancelled'}
-   */
-  type: 'cancelled';
-};
-
-/**
- * Pumps compressed chunks from a stream reader into a sink.
- *
- * @async
- * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressed stream reader.
- * @param {ByteSink} sink sink that receives compressed chunks.
- * @param {GoltStreamCancellationState} cancellation active cancellation state.
- */
-async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Array>, sink: ByteSink, cancellation: GoltStreamCancellationState): Promise<void> {
-  let done = false;
-  while (!done) {
-    const result = await waitForCancellablePromise(reader.read(), cancellation);
-    done = result.done;
-    if (result.value) {
-      await waitForCancellablePromise(sink.write(result.value), cancellation);
-    }
-  }
-}
-
-/**
- * Creates active `.golt` stream cancellation state.
- *
- * @param {SnapshotStreamOptions} options stream cancellation options.
- * @param {() => void} onCancel cancellation side effect.
- * @returns {GoltStreamCancellationState} cancellation state.
- */
-function createGoltStreamCancellationState(options: SnapshotStreamOptions, onCancel: () => void): GoltStreamCancellationState {
-  let resolveCancel: () => void = () => undefined;
-  const state: GoltStreamCancellationState = {
-    cancelled: options.shouldCancel(),
-    promise: new Promise<void>(resolve => {
-      resolveCancel = resolve;
-    }),
-    unregister: () => undefined
-  };
-  const cancel = () => {
-    if (!state.cancelled) {
-      state.cancelled = true;
-      resolveCancel();
-    }
-    onCancel();
-  };
-  state.unregister = options.onCancelRequested(cancel);
-  if (state.cancelled) {
-    resolveCancel();
-  }
-  return state;
-}
-
-/**
- * Awaits a promise while allowing active `.golt` cancellation to win the race.
- *
- * @async
- * @template T
- * @param {Promise<T>} promise operation promise.
- * @param {GoltStreamCancellationState} cancellation active cancellation state.
- * @returns {Promise<T>} operation result.
- */
-async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: GoltStreamCancellationState): Promise<T> {
-  assertGoltCancellationState(cancellation);
-  const observedPromise: Promise<GoltCancellableResult<T>> = promise.then(value => ({
-    type: 'value',
-    value
-  }), error => ({
-    type: 'error',
-    error
-  }));
-  const result = await Promise.race([observedPromise, cancellation.promise.then((): GoltCancellableResult<T> => ({type: 'cancelled'}))]);
-  if (result.type === 'error') {
-    throw result.error;
-  }
-  if (result.type === 'cancelled') {
-    throw new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
-  }
-  return result.value;
-}
-
-/**
- * Aborts the snapshot compressor writer.
- *
- * @param {WritableStreamDefaultWriter<BufferSource>} writer compressor writer.
- * @param {unknown} reason original failure reason.
- */
-function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>, reason: unknown): void {
-  writer.abort(reason).catch(error => {
-    console.warn('[GOLT] Failed to abort snapshot compressor after export failure:', error);
-  });
-}
-
-/**
- * Cancels the snapshot compressor reader.
- *
- * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressor reader.
- * @param {unknown} reason original failure reason.
- */
-function cancelCompressorReader(reader: ReadableStreamDefaultReader<Uint8Array>, reason: unknown): void {
-  reader.cancel(reason).catch(error => {
-    console.warn('[GOLT] Failed to cancel snapshot compressor reader after export failure:', error);
-  });
-}
-
-/**
- * Throws when `.golt` stream cancellation has already been requested.
- *
- * @param {GoltStreamCancellationState} cancellation active cancellation state.
- */
-function assertGoltCancellationState(cancellation: GoltStreamCancellationState): void {
-  if (cancellation.cancelled) {
-    throw new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
-  }
-}
-
-/**
  * Writes a `.golt` state file to a byte sink using a streaming-shaped deflate path.
  *
  * @async
  * @param {ParsedGoltState} data state data to serialize.
  * @param {ByteSink} sink byte sink that receives serialized chunks.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
- * @param {SnapshotStreamOptions} options stream cancellation options.
+ * @param {StreamCancellationOptions} options stream cancellation options.
  */
-export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<void> {
+export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink, reportProgress: SnapshotProgressReporter, options: StreamCancellationOptions): Promise<void> {
   const targetFormat = chooseTightStorageGridFormat(data.tribes.length);
   const sourceFormat = gridFormatFromMetadata(data.gridFormat);
   const headerBytes = createGoltHeaderBytes(data, targetFormat);
@@ -221,10 +43,10 @@ export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink
   const writer = stream.writable.getWriter();
   const reader = stream.readable.getReader();
   let pumpFailure: Error | null = null;
-  const cancellation = createGoltStreamCancellationState(options, () => {
-    abortCompressorWriter(writer, new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE));
+  const cancellation = createStreamCancellationState(options, () => {
+    abortWritableStreamWriter(writer, new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE), '[GOLT] Failed to abort snapshot compressor after export failure:');
   });
-  const pump = pumpCompressedChunks(reader, sink, cancellation).catch(error => {
+  const pump = pumpReadableChunks(reader, chunk => sink.write(chunk), cancellation, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE).catch(error => {
     pumpFailure = error instanceof Error ? error : new Error(String(error));
   });
   reportProgress({
@@ -233,12 +55,12 @@ export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink
     status: 'Compressing grid'
   });
   try {
-    await waitForCancellablePromise(sink.write(createGoltPrefix(headerBytes)), cancellation);
+    await waitForCancellablePromise(sink.write(createGoltPrefix(headerBytes)), cancellation, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
     await writeRepackedGridToSink(data.grid, data, sourceFormat, targetFormat, {
-      write: chunk => waitForCancellablePromise(writer.write(chunk), cancellation)
+      write: chunk => waitForCancellablePromise(writer.write(chunk), cancellation, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE)
     }, reportProgress);
-    await waitForCancellablePromise(writer.close(), cancellation);
-    await waitForCancellablePromise(pump, cancellation);
+    await waitForCancellablePromise(writer.close(), cancellation, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
+    await waitForCancellablePromise(pump, cancellation, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
     if (pumpFailure) {
       throw pumpFailure;
     }
@@ -248,8 +70,8 @@ export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink
       status: 'Preparing snapshot'
     });
   } catch (error) {
-    abortCompressorWriter(writer, error);
-    cancelCompressorReader(reader, error);
+    abortWritableStreamWriter(writer, error, '[GOLT] Failed to abort snapshot compressor after export failure:');
+    cancelReadableStreamReader(reader, error, '[GOLT] Failed to cancel snapshot compressor reader after export failure:');
     if (!options.shouldCancel()) {
       await pump;
     }
@@ -265,25 +87,11 @@ export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink
  * @async
  * @param {ParsedGoltState} data state data to serialize.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
- * @param {SnapshotStreamOptions} options stream cancellation options.
+ * @param {StreamCancellationOptions} options stream cancellation options.
  * @returns {Promise<Uint8Array>} serialized `.golt` file bytes.
  */
-export async function collectGoltStateStream(data: ParsedGoltState, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
-  await writeGoltStateStream(data, {
-    write: async chunk => {
-      chunks.push(chunk);
-      totalBytes += chunk.byteLength;
-    }
-  }, reportProgress, options);
-  const output = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    output.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return output;
+export async function collectGoltStateStream(data: ParsedGoltState, reportProgress: SnapshotProgressReporter, options: StreamCancellationOptions): Promise<Uint8Array> {
+  return collectByteSinkOutput(sink => writeGoltStateStream(data, sink, reportProgress, options));
 }
 
 /**

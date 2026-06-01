@@ -7,8 +7,8 @@ import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkb
 import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
 import {StorageBar} from '../../../../../shared/component/storage-bar/storage-bar';
 import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
+import {formatBinaryBytes, formatDecimalBytes} from '../../../logic/byte-format';
 import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
-import {formatBinaryBytes, formatDecimalBytes} from '../../../util/byte-format';
 import {DownloadFrameRangeForm} from '../../element/download-frame-range-form/download-frame-range-form';
 import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/download-mp4-settings-form';
 

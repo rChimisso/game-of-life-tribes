@@ -1,5 +1,5 @@
 import {RecordingFrameData, RecordingFrameRef} from './recording-frame-types';
-import {gridByteSize, gridFormatFromMetadata} from '../../../util/grid-format';
+import {gridByteSize, gridFormatFromMetadata} from '../../../logic/grid-format';
 import {RAW_DEFLATE_CODEC} from '../model/golt-format';
 
 import {Grid} from '~gol/feature/home/model/grid';

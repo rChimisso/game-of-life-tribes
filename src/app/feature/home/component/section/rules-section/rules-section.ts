@@ -3,10 +3,10 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Inp
 
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../../shared/component/button/button';
+import {normalizeClauseForEditor, ruleListsEqual, ruleSignature, toPersistedRule} from '../../../logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, Rule, Tribe} from '../../../model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '../../../model/rule-card';
 import {UpdateRulesPayload} from '../../../model/sidebar-event';
-import {normalizeClauseForEditor, ruleListsEqual, ruleSignature, toPersistedRule} from '../../../util/rule-editor';
 import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {TypedChanges} from '~gol/core/model/typed-change';

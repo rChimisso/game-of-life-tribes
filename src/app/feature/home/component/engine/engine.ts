@@ -1,11 +1,14 @@
-﻿import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
+import {AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, ViewChild} from '@angular/core';
 
-import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
+import {EngineInputController} from './logic/engine-input-controller';
+import {EngineViewport} from './logic/engine-viewport';
+import {EngineWorkerClient} from './logic/engine-worker-client';
+import {normalizeLiveMetricsSettings} from '../../logic/metric-settings';
+import {BrushFill, BrushShape} from '../../model/draw-mode';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {Ruleset, Tribe} from '../../model/rule';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
-import {normalizeLiveMetricsSettings} from '../../util/metric-settings';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -294,110 +297,58 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public readonly gpuError = new EventEmitter<GpuErrorMessage>();
 
   /**
-   * Base maximum camera scale.
+   * Camera math helper.
    *
    * @private
    * @readonly
-   * @type {number}
+   * @type {EngineViewport}
    */
-  private static readonly baseMaxScale = 128;
+  private readonly viewport = new EngineViewport(() => this.canvasRef.nativeElement, () => this.ruleset);
 
   /**
-   * Render worker instance.
-   *
-   * @private
-   * @type {(Worker | undefined)}
-   */
-  private worker?: Worker;
-
-  /**
-   * Current camera scale.
-   *
-   * @private
-   * @type {number}
-   */
-  private scale = 1;
-
-  /**
-   * Current camera x offset.
-   *
-   * @private
-   * @type {number}
-   */
-  private offsetX = 0;
-
-  /**
-   * Current camera y offset.
-   *
-   * @private
-   * @type {number}
-   */
-  private offsetY = 0;
-
-  /**
-   * Minimum camera scale.
-   *
-   * @private
-   * @type {number}
-   */
-  private minScale = 1;
-
-  /**
-   * Maximum camera scale.
-   *
-   * @private
-   * @type {number}
-   */
-  private maxScale = Engine.baseMaxScale;
-
-  /**
-   * Active pointers by id.
+   * Worker message client.
    *
    * @private
    * @readonly
-   * @type {Map<number, {x: number; y: number}>}
+   * @type {EngineWorkerClient}
    */
-  private readonly pointers = new Map<number, {x: number; y: number}>();
+  private readonly workerClient = new EngineWorkerClient({
+    metrics: message => this.metrics.emit(message),
+    snapshot: message => this.snapshot.emit(message),
+    recording: message => this.recording.emit(message),
+    limits: message => this.limits.emit(message),
+    stepping: message => this.stepping.emit(message),
+    chunksSaving: message => this.chunksSaving.emit(message),
+    backpressure: message => this.backpressure.emit(message),
+    storageQuota: message => this.storageQuota.emit(message),
+    chunkSealed: message => this.chunkSealed.emit(message),
+    uncompressedChunks: message => this.uncompressedChunks.emit(message),
+    generation: message => this.generation.emit(message),
+    rebuilding: message => this.rebuilding.emit(message),
+    deviceLost: message => this.deviceLost.emit(message),
+    gpuError: message => this.gpuError.emit(message)
+  });
 
   /**
-   * Current pointer interaction mode.
+   * Pointer input controller.
    *
    * @private
-   * @type {'idle' | TouchMode | 'pinch'}
+   * @readonly
+   * @type {EngineInputController}
    */
-  private mode: 'idle' | TouchMode | 'pinch' = 'idle';
-
-  /**
-   * Primary pointer id for the active interaction.
-   *
-   * @private
-   * @type {number}
-   */
-  private primaryPointerId = -1;
-
-  /**
-   * Deferred touch draw point.
-   *
-   * @private
-   * @type {({x: number; y: number} | null)}
-   */
-  private touchPendingDraw: {x: number; y: number} | null = null;
-
-  /**
-   * Previous pinch distance in client pixels.
-   *
-   * @private
-   * @type {number}
-   */
-  private lastPinchDist = 0;
-
-  /**
-   * Last cell used by the brush preview.
-   *
-   * @private
-   * @type {({x: number; y: number} | null)}
-   */
-  private lastPreviewCell: {x: number; y: number} | null = null;
+  private readonly inputController = new EngineInputController(
+    this.viewport,
+    this.workerClient,
+    () => this.inputBlocked,
+    () => this.panMode,
+    () => ({
+      size: this.brushSize,
+      shape: this.brushShape,
+      fill: this.brushFill,
+      tribes: this.drawTribes
+    }),
+    () => window.devicePixelRatio || 1
+  );
 
   /**
    * Zooms the canvas around the wheel pointer position.
@@ -406,19 +357,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {WheelEvent} ev wheel event.
    */
   public onWheel(ev: WheelEvent): void {
-    ev.preventDefault();
-    if (!this.inputBlocked) {
-      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const cx = ev.clientX - rect.left;
-      const cy = ev.clientY - rect.top;
-      const worldX = cx / this.scale + this.offsetX;
-      const worldY = cy / this.scale + this.offsetY;
-      const factor = ev.deltaY < 0 ? 1.15 : 1 / 1.15;
-      this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-      this.offsetX = worldX - cx / this.scale;
-      this.offsetY = worldY - cy / this.scale;
-      this.sendCamera();
-    }
+    this.inputController.handleWheel(ev);
   }
 
   /**
@@ -428,38 +367,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {PointerEvent} ev pointer event.
    */
   public onPointerDown(ev: PointerEvent): void {
-    ev.preventDefault();
-    if (!this.inputBlocked) {
-      (document.activeElement as HTMLElement)?.blur?.();
-      (ev.target as Element).setPointerCapture(ev.pointerId);
-      this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
-      if (ev.button === 2) {
-        this.mode = 'pan';
-        this.primaryPointerId = ev.pointerId;
-        this.clearBrushPreview();
-        return;
-      }
-      if (this.pointers.size >= 2) {
-        this.mode = 'pinch';
-        this.touchPendingDraw = null;
-        this.clearBrushPreview();
-        this.lastPinchDist = this.currentPinchDist();
-        return;
-      }
-      if (ev.pointerType === 'touch' && this.panMode) {
-        this.mode = 'pan';
-        this.primaryPointerId = ev.pointerId;
-        this.clearBrushPreview();
-      } else if (ev.pointerType === 'touch') {
-        this.touchPendingDraw = {x: ev.clientX, y: ev.clientY};
-        this.primaryPointerId = ev.pointerId;
-        this.updateBrushPreview(ev.clientX, ev.clientY);
-      } else {
-        this.mode = 'draw';
-        this.primaryPointerId = ev.pointerId;
-        this.drawAtPoint(ev.clientX, ev.clientY);
-      }
-    }
+    this.inputController.handlePointerDown(ev);
   }
 
   /**
@@ -469,47 +377,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {PointerEvent} ev pointer event.
    */
   public onPointerMove(ev: PointerEvent): void {
-    if (!this.inputBlocked) {
-      if (this.pointers.has(ev.pointerId)) {
-        const prev = this.pointers.get(ev.pointerId)!;
-        this.pointers.set(ev.pointerId, {x: ev.clientX, y: ev.clientY});
-        if (this.mode === 'pan' && ev.pointerId === this.primaryPointerId) {
-          const dx = ev.clientX - prev.x;
-          const dy = ev.clientY - prev.y;
-          this.offsetX = ((this.offsetX - dx / this.scale) % this.ruleset.cols + this.ruleset.cols) % this.ruleset.cols;
-          this.offsetY = ((this.offsetY - dy / this.scale) % this.ruleset.rows + this.ruleset.rows) % this.ruleset.rows;
-          this.sendCamera();
-        } else if (this.mode === 'pinch' || this.pointers.size >= 2) {
-          this.mode = 'pinch';
-          this.touchPendingDraw = null;
-          this.clearBrushPreview();
-          const dist = this.currentPinchDist();
-          if (this.lastPinchDist > 0 && dist > 0) {
-            const mid = this.currentPinchMid();
-            const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-            const worldX = (mid.x - rect.left) / this.scale + this.offsetX;
-            const worldY = (mid.y - rect.top) / this.scale + this.offsetY;
-            const factor = dist / this.lastPinchDist;
-            this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
-            this.offsetX = worldX - (mid.x - rect.left) / this.scale;
-            this.offsetY = worldY - (mid.y - rect.top) / this.scale;
-            this.sendCamera();
-          }
-          this.lastPinchDist = dist;
-        } else {
-          if (this.touchPendingDraw) {
-            this.mode = 'draw';
-            this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
-            this.touchPendingDraw = null;
-          }
-          if (this.mode === 'draw') {
-            this.drawAtPoint(ev.clientX, ev.clientY);
-          }
-        }
-      } else {
-        this.updateBrushPreview(ev.clientX, ev.clientY);
-      }
-    }
+    this.inputController.handlePointerMove(ev);
   }
 
   /**
@@ -519,22 +387,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {PointerEvent} ev pointer event.
    */
   public onPointerUp(ev: PointerEvent): void {
-    if (!this.inputBlocked) {
-      this.pointers.delete(ev.pointerId);
-      if (ev.pointerId === this.primaryPointerId) {
-        if (this.touchPendingDraw && this.mode !== 'pinch') {
-          this.drawAtPoint(this.touchPendingDraw.x, this.touchPendingDraw.y);
-        }
-        this.touchPendingDraw = null;
-        this.primaryPointerId = -1;
-      }
-      if (this.pointers.size === 0) {
-        this.mode = 'idle';
-        this.lastPinchDist = 0;
-      } else if (this.pointers.size === 1) {
-        this.lastPinchDist = 0;
-      }
-    }
+    this.inputController.handlePointerUp(ev);
   }
 
   /**
@@ -543,9 +396,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {PointerEvent} _ev pointer event.
    */
   public onPointerLeave(_ev: PointerEvent): void {
-    if (!this.inputBlocked && this.pointers.size === 0) {
-      this.clearBrushPreview();
-    }
+    this.inputController.handlePointerLeave();
   }
 
   /**
@@ -564,19 +415,13 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public onResize(): void {
-    if (!this.ruleset) {
-      return;
+    if (this.ruleset) {
+      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      this.workerClient.resize(Math.round(rect.width * dpr), Math.round(rect.height * dpr));
+      this.viewport.refreshScaleBounds();
+      this.inputController.sendCamera();
     }
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    this.worker?.postMessage({
-      type: 'resize',
-      width: Math.round(rect.width * dpr),
-      height: Math.round(rect.height * dpr)
-    });
-    this.computeMinScale();
-    this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale));
-    this.sendCamera();
   }
 
   /**
@@ -588,34 +433,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
-    this.worker = new Worker(new URL('../../worker/webengine.ts', import.meta.url), {type: 'module'});
-    this.worker.onmessage = (ev: MessageEvent) => {
-      switch (ev.data?.type) {
-        case 'metrics': this.metrics.emit(ev.data); break;
-        case 'snapshot': this.snapshot.emit(ev.data); break;
-        case 'recording': this.recording.emit(ev.data); break;
-        case 'limits': this.limits.emit(ev.data); break;
-        case 'stepping': this.stepping.emit(ev.data); break;
-        case 'chunksSaving': this.chunksSaving.emit(ev.data); break;
-        case 'backpressure': this.backpressure.emit(ev.data); break;
-        case 'storageQuota': this.storageQuota.emit(ev.data); break;
-        case 'chunkSealed': this.chunkSealed.emit(ev.data); break;
-        case 'uncompressedChunks': this.uncompressedChunks.emit(ev.data); break;
-        case 'generation': this.generation.emit(ev.data); break;
-        case 'rebuilding': this.rebuilding.emit(ev.data); break;
-        case 'deviceLost': this.deviceLost.emit(ev.data); break;
-        case 'gpuError': this.gpuError.emit(ev.data); break;
-        default: console.warn('Unknown message from worker:', ev.data); break;
-      }
-    };
-    this.worker.onerror = (err: ErrorEvent) => {
-      this.gpuError.emit({
-        type: 'gpuError',
-        reason: err.message || 'Worker crashed unexpectedly'
-      });
-    };
     const offscreen = canvas.transferControlToOffscreen();
-    this.worker.postMessage({
+    this.workerClient.initialize({
       type: 'init',
       canvas: offscreen,
       ruleset: this.ruleset,
@@ -634,7 +453,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public requestSnapshot(): void {
-    this.worker?.postMessage({type: 'getSnapshot'});
+    this.workerClient.requestSnapshot();
   }
 
   /**
@@ -646,12 +465,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {GridFormatMetadata} gridFormat snapshot grid format.
    */
   public loadSnapshot(grid: Uint32Array, generation: number, gridFormat: GridFormatMetadata): void {
-    this.worker?.postMessage({
-      type: 'loadSnapshot',
-      grid,
-      generation,
-      gridFormat
-    }, [grid.buffer]);
+    this.workerClient.loadSnapshot(grid, generation, gridFormat);
   }
 
   /**
@@ -661,7 +475,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {boolean} recording whether recording is enabled.
    */
   public setRecording(recording: boolean): void {
-    this.worker?.postMessage({type: 'setRecording', recording});
+    this.workerClient.setRecording(recording);
   }
 
   /**
@@ -671,7 +485,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {boolean} running whether the simulation should run.
    */
   public setRunning(running: boolean): void {
-    this.worker?.postMessage({type: 'setRunning', running});
+    this.workerClient.setRunning(running);
   }
 
   /**
@@ -680,7 +494,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public requestRecording(): void {
-    this.worker?.postMessage({type: 'getRecording'});
+    this.workerClient.requestRecording();
   }
 
   /**
@@ -690,7 +504,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {number} count step count.
    */
   public stepBack(count: number): void {
-    this.worker?.postMessage({type: 'stepBack', count});
+    this.workerClient.stepBack(count);
   }
 
   /**
@@ -700,7 +514,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {number} count step count.
    */
   public stepForward(count: number): void {
-    this.worker?.postMessage({type: 'stepForward', count});
+    this.workerClient.stepForward(count);
   }
 
   /**
@@ -709,7 +523,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public cancelStepping(): void {
-    this.worker?.postMessage({type: 'cancelStepping'});
+    this.workerClient.cancelStepping();
   }
 
   /**
@@ -723,14 +537,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {GridFormatMetadata} gridFormat stored chunk grid format.
    */
   public updateChunkCodec(filename: string, rawBytes: number, codec: string, storedBytes: number, gridFormat: GridFormatMetadata): void {
-    this.worker?.postMessage({
-      type: 'updateChunkCodec',
-      filename,
-      rawBytes,
-      codec,
-      storedBytes,
-      gridFormat
-    });
+    this.workerClient.updateChunkCodec(filename, rawBytes, codec, storedBytes, gridFormat);
   }
 
   /**
@@ -739,35 +546,28 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public requestUncompressedChunks(): void {
-    this.worker?.postMessage({type: 'getUncompressedChunks'});
+    this.workerClient.requestUncompressedChunks();
   }
 
   /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<Engine<T>>): void {
-    if (this.worker) {
+    if (this.workerClient.initialized) {
       if (changes.state) {
-        this.worker.postMessage({type: 'setRunning', running: this.state === 'running'});
+        this.workerClient.setRunning(this.state === 'running');
       }
       if (changes.isRecording) {
-        this.worker.postMessage({type: 'setRecording', recording: this.isRecording});
+        this.workerClient.setRecording(this.isRecording);
       }
       if (changes.speed) {
-        this.worker.postMessage({type: 'setSpeed', speed: this.speed});
+        this.workerClient.setSpeed(this.speed);
       }
       if (changes.liveMetrics) {
-        this.worker.postMessage({
-          type: 'setLiveMetrics',
-          liveMetrics: normalizeLiveMetricsSettings(this.liveMetrics)
-        });
+        this.workerClient.setLiveMetrics(normalizeLiveMetricsSettings(this.liveMetrics));
       }
       if (changes.ruleset || changes.simulationGridFormat) {
-        this.worker.postMessage({
-          type: 'setRuleset',
-          ruleset: this.ruleset,
-          simulationGridFormat: this.simulationGridFormat
-        });
+        this.workerClient.setRuleset(this.ruleset, this.simulationGridFormat);
         const prevRuleset = changes.ruleset?.previousValue;
         if (!(prevRuleset && prevRuleset.rows === this.ruleset.rows && prevRuleset.cols === this.ruleset.cols)) {
           this.resetCamera();
@@ -781,19 +581,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @inheritdoc
    */
   public ngOnDestroy(): void {
-    this.worker?.terminate();
-  }
-
-  /**
-   * Computes the minimum and maximum camera scale for the current grid.
-   *
-   * @private
-   */
-  private computeMinScale(): void {
-    const el = this.canvasRef.nativeElement;
-    const rect = el.getBoundingClientRect();
-    this.minScale = Math.max(rect.width / this.ruleset.cols, rect.height / this.ruleset.rows);
-    this.maxScale = Math.max(Engine.baseMaxScale, this.minScale);
+    this.workerClient.terminate();
   }
 
   /**
@@ -802,56 +590,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @private
    */
   private resetCamera(): void {
-    this.computeMinScale();
-    this.scale = this.minScale;
-    this.offsetX = 0;
-    this.offsetY = 0;
-    this.sendCamera();
-  }
-
-  /**
-   * Sends the current camera to the worker.
-   *
-   * @private
-   */
-  private sendCamera(): void {
-    const dpr = window.devicePixelRatio || 1;
-    this.worker?.postMessage({
-      type: 'camera',
-      scale: this.scale * dpr,
-      offsetX: this.offsetX,
-      offsetY: this.offsetY
-    });
-  }
-
-  /**
-   * Calculates the distance between the first two active pointers.
-   *
-   * @private
-   * @returns {number} distance in client pixels.
-   */
-  private currentPinchDist(): number {
-    const pts = [...this.pointers.values()];
-    if (pts.length < 2) {
-      return 0;
-    }
-    const dx = pts[0]!.x - pts[1]!.x;
-    const dy = pts[0]!.y - pts[1]!.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  /**
-   * Calculates the midpoint between the first two active pointers.
-   *
-   * @private
-   * @returns {{ x: number; y: number }} midpoint in client pixels.
-   */
-  private currentPinchMid(): {x: number; y: number} {
-    const pts = [...this.pointers.values()];
-    return {
-      x: (pts[0]!.x + pts[1]!.x) / 2,
-      y: (pts[0]!.y + pts[1]!.y) / 2
-    };
+    this.viewport.reset();
+    this.inputController.sendCamera();
   }
 
   /**
@@ -861,127 +601,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @param {TypedChanges<Engine<T>>} changes input changes.
    */
   private syncBrushPreviewInputChanges(changes: TypedChanges<Engine<T>>): void {
-    if (changes.inputBlocked && this.inputBlocked) {
-      this.resetInteractionState();
-    }
-    const brushPreviewInputChanged = changes.brushSize || changes.brushShape || changes.panMode;
-    if (brushPreviewInputChanged && this.lastPreviewCell && !this.inputBlocked) {
-      if (this.panMode) {
-        this.clearBrushPreview();
-      } else {
-        this.worker?.postMessage({
-          type: 'brushPreview',
-          visible: true,
-          x: this.lastPreviewCell.x,
-          y: this.lastPreviewCell.y,
-          size: this.brushSize,
-          shape: this.brushShape
-        });
-      }
-    }
-  }
-
-  /**
-   * Updates the worker-side brush preview for a client coordinate.
-   *
-   * @private
-   * @param {number} clientX pointer x coordinate.
-   * @param {number} clientY pointer y coordinate.
-   */
-  private updateBrushPreview(clientX: number, clientY: number): void {
-    if (!this.panMode) {
-      const cell = this.cellAtPoint(clientX, clientY);
-      this.lastPreviewCell = cell;
-      this.worker?.postMessage({
-        type: 'brushPreview',
-        visible: true,
-        x: cell.x,
-        y: cell.y,
-        size: this.brushSize,
-        shape: this.brushShape
-      });
-    } else {
-      this.clearBrushPreview();
-    }
-  }
-
-  /**
-   * Clears transient input state while an overlay owns the canvas surface.
-   *
-   * @private
-   */
-  private resetInteractionState(): void {
-    this.pointers.clear();
-    this.mode = 'idle';
-    this.primaryPointerId = -1;
-    this.touchPendingDraw = null;
-    this.lastPinchDist = 0;
-    this.clearBrushPreview();
-  }
-
-  /**
-   * Hides the worker-side brush preview.
-   *
-   * @private
-   */
-  private clearBrushPreview(): void {
-    this.lastPreviewCell = null;
-    this.worker?.postMessage({
-      type: 'brushPreview',
-      visible: false,
-      x: 0,
-      y: 0,
-      size: this.brushSize,
-      shape: this.brushShape
-    });
-  }
-
-  /**
-   * Converts a client coordinate into a grid cell coordinate.
-   *
-   * @private
-   * @param {number} clientX pointer x coordinate.
-   * @param {number} clientY pointer y coordinate.
-   * @returns {{ x: number; y: number }} grid cell coordinate.
-   */
-  private cellAtPoint(clientX: number, clientY: number): {x: number; y: number} {
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const cssX = clientX - rect.left;
-    const cssY = clientY - rect.top;
-    const worldX = cssX / this.scale + this.offsetX;
-    const worldY = cssY / this.scale + this.offsetY;
-    return {
-      x: Math.floor(worldX),
-      y: Math.floor(worldY)
-    };
-  }
-
-  /**
-   * Sends a draw stroke sample and updates the preview position.
-   *
-   * @private
-   * @param {number} clientX pointer x coordinate.
-   * @param {number} clientY pointer y coordinate.
-   */
-  private drawAtPoint(clientX: number, clientY: number): void {
-    const cell = this.cellAtPoint(clientX, clientY);
-    this.lastPreviewCell = cell;
-    this.worker?.postMessage({
-      type: 'draw',
-      x: cell.x,
-      y: cell.y,
-      size: this.brushSize,
-      shape: this.brushShape,
-      fill: this.brushFill,
-      tribes: this.drawTribes
-    });
-    this.worker?.postMessage({
-      type: 'brushPreview',
-      visible: true,
-      x: cell.x,
-      y: cell.y,
-      size: this.brushSize,
-      shape: this.brushShape
-    });
+    const inputBlockedChangedToBlocked = Boolean(changes.inputBlocked && this.inputBlocked);
+    const brushPreviewInputChanged = Boolean(changes.brushSize || changes.brushShape || changes.panMode);
+    this.inputController.syncBrushPreviewInputChanges(inputBlockedChangedToBlocked, brushPreviewInputChanged);
   }
 }

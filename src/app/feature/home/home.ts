@@ -6,6 +6,10 @@ import {RouterModule} from '@angular/router';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
+import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './logic/grid-format';
+import {normalizeLiveMetricSectionSettings} from './logic/metric-settings';
+import {clearTempOpfsDirectory} from './logic/opfs-temp';
+import {applyRuleTribeRenames} from './logic/tribe-impact';
 import {CompressionFailedMessage, DownloadCancelledError, DownloadRequestPayload} from './model/download';
 import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES, estimateDownloadWorkingSet, resolveDownloadMode} from './model/download-estimate';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
@@ -17,10 +21,6 @@ import {OPFS_PENDING_WRITE_BYTE_BUDGET} from './model/recording-limits';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
-import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './util/grid-format';
-import {normalizeLiveMetricSectionSettings} from './util/metric-settings';
-import {clearTempOpfsDirectory} from './util/opfs-temp';
-import {applyRuleTribeRenames} from './util/tribe-impact';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
 import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 

@@ -8,9 +8,9 @@ import {SelectOption} from '../../../../../shared/component/select/model/select'
 import {SelectComponent} from '../../../../../shared/component/select/select';
 import {SummaryComponent} from '../../../../../shared/component/summary/summary';
 import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
+import {rulesEqual} from '../../../logic/rule-editor';
 import {Rule, Tribe} from '../../../model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '../../../model/rule-card';
-import {rulesEqual} from '../../../util/rule-editor';
 import {RuleClause} from '../clause/clause';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 

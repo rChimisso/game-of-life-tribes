@@ -3,8 +3,8 @@ import {FormsModule} from '@angular/forms';
 
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {InputComponent} from '../../../../../shared/component/input/input';
+import {gridByteSize, gridFormatFromBits} from '../../../logic/grid-format';
 import {BitsPerCell} from '../../../model/grid-format';
-import {gridByteSize, gridFormatFromBits} from '../../../util/grid-format';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';

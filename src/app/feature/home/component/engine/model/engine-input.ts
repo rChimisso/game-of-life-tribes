@@ -1,0 +1,65 @@
+import {BrushFill, BrushShape, TouchMode} from '../../../model/draw-mode';
+
+/**
+ * Two-dimensional point used by engine input logic.
+ *
+ * @export
+ * @interface EnginePoint
+ * @typedef {EnginePoint}
+ */
+export interface EnginePoint {
+  /**
+   * Horizontal coordinate.
+   *
+   * @type {number}
+   */
+  x: number;
+  /**
+   * Vertical coordinate.
+   *
+   * @type {number}
+   */
+  y: number;
+}
+
+/**
+ * Brush state read by the engine input controller.
+ *
+ * @export
+ * @interface EngineBrushSettings
+ * @typedef {EngineBrushSettings}
+ */
+export interface EngineBrushSettings {
+  /**
+   * Brush size in cells.
+   *
+   * @type {number}
+   */
+  size: number;
+  /**
+   * Brush footprint shape.
+   *
+   * @type {BrushShape}
+   */
+  shape: BrushShape;
+  /**
+   * Brush fill mode.
+   *
+   * @type {BrushFill}
+   */
+  fill: BrushFill;
+  /**
+   * Tribe ids selected for drawing.
+   *
+   * @type {string[]}
+   */
+  tribes: string[];
+}
+
+/**
+ * Active engine pointer interaction mode.
+ *
+ * @export
+ * @typedef {EngineInteractionMode}
+ */
+export type EngineInteractionMode = 'idle' | TouchMode | 'pinch';

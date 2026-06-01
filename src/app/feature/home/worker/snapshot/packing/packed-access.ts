@@ -1,6 +1,6 @@
 import {DecodedPackedRow} from './packed-access-types';
+import {packedColsForFormat} from '../../../logic/grid-format';
 import {GridFormat} from '../../../model/grid-format';
-import {packedColsForFormat} from '../../../util/grid-format';
 
 import {Grid} from '~gol/feature/home/model/grid';
 

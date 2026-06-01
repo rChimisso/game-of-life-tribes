@@ -1,7 +1,7 @@
 import {CompressedChunkExportOptions, CompressedChunkExportRequest, PlannedCompressedChunk, PreparedCompressedChunk} from './compressed-chunk-types';
+import {gridByteSize, gridFormatFromMetadata} from '../../logic/grid-format';
+import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../logic/opfs-temp';
 import {RecordingManifest} from '../../model/recording';
-import {gridByteSize, gridFormatFromMetadata} from '../../util/grid-format';
-import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../util/opfs-temp';
 import {resolveRecordingFrameSelection} from '../frame/recording-frame-stream';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
 import {ByteSink} from '../snapshot/model/golt-types';

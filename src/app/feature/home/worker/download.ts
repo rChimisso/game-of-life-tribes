@@ -1,8 +1,8 @@
 import '../../../core/function/timestamped-console';
 
+import {alignPackedBytesToWords} from '../logic/grid-format';
 import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
 import {DownloadWorkingSetEstimate, METRICS_CSV_LARGE_OUTPUT_BYTES, estimateDownloadWorkingSet, resolveDownloadMode} from '../model/download-estimate';
-import {alignPackedBytesToWords} from '../util/grid-format';
 import {DownloadCancelListener, DownloadRequest, DownloadWorkerEvent} from './download/model/download-worker-message';
 import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
 import {iterateRecordedFrames, resolveRecordingFrameSelection, RecordingFrameSelection} from './frame/recording-frame-stream';

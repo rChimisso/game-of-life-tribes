@@ -2,6 +2,9 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Event
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
+import {calculateBrushMaxSize, calculateVramBarTotal, calculateVramRecordingPct, calculateVramSimulationPct, createVramBarTooltip, createVramSegments, formatDownloadStorageQuota, formatDownloadStorageTitleSize, formatVramQuota, formatVramRecording, formatVramSimulation, formatVramTitleSize} from './logic/sidebar-display';
+import {startSidebarPointerDrag} from './logic/sidebar-pointer-drag';
+import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from './model/sidebar-display';
 import {PersistedPreferencesComponent} from '../../../../core/abstract/persisted-preferences-component';
 import {Button} from '../../../../shared/component/button/button';
 import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
@@ -13,7 +16,6 @@ import {Preset} from '../../model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
-import {formatBinaryBytes, formatDecimalBytes} from '../../util/byte-format';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
@@ -575,7 +577,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get vramTitleSize(): string {
-    return formatBinaryBytes(this.vramSimulationBytes + this.vramRecordingBytes);
+    return formatVramTitleSize(this.vramDisplayInput);
   }
 
   /**
@@ -586,7 +588,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get vramQuotaFormatted(): string {
-    return Number.isFinite(this.vramBudgetBytes) ? formatBinaryBytes(this.vramBudgetBytes) : 'Detecting…';
+    return formatVramQuota(this.vramDisplayInput);
   }
 
   /**
@@ -597,7 +599,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get downloadStorageTitleSize(): string {
-    return formatDecimalBytes(this.storagePendingRawBytes + this.storageCompressedBytes);
+    return formatDownloadStorageTitleSize(this.storageDisplayInput);
   }
 
   /**
@@ -608,7 +610,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get downloadStorageQuotaFormatted(): string {
-    return formatBinaryBytes(this.storageQuotaBytes);
+    return formatDownloadStorageQuota(this.storageDisplayInput);
   }
 
   /**
@@ -619,7 +621,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get vramSimulationFormatted(): string {
-    return formatBinaryBytes(this.vramSimulationBytes);
+    return formatVramSimulation(this.vramDisplayInput);
   }
 
   /**
@@ -630,7 +632,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get vramRecordingFormatted(): string {
-    return formatBinaryBytes(this.vramRecordingBytes);
+    return formatVramRecording(this.vramDisplayInput);
   }
 
   /**
@@ -641,7 +643,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {number}
    */
   public get vramSimulationPct(): number {
-    return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramSimulationBytes / this.vramBudgetBytes) * 100 : 0;
+    return calculateVramSimulationPct(this.vramDisplayInput);
   }
 
   /**
@@ -652,7 +654,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {number}
    */
   public get vramRecordingPct(): number {
-    return Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0 ? (this.vramRecordingBytes / this.vramBudgetBytes) * 100 : 0;
+    return calculateVramRecordingPct(this.vramDisplayInput);
   }
 
   /**
@@ -663,7 +665,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {string}
    */
   public get vramBarTooltip(): string {
-    return `${this.vramSimulationFormatted} simulation / ${this.vramRecordingFormatted} recording / ${this.vramQuotaFormatted} budget`;
+    return createVramBarTooltip(this.vramDisplayInput);
   }
 
   /**
@@ -674,10 +676,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {number}
    */
   public get vramBarTotal(): number {
-    if (Number.isFinite(this.vramBudgetBytes) && this.vramBudgetBytes > 0) {
-      return this.vramBudgetBytes;
-    }
-    return this.vramSimulationBytes + this.vramRecordingBytes;
+    return calculateVramBarTotal(this.vramDisplayInput);
   }
 
   /**
@@ -688,20 +687,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {StorageBarSegment[]}
    */
   public get vramSegments(): StorageBarSegment[] {
-    return [
-      {
-        label: 'simulation',
-        value: this.vramSimulationBytes,
-        formatted: this.vramSimulationFormatted,
-        color: '#f59e0b'
-      },
-      {
-        label: 'recording',
-        value: this.vramRecordingBytes,
-        formatted: this.vramRecordingFormatted,
-        color: '#e91e8a'
-      }
-    ];
+    return createVramSegments(this.vramDisplayInput);
   }
 
   /**
@@ -712,7 +698,51 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {number}
    */
   public get brushMaxSize(): number {
-    return Math.max(1, Math.floor(Math.min(this.gridCols, this.gridRows) / 4));
+    return calculateBrushMaxSize(this.gridDisplayInput);
+  }
+
+  /**
+   * VRAM display input.
+   *
+   * @private
+   * @readonly
+   * @type {SidebarVramDisplayInput}
+   */
+  private get vramDisplayInput(): SidebarVramDisplayInput {
+    return {
+      budgetBytes: this.vramBudgetBytes,
+      simulationBytes: this.vramSimulationBytes,
+      recordingBytes: this.vramRecordingBytes
+    };
+  }
+
+  /**
+   * Recording storage display input.
+   *
+   * @private
+   * @readonly
+   * @type {SidebarStorageDisplayInput}
+   */
+  private get storageDisplayInput(): SidebarStorageDisplayInput {
+    return {
+      pendingRawBytes: this.storagePendingRawBytes,
+      compressedBytes: this.storageCompressedBytes,
+      quotaBytes: this.storageQuotaBytes
+    };
+  }
+
+  /**
+   * Grid display input.
+   *
+   * @private
+   * @readonly
+   * @type {SidebarGridDisplayInput}
+   */
+  private get gridDisplayInput(): SidebarGridDisplayInput {
+    return {
+      cols: this.gridCols,
+      rows: this.gridRows
+    };
   }
 
   /**
@@ -764,11 +794,10 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * Emits a typed sidebar action.
    *
    * @public
-   * @param {SidebarEvent['action']} action action name.
-   * @param {unknown} value optional action payload.
+   * @param {SidebarEvent} event sidebar event.
    */
-  public emit(action: SidebarEvent['action'], value?: unknown): void {
-    this.sidebarEvent.emit(value === undefined ? {action} as SidebarEvent : {action, value} as SidebarEvent);
+  public emit(event: SidebarEvent): void {
+    this.sidebarEvent.emit(event);
   }
 
   /**
@@ -778,7 +807,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {string} id tribe id.
    */
   public onTribeChange(id: string): void {
-    this.emit('selectTribes', this.toggleTribeSelection(id));
+    this.emit({action: 'selectTribes', value: this.toggleTribeSelection(id)});
   }
 
   /**
@@ -790,7 +819,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public onSpeedChange(value: string): void {
     const n = +value;
     if (n > 0) {
-      this.emit('setSpeed', n);
+      this.emit({action: 'setSpeed', value: n});
     }
   }
 
@@ -801,7 +830,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} checked whether max speed is enabled.
    */
   public onMaxSpeedChange(checked: boolean): void {
-    this.emit('setMaxSpeed', checked);
+    this.emit({action: 'setMaxSpeed', value: checked});
   }
 
   /**
@@ -811,7 +840,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} checked whether recording was requested.
    */
   public onRecordingChange(checked: boolean): void {
-    this.emit('setRecording', checked && this.recordingAvailable);
+    this.emit({action: 'setRecording', value: checked && this.recordingAvailable});
   }
 
   /**
@@ -821,9 +850,12 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} checked whether live metrics are enabled.
    */
   public onLiveMetricsEnabledChange(checked: boolean): void {
-    this.emit('setLiveMetrics', {
-      enabled: checked,
-      sections: this.liveMetricSettings
+    this.emit({
+      action: 'setLiveMetrics',
+      value: {
+        enabled: checked,
+        sections: this.liveMetricSettings
+      }
     });
   }
 
@@ -834,9 +866,12 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {LiveMetricSectionSettings} settings metric section settings.
    */
   public onLiveMetricSettingsChange(settings: LiveMetricSectionSettings): void {
-    this.emit('setLiveMetrics', {
-      enabled: this.liveMetricsEnabled,
-      sections: settings
+    this.emit({
+      action: 'setLiveMetrics',
+      value: {
+        enabled: this.liveMetricsEnabled,
+        sections: settings
+      }
     });
   }
 
@@ -847,7 +882,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {Grid} value grid size.
    */
   public onGridSizeApply(value: Grid): void {
-    this.emit('setGridSize', value);
+    this.emit({action: 'setGridSize', value});
   }
 
   /**
@@ -857,7 +892,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {BitsPerCell} value bits per cell.
    */
   public onPackingApply(value: BitsPerCell): void {
-    this.emit('setPacking', value);
+    this.emit({action: 'setPacking', value});
   }
 
   /**
@@ -869,7 +904,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public onBrushSizeChange(value: string): void {
     const n = Math.min(Math.max(1, +value || 1), this.brushMaxSize);
     if (n > 0) {
-      this.emit('setBrushSize', n);
+      this.emit({action: 'setBrushSize', value: n});
     }
   }
 
@@ -880,7 +915,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {BrushShape} shape brush shape.
    */
   public onBrushShapeChange(shape: BrushShape): void {
-    this.emit('setBrushShape', shape);
+    this.emit({action: 'setBrushShape', value: shape});
   }
 
   /**
@@ -890,7 +925,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {BrushFill} fill brush fill.
    */
   public onBrushFillChange(fill: BrushFill): void {
-    this.emit('setBrushFill', fill);
+    this.emit({action: 'setBrushFill', value: fill});
   }
 
   /**
@@ -900,7 +935,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} expanded whether the section is expanded.
    */
   public onPopulationExpandedChange(expanded: boolean): void {
-    this.emit('setPopulationExpanded', expanded);
+    this.emit({action: 'setPopulationExpanded', value: expanded});
   }
 
   /**
@@ -910,7 +945,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} expanded whether the section is expanded.
    */
   public onDiversityExpandedChange(expanded: boolean): void {
-    this.emit('setDiversityExpanded', expanded);
+    this.emit({action: 'setDiversityExpanded', value: expanded});
   }
 
   /**
@@ -920,7 +955,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} expanded whether the section is expanded.
    */
   public onInterfacesExpandedChange(expanded: boolean): void {
-    this.emit('setInterfacesExpanded', expanded);
+    this.emit({action: 'setInterfacesExpanded', value: expanded});
   }
 
   /**
@@ -931,7 +966,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   public onTouchModeChange(mode: TouchMode): void {
     if ((mode === 'pan') !== this.panMode) {
-      this.emit('togglePanMode');
+      this.emit({action: 'togglePanMode'});
     }
   }
 
@@ -942,7 +977,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {UpdateTribesPayload} payload tribes update payload.
    */
   public applyTribes(payload: UpdateTribesPayload): void {
-    this.emit('updateTribes', payload);
+    this.emit({action: 'updateTribes', value: payload});
   }
 
   /**
@@ -952,7 +987,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {Preset} preset selected preset.
    */
   public applyPreset(preset: Preset): void {
-    this.emit('applyPreset', preset);
+    this.emit({action: 'applyPreset', value: preset});
   }
 
   /**
@@ -962,7 +997,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {UpdateRulesPayload} payload rules update payload.
    */
   public applyRules(payload: UpdateRulesPayload): void {
-    this.emit('updateRules', payload);
+    this.emit({action: 'updateRules', value: payload});
   }
 
   /**
@@ -972,38 +1007,25 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {PointerEvent} event pointer event.
    */
   public onSheetDragStart(event: PointerEvent): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
     const startY = event.clientY;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement;
     const handle = event.currentTarget as HTMLElement | null;
     const panelHeight = panel.offsetHeight;
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     const currentTranslateY = panel.getBoundingClientRect().bottom - viewportHeight;
-    panel.classList.add('dragging');
-    document.body.style.userSelect = 'none';
-    handle?.setPointerCapture?.(event.pointerId);
-    const cleanup = () => {
-      panel.classList.remove('dragging');
-      document.body.style.userSelect = '';
-      handle?.releasePointerCapture?.(event.pointerId);
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onEnd);
-      document.removeEventListener('pointercancel', onEnd);
-    };
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerId === event.pointerId) {
-        e.preventDefault();
+    startSidebarPointerDrag({
+      event,
+      handle,
+      classTarget: panel,
+      className: 'dragging',
+      stopPropagation: false,
+      onMove: e => {
         const dy = e.clientY - startY;
         const newTranslate = Math.max(0, currentTranslateY + dy);
         this.sheetTranslate = `${newTranslate}px`;
         this.cdr.detectChanges();
-      }
-    };
-    const onEnd = (e: PointerEvent) => {
-      if (e.pointerId === event.pointerId) {
+      },
+      onEnd: e => {
         const dy = e.clientY - startY;
         const finalTranslate = Math.max(0, currentTranslateY + dy);
         if (finalTranslate > panelHeight * 0.5) {
@@ -1013,12 +1035,8 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
           this.sheetTranslate = `${finalTranslate}px`;
         }
         this.cdr.detectChanges();
-        cleanup();
       }
-    };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onEnd);
-    document.addEventListener('pointercancel', onEnd);
+    });
   }
 
   /**
@@ -1028,42 +1046,24 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {PointerEvent} event pointer event.
    */
   public onResizeStart(event: PointerEvent): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    document.body.style.userSelect = 'none';
     const startX = event.clientX;
     const startWidth = this.sidebarWidth;
     const handle = event.currentTarget as HTMLElement | null;
     const panel = this.elRef.nativeElement.querySelector('.sidebar-panel') as HTMLElement | null;
-    handle?.setPointerCapture?.(event.pointerId);
-    panel?.classList.add('resizing');
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerId === event.pointerId) {
-        e.preventDefault();
-        e.stopPropagation();
+    startSidebarPointerDrag({
+      event,
+      handle,
+      classTarget: panel,
+      className: 'resizing',
+      stopPropagation: true,
+      onMove: e => {
         this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
         this.cdr.detectChanges();
-      }
-    };
-    const onUp = (e: PointerEvent) => {
-      if (e.pointerId === event.pointerId) {
-        e.preventDefault();
-        e.stopPropagation();
-        document.body.style.userSelect = '';
-        panel?.classList.remove('resizing');
-        handle?.releasePointerCapture?.(event.pointerId);
+      },
+      onEnd: () => {
         this.savePreferences();
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-        document.removeEventListener('pointercancel', onUp);
       }
-    };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('pointercancel', onUp);
+    });
   }
 
   /**
@@ -1169,20 +1169,23 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @returns {string[]} next selected tribe ids.
    */
   private toggleTribeSelection(id: string): string[] {
+    let selection: string[];
     if (id === DEAD_TRIBE_ID) {
-      return [DEAD_TRIBE_ID];
-    }
-    if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID) {
-      return [id];
-    }
-    const current = this.drawTribes.filter(t => t !== DEAD_TRIBE_ID);
-    const idx = current.indexOf(id);
-    if (idx >= 0) {
-      if (current.length > 1) {
-        current.splice(idx, 1);
+      selection = [DEAD_TRIBE_ID];
+    } else if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID) {
+      selection = [id];
+    } else {
+      const current = this.drawTribes.filter(t => t !== DEAD_TRIBE_ID);
+      const idx = current.indexOf(id);
+      if (idx >= 0) {
+        if (current.length > 1) {
+          current.splice(idx, 1);
+        }
+        selection = current;
+      } else {
+        selection = [...current, id];
       }
-      return current;
     }
-    return [...current, id];
+    return selection;
   }
 }

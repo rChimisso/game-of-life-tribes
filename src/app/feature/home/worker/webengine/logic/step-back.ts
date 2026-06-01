@@ -1,7 +1,7 @@
+import {alignPackedBytesToWords, gridByteSize} from '../../../logic/grid-format';
 import {Grid} from '../../../model/grid';
 import {GridFormat} from '../../../model/grid-format';
 import {ChunkMeta} from '../../../model/recording';
-import {alignPackedBytesToWords, gridByteSize} from '../../../util/grid-format';
 import {repackPackedGrid} from '../../snapshot/packing/packed-repack';
 import {BufferedStepBackTarget, StepBackPrefix, StepBackTarget} from '../model/step-back';
 

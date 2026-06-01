@@ -1,8 +1,8 @@
 import {BaseMetricsFrameExportWriter} from './base-metrics-frame-export-writer';
 import {assertNotCancelled, buildMetricsJsonSummary, createBufferedTextEntryWriter, createUniqueMetricsTempFilename, isMissingOpfsEntry, METRICS_TEXT_ENCODER} from './export-logic';
 import {MetricsExportOptions, StreamingMetricsFrameExportResources} from './export-types';
+import {GOLT_TEMP_METRICS_DIR, openTempOpfsDirectory} from '../../../logic/opfs-temp';
 import {RecordingManifest} from '../../../model/recording';
-import {GOLT_TEMP_METRICS_DIR, openTempOpfsDirectory} from '../../../util/opfs-temp';
 import {RecordingFrameSelection} from '../../frame/recording-frame-stream';
 import {ZipWriter} from '../../zip/zip-writer';
 import {buildMetricsCsvHeader, buildMetricsCsvRow} from '../core/csv';

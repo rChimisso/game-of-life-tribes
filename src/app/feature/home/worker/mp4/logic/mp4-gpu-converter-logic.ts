@@ -4,7 +4,7 @@ import {GPU_LABELS} from '../../gpu/gpu-labels';
 import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameUpload} from '../model/mp4-gpu-converter-types';
 import {Mp4OutputSize} from '../model/mp4-types';
 
-import {packedColsForFormat} from '~gol/feature/home/util/grid-format';
+import {packedColsForFormat} from '~gol/feature/home/logic/grid-format';
 
 /**
  * Requests a WebGPU device suitable for MP4 conversion.

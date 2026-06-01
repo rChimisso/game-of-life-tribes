@@ -1,4 +1,4 @@
-import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '../../../util/grid-format';
+import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '../../../logic/grid-format';
 import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, hasGoltMagic, RAW_DEFLATE_CODEC} from '../model/golt-format';
 import {GoltHeader, ParsedGoltState, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
 

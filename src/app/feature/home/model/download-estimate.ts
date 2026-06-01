@@ -1,6 +1,6 @@
 import {DownloadRequestPayload} from './download';
 import {RecordingManifest} from './recording';
-import {gridByteSize, gridFormatFromMetadata} from '../util/grid-format';
+import {gridByteSize, gridFormatFromMetadata} from '../logic/grid-format';
 
 import {Grid} from '~gol/feature/home/model/grid';
 
@@ -267,12 +267,10 @@ function estimateMetricRowBufferBytes(grid: Grid, tribeCount: number): number {
   return grid.cols * bytesPerCell * 4;
 }
 
-export {
-  DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES,
+export {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES,
   METRICS_CSV_LARGE_OUTPUT_BYTES,
   METRICS_ENTRY_STREAM_THRESHOLD_BYTES,
   estimateDownloadWorkingSet,
-  resolveDownloadMode
-};
+  resolveDownloadMode};
 
 export type {DownloadEstimateRecording, DownloadMode, DownloadWorkingSetEstimate};

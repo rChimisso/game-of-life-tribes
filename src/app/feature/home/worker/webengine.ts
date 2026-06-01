@@ -1,4 +1,8 @@
 /* eslint-disable max-lines */
+import renderWgsl from './render.wgsl';
+import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../logic/grid-format';
+import {normalizeLiveMetricsSettings} from '../logic/metric-settings';
+import {postWorkerTransfer} from '../logic/worker-post';
 import {Grid} from '../model/grid';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings, MetricAvailability} from '../model/metrics';
@@ -6,15 +10,11 @@ import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../model/rule';
 import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, LoadSnapshotMessage, ResizeMessage,
   SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
-import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../util/grid-format';
-import {normalizeLiveMetricsSettings} from '../util/metric-settings';
-import {postWorkerTransfer} from '../util/worker-post';
 import {requestWorkerGpuDevice} from './gpu/gpu-device';
 import {GPU_LABELS} from './gpu/gpu-labels';
 import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/interactive/interactive';
 import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/interactive/planner';
 import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
-import renderWgsl from './render.wgsl';
 import {repackPackedGrid} from './snapshot/packing/packed-repack';
 import {createBrushDispatchRects, generateBrushWgsl} from './webengine/logic/brush';
 import {generateComputeWgsl, plan2DDispatch} from './webengine/logic/compute-wgsl';

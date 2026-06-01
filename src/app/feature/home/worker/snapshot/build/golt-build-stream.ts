@@ -1,5 +1,5 @@
+import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '../../../logic/grid-format';
 import {GridFormat} from '../../../model/grid-format';
-import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '../../../util/grid-format';
 import {createGoltPrefix, RAW_DEFLATE_CODEC} from '../model/golt-format';
 import {ByteSink, GoltStateData, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
 import {repackPackedGrid, writeRepackedGridToSink} from '../packing/packed-repack';

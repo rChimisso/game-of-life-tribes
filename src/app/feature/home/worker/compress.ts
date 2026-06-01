@@ -1,6 +1,6 @@
 import '../../../core/function/timestamped-console';
 
-import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../util/grid-format';
+import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../logic/grid-format';
 import {CompressRequest, CompressResult, WorkerInput} from './compress/model/compress-message';
 import {CompressionChunkSource} from './compress/model/compress-runtime';
 

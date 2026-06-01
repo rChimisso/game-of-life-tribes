@@ -1,6 +1,6 @@
 import {HistogramLookup} from './histogram-lookup-types';
+import {packedColsForFormat} from '../../../logic/grid-format';
 import {BitsPerCell, GridFormat} from '../../../model/grid-format';
-import {packedColsForFormat} from '../../../util/grid-format';
 
 import {Grid} from '~gol/feature/home/model/grid';
 

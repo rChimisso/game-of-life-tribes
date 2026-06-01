@@ -2,11 +2,11 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {Button} from '../../../../../shared/component/button/button';
+import {analyzeTribeApplyImpact} from '../../../logic/tribe-impact';
 import {DEAD_TRIBE_ID, EditableTribe, Rule, Tribe} from '../../../model/rule';
 import {UpdateTribesPayload} from '../../../model/sidebar-event';
 import {TribeApplyImpact} from '../../../model/tribe-impact';
 import {TribeSaveEvent} from '../../../model/tribe-save-event';
-import {analyzeTribeApplyImpact} from '../../../util/tribe-impact';
 import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 
 import {TypedChanges} from '~gol/core/model/typed-change';

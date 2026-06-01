@@ -2,8 +2,8 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 
 import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
 import {ExclusiveButtonGroup} from '../../../../../shared/component/exclusive-button-group/exclusive-button-group';
+import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '../../../logic/grid-format';
 import {BitsPerCell, SUPPORTED_SIMULATION_BITS_PER_CELL} from '../../../model/grid-format';
-import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '../../../util/grid-format';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';

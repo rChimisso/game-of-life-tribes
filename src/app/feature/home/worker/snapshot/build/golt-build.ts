@@ -1,5 +1,5 @@
 import {collectGoltStateStream, prepareGoltState, writeGoltStateStream} from './golt-build-stream';
-import {chooseTightStorageGridFormat, gridByteSize} from '../../../util/grid-format';
+import {chooseTightStorageGridFormat, gridByteSize} from '../../../logic/grid-format';
 import {createGoltPrefix, RAW_DEFLATE_CODEC} from '../model/golt-format';
 import {ByteSink, GoltStateData, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
 

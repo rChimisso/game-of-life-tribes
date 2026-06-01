@@ -2,7 +2,7 @@ import {finalizeCrc32, updateCrc32} from './zip-crc32';
 import {ZipEntrySink, ZipEntryWriter} from './zip-types';
 import {createUniqueOpfsFilename, setUint64} from './zip-writer-logic';
 import {CentralDirectoryRecord, ZIP64_END_OF_CENTRAL_DIRECTORY, ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR, ZIP64_EXTRA_FIELD, ZIP64_LIMIT, ZIP_CENTRAL_DIRECTORY, ZIP_DATA_DESCRIPTOR, ZIP_END_OF_CENTRAL_DIRECTORY, ZIP_LOCAL_FILE_HEADER} from './zip-writer-model';
-import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../util/opfs-temp';
+import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../logic/opfs-temp';
 
 /**
  * OPFS-backed ZIP writer using data descriptors for streamed entries.

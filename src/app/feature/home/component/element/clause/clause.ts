@@ -9,8 +9,8 @@ import {SelectOption} from '../../../../../shared/component/select/model/select'
 import {SelectComponent} from '../../../../../shared/component/select/select';
 import {SummaryComponent} from '../../../../../shared/component/summary/summary';
 import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
+import {clausesEqual} from '../../../logic/rule-editor';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../../model/rule';
-import {clausesEqual} from '../../../util/rule-editor';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';

@@ -1,5 +1,7 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 
+import {SeverityLevel} from '../../../core/model/severity-level';
+
 /**
  * Label value pair.
  *
@@ -37,8 +39,8 @@ export class LabelValue {
    * Type of the label.
    *
    * @public
-   * @type {'info' | 'warning' | 'error'}
+   * @type {SeverityLevel}
    */
   @Input()
-  public type: 'info' | 'warning' | 'error' = 'info';
+  public type: SeverityLevel = 'info';
 }

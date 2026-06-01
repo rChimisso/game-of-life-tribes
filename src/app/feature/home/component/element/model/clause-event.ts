@@ -1,4 +1,4 @@
-import {Clause, Tribe} from '../../../model/rule';
+import {Clause, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Clause state change event.

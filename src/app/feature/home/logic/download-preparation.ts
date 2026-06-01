@@ -1,6 +1,8 @@
+import {DownloadCancelledError} from './download-cancelled-error';
+import {estimateDownloadWorkingSet, resolveDownloadMode} from './download-estimate';
 import {clearTempOpfsDirectory} from './opfs-temp';
-import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
-import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES, estimateDownloadWorkingSet, resolveDownloadMode} from '../model/download-estimate';
+import {DownloadRequestPayload} from '../model/download';
+import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES, DownloadMode} from '../model/download-estimate';
 import {HomeDownloadPreparationCallbacks} from '../model/home-download';
 import {PREPARING_SNAPSHOT_STATUS, WAITING_COMPRESSION_JOBS_STATUS} from '../model/home-runtime';
 import {RecordingMessage} from '../model/worker-message';
@@ -49,9 +51,9 @@ async function flushRecordingForDownload(needFrames: boolean, callbacks: HomeDow
  * @param {DownloadRequestPayload} opts download options.
  * @param {(RecordingMessage | null)} flushedRecording flushed recording manifest.
  * @param {HomeDownloadPreparationCallbacks} callbacks preparation callbacks.
- * @returns {ReturnType<typeof resolveDownloadMode>} initial download mode.
+ * @returns {DownloadMode} initial download mode.
  */
-function resolveInitialDownloadMode(opts: DownloadRequestPayload, flushedRecording: RecordingMessage | null, callbacks: HomeDownloadPreparationCallbacks): ReturnType<typeof resolveDownloadMode> {
+function resolveInitialDownloadMode(opts: DownloadRequestPayload, flushedRecording: RecordingMessage | null, callbacks: HomeDownloadPreparationCallbacks): DownloadMode {
   const initialEstimate = estimateDownloadWorkingSet(opts, flushedRecording, callbacks.getTribeCount());
   const initialMode = resolveDownloadMode(initialEstimate, opts.forceChunkDownload);
   callbacks.setEstimateExceedsThreshold(initialEstimate.totalBytes > DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES);
@@ -62,10 +64,10 @@ function resolveInitialDownloadMode(opts: DownloadRequestPayload, flushedRecordi
  * Waits for the required compression state.
  *
  * @async
- * @param {ReturnType<typeof resolveDownloadMode>} initialMode initial download mode.
+ * @param {DownloadMode} initialMode initial download mode.
  * @param {HomeDownloadPreparationCallbacks} callbacks preparation callbacks.
  */
-async function waitForPreparedCompression(initialMode: ReturnType<typeof resolveDownloadMode>, callbacks: HomeDownloadPreparationCallbacks): Promise<void> {
+async function waitForPreparedCompression(initialMode: DownloadMode, callbacks: HomeDownloadPreparationCallbacks): Promise<void> {
   if (initialMode === 'compressed-chunks') {
     console.log('[GOLT] Download waiting for all recording chunks before chunk export');
     await callbacks.waitForCompression('all');

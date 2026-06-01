@@ -1,6 +1,6 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 
-import {SeverityLevel} from '../../../core/model/severity-level';
+import {SeverityLevel} from '~gol/core/model/severity-level';
 
 /**
  * Label value pair.

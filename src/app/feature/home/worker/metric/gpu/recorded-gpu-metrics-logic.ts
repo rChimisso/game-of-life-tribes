@@ -1,7 +1,8 @@
 import {GPU_STATE_BUCKETS} from './recorded-gpu-metrics-model';
-import {GridFormat} from '../../../model/grid-format';
 import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {FrameMetricStats, OfflineMetricComputeOptions} from '../core/offline-compute-types';
+
+import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
  * Creates the device-loss error used to retire the GPU Metrics backend.

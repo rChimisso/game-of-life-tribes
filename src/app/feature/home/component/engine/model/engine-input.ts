@@ -1,4 +1,4 @@
-import {BrushFill, BrushShape, TouchMode} from '../../../model/draw-mode';
+import {BrushFill, BrushShape, TouchMode} from '~gol/feature/home/model/draw-mode';
 
 /**
  * Two-dimensional point used by engine input logic.

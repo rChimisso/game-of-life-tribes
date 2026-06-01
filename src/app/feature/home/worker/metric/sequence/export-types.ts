@@ -1,5 +1,19 @@
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
+
+/**
+ * Text encoder for Metrics ZIP entries.
+ *
+ * @type {TextEncoder}
+ */
+export const METRICS_TEXT_ENCODER = new TextEncoder();
+
+/**
+ * Status label used while Metrics rows are computed.
+ *
+ * @type {string}
+ */
+export const COMPUTING_METRICS_STATUS = 'Computing metrics';
 
 /**
  * Metrics export progress update.
@@ -7,7 +21,7 @@ import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
  * @interface MetricsExportProgress
  * @typedef {MetricsExportProgress}
  */
-interface MetricsExportProgress {
+export interface MetricsExportProgress {
   /**
    * Metrics phase percent.
    *
@@ -28,7 +42,7 @@ interface MetricsExportProgress {
  * @interface MetricsExportOptions
  * @typedef {MetricsExportOptions}
  */
-interface MetricsExportOptions {
+export interface MetricsExportOptions {
   /**
    * Throws or reports cancellation through the caller when true.
    *
@@ -61,7 +75,7 @@ interface MetricsExportOptions {
  * @param {number} rowsProcessed rows processed for the current frame.
  * @param {number} rowsTotal total rows in the current frame.
  */
-type MetricsFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) => void;
+export type MetricsFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) => void;
 
 /**
  * Per-frame Metrics export writer.
@@ -69,7 +83,7 @@ type MetricsFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) =
  * @interface MetricsFrameExportWriter
  * @typedef {MetricsFrameExportWriter}
  */
-interface MetricsFrameExportWriter {
+export interface MetricsFrameExportWriter {
   /**
    * Computes and records Metrics for one frame.
    *
@@ -97,7 +111,7 @@ interface MetricsFrameExportWriter {
  *
  * @typedef {CountingMetricsFrameExportWriter}
  */
-type CountingMetricsFrameExportWriter = MetricsFrameExportWriter & {readonly framesCompleted: number};
+export type CountingMetricsFrameExportWriter = MetricsFrameExportWriter & {readonly framesCompleted: number};
 
 /**
  * Mutable GPU backend holder used when a failed backend is retired.
@@ -105,7 +119,7 @@ type CountingMetricsFrameExportWriter = MetricsFrameExportWriter & {readonly fra
  * @interface RecordedGpuMetricBackendState
  * @typedef {RecordedGpuMetricBackendState}
  */
-interface RecordedGpuMetricBackendState {
+export interface RecordedGpuMetricBackendState {
   /**
    * Active recorded-frame GPU Metrics backend.
    *
@@ -120,7 +134,7 @@ interface RecordedGpuMetricBackendState {
  * @interface StreamingMetricsFrameExportResources
  * @typedef {StreamingMetricsFrameExportResources}
  */
-interface StreamingMetricsFrameExportResources {
+export interface StreamingMetricsFrameExportResources {
   /**
    * Temporary Metrics directory.
    *
@@ -147,4 +161,24 @@ interface StreamingMetricsFrameExportResources {
   filename: string;
 }
 
-export type {CountingMetricsFrameExportWriter, MetricsExportOptions, MetricsExportProgress, MetricsFrameExportWriter, MetricsFrameProgressReporter, RecordedGpuMetricBackendState, StreamingMetricsFrameExportResources};
+/**
+ * Buffered text entry writer.
+ *
+ * @interface BufferedTextEntryWriter
+ * @typedef {BufferedTextEntryWriter}
+ */
+export interface BufferedTextEntryWriter {
+  /**
+   * Writes one text line.
+   *
+   * @param {string} line text line.
+   * @returns {Promise<void>} promise resolved after the line is buffered or flushed.
+   */
+  writeLine(line: string): Promise<void>;
+  /**
+   * Flushes buffered text.
+   *
+   * @returns {Promise<void>} promise resolved after pending text has been written.
+   */
+  flush(): Promise<void>;
+}

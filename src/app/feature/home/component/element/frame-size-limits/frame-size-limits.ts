@@ -1,10 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 
-import {formatBinaryBytes} from '../../../logic/byte-format';
-import {RECORDING_MAX_FRAME_BYTES} from '../../../model/recording-limits';
 import {FrameSizeLimitInfo} from '../model/frame-size-limit';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
+import {RECORDING_MAX_FRAME_BYTES} from '~gol/feature/home/model/recording-limits';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**

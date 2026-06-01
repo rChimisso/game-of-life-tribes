@@ -1,8 +1,9 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
-import {PersistedPreferencesComponent} from '../../../../core/abstract/persisted-preferences-component';
 import {HomeSectionPreferences} from '../../model/preferences';
+
+import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 
 /**
  * Home sidebar section.

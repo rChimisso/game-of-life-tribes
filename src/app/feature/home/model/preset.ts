@@ -1,11 +1,10 @@
 import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, NOT_CLAUSE_KIND, Ruleset} from './rule';
 
-interface Preset {
-  readonly name: string;
-  readonly description: string;
-  readonly ruleset: Ruleset;
-}
-
+/**
+ * Ecosystem simulation preset.
+ *
+ * @type {Preset}
+ */
 const ECOSYSTEM_PRESET: Preset = {
   name: 'Ecosystem',
   description: 'Grass, Rabbits, and Foxes',
@@ -223,6 +222,11 @@ const ECOSYSTEM_PRESET: Preset = {
   }
 };
 
+/**
+ * Conway's Game of Life preset.
+ *
+ * @type {Preset}
+ */
 export const CONWAY_PRESET: Preset = {
   name: 'Conway',
   description: 'Classic Game of Life',
@@ -309,6 +313,36 @@ export const CONWAY_PRESET: Preset = {
   }
 };
 
-export const PRESETS: readonly Preset[] = [CONWAY_PRESET, ECOSYSTEM_PRESET];
+/**
+ * Named application preset.
+ *
+ * @interface Preset
+ * @typedef {Preset}
+ */
+export interface Preset {
+  /**
+   * Preset display name.
+   *
+   * @type {string}
+   */
+  readonly name: string;
+  /**
+   * Preset short description.
+   *
+   * @type {string}
+   */
+  readonly description: string;
+  /**
+   * Ruleset loaded by the preset.
+   *
+   * @type {Ruleset}
+   */
+  readonly ruleset: Ruleset;
+}
 
-export type {Preset};
+/**
+ * Available built-in presets.
+ *
+ * @type {readonly Preset[]}
+ */
+export const PRESETS: readonly Preset[] = [CONWAY_PRESET, ECOSYSTEM_PRESET];

@@ -1,10 +1,10 @@
 import {assertVideoEncoderAvailable, resolveSupportedAvcConfig} from './mp4-avc-config';
+import {Mp4FrameExportWriterImpl} from './mp4-frame-export-writer';
+import {Mp4GpuFrameConverter} from './mp4-gpu-converter';
 import {resolveMp4OutputSize} from './mp4-output-size';
+import {Mp4TempOutput} from './mp4-temp-output';
 import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {Mp4FrameExportWriterImpl} from '../class/mp4-frame-export-writer';
-import {Mp4GpuFrameConverter} from '../class/mp4-gpu-converter';
-import {Mp4TempOutput} from '../class/mp4-temp-output';
 import {Mp4FrameExportOptions} from '../model/mp4-frame-export-types';
 import {Mp4FrameExportWriter} from '../model/mp4-types';
 
@@ -18,19 +18,12 @@ import {Tribe} from '~gol/feature/home/model/rule';
  * @param {ZipWriter} zip target zip archive.
  * @param {Grid} recording recording dimensions.
  * @param {RecordingFrameSelection} selection selected frame range.
- * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {PackedRecordedFrame} firstFrame first selected frame.
  * @param {Mp4FrameExportOptions} options mp4 export options.
  * @returns {Promise<Mp4FrameExportWriter>} MP4 export writer.
  */
-export async function createMp4FrameExportWriter(
-  zip: ZipWriter,
-  recording: Grid,
-  selection: RecordingFrameSelection,
-  tribes: readonly Pick<Tribe, 'id' | 'color'>[],
-  firstFrame: PackedRecordedFrame,
-  options: Mp4FrameExportOptions
-): Promise<Mp4FrameExportWriter> {
+export async function createMp4FrameExportWriter(zip: ZipWriter, recording: Grid, selection: RecordingFrameSelection, tribes: readonly Tribe[], firstFrame: PackedRecordedFrame, options: Mp4FrameExportOptions): Promise<Mp4FrameExportWriter> {
   assertVideoEncoderAvailable();
   const initialOutputSize = resolveMp4OutputSize(recording.cols, recording.rows, true);
   const supportedConfig = await resolveSupportedAvcConfig(initialOutputSize, options);

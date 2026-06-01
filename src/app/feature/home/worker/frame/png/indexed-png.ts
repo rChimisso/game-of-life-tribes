@@ -1,105 +1,9 @@
 import {packIndexedPngScanline} from './indexed-png-row-pack';
 import {writeIendChunk, writeIhdrChunk, writePlteChunk, writePngChunk, writePngSignature} from './png-crc';
-import {IndexedPngFrameOptions, IndexedPngPalette, PngByteSink} from './png-types';
+import {CompressedPumpState, IDAT_CHUNK_TYPE, IndexedPngFrameOptions, IndexedPngPalette, PNG_EXPORT_CANCELLED_ERROR_MESSAGE, PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES, PngCancellableResult, PngCancellationState} from './png-types';
+import {ByteSink} from '../../snapshot/model/golt-types';
 import {decodePackedRow} from '../../snapshot/packing/packed-access';
 import {PackedRecordedFrame} from '../recording-frame-types';
-
-/**
- * Memory budget for one PNG scanline write block.
- *
- * @type {number}
- */
-const PNG_SCANLINE_BLOCK_MEMORY_BUDGET_BYTES = 32 * 1024 * 1024;
-
-/**
- * PNG image-data chunk type.
- *
- * @type {string}
- */
-const IDAT_CHUNK_TYPE = 'IDAT';
-
-/**
- * Observed state for the parallel compressor output pump.
- *
- * @interface CompressedPumpState
- * @typedef {CompressedPumpState}
- */
-interface CompressedPumpState {
-  /**
-   * Error captured from the compressor output pump.
-   *
-   * @type {(unknown | null)}
-   */
-  error: unknown | null;
-}
-
-/**
- * Cancellation state shared by PNG stream operations.
- *
- * @interface PngCancellationState
- * @typedef {PngCancellationState}
- */
-interface PngCancellationState {
-  /**
-   * Whether cancellation has been requested.
-   *
-   * @type {boolean}
-   */
-  cancelled: boolean;
-  /**
-   * Promise resolved when cancellation is requested.
-   *
-   * @type {Promise<void>}
-   */
-  promise: Promise<void>;
-  /**
-   * Removes the active cancellation listener.
-   *
-   * @type {() => void}
-   */
-  unregister: () => void;
-}
-
-/**
- * Result of an awaited operation raced against PNG cancellation.
- *
- * @typedef {PngCancellableResult}
- * @template T
- */
-type PngCancellableResult<T> = {
-  /**
-   * Operation result type.
-   *
-   * @type {'value'}
-   */
-  type: 'value';
-  /**
-   * Operation result value.
-   *
-   * @type {T}
-   */
-  value: T;
-} | {
-  /**
-   * Operation result type.
-   *
-   * @type {'error'}
-   */
-  type: 'error';
-  /**
-   * Operation rejection reason.
-   *
-   * @type {unknown}
-   */
-  error: unknown;
-} | {
-  /**
-   * Operation result type.
-   *
-   * @type {'cancelled'}
-   */
-  type: 'cancelled';
-};
 
 /**
  * Writes decoded and packed scanlines into the PNG compressor.
@@ -170,11 +74,11 @@ async function writeScanlineBlock(writer: WritableStreamDefaultWriter<BufferSour
  *
  * @async
  * @param {ReadableStreamDefaultReader<Uint8Array>} reader compressor output reader.
- * @param {PngByteSink} sink target png byte sink.
+ * @param {ByteSink} sink target png byte sink.
  * @param {IndexedPngFrameOptions} options png encode options.
  * @param {PngCancellationState} cancellation active cancellation state.
  */
-async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Array>, sink: PngByteSink, options: IndexedPngFrameOptions, cancellation: PngCancellationState): Promise<void> {
+async function pumpCompressedChunks(reader: ReadableStreamDefaultReader<Uint8Array>, sink: ByteSink, options: IndexedPngFrameOptions, cancellation: PngCancellationState): Promise<void> {
   let done = false;
   while (!done) {
     assertNotCancelled(options);
@@ -239,7 +143,7 @@ async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: P
     throw result.error;
   }
   if (result.type === 'cancelled') {
-    throw new Error('PNG export cancelled');
+    throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
   return result.value;
 }
@@ -287,7 +191,7 @@ function abortCompressorWriter(writer: WritableStreamDefaultWriter<BufferSource>
  */
 function assertNotCancelled(options: IndexedPngFrameOptions): void {
   if (options.shouldCancel()) {
-    throw new Error('PNG export cancelled');
+    throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
 }
 
@@ -298,7 +202,7 @@ function assertNotCancelled(options: IndexedPngFrameOptions): void {
  */
 function assertPngCancellationState(cancellation: PngCancellationState): void {
   if (cancellation.cancelled) {
-    throw new Error('PNG export cancelled');
+    throw new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
 }
 
@@ -306,12 +210,12 @@ function assertPngCancellationState(cancellation: PngCancellationState): void {
  * Writes one recorded frame as a streaming indexed-color PNG.
  *
  * @async
- * @param {PngByteSink} sink target PNG byte sink.
+ * @param {ByteSink} sink target PNG byte sink.
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {IndexedPngPalette} palette indexed-color palette.
  * @param {IndexedPngFrameOptions} options png encode options.
  */
-export async function writeIndexedPngFrame(sink: PngByteSink, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions): Promise<void> {
+export async function writeIndexedPngFrame(sink: ByteSink, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions): Promise<void> {
   assertNotCancelled(options);
   await writePngSignature(sink);
   await writeIhdrChunk(sink, frame.cols, frame.rows, palette.bitDepth);
@@ -322,7 +226,7 @@ export async function writeIndexedPngFrame(sink: PngByteSink, frame: PackedRecor
   const compressedPumpState: CompressedPumpState = {error: null};
   let writerClosed = false;
   const cancellation = createPngCancellationState(options, () => {
-    abortCompressorWriter(writer, new Error('PNG export cancelled'));
+    abortCompressorWriter(writer, new Error(PNG_EXPORT_CANCELLED_ERROR_MESSAGE));
   });
   const compressedPump = observeCompressedPump(pumpCompressedChunks(reader, sink, options, cancellation), compressedPumpState);
   try {

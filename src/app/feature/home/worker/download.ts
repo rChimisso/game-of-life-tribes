@@ -1,17 +1,24 @@
-import '../../../core/function/timestamped-console';
+import '~gol/core/function/timestamped-console';
 
+import {DownloadCancelledError} from '../logic/download-cancelled-error';
+import {estimateDownloadWorkingSet, resolveDownloadMode} from '../logic/download-estimate';
 import {alignPackedBytesToWords} from '../logic/grid-format';
-import {DownloadCancelledError, DownloadRequestPayload} from '../model/download';
-import {DownloadWorkingSetEstimate, METRICS_CSV_LARGE_OUTPUT_BYTES, estimateDownloadWorkingSet, resolveDownloadMode} from '../model/download-estimate';
+import {DownloadRequestPayload} from '../model/download';
+import {DownloadWorkingSetEstimate, METRICS_CSV_LARGE_OUTPUT_BYTES} from '../model/download-estimate';
+import {Recording} from '../model/recording';
+import {Rule, Tribe} from '../model/rule';
 import {DownloadCancelListener, DownloadRequest, DownloadWorkerEvent} from './download/model/download-worker-message';
 import {PngFrameExportWriter} from './frame/png/png-frame-export-writer';
-import {iterateRecordedFrames, resolveRecordingFrameSelection, RecordingFrameSelection} from './frame/recording-frame-stream';
-import {createMetricsExportWriter, MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export';
+import {resolveRecordingFrameSelection, iterateRecordedFrames} from './frame/recording-frame-stream';
+import {RecordingFrameSelection} from './frame/recording-frame-types';
+import {createMetricsExportWriter} from './metric/sequence/export';
+import {MetricsExportOptions, MetricsFrameProgressReporter} from './metric/sequence/export-types';
 import {createMp4FrameExportWriter} from './mp4/logic/mp4-frame-export-factory';
+import {Mp4FrameExportOptions} from './mp4/model/mp4-frame-export-types';
 import {Mp4FrameExportWriter} from './mp4/model/mp4-types';
 import {writeCompressedChunkExport} from './recording-export/compressed-chunk-export';
 import {writeGoltStateStream} from './snapshot/build/golt-build-stream';
-import {GoltStateData, SnapshotProgressReporter, SnapshotStreamOptions} from './snapshot/model/golt-types';
+import {ParsedGoltState, SnapshotProgressReporter, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {readRecordingFrame} from './snapshot/recording/recording-frame-reader';
 import {resolveRecordingFrameRef} from './snapshot/recording/recording-frame-ref';
 import {ZipWriter} from './zip/zip-writer';
@@ -273,12 +280,12 @@ function formatBytes(bytes: number): string {
  * @async
  * @param {ZipWriter} zip zip writer.
  * @param {DownloadRequestPayload} opts selected download options.
- * @param {DownloadRequest['snapshot']} snapshot current snapshot fallback.
- * @param {DownloadRequest['recording']} recording recording manifest, if available.
- * @param {DownloadRequest['tribes']} tribes snapshot tribe metadata.
- * @param {GoltStateData['rules']} rules snapshot rule metadata.
+ * @param {ParsedGoltState} snapshot current snapshot fallback.
+ * @param {(Recording | null)} recording recording manifest, if available.
+ * @param {readonly Tribe[]} tribes snapshot tribe metadata.
+ * @param {Rule<Tribe[]>[]} rules snapshot rule metadata.
  */
-async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, snapshot: DownloadRequest['snapshot'], recording: DownloadRequest['recording'], tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
+async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, snapshot: ParsedGoltState, recording: Recording | null, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): Promise<void> {
   throwIfCancelled();
   if (opts.saves && recording && recording.manifest.chunks.length > 0) {
     await writeRecordedSaveEntries(zip, opts, recording, tribes, rules);
@@ -302,11 +309,11 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
  * @async
  * @param {ZipWriter} zip zip writer.
  * @param {DownloadRequestPayload} opts selected download options.
- * @param {NonNullable<DownloadRequest['recording']>} recording recording manifest and dimensions.
- * @param {DownloadRequest['tribes']} tribes snapshot tribe metadata.
- * @param {GoltStateData['rules']} rules snapshot rule metadata.
+ * @param {Recording} recording recording manifest and dimensions.
+ * @param {readonly Tribe[]} tribes snapshot tribe metadata.
+ * @param {Rule<Tribe[]>[]} rules snapshot rule metadata.
  */
-async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: NonNullable<DownloadRequest['recording']>, tribes: DownloadRequest['tribes'], rules: GoltStateData['rules']): Promise<void> {
+async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): Promise<void> {
   postProgress(SAVE_WRITE_PROGRESS_START, 'Resolving selected frames');
   throwIfCancelled();
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
@@ -355,11 +362,11 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
  * @async
  * @param {ZipWriter} zip zip writer.
  * @param {DownloadRequestPayload} opts selected download options.
- * @param {NonNullable<DownloadRequest['recording']>} recording recording manifest and dimensions.
- * @param {DownloadRequest['tribes']} tribes snapshot tribe metadata.
+ * @param {Recording} recording recording manifest and dimensions.
+ * @param {readonly Tribe[]} tribes snapshot tribe metadata.
  * @param {DownloadWorkingSetEstimate} estimate download working-set estimate.
  */
-async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: NonNullable<DownloadRequest['recording']>, tribes: DownloadRequest['tribes'], estimate: DownloadWorkingSetEstimate): Promise<void> {
+async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
   const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, createDownloadSnapshotStreamOptions()) : null;
@@ -427,9 +434,9 @@ function createSharedMetricsOptions(estimate: DownloadWorkingSetEstimate): Metri
  * Creates MP4 options for shared frame-output orchestration.
  *
  * @param {DownloadRequestPayload} opts selected download options.
- * @returns {Parameters<typeof createMp4FrameExportWriter>[5]} MP4 export options.
+ * @returns {Mp4FrameExportOptions} MP4 export options.
  */
-function createSharedMp4Options(opts: DownloadRequestPayload): Parameters<typeof createMp4FrameExportWriter>[5] {
+function createSharedMp4Options(opts: DownloadRequestPayload): Mp4FrameExportOptions {
   return {
     fps: opts.fps,
     bitrate: opts.bitrate,

@@ -1,4 +1,6 @@
 /* eslint-disable max-lines */
+import '~gol/core/function/timestamped-console';
+
 import renderWgsl from './render.wgsl';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../logic/grid-format';
 import {normalizeLiveMetricsSettings} from '../logic/metric-settings';
@@ -8,13 +10,12 @@ import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-forma
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings, MetricAvailability} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../model/rule';
-import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, LoadSnapshotMessage, ResizeMessage,
-  SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
+import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, LoadSnapshotMessage, ResizeMessage, SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
 import {requestWorkerGpuDevice} from './gpu/gpu-device';
 import {GPU_LABELS} from './gpu/gpu-labels';
-import {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics} from './metric/interactive/interactive';
+import {buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, readInteractiveMetrics} from './metric/interactive/interactive';
 import {activeInteractiveMetricSections, planInteractiveMetricAvailability} from './metric/interactive/planner';
-import {InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
+import {BOUNDARY_BUFFER_SIZE, HISTOGRAM_BUFFER_SIZE, InteractiveMetricSection, InteractiveMetricsResources} from './metric/interactive/types';
 import {repackPackedGrid} from './snapshot/packing/packed-repack';
 import {createBrushDispatchRects, generateBrushWgsl} from './webengine/logic/brush';
 import {generateComputeWgsl, plan2DDispatch} from './webengine/logic/compute-wgsl';
@@ -28,7 +29,6 @@ import {OPFS_DIR, RAW_DEFLATE_CODEC, RAW_PACKED_CODEC, STAGING_RING_SIZE} from '
 import {TRIBE_COLOR_BUFFER_SIZE, UNIFORM_SIZE} from './webengine/model/render';
 import {PumpSchedule, StopRunOptions} from './webengine/model/run-control';
 import {RunKind, RunRequest, RunState, RunStopReason} from './webengine/model/run-state';
-import '../../../core/function/timestamped-console';
 
 /**
  * Active worker GPU device.

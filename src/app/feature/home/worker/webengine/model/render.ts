@@ -1,5 +1,6 @@
 import {BrushPreview} from './brush';
-import {Grid} from '../../../model/grid';
+
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Maximum number of tribe colors stored in the render lookup buffer.

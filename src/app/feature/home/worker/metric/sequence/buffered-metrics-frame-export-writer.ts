@@ -1,5 +1,6 @@
 import {BaseMetricsFrameExportWriter} from './base-metrics-frame-export-writer';
-import {assertNotCancelled, METRICS_TEXT_ENCODER} from './export-logic';
+import {assertNotCancelled} from './export-logic';
+import {METRICS_TEXT_ENCODER} from './export-types';
 import {buildMetricsCsv} from '../core/csv';
 import {buildMetricsJson} from '../core/json';
 import {OfflineMetricEntry} from '../core/offline-types';

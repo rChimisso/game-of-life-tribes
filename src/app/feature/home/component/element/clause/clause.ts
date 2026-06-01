@@ -4,18 +4,18 @@ import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
-import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
-import {SelectOption} from '../../../../../shared/component/select/model/select';
-import {SelectComponent} from '../../../../../shared/component/select/select';
-import {SummaryComponent} from '../../../../../shared/component/summary/summary';
-import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
-import {clausesEqual} from '../../../logic/rule-editor';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../../model/rule';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {clausesEqual} from '~gol/feature/home/logic/rule-editor';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
+import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
+import {SelectOption} from '~gol/shared/component/select/model/select';
+import {SelectComponent} from '~gol/shared/component/select/select';
+import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
+import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 
 /**

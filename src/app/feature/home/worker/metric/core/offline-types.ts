@@ -4,7 +4,7 @@
  * @interface OfflineMetricEntry
  * @typedef {OfflineMetricEntry}
  */
-interface OfflineMetricEntry {
+export interface OfflineMetricEntry {
   /**
    * Message-compatible metric type.
    *
@@ -133,7 +133,7 @@ interface OfflineMetricEntry {
  * @interface AttractorEpisode
  * @typedef {AttractorEpisode}
  */
-interface AttractorEpisode {
+export interface AttractorEpisode {
   /**
    * Whether a periodic orbit longer than one frame was reached.
    *
@@ -184,7 +184,7 @@ interface AttractorEpisode {
  * @interface ExtinctionEpisode
  * @typedef {ExtinctionEpisode}
  */
-interface ExtinctionEpisode {
+export interface ExtinctionEpisode {
   /**
    * First observed generation where the tribe was absent after being alive.
    *
@@ -211,7 +211,7 @@ interface ExtinctionEpisode {
  * @interface MetricsJsonSummary
  * @typedef {MetricsJsonSummary}
  */
-interface MetricsJsonSummary {
+export interface MetricsJsonSummary {
   /**
    * First exported generation.
    *
@@ -279,5 +279,3 @@ interface MetricsJsonSummary {
    */
   extinctions: Record<string, ExtinctionEpisode[]>;
 }
-
-export type {AttractorEpisode, ExtinctionEpisode, MetricsJsonSummary, OfflineMetricEntry};

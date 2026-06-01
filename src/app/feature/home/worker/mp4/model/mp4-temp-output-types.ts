@@ -4,7 +4,7 @@
  * @param {number} bytesWritten copied bytes.
  * @param {number} totalBytes mp4 file bytes.
  */
-type Mp4ZipCopyProgressReporter = (bytesWritten: number, totalBytes: number) => void;
+export type Mp4ZipCopyProgressReporter = (bytesWritten: number, totalBytes: number) => void;
 
 /**
  * Options used while writing the finalized MP4 to the ZIP.
@@ -12,7 +12,7 @@ type Mp4ZipCopyProgressReporter = (bytesWritten: number, totalBytes: number) => 
  * @interface Mp4ZipCopyOptions
  * @typedef {Mp4ZipCopyOptions}
  */
-interface Mp4ZipCopyOptions {
+export interface Mp4ZipCopyOptions {
   /**
    * Returns whether the active download has been cancelled.
    *
@@ -26,5 +26,3 @@ interface Mp4ZipCopyOptions {
    */
   onProgress: Mp4ZipCopyProgressReporter;
 }
-
-export type {Mp4ZipCopyOptions, Mp4ZipCopyProgressReporter};

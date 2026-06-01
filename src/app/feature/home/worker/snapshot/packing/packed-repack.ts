@@ -1,9 +1,9 @@
 import {readPackedCell, writePackedCell} from './packed-access';
-import {gridByteSize, packedColsForFormat} from '../../../logic/grid-format';
-import {GridFormat} from '../../../model/grid-format';
 import {ByteSink, SnapshotProgressReporter, STREAM_REPACK_BLOCK_BYTES} from '../model/golt-types';
 
+import {gridByteSize, packedColsForFormat} from '~gol/feature/home/logic/grid-format';
 import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
  * Reports packed-grid streaming progress.

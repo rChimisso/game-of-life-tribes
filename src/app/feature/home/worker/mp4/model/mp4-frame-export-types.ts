@@ -1,11 +1,9 @@
-import type {Output} from 'mediabunny';
+import type {Output, StreamTargetChunk} from 'mediabunny';
 
 import {SupportedMp4VideoConfig} from './mp4-avc-types';
 import {Mp4OutputSize} from './mp4-types';
-import {RecordingFrameSelection} from '../../frame/recording-frame-types';
+import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {Mp4GpuFrameConverter} from '../class/mp4-gpu-converter';
-import {Mp4TempOutput} from '../class/mp4-temp-output';
 
 /**
  * Encoded packets queued before the writer waits for muxer backpressure.
@@ -69,6 +67,58 @@ export interface Mp4FrameExportOptions {
 }
 
 /**
+ * Temporary MP4 output resource used by the writer.
+ *
+ * @interface Mp4TempOutputResource
+ * @typedef {Mp4TempOutputResource}
+ */
+export interface Mp4TempOutputResource {
+  /**
+   * Creates the writable stream used by Mediabunny.
+   *
+   * @returns {WritableStream<StreamTargetChunk>} MP4 byte target stream.
+   */
+  createWritableStream(): WritableStream<StreamTargetChunk>;
+  /**
+   * Writes the finalized MP4 file into the ZIP archive.
+   *
+   * @param {ZipWriter} zip target ZIP archive.
+   * @param {{shouldCancel: () => boolean; onProgress: (bytesWritten: number, totalBytes: number) => void}} options zip copy options.
+   * @returns {Promise<void>} promise resolved after the MP4 is copied.
+   */
+  writeToZip(zip: ZipWriter, options: {shouldCancel: () => boolean; onProgress: (bytesWritten: number, totalBytes: number) => void}): Promise<void>;
+  /**
+   * Releases temporary MP4 resources.
+   *
+   * @returns {Promise<void>} promise resolved after disposal.
+   */
+  dispose(): Promise<void>;
+}
+
+/**
+ * GPU frame converter resource used by the writer.
+ *
+ * @interface Mp4GpuFrameConverterResource
+ * @typedef {Mp4GpuFrameConverterResource}
+ */
+export interface Mp4GpuFrameConverterResource {
+  /**
+   * Converts one packed recorded frame to a VideoFrame.
+   *
+   * @param {PackedRecordedFrame} frame packed recorded frame.
+   * @param {number} timestampUs frame timestamp in microseconds.
+   * @param {number} durationUs frame duration in microseconds.
+   * @param {() => boolean} shouldCancel cancellation predicate.
+   * @returns {Promise<VideoFrame>} converted video frame.
+   */
+  convert(frame: PackedRecordedFrame, timestampUs: number, durationUs: number, shouldCancel: () => boolean): Promise<VideoFrame>;
+  /**
+   * Releases GPU resources held by the converter.
+   */
+  dispose(): void;
+}
+
+/**
  * Resources owned by an MP4 frame export writer.
  *
  * @interface Mp4FrameExportWriterResources
@@ -102,15 +152,15 @@ export interface Mp4FrameExportWriterResources {
   /**
    * Temporary OPFS output.
    *
-   * @type {Mp4TempOutput}
+   * @type {Mp4TempOutputResource}
    */
-  tempOutput: Mp4TempOutput;
+  tempOutput: Mp4TempOutputResource;
   /**
    * GPU frame converter.
    *
-   * @type {Mp4GpuFrameConverter}
+   * @type {Mp4GpuFrameConverterResource}
    */
-  converter: Mp4GpuFrameConverter;
+  converter: Mp4GpuFrameConverterResource;
   /**
    * MP4 export options.
    *

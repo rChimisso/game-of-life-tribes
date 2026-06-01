@@ -1,8 +1,9 @@
-import {Grid} from '../../../model/grid';
-import {GridFormat} from '../../../model/grid-format';
-import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, Tribe, XOR_CLAUSE_KIND} from '../../../model/rule';
 import {COMPARISON_OPERATOR_WGSL} from '../model/comparison-operator-wgsl';
 import {DispatchPlan2D} from '../model/dispatch-plan';
+
+import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Emits remapped dispatch constants when the workgroups cannot be submitted directly.
@@ -148,13 +149,13 @@ function pushEqualityCountDeclarations(lines: string[], countVarMap: Map<string,
  * Emits the first-match-wins rule chain.
  *
  * @param {string[]} lines WGSL output lines.
- * @param {Ruleset<readonly Tribe[]>['rules']} activeRules active unmuted rules.
+ * @param {Rule<readonly Tribe[]>[]} activeRules active unmuted rules.
  * @param {Map<string, string>} countVarMap count variable mapping.
  * @param {Map<string, string>} eqVarMap equality variable mapping.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  */
-function pushRuleChain(lines: string[], activeRules: Ruleset<readonly Tribe[]>['rules'], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
+function pushRuleChain(lines: string[], activeRules: Rule<readonly Tribe[]>[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
   for (let index = 0; index < activeRules.length; index++) {
     const rule = activeRules[index]!;
     const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
@@ -455,8 +456,11 @@ function generateClosedRangeExpr(varName: string, min: number, max: number): str
  * @returns {string} WGSL comparison expression.
  */
 function generateComparisonClauseExpr(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
-  // eslint-disable-next-line max-len
-  return `(i32(${eqVarMap.get(resolveTribeIds(clause.tribe1 as string[], tribes, tribeIndex).sort().join(','))}) ${COMPARISON_OPERATOR_WGSL[clause.operator] ?? '=='} (i32(${eqVarMap.get(resolveTribeIds(clause.tribe2 as string[], tribes, tribeIndex).sort().join(','))}) + ${Math.max(-8, Math.min(8, clause.margin ?? 0))}i))`;
+  const leftTribeIds = resolveTribeIds(clause.tribe1 as string[], tribes, tribeIndex).sort().join(',');
+  const rightTribeIds = resolveTribeIds(clause.tribe2 as string[], tribes, tribeIndex).sort().join(',');
+  const operator = COMPARISON_OPERATOR_WGSL[clause.operator] ?? '==';
+  const margin = Math.max(-8, Math.min(8, clause.margin ?? 0));
+  return `(i32(${eqVarMap.get(leftTribeIds)}) ${operator} (i32(${eqVarMap.get(rightTribeIds)}) + ${margin}i))`;
 }
 
 /**

@@ -2,8 +2,9 @@ import {CompressedChunkExportOptions, CompressedChunkExportRequest, PlannedCompr
 import {gridByteSize, gridFormatFromMetadata} from '../../logic/grid-format';
 import {openTempOpfsDirectory} from '../../logic/opfs-temp';
 import {GOLT_TEMP_DOWNLOAD_DIR} from '../../model/opfs';
-import {RecordingManifest} from '../../model/recording';
+import {ChunkMeta, RecordingManifest} from '../../model/recording';
 import {resolveRecordingFrameSelection} from '../frame/recording-frame-stream';
+import {RecordingFrameSelection} from '../frame/recording-frame-types';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
 import {ByteSink} from '../snapshot/model/golt-types';
 import {ZipWriter} from '../zip/zip-writer';
@@ -144,9 +145,9 @@ async function rebuildBoundaryChunk(
  * @param {string} codec chunk codec.
  * @param {number} storedBytes stored byte count.
  * @param {number} uncompressedBytes uncompressed byte count.
- * @returns {RecordingManifest['chunks'][number]} output chunk metadata.
+ * @returns {ChunkMeta} output chunk metadata.
  */
-function createOutputChunkMeta(plan: PlannedCompressedChunk, outputIndex: number, codec: string, storedBytes: number, uncompressedBytes: number): RecordingManifest['chunks'][number] {
+function createOutputChunkMeta(plan: PlannedCompressedChunk, outputIndex: number, codec: string, storedBytes: number, uncompressedBytes: number): ChunkMeta {
   const generations = plan.sourceChunk.generations.slice(plan.localStart, plan.localEnd + 1);
   return {
     chunkId: outputIndex,
@@ -178,10 +179,10 @@ function createOutputChunkFilename(index: number): string {
  * @async
  * @param {ZipWriter} zip target ZIP writer.
  * @param {CompressedChunkExportRequest} request compressed chunk request.
- * @param {ReturnType<typeof resolveRecordingFrameSelection>} selection selected frame span.
+ * @param {RecordingFrameSelection} selection selected frame span.
  * @param {PreparedCompressedChunk[]} chunks output chunks.
  */
-async function writeChunkManifest(zip: ZipWriter, request: CompressedChunkExportRequest, selection: ReturnType<typeof resolveRecordingFrameSelection>, chunks: PreparedCompressedChunk[]): Promise<void> {
+async function writeChunkManifest(zip: ZipWriter, request: CompressedChunkExportRequest, selection: RecordingFrameSelection, chunks: PreparedCompressedChunk[]): Promise<void> {
   await writeJsonEntry(zip, 'manifest.json', {
     version: COMPRESSED_CHUNK_EXPORT_VERSION,
     cols: request.recording.cols,
@@ -315,12 +316,7 @@ async function writeDeflatedBytesToOpfs(bytes: Uint8Array, fileHandle: FileSyste
  * @param {CompressedChunkExportOptions} options cancellation hooks.
  * @param {(bytesWritten: number) => void} onBytesWritten compressed byte callback.
  */
-async function pumpDeflatedBytesToOpfs(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  writable: FileSystemWritableFileStream,
-  options: CompressedChunkExportOptions,
-  onBytesWritten: (bytesWritten: number) => void
-): Promise<void> {
+async function pumpDeflatedBytesToOpfs(reader: ReadableStreamDefaultReader<Uint8Array>, writable: FileSystemWritableFileStream, options: CompressedChunkExportOptions, onBytesWritten: (bytesWritten: number) => void): Promise<void> {
   let done = false;
   while (!done) {
     assertNotCancelled(options);

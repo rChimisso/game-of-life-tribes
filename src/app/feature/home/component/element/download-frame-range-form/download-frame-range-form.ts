@@ -1,13 +1,12 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {AbstractControl, FormControl, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 
-import {FormComponent} from '../../../../../core/abstract/form-component';
-import {FormType} from '../../../../../core/model/form-type';
-import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {DownloadFrameRangeFormValue} from '../../../model/download';
-
+import {FormComponent} from '~gol/core/abstract/form-component';
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {DownloadFrameRangeFormValue} from '~gol/feature/home/model/download';
+import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
+import {InputComponent} from '~gol/shared/component/input/input';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**

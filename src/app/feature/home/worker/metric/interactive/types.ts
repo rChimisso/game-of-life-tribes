@@ -1,14 +1,27 @@
-import {GridFormat} from '../../../model/grid-format';
-import {LiveMetricSectionSettings, MetricAvailability} from '../../../model/metrics';
-import {Tribe} from '../../../model/rule';
-import {MetricMessage} from '../../../model/worker-message';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {LiveMetricSectionSettings, MetricAvailability} from '~gol/feature/home/model/metrics';
+import {Tribe} from '~gol/feature/home/model/rule';
+
+/**
+ * Histogram buffer size in bytes.
+ *
+ * @type {number}
+ */
+export const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
+
+/**
+ * Boundary buffer size in bytes.
+ *
+ * @type {number}
+ */
+export const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 
 /**
  * Interactive metric section computed by the live WebGPU metrics pipeline.
  *
  * @typedef {InteractiveMetricSection}
  */
-type InteractiveMetricSection = 'population' | 'diversity' | 'interfaces';
+export type InteractiveMetricSection = 'population' | 'diversity' | 'interfaces';
 
 /**
  * Two-dimensional metrics dispatch plan.
@@ -16,7 +29,7 @@ type InteractiveMetricSection = 'population' | 'diversity' | 'interfaces';
  * @interface MetricsDispatchPlan2D
  * @typedef {MetricsDispatchPlan2D}
  */
-interface MetricsDispatchPlan2D {
+export interface MetricsDispatchPlan2D {
   /**
    * Logical workgroup count on the x axis.
    *
@@ -55,7 +68,7 @@ interface MetricsDispatchPlan2D {
  * @interface InteractiveMetricsResources
  * @typedef {InteractiveMetricsResources}
  */
-interface InteractiveMetricsResources {
+export interface InteractiveMetricsResources {
   /**
    * Histogram compute pipeline.
    *
@@ -100,7 +113,7 @@ interface InteractiveMetricsResources {
  * @interface CreateInteractiveMetricsResourcesRequest
  * @typedef {CreateInteractiveMetricsResourcesRequest}
  */
-interface CreateInteractiveMetricsResourcesRequest {
+export interface CreateInteractiveMetricsResourcesRequest {
   /**
    * WebGPU device.
    *
@@ -139,7 +152,7 @@ interface CreateInteractiveMetricsResourcesRequest {
  * @interface EncodeInteractiveMetricsRequest
  * @typedef {EncodeInteractiveMetricsRequest}
  */
-interface EncodeInteractiveMetricsRequest {
+export interface EncodeInteractiveMetricsRequest {
   /**
    * WebGPU device.
    *
@@ -184,7 +197,7 @@ interface EncodeInteractiveMetricsRequest {
  * @interface ReadInteractiveMetricsRequest
  * @typedef {ReadInteractiveMetricsRequest}
  */
-interface ReadInteractiveMetricsRequest {
+export interface ReadInteractiveMetricsRequest {
   /**
    * Live metric GPU resources.
    *
@@ -205,7 +218,7 @@ interface ReadInteractiveMetricsRequest {
  * @interface InteractiveMetricsReadback
  * @typedef {InteractiveMetricsReadback}
  */
-interface InteractiveMetricsReadback {
+export interface InteractiveMetricsReadback {
   /**
    * Population histogram by state index.
    *
@@ -226,7 +239,7 @@ interface InteractiveMetricsReadback {
  * @interface BuildMetricMessageRequest
  * @typedef {BuildMetricMessageRequest}
  */
-interface BuildMetricMessageRequest {
+export interface BuildMetricMessageRequest {
   /**
    * Generation represented by the metrics.
    *
@@ -312,13 +325,3 @@ interface BuildMetricMessageRequest {
    */
   recordingRawBytes: number;
 }
-
-/**
- * Live metric message emitted by the worker.
- *
- * @typedef {InteractiveMetricMessage}
- */
-type InteractiveMetricMessage = MetricMessage;
-
-export type {BuildMetricMessageRequest, CreateInteractiveMetricsResourcesRequest, EncodeInteractiveMetricsRequest, InteractiveMetricMessage, InteractiveMetricSection};
-export type {InteractiveMetricsReadback, InteractiveMetricsResources, MetricsDispatchPlan2D, ReadInteractiveMetricsRequest};

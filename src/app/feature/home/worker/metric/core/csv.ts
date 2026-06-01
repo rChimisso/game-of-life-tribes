@@ -1,7 +1,7 @@
 import {MetricsCsvColumns} from './csv-types';
-import {OfflineMetricsTribe} from './offline';
 import {OfflineMetricEntry} from './offline-types';
-import {DEAD_TRIBE_ID} from '../../../model/rule';
+
+import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Converts nullable metric values to CSV cells.
@@ -27,10 +27,10 @@ function csvCell(value: number | string): string {
 /**
  * Builds CSV column groups for Metrics rows.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {MetricsCsvColumns} CSV column groups.
  */
-function buildMetricsCsvColumns(tribes: readonly OfflineMetricsTribe[]): MetricsCsvColumns {
+function buildMetricsCsvColumns(tribes: readonly Tribe[]): MetricsCsvColumns {
   const populationColumns = tribes.map(tribe => tribe.id);
   const frontierColumns = tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID).map(tribe => tribe.id);
   const header = [
@@ -64,10 +64,10 @@ function buildMetricsCsvColumns(tribes: readonly OfflineMetricsTribe[]): Metrics
 /**
  * Builds the Metrics CSV header row.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {string} encoded CSV header row.
  */
-export function buildMetricsCsvHeader(tribes: readonly OfflineMetricsTribe[]): string {
+export function buildMetricsCsvHeader(tribes: readonly Tribe[]): string {
   return buildMetricsCsvColumns(tribes).header.map(csvCell).join(',');
 }
 
@@ -75,10 +75,10 @@ export function buildMetricsCsvHeader(tribes: readonly OfflineMetricsTribe[]): s
  * Builds one Metrics CSV data row.
  *
  * @param {OfflineMetricEntry} metric offline metric row.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {string} encoded CSV data row.
  */
-export function buildMetricsCsvRow(metric: OfflineMetricEntry, tribes: readonly OfflineMetricsTribe[]): string {
+export function buildMetricsCsvRow(metric: OfflineMetricEntry, tribes: readonly Tribe[]): string {
   const {populationColumns, frontierColumns} = buildMetricsCsvColumns(tribes);
   const row = [
     metric.generation,
@@ -108,9 +108,9 @@ export function buildMetricsCsvRow(metric: OfflineMetricEntry, tribes: readonly 
  * Builds the Metrics CSV document.
  *
  * @param {readonly OfflineMetricEntry[]} metrics offline metric rows.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {string} CSV document.
  */
-export function buildMetricsCsv(metrics: readonly OfflineMetricEntry[], tribes: readonly OfflineMetricsTribe[]): string {
+export function buildMetricsCsv(metrics: readonly OfflineMetricEntry[], tribes: readonly Tribe[]): string {
   return [buildMetricsCsvHeader(tribes), ...metrics.map(metric => buildMetricsCsvRow(metric, tribes))].join('\n');
 }

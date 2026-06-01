@@ -1,5 +1,6 @@
 import {InteractiveMetricSection} from './types';
-import {LiveMetricSectionSettings, MetricAvailability, MetricAvailabilityStatus} from '../../../model/metrics';
+
+import {LiveMetricSectionSettings, MetricAvailability, MetricAvailabilityStatus} from '~gol/feature/home/model/metrics';
 
 /**
  * Maximum value representable by a WebGPU unsigned integer counter.

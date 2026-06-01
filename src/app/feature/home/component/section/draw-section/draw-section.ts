@@ -2,14 +2,13 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
-import {ExclusiveButtonGroup} from '../../../../../shared/component/exclusive-button-group/exclusive-button-group';
-import {ExclusiveButtonOption} from '../../../../../shared/component/exclusive-button-group/model/exclusive-button-option';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
-import {BrushFill, BrushShape, TouchMode} from '../../../model/draw-mode';
-import {Tribe} from '../../../model/rule';
-
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {BrushFill, BrushShape, TouchMode} from '~gol/feature/home/model/draw-mode';
+import {Tribe} from '~gol/feature/home/model/rule';
+import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
+import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
+import {InputComponent} from '~gol/shared/component/input/input';
+import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
 /**
  * Drawing tools section.

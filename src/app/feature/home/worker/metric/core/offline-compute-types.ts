@@ -1,6 +1,6 @@
 import {OfflineMetricEntry} from './offline-types';
-import {GridFormat} from '../../../model/grid-format';
-import {Tribe} from '../../../model/rule';
+
+import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
  * Previous packed frame retained for transition metrics.
@@ -8,7 +8,7 @@ import {Tribe} from '../../../model/rule';
  * @interface PreviousOfflineMetricFrame
  * @typedef {PreviousOfflineMetricFrame}
  */
-interface PreviousOfflineMetricFrame {
+export interface PreviousOfflineMetricFrame {
   /**
    * Generation represented by the previous frame.
    *
@@ -36,19 +36,12 @@ interface PreviousOfflineMetricFrame {
 }
 
 /**
- * Offline metrics tribe metadata.
- *
- * @typedef {OfflineMetricsTribe}
- */
-type OfflineMetricsTribe = Pick<Tribe, 'id' | 'color'>;
-
-/**
  * Options for one offline Metrics computation.
  *
  * @interface OfflineMetricComputeOptions
  * @typedef {OfflineMetricComputeOptions}
  */
-interface OfflineMetricComputeOptions {
+export interface OfflineMetricComputeOptions {
   /**
    * Returns whether Metrics computation should stop.
    *
@@ -75,7 +68,7 @@ interface OfflineMetricComputeOptions {
  * @interface TransitionAccumulator
  * @typedef {TransitionAccumulator}
  */
-interface TransitionAccumulator {
+export interface TransitionAccumulator {
   /**
    * Whether previous and current generations are consecutive.
    *
@@ -114,7 +107,7 @@ interface TransitionAccumulator {
  * @interface FrameMetricStats
  * @typedef {FrameMetricStats}
  */
-interface FrameMetricStats {
+export interface FrameMetricStats {
   /**
    * Population counts by state index.
    *
@@ -140,5 +133,3 @@ interface FrameMetricStats {
    */
   transition: TransitionAccumulator;
 }
-
-export type {FrameMetricStats, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame, TransitionAccumulator};

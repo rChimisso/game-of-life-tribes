@@ -1,6 +1,6 @@
 import {CompressionWaitMode} from './compression-scheduler';
 import {DownloadRequestPayload} from './download';
-import {Ruleset, Tribe} from './rule';
+import {Rule, Tribe} from './rule';
 import {RecordingMessage, SnapshotMessage} from './worker-message';
 
 import {SeverityLevel} from '~gol/core/model/severity-level';
@@ -39,9 +39,9 @@ export interface HomeDownloadWorkerInput {
   /**
    * Current rules.
    *
-   * @type {Ruleset['rules']}
+   * @type {Rule<Tribe[]>[]}
    */
-  rules: Ruleset['rules'];
+  rules: Rule<Tribe[]>[];
   /**
    * Download start timestamp.
    *

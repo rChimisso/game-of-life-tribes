@@ -1,7 +1,6 @@
-import {GridFormatMetadata} from '../../../model/grid-format';
-import {Rule, Tribe} from '../../../model/rule';
-
 import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Target byte size for one streamed repack block.
@@ -16,6 +15,13 @@ export const STREAM_REPACK_BLOCK_BYTES = 64 * 1024 * 1024;
  * @type {number}
  */
 export const SNAPSHOT_STREAMING_THRESHOLD_BYTES = 256 * 1024 * 1024;
+
+/**
+ * Error message used when snapshot export cancellation stops stream work.
+ *
+ * @type {string}
+ */
+export const SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE = 'Snapshot export cancelled';
 
 /**
  * Parsed `.golt` state payload.
@@ -46,9 +52,9 @@ export interface ParsedGoltState extends Grid {
   /**
    * Tribe information.
    *
-   * @type {readonly Pick<Tribe, 'id' | 'color'>[]}
+   * @type {readonly Tribe[]}
    */
-  tribes: readonly Pick<Tribe, 'id' | 'color'>[];
+  tribes: readonly Tribe[];
   /**
    * Rules.
    *
@@ -56,13 +62,6 @@ export interface ParsedGoltState extends Grid {
    */
   rules: Rule<Tribe[]>[];
 }
-
-/**
- * Data used to build a `.golt` state file.
- *
- * @typedef {GoltStateData}
- */
-export type GoltStateData = ParsedGoltState;
 
 /**
  * Partial `.golt` file header used while parsing.
@@ -87,9 +86,9 @@ export interface GoltHeader extends Grid {
   /**
    * Tribe information.
    *
-   * @type {?readonly Pick<Tribe, 'id' | 'color'>[]}
+   * @type {?readonly Tribe[]}
    */
-  tribes?: readonly Pick<Tribe, 'id' | 'color'>[];
+  tribes?: readonly Tribe[];
   /**
    * Rules.
    *

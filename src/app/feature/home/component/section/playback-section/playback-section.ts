@@ -1,11 +1,10 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
-import {Button} from '../../../../../shared/component/button/button';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {PlaybackSectionPreferences} from '../../../model/preferences';
-
+import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {PlaybackSectionPreferences} from '~gol/feature/home/model/preferences';
+import {Button} from '~gol/shared/component/button/button';
+import {InputComponent} from '~gol/shared/component/input/input';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**

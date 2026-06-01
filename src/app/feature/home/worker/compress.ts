@@ -1,4 +1,4 @@
-import '../../../core/function/timestamped-console';
+import '~gol/core/function/timestamped-console';
 
 import {gridByteSize, gridFormatFromMetadata, packFrameToWords, unpackPackedBytesToFrame} from '../logic/grid-format';
 import {CompressRequest, CompressResult, WorkerInput} from './compress/model/compress-message';

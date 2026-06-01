@@ -3,18 +3,18 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
-import {Button} from '../../../../../shared/component/button/button';
-import {SelectOption} from '../../../../../shared/component/select/model/select';
-import {SelectComponent} from '../../../../../shared/component/select/select';
-import {SummaryComponent} from '../../../../../shared/component/summary/summary';
-import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
-import {rulesEqual} from '../../../logic/rule-editor';
-import {Rule, Tribe} from '../../../model/rule';
-import {RuleChangeEvent, RuleStateChangeEvent} from '../../../model/rule-card';
 import {RuleClause} from '../clause/clause';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {rulesEqual} from '~gol/feature/home/logic/rule-editor';
+import {Rule, Tribe} from '~gol/feature/home/model/rule';
+import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
+import {Button} from '~gol/shared/component/button/button';
+import {SelectOption} from '~gol/shared/component/select/model/select';
+import {SelectComponent} from '~gol/shared/component/select/select';
+import {SummaryComponent} from '~gol/shared/component/summary/summary';
+import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
 /**
  * Rule card editor.

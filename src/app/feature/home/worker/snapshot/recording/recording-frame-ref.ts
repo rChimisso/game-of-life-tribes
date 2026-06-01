@@ -1,5 +1,6 @@
 import {RecordingFrameRef} from './recording-frame-types';
-import {RecordingManifest} from '../../../model/recording';
+
+import {RecordingManifest} from '~gol/feature/home/model/recording';
 
 /**
  * Resolves a zero-based global frame index into a recording chunk reference.
@@ -42,5 +43,3 @@ export function countRecordingFrames(manifest: RecordingManifest): number {
   }
   return totalFrames;
 }
-
-export type {RecordingFrameRef};

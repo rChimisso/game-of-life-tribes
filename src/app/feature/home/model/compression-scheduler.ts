@@ -1,3 +1,4 @@
+import {GridFormatMetadata} from './grid-format';
 import {ChunkSealedMessage} from './worker-message';
 
 /**
@@ -44,9 +45,9 @@ export interface CompressionSchedulerCallbacks {
   /**
    * Chunk codec update callback.
    *
-   * @type {(message: {filename: string; rawBytes: number; codec: string; storedBytes: number; gridFormat: ChunkSealedMessage['storageGridFormat']}) => void}
+   * @type {(message: {filename: string; rawBytes: number; codec: string; storedBytes: number; gridFormat: GridFormatMetadata}) => void}
    */
-  updateChunkCodec: (message: {filename: string; rawBytes: number; codec: string; storedBytes: number; gridFormat: ChunkSealedMessage['storageGridFormat']}) => void;
+  updateChunkCodec: (message: {filename: string; rawBytes: number; codec: string; storedBytes: number; gridFormat: GridFormatMetadata}) => void;
   /**
    * Download cancellation state getter.
    *

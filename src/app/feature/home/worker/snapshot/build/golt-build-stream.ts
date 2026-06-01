@@ -1,17 +1,19 @@
-import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '../../../logic/grid-format';
-import {GridFormat} from '../../../model/grid-format';
-import {createGoltPrefix, RAW_DEFLATE_CODEC} from '../model/golt-format';
-import {ByteSink, GoltStateData, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
+import {createGoltPrefix} from '../logic/golt-format';
+import {RAW_DEFLATE_CODEC} from '../model/golt-format';
+import {ByteSink, ParsedGoltState, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE, SnapshotProgressReporter, SnapshotStreamOptions} from '../model/golt-types';
 import {repackPackedGrid, writeRepackedGridToSink} from '../packing/packed-repack';
+
+import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '~gol/feature/home/logic/grid-format';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
  * Creates the serialized `.golt` JSON header.
  *
- * @param {GoltStateData} data state data to serialize.
+ * @param {ParsedGoltState} data state data to serialize.
  * @param {GridFormat} targetFormat target storage grid format.
  * @returns {Uint8Array} encoded header bytes.
  */
-function createGoltHeaderBytes(data: GoltStateData, targetFormat: GridFormat): Uint8Array {
+function createGoltHeaderBytes(data: ParsedGoltState, targetFormat: GridFormat): Uint8Array {
   return new TextEncoder().encode(JSON.stringify({
     generation: data.generation,
     cols: data.cols,
@@ -162,7 +164,7 @@ async function waitForCancellablePromise<T>(promise: Promise<T>, cancellation: G
     throw result.error;
   }
   if (result.type === 'cancelled') {
-    throw new Error('Snapshot export cancelled');
+    throw new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
   return result.value;
 }
@@ -198,7 +200,7 @@ function cancelCompressorReader(reader: ReadableStreamDefaultReader<Uint8Array>,
  */
 function assertGoltCancellationState(cancellation: GoltStreamCancellationState): void {
   if (cancellation.cancelled) {
-    throw new Error('Snapshot export cancelled');
+    throw new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE);
   }
 }
 
@@ -206,12 +208,12 @@ function assertGoltCancellationState(cancellation: GoltStreamCancellationState):
  * Writes a `.golt` state file to a byte sink using a streaming-shaped deflate path.
  *
  * @async
- * @param {GoltStateData} data state data to serialize.
+ * @param {ParsedGoltState} data state data to serialize.
  * @param {ByteSink} sink byte sink that receives serialized chunks.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  * @param {SnapshotStreamOptions} options stream cancellation options.
  */
-export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<void> {
+export async function writeGoltStateStream(data: ParsedGoltState, sink: ByteSink, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<void> {
   const targetFormat = chooseTightStorageGridFormat(data.tribes.length);
   const sourceFormat = gridFormatFromMetadata(data.gridFormat);
   const headerBytes = createGoltHeaderBytes(data, targetFormat);
@@ -220,7 +222,7 @@ export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, 
   const reader = stream.readable.getReader();
   let pumpFailure: Error | null = null;
   const cancellation = createGoltStreamCancellationState(options, () => {
-    abortCompressorWriter(writer, new Error('Snapshot export cancelled'));
+    abortCompressorWriter(writer, new Error(SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE));
   });
   const pump = pumpCompressedChunks(reader, sink, cancellation).catch(error => {
     pumpFailure = error instanceof Error ? error : new Error(String(error));
@@ -261,12 +263,12 @@ export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, 
  * Collects a streamed `.golt` state into one byte array for browser download handoff.
  *
  * @async
- * @param {GoltStateData} data state data to serialize.
+ * @param {ParsedGoltState} data state data to serialize.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  * @param {SnapshotStreamOptions} options stream cancellation options.
  * @returns {Promise<Uint8Array>} serialized `.golt` file bytes.
  */
-export async function collectGoltStateStream(data: GoltStateData, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<Uint8Array> {
+export async function collectGoltStateStream(data: ParsedGoltState, reportProgress: SnapshotProgressReporter, options: SnapshotStreamOptions): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   await writeGoltStateStream(data, {
@@ -288,10 +290,10 @@ export async function collectGoltStateStream(data: GoltStateData, reportProgress
  * Creates the normalized header and packed grid bytes for a `.golt` snapshot.
  *
  * @async
- * @param {GoltStateData} data state data to normalize.
+ * @param {ParsedGoltState} data state data to normalize.
  * @returns {{headerBytes: Uint8Array; gridBytes: Uint8Array}} encoded header and packed grid bytes.
  */
-export function prepareGoltState(data: GoltStateData): {headerBytes: Uint8Array; gridBytes: Uint8Array} {
+export function prepareGoltState(data: ParsedGoltState): {headerBytes: Uint8Array; gridBytes: Uint8Array} {
   const targetFormat = chooseTightStorageGridFormat(data.tribes.length);
   const sourceFormat = gridFormatFromMetadata(data.gridFormat);
   const targetGrid = repackPackedGrid(data.grid, data, sourceFormat, targetFormat);

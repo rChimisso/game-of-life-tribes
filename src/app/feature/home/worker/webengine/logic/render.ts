@@ -1,6 +1,7 @@
-import {GridFormat} from '../../../model/grid-format';
-import {Tribe} from '../../../model/rule';
 import {RenderUniformInput, UNIFORM_SIZE} from '../model/render';
+
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Packs the current render uniforms into one GPU-ready buffer payload.

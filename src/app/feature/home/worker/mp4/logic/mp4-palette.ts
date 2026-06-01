@@ -26,10 +26,10 @@ function parseRgbHex(hex: string): {r: number; g: number; b: number} {
 /**
  * Builds a GPU-friendly RGBA palette for MP4 conversion.
  *
- * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {Float32Array} packed RGBA colors.
  */
-export function buildMp4GpuPalette(tribes: readonly Pick<Tribe, 'id' | 'color'>[]): Float32Array {
+export function buildMp4GpuPalette(tribes: readonly Tribe[]): Float32Array {
   const palette = new Float32Array(Math.max(1, tribes.length) * RGBA_FLOAT_COMPONENTS);
   tribes.forEach((tribe, index) => {
     const color = parseRgbHex(tribe.color);

@@ -1,15 +1,15 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {Button} from '../../../../../shared/component/button/button';
-import {analyzeTribeApplyImpact} from '../../../logic/tribe-impact';
-import {DEAD_TRIBE_ID, EditableTribe, Rule, Tribe} from '../../../model/rule';
-import {UpdateTribesPayload} from '../../../model/sidebar-event';
-import {TribeApplyImpact} from '../../../model/tribe-impact';
-import {TribeSaveEvent} from '../../../model/tribe-save-event';
 import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {analyzeTribeApplyImpact} from '~gol/feature/home/logic/tribe-impact';
+import {DEAD_TRIBE_ID, EditableTribe, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {UpdateTribesPayload} from '~gol/feature/home/model/sidebar-event';
+import {TribeApplyImpact} from '~gol/feature/home/model/tribe-impact';
+import {TribeSaveEvent} from '~gol/feature/home/model/tribe-save-event';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
+import {Button} from '~gol/shared/component/button/button';
 
 /**
  * Tribe editor section.

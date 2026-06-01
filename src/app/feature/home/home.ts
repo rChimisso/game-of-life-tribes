@@ -8,6 +8,7 @@ import {Store} from '@ngrx/store';
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
 import {CompressionScheduler} from './logic/compression-scheduler';
+import {estimateDownloadWorkingSet} from './logic/download-estimate';
 import {prepareHomeDownload} from './logic/download-preparation';
 import {startHomeDownloadWorker} from './logic/download-worker-runner';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './logic/grid-format';
@@ -18,7 +19,7 @@ import {clearTempOpfsDirectory} from './logic/opfs-temp';
 import {runSnapshotLoadWorker, runSnapshotSaveWorker} from './logic/snapshot-worker-runner';
 import {applyRuleTribeRenames} from './logic/tribe-impact';
 import {DownloadRequestPayload} from './model/download';
-import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES, estimateDownloadWorkingSet} from './model/download-estimate';
+import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES} from './model/download-estimate';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
 import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
@@ -1014,11 +1015,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       rows: this.ruleset.rows
     };
     const requiredFormat = requiredGridFormatForStateCount(preset.ruleset.tribes.length);
-    const fittingFormat = smallestFittingSimulationGridFormat(
-      preset.ruleset.tribes.length,
-      currentGrid,
-      this.currentMaxBytes()
-    );
+    const fittingFormat = smallestFittingSimulationGridFormat(preset.ruleset.tribes.length, currentGrid, this.currentMaxBytes());
     let shouldSavePreferences = false;
     if (fittingFormat) {
       const newRuleset = structuredClone(preset.ruleset);
@@ -1026,11 +1023,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       newRuleset.rows = currentGrid.rows;
       shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
     } else {
-      openHomeSnack(
-        this.snackBar,
-        `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`,
-        'error'
-      );
+      openHomeSnack(this.snackBar, `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`, 'error');
     }
     return shouldSavePreferences;
   }

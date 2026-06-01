@@ -1,8 +1,9 @@
-import {GridFormatMetadata} from '../../../model/grid-format';
-import {LiveMetricsSettings} from '../../../model/metrics';
-import {Ruleset, Tribe} from '../../../model/rule';
-import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, WorkerMessage} from '../../../model/worker-message';
 import {EngineWorkerOutputMessage, EngineWorkerOutputHandlers} from '../model/engine-worker-output';
+
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {LiveMetricsSettings} from '~gol/feature/home/model/metrics';
+import {Ruleset, Tribe} from '~gol/feature/home/model/rule';
+import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, WorkerMessage} from '~gol/feature/home/model/worker-message';
 
 /**
  * Worker transport and output dispatch for the engine component.

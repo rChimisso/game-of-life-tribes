@@ -31,6 +31,7 @@
     "module": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "ESNext.Collection"],
     "paths": {
+      "~package": ["../package.json"],
       "~gol/core/*": ["app/core/*"],
       "~gol/feature/*": ["app/feature/*"],
       "~gol/shared/*": ["app/shared/*"]

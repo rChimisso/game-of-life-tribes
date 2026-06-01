@@ -7,7 +7,7 @@ import {ChunkMeta} from '../../model/recording';
  * @interface RecordingChunkRange
  * @typedef {RecordingChunkRange}
  */
-interface RecordingChunkRange {
+export interface RecordingChunkRange {
   /**
    * Recorded chunk metadata.
    *
@@ -34,7 +34,7 @@ interface RecordingChunkRange {
  * @interface PackedRecordedFrame
  * @typedef {PackedRecordedFrame}
  */
-interface PackedRecordedFrame {
+export interface PackedRecordedFrame {
   /**
    * Zero-based frame index in the whole recording.
    *
@@ -97,7 +97,7 @@ interface PackedRecordedFrame {
  * @interface RecordingFrameSelection
  * @typedef {RecordingFrameSelection}
  */
-interface RecordingFrameSelection {
+export interface RecordingFrameSelection {
   /**
    * Total frames available in the manifest.
    *
@@ -142,7 +142,7 @@ interface RecordingFrameSelection {
  * @interface RecordingFrameIterationProgress
  * @typedef {RecordingFrameIterationProgress}
  */
-interface RecordingFrameIterationProgress {
+export interface RecordingFrameIterationProgress {
   /**
    * Selected chunks processed so far.
    *
@@ -181,7 +181,7 @@ interface RecordingFrameIterationProgress {
  * @interface RecordingFrameIteratorOptions
  * @typedef {RecordingFrameIteratorOptions}
  */
-interface RecordingFrameIteratorOptions {
+export interface RecordingFrameIteratorOptions {
   /**
    * Returns whether iteration should stop because the export was cancelled.
    *
@@ -195,5 +195,3 @@ interface RecordingFrameIteratorOptions {
    */
   onProgress?: (progress: RecordingFrameIterationProgress) => void;
 }
-
-export type {PackedRecordedFrame, RecordingChunkRange, RecordingFrameIterationProgress, RecordingFrameIteratorOptions, RecordingFrameSelection};

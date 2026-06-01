@@ -1,6 +1,6 @@
 import {MatSnackBar, MatSnackBarConfig} from '@angular/material/snack-bar';
 
-import {SeverityLevel} from '../../../core/model/severity-level';
+import {SeverityLevel} from '~gol/core/model/severity-level';
 
 /**
  * Logs snackbar messages with the same severity used by the UI.

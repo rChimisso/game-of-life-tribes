@@ -1,10 +1,9 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
-
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
+import {ProgressStatus} from '~gol/shared/component/progress-status/progress-status';
 
 /**
  * Snapshot save and load section.

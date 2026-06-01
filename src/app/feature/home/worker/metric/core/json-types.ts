@@ -5,6 +5,4 @@ import {MetricsJsonSummary} from './offline-types';
  *
  * @typedef {MetricsJsonMetadata}
  */
-type MetricsJsonMetadata = Omit<MetricsJsonSummary, 'generationStart' | 'generationEnd' | 'frameCount'>;
-
-export type {MetricsJsonMetadata};
+export type MetricsJsonMetadata = Omit<MetricsJsonSummary, 'generationStart' | 'generationEnd' | 'frameCount'>;

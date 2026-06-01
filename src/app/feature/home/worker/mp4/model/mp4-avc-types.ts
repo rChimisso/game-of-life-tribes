@@ -6,7 +6,7 @@ import {Mp4OutputSize} from './mp4-types';
  * @interface AvcProfileCandidate
  * @typedef {AvcProfileCandidate}
  */
-interface AvcProfileCandidate {
+export interface AvcProfileCandidate {
   /**
    * Profile display name.
    *
@@ -27,7 +27,7 @@ interface AvcProfileCandidate {
  * @interface AvcLevelCandidate
  * @typedef {AvcLevelCandidate}
  */
-interface AvcLevelCandidate {
+export interface AvcLevelCandidate {
   /**
    * Level display label.
    *
@@ -60,7 +60,7 @@ interface AvcLevelCandidate {
  * @interface SupportedMp4VideoConfig
  * @typedef {SupportedMp4VideoConfig}
  */
-interface SupportedMp4VideoConfig {
+export interface SupportedMp4VideoConfig {
   /**
    * Supported WebCodecs encoder config.
    *
@@ -92,5 +92,3 @@ interface SupportedMp4VideoConfig {
    */
   outputSize: Mp4OutputSize;
 }
-
-export type {AvcLevelCandidate, AvcProfileCandidate, SupportedMp4VideoConfig};

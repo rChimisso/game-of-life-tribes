@@ -1,7 +1,7 @@
 import {RecordingFrameData, RecordingFrameRef} from './recording-frame-types';
-import {gridByteSize, gridFormatFromMetadata} from '../../../logic/grid-format';
 import {RAW_DEFLATE_CODEC} from '../model/golt-format';
 
+import {gridByteSize, gridFormatFromMetadata} from '~gol/feature/home/logic/grid-format';
 import {Grid} from '~gol/feature/home/model/grid';
 
 /**
@@ -49,5 +49,3 @@ export async function readRecordingFrame(grid: Grid, ref: RecordingFrameRef): Pr
     packed: chunkData.subarray(byteOffset, byteOffset + frameByteSize)
   };
 }
-
-export type {RecordingFrameData};

@@ -1,6 +1,8 @@
-import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '../../../logic/grid-format';
-import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, hasGoltMagic, RAW_DEFLATE_CODEC} from '../model/golt-format';
+import {hasGoltMagic} from '../logic/golt-format';
+import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, RAW_DEFLATE_CODEC} from '../model/golt-format';
 import {GoltHeader, ParsedGoltState, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
+
+import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '~gol/feature/home/logic/grid-format';
 
 /**
  * Reads and validates the `.golt` header context.
@@ -145,11 +147,7 @@ async function collectInflatedBytes(reader: ReadableStreamDefaultReader<Uint8Arr
  * @param {SnapshotProgressReporter} reportProgress progress callback.
  * @returns {Promise<ArrayBuffer | null>} filled output buffer or `null` when decompressed size is invalid.
  */
-async function fillExpectedInflatedBuffer(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  expectedGridBytes: number,
-  reportProgress: SnapshotProgressReporter
-): Promise<ArrayBuffer | null> {
+async function fillExpectedInflatedBuffer(reader: ReadableStreamDefaultReader<Uint8Array>, expectedGridBytes: number, reportProgress: SnapshotProgressReporter): Promise<ArrayBuffer | null> {
   const output = new Uint8Array(expectedGridBytes);
   let offset = 0;
   let valid = true;

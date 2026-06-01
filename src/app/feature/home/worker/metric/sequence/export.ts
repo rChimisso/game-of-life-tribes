@@ -1,13 +1,14 @@
 import {BufferedMetricsFrameExportWriter} from './buffered-metrics-frame-export-writer';
-import {COMPUTING_METRICS_STATUS, createRecordedGpuMetricBackend} from './export-logic';
-import {CountingMetricsFrameExportWriter, MetricsExportOptions} from './export-types';
+import {createRecordedGpuMetricBackend} from './export-logic';
+import {COMPUTING_METRICS_STATUS, CountingMetricsFrameExportWriter, MetricsExportOptions} from './export-types';
 import {StreamingMetricsFrameExportWriter} from './streaming-metrics-frame-export-writer';
-import {DownloadFrameRange} from '../../../model/download';
-import {Recording} from '../../../model/recording';
 import {iterateRecordedFrames, resolveRecordingFrameSelection} from '../../frame/recording-frame-stream';
 import {RecordingFrameSelection} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {OfflineMetricsTribe} from '../core/offline-compute-types';
+
+import {DownloadFrameRange} from '~gol/feature/home/model/download';
+import {Recording} from '~gol/feature/home/model/recording';
+import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Writes Metrics CSV and JSON entries to the ZIP archive.
@@ -16,10 +17,10 @@ import {OfflineMetricsTribe} from '../core/offline-compute-types';
  * @param {ZipWriter} zip zip writer.
  * @param {Recording} recording recording dimensions and manifest.
  * @param {(DownloadFrameRange | null)} frameRange selected UI frame range.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {MetricsExportOptions} options export options.
  */
-export async function writeMetricsEntries(zip: ZipWriter, recording: Recording, frameRange: DownloadFrameRange | null, tribes: readonly OfflineMetricsTribe[], options: MetricsExportOptions): Promise<void> {
+export async function writeMetricsEntries(zip: ZipWriter, recording: Recording, frameRange: DownloadFrameRange | null, tribes: readonly Tribe[], options: MetricsExportOptions): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, frameRange);
   const writer = await createMetricsExportWriter(zip, recording, selection, tribes, options);
   console.log('[GOLT] Metrics export started', {
@@ -56,17 +57,11 @@ export async function writeMetricsEntries(zip: ZipWriter, recording: Recording, 
  * @param {ZipWriter} zip target ZIP writer.
  * @param {Recording} recording recording dimensions and manifest.
  * @param {RecordingFrameSelection} selection selected frame range.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {MetricsExportOptions} options export options.
  * @returns {Promise<CountingMetricsFrameExportWriter>} Metrics writer.
  */
-export async function createMetricsExportWriter(
-  zip: ZipWriter,
-  recording: Recording,
-  selection: RecordingFrameSelection,
-  tribes: readonly OfflineMetricsTribe[],
-  options: MetricsExportOptions
-): Promise<CountingMetricsFrameExportWriter> {
+export async function createMetricsExportWriter(zip: ZipWriter, recording: Recording, selection: RecordingFrameSelection, tribes: readonly Tribe[], options: MetricsExportOptions): Promise<CountingMetricsFrameExportWriter> {
   const gpuBackend = await createRecordedGpuMetricBackend();
   let writer: CountingMetricsFrameExportWriter;
   if (options.streamEntries) {

@@ -1,7 +1,8 @@
 import {ChangeDetectionStrategy, Component} from '@angular/core';
 
-import {CodeLabel} from '../../../../../shared/component/code-label/code-label';
 import {ShortcutGroup} from '../model/shortcut';
+
+import {CodeLabel} from '~gol/shared/component/code-label/code-label';
 
 /**
  * Keyboard shortcuts section.

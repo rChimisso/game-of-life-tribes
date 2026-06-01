@@ -1,9 +1,9 @@
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4FrameUpload, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice} from './mp4-gpu-converter-logic';
+import {buildMp4GpuPalette} from './mp4-palette';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
-import {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4FrameUpload, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice} from '../logic/mp4-gpu-converter-logic';
-import {MP4_CONVERSION_SHADER} from '../logic/mp4-gpu-shader';
-import {buildMp4GpuPalette} from '../logic/mp4-palette';
 import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameConverterResources} from '../model/mp4-gpu-converter-types';
+import {MP4_CONVERSION_SHADER} from '../model/mp4-gpu-shader';
 import {Mp4OutputSize} from '../model/mp4-types';
 
 import {Tribe} from '~gol/feature/home/model/rule';
@@ -189,11 +189,11 @@ export class Mp4GpuFrameConverter {
    * @static
    * @async
    * @param {Mp4OutputSize} outputSize output video size.
-   * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
+   * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {PackedRecordedFrame} firstFrame first frame used for initial buffer sizing.
    * @returns {Promise<Mp4GpuFrameConverter>} GPU converter.
    */
-  public static async create(outputSize: Mp4OutputSize, tribes: readonly Pick<Tribe, 'id' | 'color'>[], firstFrame: PackedRecordedFrame): Promise<Mp4GpuFrameConverter> {
+  public static async create(outputSize: Mp4OutputSize, tribes: readonly Tribe[], firstFrame: PackedRecordedFrame): Promise<Mp4GpuFrameConverter> {
     const device = await requestMp4GpuDevice();
     const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     const shaderModule = device.createShaderModule({

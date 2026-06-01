@@ -1,25 +1,4 @@
-import {Mp4OutputSize} from '../model/mp4-types';
-
-/**
- * Small-grid reference dimension used for integer upscaling.
- *
- * @type {number}
- */
-const MP4_SMALL_GRID_REFERENCE_DIMENSION = 1080;
-
-/**
- * Minimum MP4 output dimension before codec-safe even adjustment.
- *
- * @type {number}
- */
-const MP4_MIN_OUTPUT_DIMENSION = 3;
-
-/**
- * Maximum MP4 output width and height.
- *
- * @type {number}
- */
-export const MP4_MAX_OUTPUT_DIMENSION = 4096;
+import {MP4_MAX_OUTPUT_DIMENSION, MP4_MIN_OUTPUT_DIMENSION, MP4_SMALL_GRID_REFERENCE_DIMENSION, Mp4OutputSize} from '../model/mp4-types';
 
 /**
  * Resolves MP4 output dimensions from source grid dimensions.

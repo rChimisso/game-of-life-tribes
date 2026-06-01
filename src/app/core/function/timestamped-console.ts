@@ -49,5 +49,3 @@ function wrapConsoleLevel(level: SeverityLevel): void {
 }
 
 installTimestampedConsole();
-
-export {installTimestampedConsole};

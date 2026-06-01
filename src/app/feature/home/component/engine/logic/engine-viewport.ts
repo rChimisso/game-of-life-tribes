@@ -1,7 +1,7 @@
-import {CameraMessage} from '../../../model/worker-message';
 import {EnginePoint} from '../model/engine-input';
 
 import {Grid} from '~gol/feature/home/model/grid';
+import {CameraMessage} from '~gol/feature/home/model/worker-message';
 
 /**
  * Base maximum camera scale.

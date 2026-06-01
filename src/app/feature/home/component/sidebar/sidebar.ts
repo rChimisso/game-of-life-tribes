@@ -5,9 +5,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {calculateBrushMaxSize, calculateVramBarTotal, calculateVramRecordingPct, calculateVramSimulationPct, createVramBarTooltip, createVramSegments, formatDownloadStorageQuota, formatDownloadStorageTitleSize, formatVramQuota, formatVramRecording, formatVramSimulation, formatVramTitleSize} from './logic/sidebar-display';
 import {startSidebarPointerDrag} from './logic/sidebar-pointer-drag';
 import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from './model/sidebar-display';
-import {PersistedPreferencesComponent} from '../../../../core/abstract/persisted-preferences-component';
-import {Button} from '../../../../shared/component/button/button';
-import {StorageBar} from '../../../../shared/component/storage-bar/storage-bar';
 import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
@@ -31,9 +28,12 @@ import {SnapshotSection} from '../section/snapshot-section/snapshot-section';
 import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
+import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 import {Grid} from '~gol/feature/home/model/grid';
+import {Button} from '~gol/shared/component/button/button';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
+import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
 
 /**
  * Home controls sidebar.

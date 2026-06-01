@@ -1,4 +1,4 @@
-import {GridFormatMetadata} from '../../../model/grid-format';
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 
 /**
  * Storage-quota snapshot posted through the worker protocol.

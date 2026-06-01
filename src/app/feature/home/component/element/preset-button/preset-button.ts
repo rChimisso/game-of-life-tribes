@@ -1,7 +1,7 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 
-import {Preset} from '../../../model/preset';
+import {Preset} from '~gol/feature/home/model/preset';
 
 /**
  * Ruleset preset button.

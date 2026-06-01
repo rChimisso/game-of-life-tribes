@@ -1,6 +1,7 @@
-import {Grid} from '../../../model/grid';
 import {StopRunOptions} from '../model/run-control';
 import {RunKind, RunPacing, RunRestoreAfterStop, RunState, RunStopReason} from '../model/run-state';
+
+import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Maps the current grid size to one of the predefined non-recording run tiers.

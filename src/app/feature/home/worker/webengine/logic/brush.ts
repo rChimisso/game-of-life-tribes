@@ -1,6 +1,7 @@
-import {Grid} from '../../../model/grid';
-import {GridFormat} from '../../../model/grid-format';
 import {BrushDispatchAxisSegment, BrushDispatchRect} from '../model/brush';
+
+import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
  * Splits one brush axis into non-wrapping destination segments.

@@ -1,14 +1,18 @@
 import {createAttractorTracker, finalizeActiveAttractor, observeAttractorFrame} from './attractor';
+import {AttractorTracker} from './attractor-types';
 import {assertNotCancelled, computeMetricWithFallback, createMetricComputeOptions} from './export-logic';
 import {MetricsExportOptions, MetricsFrameExportWriter, MetricsFrameProgressReporter} from './export-types';
 import {createExtinctionTracker, finalizeExtinctionTracker, observeExtinctionMetric} from './extinction';
-import {Recording} from '../../../model/recording';
+import {ExtinctionTracker} from './extinction-types';
 import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {createPreviousOfflineMetricFrame} from '../core/offline';
-import {PreviousOfflineMetricFrame, OfflineMetricsTribe} from '../core/offline-compute-types';
+import {PreviousOfflineMetricFrame} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
+
+import {Recording} from '~gol/feature/home/model/recording';
+import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Shared Metrics writer state and frame processing.
@@ -24,18 +28,18 @@ export abstract class BaseMetricsFrameExportWriter implements MetricsFrameExport
    *
    * @protected
    * @readonly
-   * @type {ReturnType<typeof createAttractorTracker>}
+   * @type {AttractorTracker}
    */
-  protected readonly attractorTracker = createAttractorTracker();
+  protected readonly attractorTracker: AttractorTracker = createAttractorTracker();
 
   /**
    * Extinction episode tracker.
    *
    * @protected
    * @readonly
-   * @type {ReturnType<typeof createExtinctionTracker>}
+   * @type {ExtinctionTracker}
    */
-  protected readonly extinctionTracker: ReturnType<typeof createExtinctionTracker>;
+  protected readonly extinctionTracker: ExtinctionTracker;
 
   /**
    * Previously processed frame state.
@@ -70,7 +74,7 @@ export abstract class BaseMetricsFrameExportWriter implements MetricsFrameExport
    * @param {ZipWriter} zip target ZIP writer.
    * @param {Recording} recording recording dimensions and manifest.
    * @param {RecordingFrameSelection} selection selected frame range.
-   * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+   * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {MetricsExportOptions} options export options.
    * @param {(RecordedGpuMetricBackend | null)} gpuBackend gpu backend, if available.
    */
@@ -78,7 +82,7 @@ export abstract class BaseMetricsFrameExportWriter implements MetricsFrameExport
     protected readonly zip: ZipWriter,
     protected readonly recording: Recording,
     protected readonly selection: RecordingFrameSelection,
-    protected readonly tribes: readonly OfflineMetricsTribe[],
+    protected readonly tribes: readonly Tribe[],
     protected readonly options: MetricsExportOptions,
     protected gpuBackend: RecordedGpuMetricBackend | null
   ) {

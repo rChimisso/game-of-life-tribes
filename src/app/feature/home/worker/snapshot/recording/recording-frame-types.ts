@@ -1,5 +1,5 @@
-import {GridFormatMetadata} from '../../../model/grid-format';
-import {ChunkMeta} from '../../../model/recording';
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {ChunkMeta} from '~gol/feature/home/model/recording';
 
 /**
  * Reference to one recorded frame inside an OPFS chunk.
@@ -7,7 +7,7 @@ import {ChunkMeta} from '../../../model/recording';
  * @interface RecordingFrameRef
  * @typedef {RecordingFrameRef}
  */
-interface RecordingFrameRef {
+export interface RecordingFrameRef {
   /**
    * Chunk containing the frame.
    *
@@ -46,7 +46,7 @@ interface RecordingFrameRef {
  * @interface RecordingFrameData
  * @typedef {RecordingFrameData}
  */
-interface RecordingFrameData {
+export interface RecordingFrameData {
   /**
    * Generation represented by the frame.
    *
@@ -60,5 +60,3 @@ interface RecordingFrameData {
    */
   packed: Uint8Array;
 }
-
-export type {RecordingFrameData, RecordingFrameRef};

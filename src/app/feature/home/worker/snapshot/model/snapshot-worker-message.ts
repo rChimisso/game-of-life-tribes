@@ -1,6 +1,8 @@
-import {GoltStateData} from './golt-types';
-import {Grid} from '../../../model/grid';
-import {GridFormatMetadata} from '../../../model/grid-format';
+import {ParsedGoltState} from './golt-types';
+
+import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Request to build a `.golt` snapshot file.
@@ -18,9 +20,9 @@ export interface SnapshotSaveRequest {
   /**
    * Snapshot state to serialize.
    *
-   * @type {GoltStateData}
+   * @type {ParsedGoltState}
    */
-  snapshot: GoltStateData;
+  snapshot: ParsedGoltState;
 }
 
 /**
@@ -93,13 +95,13 @@ export interface SnapshotLoadedMessage extends Grid {
   /**
    * Loaded tribe color metadata.
    *
-   * @type {GoltStateData['tribes']}
+   * @type {readonly Tribe[]}
    */
-  tribes: GoltStateData['tribes'];
+  tribes: readonly Tribe[];
   /**
    * Loaded rules metadata.
    *
-   * @type {GoltStateData['rules']}
+   * @type {Rule<Tribe[]>[]}
    */
-  rules: GoltStateData['rules'];
+  rules: Rule<Tribe[]>[];
 }

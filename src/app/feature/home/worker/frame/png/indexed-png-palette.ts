@@ -1,5 +1,6 @@
 import {IndexedPngBitDepth, IndexedPngPalette} from './png-types';
-import {Tribe} from '../../../model/rule';
+
+import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Maximum number of palette entries supported by indexed PNG.
@@ -55,10 +56,10 @@ export function chooseIndexedPngBitDepth(stateCount: number): IndexedPngBitDepth
 /**
  * Builds an indexed-color PNG palette from ordered tribes.
  *
- * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {IndexedPngPalette} indexed-color PNG palette.
  */
-export function buildIndexedPngPalette(tribes: readonly Pick<Tribe, 'id' | 'color'>[]): IndexedPngPalette {
+export function buildIndexedPngPalette(tribes: readonly Tribe[]): IndexedPngPalette {
   if (tribes.length > INDEXED_PNG_MAX_STATES) {
     throw new Error(`PNG export supports at most ${INDEXED_PNG_MAX_STATES} states; received ${tribes.length}.`);
   }

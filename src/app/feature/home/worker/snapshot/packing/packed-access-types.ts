@@ -3,6 +3,4 @@
  *
  * @typedef {DecodedPackedRow}
  */
-type DecodedPackedRow = Uint8Array | Uint16Array | Uint32Array;
-
-export type {DecodedPackedRow};
+export type DecodedPackedRow = Uint8Array | Uint16Array | Uint32Array;

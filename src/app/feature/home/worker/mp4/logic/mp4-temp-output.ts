@@ -1,11 +1,11 @@
 import type {StreamTargetChunk} from 'mediabunny';
 
-import {openTempOpfsDirectory} from '../../../logic/opfs-temp';
+import {assertNotCancelled, createUniqueMp4TempFilename, isMissingOpfsEntry, removeStaleMp4Files} from './mp4-temp-output-logic';
 import {ZipWriter} from '../../zip/zip-writer';
-import {assertNotCancelled, createUniqueMp4TempFilename, isMissingOpfsEntry, removeStaleMp4Files} from '../logic/mp4-temp-output-logic';
 import {Mp4ZipCopyOptions} from '../model/mp4-temp-output-types';
 import {MP4_ZIP_ENTRY_PATH} from '../model/mp4-types';
 
+import {openTempOpfsDirectory} from '~gol/feature/home/logic/opfs-temp';
 import {GOLT_TEMP_MP4_DIR} from '~gol/feature/home/model/opfs';
 
 /**

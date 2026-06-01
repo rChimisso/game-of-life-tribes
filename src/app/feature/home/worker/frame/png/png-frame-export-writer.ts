@@ -2,8 +2,9 @@ import {writeIndexedPngFrame} from './indexed-png';
 import {buildIndexedPngPalette} from './indexed-png-palette';
 import {createPngFrameEntryPath} from './png-frame-entry-path';
 import {PngFrameExportOptions, PngFrameProgressReporter} from './png-frame-export-types';
+import {IndexedPngPalette} from './png-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {PackedRecordedFrame} from '../recording-frame-stream';
+import {PackedRecordedFrame} from '../recording-frame-types';
 
 import {Tribe} from '~gol/feature/home/model/rule';
 
@@ -19,9 +20,9 @@ export class PngFrameExportWriter {
    *
    * @private
    * @readonly
-   * @type {ReturnType<typeof buildIndexedPngPalette>}
+   * @type {IndexedPngPalette}
    */
-  private readonly palette: ReturnType<typeof buildIndexedPngPalette>;
+  private readonly palette: IndexedPngPalette;
 
   /**
    * Width used for zero-padded frame numbers.
@@ -43,12 +44,12 @@ export class PngFrameExportWriter {
   /**
    * @constructor
    * @public
-   * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
+   * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {number} selectedFrameCount selected frame count.
    * @param {ZipWriter} zip target ZIP writer.
    * @param {PngFrameExportOptions} options export options.
    */
-  public constructor(tribes: readonly Pick<Tribe, 'id' | 'color'>[], selectedFrameCount: number, private readonly zip: ZipWriter, private readonly options: PngFrameExportOptions) {
+  public constructor(tribes: readonly Tribe[], selectedFrameCount: number, private readonly zip: ZipWriter, private readonly options: PngFrameExportOptions) {
     this.palette = buildIndexedPngPalette(tribes);
     this.filenameFrameWidth = Math.max(1, String(selectedFrameCount).length);
   }

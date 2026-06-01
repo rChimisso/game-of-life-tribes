@@ -1,7 +1,8 @@
-import {DownloadRequestPayload} from '../../../model/download';
-import {GoltStateData, ParsedGoltState} from '../../snapshot/model/golt-types';
+import {ParsedGoltState} from '../../snapshot/model/golt-types';
 
+import {DownloadRequestPayload} from '~gol/feature/home/model/download';
 import {DownloadEstimateRecording} from '~gol/feature/home/model/download-estimate';
+import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Download worker request payload.
@@ -37,15 +38,15 @@ export interface DownloadRequest {
   /**
    * Snapshot tribe color metadata.
    *
-   * @type {GoltStateData['tribes']}
+   * @type {readonly Tribe[]}
    */
-  tribes: GoltStateData['tribes'];
+  tribes: readonly Tribe[];
   /**
    * Snapshot rules metadata.
    *
-   * @type {GoltStateData['rules']}
+   * @type {Rule<Tribe[]>[]}
    */
-  rules: GoltStateData['rules'];
+  rules: Rule<Tribe[]>[];
 }
 
 /**

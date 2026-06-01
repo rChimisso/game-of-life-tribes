@@ -4,7 +4,7 @@
  * @interface MetricsCsvColumns
  * @typedef {MetricsCsvColumns}
  */
-interface MetricsCsvColumns {
+export interface MetricsCsvColumns {
   /**
    * Full CSV header cells.
    *
@@ -24,5 +24,3 @@ interface MetricsCsvColumns {
    */
   frontierColumns: string[];
 }
-
-export type {MetricsCsvColumns};

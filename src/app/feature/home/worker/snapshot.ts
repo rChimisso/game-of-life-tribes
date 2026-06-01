@@ -1,10 +1,10 @@
-import '../../../core/function/timestamped-console';
+import '~gol/core/function/timestamped-console';
 
 import {openTempOpfsDirectory} from '../logic/opfs-temp';
 import {postWorkerTransfer} from '../logic/worker-post';
 import {GOLT_TEMP_SNAPSHOT_DIR} from '../model/opfs';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
-import {GoltStateData, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
+import {ParsedGoltState, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {SnapshotLoadedMessage, SnapshotWorkerEvent, SnapshotWorkerRequest} from './snapshot/model/snapshot-worker-message';
 import {parseGoltStateFile} from './snapshot/parse/golt-parse';
 
@@ -66,9 +66,9 @@ async function handleSnapshotRequest(message: SnapshotWorkerRequest): Promise<vo
  * Builds a `.golt` snapshot and posts the serialized output.
  *
  * @async
- * @param {GoltStateData} snapshot snapshot data to serialize.
+ * @param {ParsedGoltState} snapshot snapshot data to serialize.
  */
-async function saveSnapshot(snapshot: GoltStateData): Promise<void> {
+async function saveSnapshot(snapshot: ParsedGoltState): Promise<void> {
   const filename = createSnapshotFilename(snapshot.generation);
   if (shouldStreamGoltState(snapshot)) {
     console.log('[GOLT] Snapshot worker writing OPFS-backed snapshot');
@@ -130,11 +130,11 @@ function postSnapshotProgress(update: SnapshotProgressUpdate): void {
  * Writes a large snapshot to OPFS and returns its file handle snapshot.
  *
  * @async
- * @param {GoltStateData} snapshot snapshot data to serialize.
+ * @param {ParsedGoltState} snapshot snapshot data to serialize.
  * @param {string} downloadFilename user-visible download filename.
  * @returns {Promise<File>} OPFS-backed snapshot file.
  */
-async function writeSnapshotFileToOpfs(snapshot: GoltStateData, downloadFilename: string): Promise<File> {
+async function writeSnapshotFileToOpfs(snapshot: ParsedGoltState, downloadFilename: string): Promise<File> {
   const fileHandle = await (await openTempOpfsDirectory(GOLT_TEMP_SNAPSHOT_DIR)).getFileHandle(createOpfsSnapshotFilename(downloadFilename), {create: true});
   const writable = await fileHandle.createWritable();
   try {

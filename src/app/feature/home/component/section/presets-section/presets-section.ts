@@ -1,8 +1,9 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {Preset, PRESETS} from '../../../model/preset';
 import {PresetButton} from '../../element/preset-button/preset-button';
+
+import {Preset, PRESETS} from '~gol/feature/home/model/preset';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 
 /**
  * Preset selection section.

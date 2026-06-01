@@ -45,7 +45,17 @@ export type SidebarEvent =
  * Payload emitted when applying pending tribe edits.
  */
 export interface UpdateTribesPayload {
+  /**
+   * Updated tribe list.
+   *
+   * @type {Tribe[]}
+   */
   tribes: Tribe[];
+  /**
+   * Tribe rename mappings to apply to rules.
+   *
+   * @type {TribeRenamePair[]}
+   */
   renamePairs: TribeRenamePair[];
 }
 
@@ -53,5 +63,10 @@ export interface UpdateTribesPayload {
  * Payload emitted when applying pending rule edits.
  */
 export interface UpdateRulesPayload {
+  /**
+   * Updated rule list.
+   *
+   * @type {Rule<Tribe[]>[]}
+   */
   rules: Rule<Tribe[]>[];
 }

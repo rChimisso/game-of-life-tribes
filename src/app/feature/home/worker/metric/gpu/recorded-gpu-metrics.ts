@@ -1,12 +1,14 @@
 import {assertNotCancelled, buildGpuFrameMetricStats, buildRecordedMetricWgsl, createRecordedGpuMetricsDeviceLostError} from './recorded-gpu-metrics-logic';
 import {GPU_CONFIG_BYTE_SIZE, GPU_STATE_BUCKETS, GPU_STATS_BYTE_SIZE, RecordedGpuMetricsContext, U32_MAX} from './recorded-gpu-metrics-model';
-import {GridFormat} from '../../../model/grid-format';
-import {DEAD_TRIBE_ID} from '../../../model/rule';
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {requestWorkerGpuDevice} from '../../gpu/gpu-device';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
-import {buildOfflineMetricEntry, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame} from '../core/offline';
+import {buildOfflineMetricEntry} from '../core/offline';
+import {PreviousOfflineMetricFrame, OfflineMetricComputeOptions} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
+
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Recorded-frame GPU metrics backend.
@@ -76,11 +78,11 @@ export class RecordedGpuMetricBackend {
    *
    * @public
    * @param {PackedRecordedFrame} frame packed recorded frame.
-   * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+   * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
    * @returns {(string | null)} unsupported reason, or null when GPU can be used.
    */
-  public unsupportedReason(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null): string | null {
+  public unsupportedReason(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null): string | null {
     let reason: string | null = null;
     if (tribes.length > GPU_STATE_BUCKETS) {
       reason = `Recorded GPU Metrics supports up to ${GPU_STATE_BUCKETS} states.`;
@@ -135,12 +137,12 @@ export class RecordedGpuMetricBackend {
    * @public
    * @async
    * @param {PackedRecordedFrame} frame packed recorded frame.
-   * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+   * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
    * @param {OfflineMetricComputeOptions} options compute options.
    * @returns {Promise<OfflineMetricEntry>} metric row.
    */
-  public async computeFrameMetric(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
+  public async computeFrameMetric(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
     assertNotCancelled(options);
     this.assertDeviceAvailable();
     const unsupportedReason = this.unsupportedReason(frame, tribes, previous);

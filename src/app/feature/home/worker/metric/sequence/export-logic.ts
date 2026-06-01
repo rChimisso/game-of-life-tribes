@@ -1,13 +1,15 @@
-import {createAttractorTracker} from './attractor';
-import {MetricsExportOptions, MetricsFrameProgressReporter, RecordedGpuMetricBackendState} from './export-types';
-import {createExtinctionTracker} from './extinction';
-import {Recording} from '../../../model/recording';
-import {RecordingFrameSelection} from '../../frame/recording-frame-types';
+import {AttractorTracker} from './attractor-types';
+import {COMPUTING_METRICS_STATUS, METRICS_TEXT_ENCODER, BufferedTextEntryWriter, MetricsExportOptions, MetricsFrameProgressReporter, RecordedGpuMetricBackendState} from './export-types';
+import {ExtinctionTracker} from './extinction-types';
+import {PackedRecordedFrame, RecordingFrameSelection} from '../../frame/recording-frame-types';
 import {ByteSink, STREAM_REPACK_BLOCK_BYTES} from '../../snapshot/model/golt-types';
 import {computeOfflineMetricEntryAsync} from '../core/offline';
-import {OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame} from '../core/offline-compute-types';
+import {OfflineMetricComputeOptions, PreviousOfflineMetricFrame} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
+
+import {Recording} from '~gol/feature/home/model/recording';
+import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Logs a GPU Metrics failure with device loss treated as an error.
@@ -32,20 +34,6 @@ function retireGpuMetricBackend(gpuBackend: RecordedGpuMetricBackendState): void
   gpuBackend.backend?.dispose();
   gpuBackend.backend = null;
 }
-
-/**
- * Text encoder for Metrics ZIP entries.
- *
- * @type {TextEncoder}
- */
-export const METRICS_TEXT_ENCODER = new TextEncoder();
-
-/**
- * Status label used while Metrics rows are computed.
- *
- * @type {string}
- */
-export const COMPUTING_METRICS_STATUS = 'Computing metrics';
 
 /**
  * Creates compute options for one metric frame.
@@ -78,9 +66,9 @@ export function createMetricComputeOptions(completedBeforeFrame: number, framesT
  * Creates a buffered line writer for streamed text entries.
  *
  * @param {ByteSink} sink byte sink.
- * @returns {{writeLine: (line: string) => Promise<void>; flush: () => Promise<void>}} buffered line writer.
+ * @returns {BufferedTextEntryWriter} buffered line writer.
  */
-export function createBufferedTextEntryWriter(sink: ByteSink): {writeLine: (line: string) => Promise<void>; flush: () => Promise<void>} {
+export function createBufferedTextEntryWriter(sink: ByteSink): BufferedTextEntryWriter {
   let pending = '';
   let pendingBytesEstimate = 0;
   const flush = async(): Promise<void> => {
@@ -110,8 +98,8 @@ export function createBufferedTextEntryWriter(sink: ByteSink): {writeLine: (line
  * @param {number} frameCount number of streamed metric rows.
  * @param {Recording} recording recording dimensions and manifest.
  * @param {RecordingFrameSelection} selection resolved frame selection.
- * @param {ReturnType<typeof createAttractorTracker>} attractorTracker attractor tracker.
- * @param {ReturnType<typeof createExtinctionTracker>} extinctionTracker extinction tracker.
+ * @param {AttractorTracker} attractorTracker attractor tracker.
+ * @param {ExtinctionTracker} extinctionTracker extinction tracker.
  * @returns {string} JSON document.
  */
 export function buildMetricsJsonSummary(
@@ -120,8 +108,8 @@ export function buildMetricsJsonSummary(
   frameCount: number,
   recording: Recording,
   selection: RecordingFrameSelection,
-  attractorTracker: ReturnType<typeof createAttractorTracker>,
-  extinctionTracker: ReturnType<typeof createExtinctionTracker>
+  attractorTracker: AttractorTracker,
+  extinctionTracker: ExtinctionTracker
 ): string {
   return JSON.stringify({
     generationStart: firstMetric?.generation ?? null,
@@ -159,8 +147,8 @@ export async function createRecordedGpuMetricBackend(): Promise<RecordedGpuMetri
  * Computes one metric row and permanently falls back after a GPU failure.
  *
  * @async
- * @param {Parameters<typeof computeOfflineMetricEntryAsync>[0]} frame packed recorded frame.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
  * @param {OfflineMetricComputeOptions} options compute options.
  * @param {RecordedGpuMetricBackendState} gpuBackend recorded GPU backend state.
@@ -168,8 +156,8 @@ export async function createRecordedGpuMetricBackend(): Promise<RecordedGpuMetri
  * @returns {Promise<OfflineMetricEntry>} metric row.
  */
 export async function computeMetricWithFallback(
-  frame: Parameters<typeof computeOfflineMetricEntryAsync>[0],
-  tribes: readonly OfflineMetricsTribe[],
+  frame: PackedRecordedFrame,
+  tribes: readonly Tribe[],
   previous: PreviousOfflineMetricFrame | null,
   options: OfflineMetricComputeOptions,
   gpuBackend: RecordedGpuMetricBackendState,

@@ -1,6 +1,7 @@
-import {StorageBarSegment} from '../../../../../shared/component/storage-bar/model/storage-bar-segment';
-import {formatBinaryBytes, formatDecimalBytes} from '../../../logic/byte-format';
 import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from '../model/sidebar-display';
+
+import {formatBinaryBytes, formatDecimalBytes} from '~gol/feature/home/logic/byte-format';
+import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 /**
  * Formats the VRAM section title size.

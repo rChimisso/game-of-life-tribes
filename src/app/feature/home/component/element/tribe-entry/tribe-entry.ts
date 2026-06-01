@@ -1,14 +1,13 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {Button} from '../../../../../shared/component/button/button';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {TribeSwatch} from '../../../../../shared/component/tribe-swatch/tribe-swatch';
-import {DEAD_TRIBE_ID, EditableTribe, Tribe} from '../../../model/rule';
-import {TribeSaveEvent} from '../../../model/tribe-save-event';
-
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {DEAD_TRIBE_ID, EditableTribe, Tribe} from '~gol/feature/home/model/rule';
+import {TribeSaveEvent} from '~gol/feature/home/model/tribe-save-event';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
+import {Button} from '~gol/shared/component/button/button';
+import {InputComponent} from '~gol/shared/component/input/input';
+import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
 /**
  * Tribe entry editor.

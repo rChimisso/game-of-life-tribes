@@ -1,19 +1,19 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {PersistedPreferencesComponent} from '../../../../../core/abstract/persisted-preferences-component';
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {CheckboxComponent} from '../../../../../shared/component/checkbox/checkbox';
-import {ProgressStatus} from '../../../../../shared/component/progress-status/progress-status';
-import {StorageBar} from '../../../../../shared/component/storage-bar/storage-bar';
-import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
-import {formatBinaryBytes, formatDecimalBytes} from '../../../logic/byte-format';
-import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '../../../model/download';
 import {DownloadFrameRangeForm} from '../../element/download-frame-range-form/download-frame-range-form';
 import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/download-mp4-settings-form';
 
+import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {formatBinaryBytes, formatDecimalBytes} from '~gol/feature/home/logic/byte-format';
+import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
+import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
+import {ProgressStatus} from '~gol/shared/component/progress-status/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
+import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
+import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
 
 /**
  * Download options section.

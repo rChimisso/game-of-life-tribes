@@ -1,12 +1,13 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {SubsectionComponent} from '../../../../../shared/component/subsection/subsection';
-import {ToggleButtonComponent} from '../../../../../shared/component/toggle-button/toggle-button';
-import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '../../../model/metrics';
-import {DEAD_TRIBE_ID, Tribe} from '../../../model/rule';
-import {MetricMessage} from '../../../model/worker-message';
 import {MetricRow} from '../../element/metric-row/metric-row';
+
+import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '~gol/feature/home/model/metrics';
+import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
+import {MetricMessage} from '~gol/feature/home/model/worker-message';
+import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
+import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-button';
 
 /**
  * Live metrics section.

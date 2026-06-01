@@ -4,7 +4,7 @@
  * @interface HistogramLookup
  * @typedef {HistogramLookup}
  */
-interface HistogramLookup {
+export interface HistogramLookup {
   /**
    * Adds one packed word to the target counts array.
    *
@@ -14,5 +14,3 @@ interface HistogramLookup {
    */
   addWord(word: number, counts: number[], validCells?: number): void;
 }
-
-export type {HistogramLookup};

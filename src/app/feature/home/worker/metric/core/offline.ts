@@ -1,10 +1,12 @@
 import {addPackedRowToHistogram} from './histogram-lookup';
-import {FrameMetricStats, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame, TransitionAccumulator} from './offline-compute-types';
+import {FrameMetricStats, OfflineMetricComputeOptions, PreviousOfflineMetricFrame, TransitionAccumulator} from './offline-compute-types';
 import {OfflineMetricEntry} from './offline-types';
-import {GridFormat} from '../../../model/grid-format';
-import {DEAD_TRIBE_ID} from '../../../model/rule';
 import {PackedRecordedFrame} from '../../frame/recording-frame-types';
-import {decodePackedRow, DecodedPackedRow} from '../../snapshot/packing/packed-access';
+import {decodePackedRow} from '../../snapshot/packing/packed-access';
+import {DecodedPackedRow} from '../../snapshot/packing/packed-access-types';
+
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Default row cadence for yielding during CPU-heavy metric scans.
@@ -209,11 +211,11 @@ function incrementFrontier(frontierCounts: number[], state: number): void {
 /**
  * Builds a population record in tribe order.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {number[]} counts population counts.
  * @returns {Record<string, number>} population record.
  */
-function buildPopulationRecord(tribes: readonly OfflineMetricsTribe[], counts: number[]): Record<string, number> {
+function buildPopulationRecord(tribes: readonly Tribe[], counts: number[]): Record<string, number> {
   const population: Record<string, number> = {};
   for (let index = 0; index < tribes.length; index++) {
     population[tribes[index]!.id] = counts[index] ?? 0;
@@ -224,12 +226,12 @@ function buildPopulationRecord(tribes: readonly OfflineMetricsTribe[], counts: n
 /**
  * Builds a population delta record in tribe order.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {Record<string, number>} population current population.
  * @param {Record<string, number>} previousPopulation previous population.
  * @returns {Record<string, number>} population delta.
  */
-function buildPopulationDelta(tribes: readonly OfflineMetricsTribe[], population: Record<string, number>, previousPopulation: Record<string, number>): Record<string, number> {
+function buildPopulationDelta(tribes: readonly Tribe[], population: Record<string, number>, previousPopulation: Record<string, number>): Record<string, number> {
   const delta: Record<string, number> = {};
   for (const tribe of tribes) {
     delta[tribe.id] = (population[tribe.id] ?? 0) - (previousPopulation[tribe.id] ?? 0);
@@ -266,12 +268,12 @@ function computeDiversity(counts: number[], deadIndex: number, aliveCells: numbe
 /**
  * Builds frontier length records for non-dead tribes.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {number[]} frontierCounts frontier counts.
  * @param {number} deadIndex dead tribe index.
  * @returns {Record<string, number>} frontier length record.
  */
-function buildFrontierRecord(tribes: readonly OfflineMetricsTribe[], frontierCounts: number[], deadIndex: number): Record<string, number> {
+function buildFrontierRecord(tribes: readonly Tribe[], frontierCounts: number[], deadIndex: number): Record<string, number> {
   const frontierLength: Record<string, number> = {};
   for (let index = 0; index < tribes.length; index++) {
     if (index !== deadIndex) {
@@ -286,12 +288,12 @@ function buildFrontierRecord(tribes: readonly OfflineMetricsTribe[], frontierCou
  *
  * @async
  * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
  * @param {OfflineMetricComputeOptions} options compute options.
  * @returns {Promise<OfflineMetricEntry>} metric row.
  */
-export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
+export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
   const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
   const stats = await collectFrameMetricStats(frame, previous, deadIndex, tribes.length, options);
   return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex);
@@ -301,13 +303,13 @@ export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame,
  * Builds one offline Metrics row from aggregate frame stats.
  *
  * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
  * @param {FrameMetricStats} stats aggregate frame stats.
  * @param {number} deadIndex dead tribe index.
  * @returns {OfflineMetricEntry} metric row.
  */
-export function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
+export function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
   const totalCells = frame.cols * frame.rows;
   const population = buildPopulationRecord(tribes, stats.counts);
   const populationDelta = previous ? buildPopulationDelta(tribes, population, previous.metric.population) : undefined;

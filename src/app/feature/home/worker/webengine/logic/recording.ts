@@ -1,7 +1,8 @@
-import {GridFormatMetadata} from '../../../model/grid-format';
-import {ChunkMeta, RecordingManifest} from '../../../model/recording';
-import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '../../../model/recording-limits';
 import {CHUNK_BUFFER_CAP, MAJOR_BUFFER_ALLOCATION_YIELD_BYTES, MAX_PENDING_OPFS_WRITES, RAW_PACKED_CODEC, RecordingLimitsPayload, STAGING_RING_SIZE, STORAGE_CAP, StorageQuotaSnapshot} from '../model/recording-runtime';
+
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {ChunkMeta, RecordingManifest} from '~gol/feature/home/model/recording';
+import {OPFS_PENDING_WRITE_BYTE_BUDGET, RECORDING_MAX_FRAME_BYTES} from '~gol/feature/home/model/recording-limits';
 
 /**
  * Counts the specified data in the sealed chunks, with an optional starting count.

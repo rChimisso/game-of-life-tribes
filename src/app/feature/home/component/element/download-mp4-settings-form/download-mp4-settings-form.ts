@@ -1,12 +1,11 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {AbstractControl, FormControl, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 
-import {FormComponent} from '../../../../../core/abstract/form-component';
-import {FormType} from '../../../../../core/model/form-type';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {DownloadMp4SettingsFormValue} from '../../../model/download';
-
+import {FormComponent} from '~gol/core/abstract/form-component';
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {DownloadMp4SettingsFormValue} from '~gol/feature/home/model/download';
+import {InputComponent} from '~gol/shared/component/input/input';
 
 /**
  * Download MP4 settings form.

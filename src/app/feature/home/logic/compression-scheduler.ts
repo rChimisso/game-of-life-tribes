@@ -65,9 +65,9 @@ export class CompressionScheduler {
    * Pending compression retry timers.
    *
    * @private
-   * @type {ReturnType<typeof setTimeout>[]}
+   * @type {number[]}
    */
-  private compressionRetryTimers: ReturnType<typeof setTimeout>[] = [];
+  private compressionRetryTimers: number[] = [];
 
   /**
    * Raw bytes currently active in compression workers.

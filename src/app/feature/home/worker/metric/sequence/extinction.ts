@@ -1,7 +1,7 @@
 import {ExtinctionTracker, TribeExtinctionState} from './extinction-types';
-import {DEAD_TRIBE_ID} from '../../../model/rule';
-import {OfflineMetricsTribe} from '../core/offline-compute-types';
 import {ExtinctionEpisode, OfflineMetricEntry} from '../core/offline-types';
+
+import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Closes the current extinction episode when a tribe reappears.
@@ -26,10 +26,10 @@ function closeExtinctionEpisode(tracker: ExtinctionTracker, state: TribeExtincti
 /**
  * Creates an extinction tracker for all non-dead tribes.
  *
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {readonly Tribe[]} tribes ordered tribe metadata.
  * @returns {ExtinctionTracker} extinction tracker.
  */
-export function createExtinctionTracker(tribes: readonly OfflineMetricsTribe[]): ExtinctionTracker {
+export function createExtinctionTracker(tribes: readonly Tribe[]): ExtinctionTracker {
   const states: Record<string, TribeExtinctionState> = {};
   const extinctions: Record<string, ExtinctionEpisode[]> = {};
   for (const tribe of tribes) {

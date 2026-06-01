@@ -1,6 +1,7 @@
 import {DownloadFrameRange} from '../../model/download';
 import {ChunkMeta, Recording} from '../../model/recording';
-import {GoltStateData} from '../snapshot/model/golt-types';
+
+import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Cancellation and progress hooks for compressed chunk export.
@@ -33,15 +34,15 @@ export interface CompressedChunkExportMetadata {
   /**
    * Snapshot tribe color metadata.
    *
-   * @type {GoltStateData['tribes']}
+   * @type {readonly Tribe[]}
    */
-  tribes: GoltStateData['tribes'];
+  tribes: readonly Tribe[];
   /**
    * Snapshot rule metadata.
    *
-   * @type {GoltStateData['rules']}
+   * @type {Rule<Tribe[]>[]}
    */
-  rules: GoltStateData['rules'];
+  rules: Rule<Tribe[]>[];
 }
 
 /**

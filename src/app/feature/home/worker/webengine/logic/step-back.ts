@@ -1,9 +1,10 @@
-import {alignPackedBytesToWords, gridByteSize} from '../../../logic/grid-format';
-import {Grid} from '../../../model/grid';
-import {GridFormat} from '../../../model/grid-format';
-import {ChunkMeta} from '../../../model/recording';
 import {repackPackedGrid} from '../../snapshot/packing/packed-repack';
 import {BufferedStepBackTarget, StepBackPrefix, StepBackTarget} from '../model/step-back';
+
+import {alignPackedBytesToWords, gridByteSize} from '~gol/feature/home/logic/grid-format';
+import {Grid} from '~gol/feature/home/model/grid';
+import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {ChunkMeta} from '~gol/feature/home/model/recording';
 
 /**
  * Resolves the target frame for one step-back request.

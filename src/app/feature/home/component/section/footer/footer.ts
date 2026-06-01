@@ -1,6 +1,6 @@
 import {ChangeDetectionStrategy, Component} from '@angular/core';
 
-import packageJson from '../../../../../../../package.json';
+import packageJson from '~package';
 
 /**
  * Sidebar footer.

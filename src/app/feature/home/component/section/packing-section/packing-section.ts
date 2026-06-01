@@ -1,12 +1,12 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {ExclusiveButtonGroup} from '../../../../../shared/component/exclusive-button-group/exclusive-button-group';
-import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '../../../logic/grid-format';
-import {BitsPerCell, SUPPORTED_SIMULATION_BITS_PER_CELL} from '../../../model/grid-format';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '~gol/feature/home/logic/grid-format';
+import {BitsPerCell, SUPPORTED_SIMULATION_BITS_PER_CELL} from '~gol/feature/home/model/grid-format';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
+import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
 
 /**

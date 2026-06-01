@@ -1,12 +1,5 @@
 import {IndexedPngBitDepth} from './png-types';
-import {DecodedPackedRow} from '../../snapshot/packing/packed-access';
-
-/**
- * PNG filter byte for the "None" filter.
- *
- * @type {number}
- */
-const PNG_FILTER_NONE = 0;
+import {DecodedPackedRow} from '../../snapshot/packing/packed-access-types';
 
 /**
  * Packs one 8-bit indexed-color scanline.
@@ -65,7 +58,7 @@ function resolvePaletteIndex(state: number, stateToPaletteIndex: Uint8Array | nu
  */
 export function packIndexedPngScanline(decodedRow: DecodedPackedRow, cols: number, bitDepth: IndexedPngBitDepth, out: Uint8Array, stateToPaletteIndex: Uint8Array | null): void {
   out.fill(0);
-  out[0] = PNG_FILTER_NONE;
+  out[0] = 0;
   if (bitDepth === 8) {
     packEightBitScanline(decodedRow, cols, out, stateToPaletteIndex);
   } else {

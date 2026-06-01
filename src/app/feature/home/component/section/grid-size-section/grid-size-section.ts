@@ -1,14 +1,14 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {ApplyRestoreButtons} from '../../../../../shared/component/apply-restore/button-pair';
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {gridByteSize, gridFormatFromBits} from '../../../logic/grid-format';
-import {BitsPerCell} from '../../../model/grid-format';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {gridByteSize, gridFormatFromBits} from '~gol/feature/home/logic/grid-format';
 import {Grid} from '~gol/feature/home/model/grid';
+import {BitsPerCell} from '~gol/feature/home/model/grid-format';
+import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
+import {InputComponent} from '~gol/shared/component/input/input';
 
 /**
  * Grid size editor section.

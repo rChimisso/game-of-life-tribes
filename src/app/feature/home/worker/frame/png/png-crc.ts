@@ -1,60 +1,17 @@
-import {IndexedPngBitDepth, PngByteSink} from './png-types';
+import {EMPTY_CHUNK_DATA, IndexedPngBitDepth, PNG_SIGNATURE, PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES, TEXT_ENCODER} from './png-types';
+import {ByteSink} from '../../snapshot/model/golt-types';
 import {finalizeCrc32, updateCrc32} from '../../zip/zip-crc32';
-
-/**
- * PNG signature bytes.
- *
- * @type {Uint8Array}
- */
-const PNG_SIGNATURE = new Uint8Array([
-  137,
-  80,
-  78,
-  71,
-  13,
-  10,
-  26,
-  10
-]);
-
-/**
- * PNG indexed-color type.
- *
- * @type {number}
- */
-const PNG_INDEXED_COLOR_TYPE = 3;
-
-/**
- * Empty PNG chunk payload.
- *
- * @type {Uint8Array}
- */
-const EMPTY_CHUNK_DATA = new Uint8Array(0);
-
-/**
- * Largest PNG chunk payload copied into one sink write.
- *
- * @type {number}
- */
-const PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES = 64 * 1024 * 1024;
-
-/**
- * Text encoder used for PNG chunk types.
- *
- * @type {TextEncoder}
- */
-const TEXT_ENCODER = new TextEncoder();
 
 /**
  * Writes one PNG chunk through a single sink call.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  * @param {Uint8Array} typeBytes encoded chunk type.
  * @param {Uint8Array} data chunk payload.
  * @param {Uint8Array} crcBytes encoded chunk crc.
  */
-async function writeSingleBufferPngChunk(sink: PngByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
+async function writeSingleBufferPngChunk(sink: ByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
   const chunk = new Uint8Array(8 + data.byteLength + 4);
   const chunkView = new DataView(chunk.buffer);
   chunkView.setUint32(0, data.byteLength, false);
@@ -68,12 +25,12 @@ async function writeSingleBufferPngChunk(sink: PngByteSink, typeBytes: Uint8Arra
  * Writes one PNG chunk without copying a large payload.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  * @param {Uint8Array} typeBytes encoded chunk type.
  * @param {Uint8Array} data chunk payload.
  * @param {Uint8Array} crcBytes encoded chunk crc.
  */
-async function writeSplitPngChunk(sink: PngByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
+async function writeSplitPngChunk(sink: ByteSink, typeBytes: Uint8Array, data: Uint8Array, crcBytes: Uint8Array): Promise<void> {
   const header = new Uint8Array(8);
   const headerView = new DataView(header.buffer);
   headerView.setUint32(0, data.byteLength, false);
@@ -119,9 +76,9 @@ function encodePngChunkType(type: string): Uint8Array {
  * Writes the PNG signature.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  */
-export async function writePngSignature(sink: PngByteSink): Promise<void> {
+export async function writePngSignature(sink: ByteSink): Promise<void> {
   await sink.write(PNG_SIGNATURE);
 }
 
@@ -129,11 +86,11 @@ export async function writePngSignature(sink: PngByteSink): Promise<void> {
  * Writes one PNG chunk.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  * @param {string} type four-byte PNG chunk type.
  * @param {Uint8Array} data chunk payload.
  */
-export async function writePngChunk(sink: PngByteSink, type: string, data: Uint8Array): Promise<void> {
+export async function writePngChunk(sink: ByteSink, type: string, data: Uint8Array): Promise<void> {
   const typeBytes = encodePngChunkType(type);
   const crcBytes = createPngCrcBytes(typeBytes, data);
   if (data.byteLength <= PNG_SINGLE_WRITE_CHUNK_THRESHOLD_BYTES) {
@@ -147,18 +104,18 @@ export async function writePngChunk(sink: PngByteSink, type: string, data: Uint8
  * Writes the PNG IHDR chunk for an indexed-color image.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  * @param {number} width image width in pixels.
  * @param {number} height image height in pixels.
  * @param {IndexedPngBitDepth} bitDepth indexed-color bit depth.
  */
-export async function writeIhdrChunk(sink: PngByteSink, width: number, height: number, bitDepth: IndexedPngBitDepth): Promise<void> {
+export async function writeIhdrChunk(sink: ByteSink, width: number, height: number, bitDepth: IndexedPngBitDepth): Promise<void> {
   const data = new Uint8Array(13);
   const view = new DataView(data.buffer);
   view.setUint32(0, width, false);
   view.setUint32(4, height, false);
   data[8] = bitDepth;
-  data[9] = PNG_INDEXED_COLOR_TYPE;
+  data[9] = 3;
   data[10] = 0;
   data[11] = 0;
   data[12] = 0;
@@ -169,10 +126,10 @@ export async function writeIhdrChunk(sink: PngByteSink, width: number, height: n
  * Writes the PNG PLTE chunk.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  * @param {Uint8Array} palette palette payload as RGB triples.
  */
-export async function writePlteChunk(sink: PngByteSink, palette: Uint8Array): Promise<void> {
+export async function writePlteChunk(sink: ByteSink, palette: Uint8Array): Promise<void> {
   await writePngChunk(sink, 'PLTE', palette);
 }
 
@@ -180,8 +137,8 @@ export async function writePlteChunk(sink: PngByteSink, palette: Uint8Array): Pr
  * Writes the PNG IEND chunk.
  *
  * @async
- * @param {PngByteSink} sink target byte sink.
+ * @param {ByteSink} sink target byte sink.
  */
-export async function writeIendChunk(sink: PngByteSink): Promise<void> {
+export async function writeIendChunk(sink: ByteSink): Promise<void> {
   await writePngChunk(sink, 'IEND', EMPTY_CHUNK_DATA);
 }

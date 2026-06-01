@@ -1,8 +1,10 @@
-import {ProgressStatusMode} from '../../../shared/component/progress-status/model/progress-status';
 import {SnapshotSaveOutput} from '../model/home-snapshot';
-import {Ruleset, Tribe} from '../model/rule';
+import {Rule, Tribe} from '../model/rule';
 import {SnapshotMessage} from '../model/worker-message';
 import {ParsedGoltState} from '../worker/snapshot/model/golt-types';
+
+import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
+import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
  * Snapshot progress callback.
@@ -16,11 +18,11 @@ export type SnapshotProgressCallback = (mode: ProgressStatusMode | undefined, pe
  *
  * @param {SnapshotMessage} snap snapshot to save.
  * @param {readonly Tribe[]} tribes current tribes.
- * @param {Ruleset['rules']} rules current rules.
+ * @param {Rule<Tribe[]>[]} rules current rules.
  * @param {SnapshotProgressCallback} onProgress progress callback.
  * @returns {Promise<SnapshotSaveOutput>} saved snapshot output.
  */
-export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tribe[], rules: Ruleset['rules'], onProgress: SnapshotProgressCallback): Promise<SnapshotSaveOutput> {
+export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tribe[], rules: Rule<Tribe[]>[], onProgress: SnapshotProgressCallback): Promise<SnapshotSaveOutput> {
   return new Promise<SnapshotSaveOutput>((resolve, reject) => {
     const worker = new Worker(new URL('../worker/snapshot.ts', import.meta.url), {type: 'module'});
     worker.onerror = () => {
@@ -96,9 +98,9 @@ export function runSnapshotLoadWorker(buffer: ArrayBuffer, onProgress: SnapshotP
         rows?: number;
         generation?: number;
         grid?: Uint32Array;
-        gridFormat?: ParsedGoltState['gridFormat'];
-        tribes?: ParsedGoltState['tribes'];
-        rules?: ParsedGoltState['rules'];
+        gridFormat?: GridFormatMetadata;
+        tribes?: readonly Tribe[];
+        rules?: Rule<Tribe[]>[];
         mode?: ProgressStatusMode;
         percent?: number | null;
         status?: string;

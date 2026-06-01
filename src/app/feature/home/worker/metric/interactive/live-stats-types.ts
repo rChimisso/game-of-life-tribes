@@ -4,7 +4,7 @@
  * @interface LivePopulationStats
  * @typedef {LivePopulationStats}
  */
-interface LivePopulationStats {
+export interface LivePopulationStats {
   /**
    * Population by tribe ID.
    *
@@ -31,7 +31,7 @@ interface LivePopulationStats {
  * @interface LiveDiversityStats
  * @typedef {LiveDiversityStats}
  */
-interface LiveDiversityStats {
+export interface LiveDiversityStats {
   /**
    * Shannon entropy among live tribes.
    *
@@ -45,5 +45,3 @@ interface LiveDiversityStats {
    */
   simpsonSum: number;
 }
-
-export type {LiveDiversityStats, LivePopulationStats};

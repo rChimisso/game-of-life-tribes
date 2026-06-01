@@ -3,10 +3,10 @@ import {MatIconModule} from '@angular/material/icon';
 
 import {SummaryPart, SummaryTribeColor} from './model/summary';
 import {isBinaryLogicalClause} from './util/clause';
-import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '../../../feature/home/model/rule';
 import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {AND_CLAUSE_KIND, ANY_TRIBE_ID, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Clause/rule summary component.

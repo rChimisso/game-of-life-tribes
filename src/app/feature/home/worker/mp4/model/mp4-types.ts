@@ -8,6 +8,27 @@ import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 export const MP4_ZIP_ENTRY_PATH = 'simulation.mp4';
 
 /**
+ * Small-grid reference dimension used for integer upscaling.
+ *
+ * @type {number}
+ */
+export const MP4_SMALL_GRID_REFERENCE_DIMENSION = 1080;
+
+/**
+ * Minimum MP4 output dimension before codec-safe even adjustment.
+ *
+ * @type {number}
+ */
+export const MP4_MIN_OUTPUT_DIMENSION = 3;
+
+/**
+ * Maximum MP4 output width and height.
+ *
+ * @type {number}
+ */
+export const MP4_MAX_OUTPUT_DIMENSION = 4096;
+
+/**
  * MP4 output size resolved from source grid dimensions.
  *
  * @interface Mp4OutputSize

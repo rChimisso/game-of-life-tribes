@@ -1,7 +1,10 @@
 import {LiveDiversityStats, LivePopulationStats} from './live-stats-types';
 import {hasInteractiveMetricSection} from './planner';
-import {BuildMetricMessageRequest, CreateInteractiveMetricsResourcesRequest, EncodeInteractiveMetricsRequest, InteractiveMetricMessage, InteractiveMetricsReadback, InteractiveMetricsResources, MetricsDispatchPlan2D, ReadInteractiveMetricsRequest} from './types';
+import {BOUNDARY_BUFFER_SIZE, BuildMetricMessageRequest, CreateInteractiveMetricsResourcesRequest, EncodeInteractiveMetricsRequest, HISTOGRAM_BUFFER_SIZE, InteractiveMetricsReadback, InteractiveMetricsResources, MetricsDispatchPlan2D, ReadInteractiveMetricsRequest} from './types';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
+
+import {LiveInterfaceMetrics} from '~gol/feature/home/model/metrics';
+import {MetricMessage} from '~gol/feature/home/model/worker-message';
 
 /**
  * Builds dispatch constants for remapped metrics dispatches.
@@ -231,9 +234,9 @@ function computeLiveDiversityStats(request: BuildMetricMessageRequest, diversity
  *
  * @param {BuildMetricMessageRequest} request metric message request.
  * @param {boolean} interfacesEnabled whether interface metrics are enabled.
- * @returns {NonNullable<InteractiveMetricMessage['interfaces']>} interface metrics.
+ * @returns {LiveInterfaceMetrics} interface metrics.
  */
-function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interfacesEnabled: boolean): NonNullable<InteractiveMetricMessage['interfaces']> {
+function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interfacesEnabled: boolean): LiveInterfaceMetrics {
   const totalContactEdges = request.cols * request.rows * 2;
   const crossStateContactEdges = interfacesEnabled ? request.readback.crossStateContactEdges : 0;
   const sameStateContactEdges = interfacesEnabled ? Math.max(0, totalContactEdges - crossStateContactEdges) : 0;
@@ -244,20 +247,6 @@ function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interface
     crossStateContactFraction: interfacesEnabled && totalContactEdges > 0 ? crossStateContactEdges / totalContactEdges : 0
   };
 }
-
-/**
- * Histogram buffer size in bytes.
- *
- * @type {number}
- */
-export const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
-
-/**
- * Boundary buffer size in bytes.
- *
- * @type {number}
- */
-export const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
 
 /**
  * Creates live metric WebGPU resources.
@@ -397,9 +386,9 @@ export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequ
  * Builds a live metric message from GPU readback.
  *
  * @param {BuildMetricMessageRequest} request metric message request.
- * @returns {InteractiveMetricMessage} live metric message.
+ * @returns {MetricMessage} live metric message.
  */
-export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
+export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): MetricMessage {
   const {generation, enabledSections, availability, liveMetricSettings, cols, rows, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
   const populationEnabled = hasInteractiveMetricSection(enabledSections, 'population') && liveMetricSettings.population;
   const diversityEnabled = hasInteractiveMetricSection(enabledSections, 'diversity') && liveMetricSettings.diversity;

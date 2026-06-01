@@ -1,8 +1,8 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 
-import {InputComponent} from '../../../../../shared/component/input/input';
-import {ToggleButtonComponent} from '../../../../../shared/component/toggle-button/toggle-button';
+import {InputComponent} from '~gol/shared/component/input/input';
+import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-button';
 
 /**
  * Speed and recording section.

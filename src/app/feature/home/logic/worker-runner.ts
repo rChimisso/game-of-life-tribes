@@ -19,8 +19,7 @@ function isTypedWorkerMessage(message: unknown): message is TypedWorkerMessage {
  */
 export function dispatchWorkerMessage<Message extends TypedWorkerMessage>(message: unknown, handlers: WorkerMessageHandlerMap<Message>): void {
   if (isTypedWorkerMessage(message) && message.type in handlers) {
-    const handler = handlers[message.type as Message['type']];
-    handler(message as never);
+    handlers[message.type as Message['type']](message as Extract<Message, { type: Message['type'] }>);
   } else {
     console.warn('Unknown message from worker:', message);
   }
@@ -50,7 +49,10 @@ export function runWorker<Request, Response, Result>(options: WorkerRunnerOption
         resolve,
         reject,
         terminate
-      })).catch(reject);
+      })).catch(error => {
+        terminate();
+        reject(error);
+      });
     };
     worker.postMessage(options.request, options.transfer ?? []);
   });

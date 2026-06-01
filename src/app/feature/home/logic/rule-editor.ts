@@ -3,7 +3,6 @@ import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, EMPTY_CLAUSE, EMPTY_CLA
 /**
  * Normalizes editor-only clause defaults before comparison or persistence.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Clause<T>} clause clause to normalize.
  * @returns {Clause<T>} normalized clause.
@@ -42,7 +41,6 @@ export function normalizeClauseForEditor<T extends readonly Tribe[]>(clause: Cla
 /**
  * Removes editor-only rule state before persistence or comparison.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Rule<T>} rule rule to normalize.
  * @returns {Rule<T>} persisted rule shape.
@@ -58,7 +56,6 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
 /**
  * Creates a comparable clause signature.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Clause<T>} clause clause to sign.
  * @returns {string} serialized normalized clause.
@@ -70,7 +67,6 @@ export function clauseSignature<T extends readonly Tribe[]>(clause: Clause<T>): 
 /**
  * Creates a comparable rule signature.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Rule<T>} rule rule to sign.
  * @returns {string} serialized persisted rule.
@@ -82,7 +78,6 @@ export function ruleSignature<T extends readonly Tribe[]>(rule: Rule<T>): string
 /**
  * Compares two clauses after editor normalization.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Clause<T>} editableClause editable clause.
  * @param {Clause<T>} baseClause baseline clause.
@@ -95,7 +90,6 @@ export function clausesEqual<T extends readonly Tribe[]>(editableClause: Clause<
 /**
  * Compares two rules after persisted normalization.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {Rule<T>} editableRule editable rule.
  * @param {Rule<T>} baseRule baseline rule.
@@ -108,7 +102,6 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
 /**
  * Compares two rule lists after persisted normalization.
  *
- * @export
  * @template {readonly Tribe[]} T
  * @param {readonly Rule<T>[]} editableRules editable rules.
  * @param {readonly Rule<T>[]} baseRules baseline rules.

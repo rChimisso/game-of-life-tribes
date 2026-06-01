@@ -1,7 +1,6 @@
 /**
  * Error used to stop download work after cancellation.
  *
- * @export
  * @class DownloadCancelledError
  * @typedef {DownloadCancelledError}
  * @extends {Error}
@@ -19,7 +18,6 @@ export class DownloadCancelledError extends Error {
 /**
  * Compression worker queue status.
  *
- * @export
  * @interface CompressionStatusMessage
  * @typedef {CompressionStatusMessage}
  */
@@ -47,7 +45,6 @@ export interface CompressionStatusMessage {
 /**
  * Compression worker failed-job completion message.
  *
- * @export
  * @interface CompressionFailedMessage
  * @typedef {CompressionFailedMessage}
  */
@@ -75,7 +72,6 @@ export interface CompressionFailedMessage {
 /**
  * Download frame range.
  *
- * @export
  * @interface DownloadFrameRange
  * @typedef {DownloadFrameRange}
  */
@@ -97,7 +93,6 @@ export interface DownloadFrameRange {
 /**
  * Download request payload.
  *
- * @export
  * @interface DownloadRequestPayload
  * @typedef {DownloadRequestPayload}
  */
@@ -155,7 +150,6 @@ export interface DownloadRequestPayload {
 /**
  * Download section preferences.
  *
- * @export
  * @interface DownloadSectionPreferences
  * @typedef {DownloadSectionPreferences}
  */
@@ -225,7 +219,6 @@ export interface DownloadSectionPreferences {
 /**
  * Download frame range form value.
  *
- * @export
  * @interface DownloadFrameRangeFormValue
  * @typedef {DownloadFrameRangeFormValue}
  */
@@ -253,7 +246,6 @@ export interface DownloadFrameRangeFormValue {
 /**
  * Download MP4 settings form value.
  *
- * @export
  * @interface DownloadMp4SettingsFormValue
  * @typedef {DownloadMp4SettingsFormValue}
  */

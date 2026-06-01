@@ -3,7 +3,6 @@ import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 /**
  * Code label pair.
  *
- * @export
  * @class CodeLabel
  * @typedef {CodeLabel}
  */

@@ -1,7 +1,6 @@
 /**
  * VRAM display input values.
  *
- * @export
  * @interface SidebarVramDisplayInput
  * @typedef {SidebarVramDisplayInput}
  */
@@ -29,7 +28,6 @@ export interface SidebarVramDisplayInput {
 /**
  * Recording storage display input values.
  *
- * @export
  * @interface SidebarStorageDisplayInput
  * @typedef {SidebarStorageDisplayInput}
  */
@@ -57,7 +55,6 @@ export interface SidebarStorageDisplayInput {
 /**
  * Sidebar grid display input values.
  *
- * @export
  * @interface SidebarGridDisplayInput
  * @typedef {SidebarGridDisplayInput}
  */

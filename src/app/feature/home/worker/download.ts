@@ -362,7 +362,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
 async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: NonNullable<DownloadRequest['recording']>, tribes: DownloadRequest['tribes'], estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
-  const pngWriter = opts.png ? new PngFrameExportWriter(zip, tribes, selection.framesTotal, createDownloadSnapshotStreamOptions()) : null;
+  const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, createDownloadSnapshotStreamOptions()) : null;
   let mp4Writer: Mp4FrameExportWriter | null = null;
   const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null) + Number(opts.mp4);
   let framesCompleted = 0;

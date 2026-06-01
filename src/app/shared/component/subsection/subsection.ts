@@ -4,7 +4,6 @@ import {MatIconModule} from '@angular/material/icon';
 /**
  * Collapsible subsection.
  *
- * @export
  * @class SubsectionComponent
  * @typedef {SubsectionComponent}
  */

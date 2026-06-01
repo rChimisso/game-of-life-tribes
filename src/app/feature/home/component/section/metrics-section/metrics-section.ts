@@ -11,7 +11,6 @@ import {MetricRow} from '../../element/metric-row/metric-row';
 /**
  * Live metrics section.
  *
- * @export
  * @class MetricsSection
  * @typedef {MetricsSection}
  */

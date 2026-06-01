@@ -15,7 +15,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Canvas-backed simulation engine component.
  *
- * @export
  * @class Engine
  * @typedef {Engine}
  * @implements {AfterViewInit}
@@ -32,7 +31,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
     '(pointermove)': 'onPointerMove($event)',
     '(pointerup)': 'onPointerUp($event)',
     '(pointercancel)': 'onPointerUp($event)',
-    '(pointerleave)': 'onPointerLeave($event)',
+    '(pointerleave)': 'onPointerLeave()',
     '(contextmenu)': 'disableCtx($event)',
     '(window:resize)': 'onResize()'
   },
@@ -392,10 +391,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
 
   /**
    * Clears hover preview when the pointer leaves the canvas.
-   *
-   * @param {PointerEvent} _ev pointer event.
    */
-  public onPointerLeave(_ev: PointerEvent): void {
+  public onPointerLeave(): void {
     this.inputController.handlePointerLeave();
   }
 

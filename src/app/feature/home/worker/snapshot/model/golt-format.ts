@@ -29,7 +29,6 @@ export const RAW_DEFLATE_CODEC = 'deflate-raw';
 /**
  * Checks the `.golt` file magic.
  *
- * @export
  * @param {DataView} view file data view.
  * @returns {boolean} `true` when the magic matches.
  */
@@ -40,7 +39,6 @@ export function hasGoltMagic(view: DataView): boolean {
 /**
  * Writes the `.golt` preamble and header into one contiguous prefix buffer.
  *
- * @export
  * @param {Uint8Array} headerBytes encoded JSON header bytes.
  * @returns {Uint8Array} `.golt` prefix bytes.
  */

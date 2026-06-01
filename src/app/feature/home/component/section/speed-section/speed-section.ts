@@ -7,7 +7,6 @@ import {ToggleButtonComponent} from '../../../../../shared/component/toggle-butt
 /**
  * Speed and recording section.
  *
- * @export
  * @class SpeedSection
  * @typedef {SpeedSection}
  */

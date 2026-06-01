@@ -3,7 +3,6 @@ import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLost
 /**
  * Messages emitted by the engine worker.
  *
- * @export
  * @typedef {EngineWorkerOutputMessage}
  */
 export type EngineWorkerOutputMessage =
@@ -25,7 +24,6 @@ export type EngineWorkerOutputMessage =
 /**
  * Output callbacks used by the engine worker client.
  *
- * @export
  * @interface EngineWorkerOutputHandlers
  * @typedef {EngineWorkerOutputHandlers}
  */

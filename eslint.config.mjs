@@ -11,7 +11,7 @@ import angularEslintTemplate from "@angular-eslint/eslint-plugin-template";
 import parser from "@angular-eslint/template-parser";
 import stylistic from '@stylistic/eslint-plugin'
 
-export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*"]), {
+export default defineConfig([globalIgnores(["docs/**/*", "node_modules/**/*", ".angular/**/*"]), {
   settings: {
     jsdoc: {
       tagNamePreference: {

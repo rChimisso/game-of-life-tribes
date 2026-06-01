@@ -11,7 +11,7 @@ import {OfflineMetricEntry} from '../core/offline-types';
  * @typedef {BufferedMetricsFrameExportWriter}
  * @extends {BaseMetricsFrameExportWriter}
  */
-class BufferedMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
+export class BufferedMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
   /**
    * Retained metric rows.
    *
@@ -55,5 +55,3 @@ class BufferedMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
     }))));
   }
 }
-
-export {BufferedMetricsFrameExportWriter};

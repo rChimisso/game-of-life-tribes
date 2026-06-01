@@ -7,7 +7,6 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 /**
  * Checkbox.
  *
- * @export
  * @class CheckboxComponent
  * @typedef {CheckboxComponent}
  * @extends {CvaComponent<boolean>}

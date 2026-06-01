@@ -5,7 +5,6 @@ import {StorageBarSegment} from './model/storage-bar-segment';
 /**
  * Storage segmented bar.
  *
- * @export
  * @class StorageBar
  * @typedef {StorageBar}
  */

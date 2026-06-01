@@ -3,7 +3,6 @@ import {ByteSink} from '../../snapshot/model/golt-types';
 /**
  * Indexed-color PNG bit depth.
  *
- * @export
  * @typedef {IndexedPngBitDepth}
  */
 type IndexedPngBitDepth = 1 | 2 | 4 | 8;
@@ -11,7 +10,6 @@ type IndexedPngBitDepth = 1 | 2 | 4 | 8;
 /**
  * Indexed-color PNG palette metadata.
  *
- * @export
  * @interface IndexedPngPalette
  * @typedef {IndexedPngPalette}
  */
@@ -45,7 +43,6 @@ interface IndexedPngPalette {
 /**
  * Options used while encoding one indexed-color PNG frame.
  *
- * @export
  * @interface IndexedPngFrameOptions
  * @typedef {IndexedPngFrameOptions}
  */
@@ -73,7 +70,6 @@ interface IndexedPngFrameOptions {
 /**
  * Writable byte sink used by PNG helpers.
  *
- * @export
  * @typedef {PngByteSink}
  */
 type PngByteSink = ByteSink;

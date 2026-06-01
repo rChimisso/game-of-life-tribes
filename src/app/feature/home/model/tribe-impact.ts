@@ -1,7 +1,6 @@
 /**
  * Tribe id rename to apply to committed rules.
  *
- * @export
  * @interface TribeRenamePair
  * @typedef {TribeRenamePair}
  */
@@ -23,7 +22,6 @@ export interface TribeRenamePair {
 /**
  * Result of checking whether pending tribe edits can be applied.
  *
- * @export
  * @interface TribeApplyImpact
  * @typedef {TribeApplyImpact}
  */

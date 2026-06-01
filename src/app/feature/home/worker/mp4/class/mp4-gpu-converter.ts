@@ -11,11 +11,10 @@ import {Tribe} from '~gol/feature/home/model/rule';
 /**
  * GPU converter for packed recorded frames.
  *
- * @export
  * @class Mp4GpuFrameConverter
  * @typedef {Mp4GpuFrameConverter}
  */
-class Mp4GpuFrameConverter {
+export class Mp4GpuFrameConverter {
   /**
    * WebGPU device.
    *
@@ -164,22 +163,23 @@ class Mp4GpuFrameConverter {
     this.canvasFormat = resources.canvasFormat;
     this.canvas = new OffscreenCanvas(resources.outputSize.width, resources.outputSize.height);
     const context = this.canvas.getContext('webgpu');
-    if (!context) {
+    if (context) {
+      this.context = context;
+      this.context.configure({
+        device: resources.device,
+        format: resources.canvasFormat,
+        alphaMode: 'opaque'
+      });
+      this.pipeline = resources.pipeline;
+      this.paletteBuffer = resources.paletteBuffer;
+      this.configBuffer = resources.configBuffer;
+      this.paletteLength = resources.paletteLength;
+      this.frameBuffer = resources.frameBuffer;
+      this.frameBufferBytes = Math.max(MIN_GPU_BUFFER_BYTES, resources.frameBufferBytes);
+      this.bindGroup = this.createBindGroup();
+    } else {
       throw new Error('WebGPU canvas context is unavailable for MP4 export.');
     }
-    this.context = context;
-    this.context.configure({
-      device: resources.device,
-      format: resources.canvasFormat,
-      alphaMode: 'opaque'
-    });
-    this.pipeline = resources.pipeline;
-    this.paletteBuffer = resources.paletteBuffer;
-    this.configBuffer = resources.configBuffer;
-    this.paletteLength = resources.paletteLength;
-    this.frameBuffer = resources.frameBuffer;
-    this.frameBufferBytes = Math.max(MIN_GPU_BUFFER_BYTES, resources.frameBufferBytes);
-    this.bindGroup = this.createBindGroup();
   }
 
   /**
@@ -383,5 +383,3 @@ class Mp4GpuFrameConverter {
     }
   }
 }
-
-export {Mp4GpuFrameConverter};

@@ -3,9 +3,8 @@ import type {VideoTrackMetadata} from 'mediabunny';
 
 import {Mp4GpuFrameConverter} from './mp4-gpu-converter';
 import {Mp4TempOutput} from './mp4-temp-output';
-import {PackedRecordedFrame, RecordingFrameSelection} from '../../frame/recording-frame-stream';
+import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {formatPercent} from '../logic/mp4-progress-format';
 import {SupportedMp4VideoConfig} from '../model/mp4-avc-types';
 import {MP4_ENCODER_QUEUE_HIGH_WATERMARK, MP4_ENCODER_QUEUE_LOW_WATERMARK, MP4_PACKET_DRAIN_THRESHOLD, MP4_STREAM_TARGET_CHUNK_BYTES, Mp4FrameExportOptions, Mp4FrameExportWriterResources} from '../model/mp4-frame-export-types';
 import {Mp4FrameExportWriter, Mp4FrameProgressReporter, Mp4OutputSize} from '../model/mp4-types';
@@ -17,7 +16,7 @@ import {Mp4FrameExportWriter, Mp4FrameProgressReporter, Mp4OutputSize} from '../
  * @typedef {Mp4FrameExportWriterImpl}
  * @implements {Mp4FrameExportWriter}
  */
-class Mp4FrameExportWriterImpl implements Mp4FrameExportWriter {
+export class Mp4FrameExportWriterImpl implements Mp4FrameExportWriter {
   /**
    * Encoded packet source used by Mediabunny.
    *
@@ -201,7 +200,7 @@ class Mp4FrameExportWriterImpl implements Mp4FrameExportWriter {
       shouldCancel: this.resources.options.shouldCancel,
       onProgress: (bytesWritten, totalBytes) => {
         const progressTotal = Math.max(1, totalBytes);
-        this.resources.options.onStatus(`Writing MP4 to ZIP ${formatPercent(bytesWritten / progressTotal)}`);
+        this.resources.options.onStatus(`Writing MP4 to ZIP ${Math.round(Math.max(0, Math.min(1, bytesWritten / progressTotal)) * 100)}%`);
       }
     });
     console.log('[GOLT] MP4 export finished', {
@@ -364,7 +363,3 @@ class Mp4FrameExportWriterImpl implements Mp4FrameExportWriter {
     });
   }
 }
-
-export {Mp4FrameExportWriterImpl};
-
-export type {Mp4FrameExportOptions};

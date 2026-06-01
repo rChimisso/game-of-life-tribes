@@ -2,14 +2,13 @@ import {createAttractorTracker, finalizeActiveAttractor, observeAttractorFrame} 
 import {assertNotCancelled, computeMetricWithFallback, createMetricComputeOptions} from './export-logic';
 import {MetricsExportOptions, MetricsFrameExportWriter, MetricsFrameProgressReporter} from './export-types';
 import {createExtinctionTracker, finalizeExtinctionTracker, observeExtinctionMetric} from './extinction';
-import {RecordingManifest} from '../../../model/recording';
-import {PackedRecordedFrame, RecordingFrameSelection} from '../../frame/recording-frame-stream';
+import {Recording} from '../../../model/recording';
+import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
-import {createPreviousOfflineMetricFrame, OfflineMetricsTribe, PreviousOfflineMetricFrame} from '../core/offline';
+import {createPreviousOfflineMetricFrame} from '../core/offline';
+import {PreviousOfflineMetricFrame, OfflineMetricsTribe} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
-
-import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Shared Metrics writer state and frame processing.
@@ -19,7 +18,7 @@ import {Grid} from '~gol/feature/home/model/grid';
  * @typedef {BaseMetricsFrameExportWriter}
  * @implements {MetricsFrameExportWriter}
  */
-abstract class BaseMetricsFrameExportWriter implements MetricsFrameExportWriter {
+export abstract class BaseMetricsFrameExportWriter implements MetricsFrameExportWriter {
   /**
    * Attractor episode tracker.
    *
@@ -69,7 +68,7 @@ abstract class BaseMetricsFrameExportWriter implements MetricsFrameExportWriter 
    * Creates a shared Metrics frame writer.
    *
    * @param {ZipWriter} zip target ZIP writer.
-   * @param {Grid & {manifest: RecordingManifest}} recording recording dimensions and manifest.
+   * @param {Recording} recording recording dimensions and manifest.
    * @param {RecordingFrameSelection} selection selected frame range.
    * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
    * @param {MetricsExportOptions} options export options.
@@ -77,7 +76,7 @@ abstract class BaseMetricsFrameExportWriter implements MetricsFrameExportWriter 
    */
   public constructor(
     protected readonly zip: ZipWriter,
-    protected readonly recording: Grid & {manifest: RecordingManifest},
+    protected readonly recording: Recording,
     protected readonly selection: RecordingFrameSelection,
     protected readonly tribes: readonly OfflineMetricsTribe[],
     protected readonly options: MetricsExportOptions,
@@ -154,5 +153,3 @@ abstract class BaseMetricsFrameExportWriter implements MetricsFrameExportWriter 
    */
   protected abstract writeOutputs(): Promise<void>;
 }
-
-export {BaseMetricsFrameExportWriter};

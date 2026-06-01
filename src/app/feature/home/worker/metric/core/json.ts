@@ -4,12 +4,11 @@ import {MetricsJsonSummary, OfflineMetricEntry} from './offline-types';
 /**
  * Builds the Metrics JSON summary document.
  *
- * @export
  * @param {readonly OfflineMetricEntry[]} metrics offline metric rows.
  * @param {MetricsJsonMetadata} metadata export metadata.
  * @returns {string} JSON document.
  */
-function buildMetricsJson(metrics: readonly OfflineMetricEntry[], metadata: MetricsJsonMetadata): string {
+export function buildMetricsJson(metrics: readonly OfflineMetricEntry[], metadata: MetricsJsonMetadata): string {
   const first = metrics[0] ?? null;
   const last = metrics[metrics.length - 1] ?? null;
   const summary: MetricsJsonSummary = {
@@ -27,7 +26,3 @@ function buildMetricsJson(metrics: readonly OfflineMetricEntry[], metadata: Metr
   };
   return JSON.stringify(summary, null, 2);
 }
-
-export {buildMetricsJson};
-
-export type {MetricsJsonMetadata} from './json-types';

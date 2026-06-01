@@ -7,7 +7,6 @@ import {StatusAction} from './model/status-page-action';
 /**
  * Status page for blocking errors.
  *
- * @export
  * @class StatusPage
  * @typedef {StatusPage}
  */

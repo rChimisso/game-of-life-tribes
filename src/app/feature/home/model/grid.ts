@@ -1,7 +1,6 @@
 /**
  * Grid dimensions.
  *
- * @export
  * @interface Grid
  * @typedef {Grid}
  */

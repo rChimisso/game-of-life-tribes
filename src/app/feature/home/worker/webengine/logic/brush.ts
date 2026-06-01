@@ -52,7 +52,6 @@ function createBrushAxisSegments(center: number, brushSize: number, limit: numbe
 /**
  * Generates the brush compute shader for the active packed-grid format.
  *
- * @export
  * @param {GridFormat} gridFormat active packed grid format.
  * @returns {string} brush WGSL source.
  */
@@ -199,7 +198,6 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 /**
  * Produces the non-wrapping rectangles required for one wrapped brush stroke.
  *
- * @export
  * @param {number} centerX brush center x coordinate.
  * @param {number} centerY brush center y coordinate.
  * @param {number} brushSize brush size in logical cells.

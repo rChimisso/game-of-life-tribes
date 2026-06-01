@@ -1,7 +1,6 @@
 /**
  * Computed display model for frame size and limit indicators.
  *
- * @export
  * @interface FrameSizeLimitInfo
  * @typedef {FrameSizeLimitInfo}
  */

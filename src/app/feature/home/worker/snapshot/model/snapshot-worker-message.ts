@@ -5,7 +5,6 @@ import {GridFormatMetadata} from '../../../model/grid-format';
 /**
  * Request to build a `.golt` snapshot file.
  *
- * @export
  * @interface SnapshotSaveRequest
  * @typedef {SnapshotSaveRequest}
  */
@@ -27,7 +26,6 @@ export interface SnapshotSaveRequest {
 /**
  * Request to parse a `.golt` snapshot file.
  *
- * @export
  * @interface SnapshotLoadRequest
  * @typedef {SnapshotLoadRequest}
  */
@@ -49,7 +47,6 @@ export interface SnapshotLoadRequest {
 /**
  * Snapshot worker request.
  *
- * @export
  * @typedef {SnapshotWorkerRequest}
  */
 export type SnapshotWorkerRequest = SnapshotSaveRequest | SnapshotLoadRequest;
@@ -57,7 +54,6 @@ export type SnapshotWorkerRequest = SnapshotSaveRequest | SnapshotLoadRequest;
 /**
  * Snapshot worker request event.
  *
- * @export
  * @typedef {SnapshotWorkerEvent}
  */
 export type SnapshotWorkerEvent = MessageEvent<SnapshotWorkerRequest>;
@@ -65,7 +61,6 @@ export type SnapshotWorkerEvent = MessageEvent<SnapshotWorkerRequest>;
 /**
  * Parsed snapshot message sent to the UI thread.
  *
- * @export
  * @interface SnapshotLoadedMessage
  * @typedef {SnapshotLoadedMessage}
  * @extends {Grid}

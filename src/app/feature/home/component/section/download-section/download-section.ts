@@ -18,7 +18,6 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
 /**
  * Download options section.
  *
- * @export
  * @class DownloadSection
  * @typedef {DownloadSection}
  * @implements {OnChanges}

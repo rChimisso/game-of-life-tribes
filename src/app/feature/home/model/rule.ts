@@ -3,7 +3,6 @@ import {Grid} from '~gol/feature/home/model/grid';
 /**
  * Valid number for the count of a cell's neighbors.
  *
- * @export
  * @typedef {NeighborCount}
  */
 export type NeighborCount = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -11,7 +10,6 @@ export type NeighborCount = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 /**
  * Tribe.
  *
- * @export
  * @interface Tribe
  * @typedef {Tribe}
  */
@@ -33,7 +31,6 @@ export interface Tribe<T extends string = string> {
 /**
  * Editable tribe draft used only by the UI.
  *
- * @export
  * @interface EditableTribe
  * @typedef {EditableTribe}
  */
@@ -49,7 +46,6 @@ export interface EditableTribe<T extends string = string> extends Tribe<T> {
 /**
  * Type utility for allowed tribes in rules and clauses.
  *
- * @export
  * @typedef {AllowedTribe}
  * @template {readonly Tribe[]} T
  */
@@ -152,7 +148,6 @@ export const XOR_CLAUSE_KIND = 'xor';
 /**
  * Interval for counting a cell's neighbors (both inclusive).
  *
- * @export
  * @typedef {Interval}
  */
 export type Interval = [NeighborCount, NeighborCount];
@@ -160,7 +155,6 @@ export type Interval = [NeighborCount, NeighborCount];
 /**
  * Comparison operator.
  *
- * @export
  * @typedef {Operator}
  */
 export type Operator = '=' | '≠' | '>' | '<' | '≥' | '≤';
@@ -168,7 +162,6 @@ export type Operator = '=' | '≠' | '>' | '<' | '≥' | '≤';
 /**
  * Placeholder clause used while building rule expressions.
  *
- * @export
  * @interface EmptyClause
  * @typedef {EmptyClause}
  */
@@ -185,7 +178,6 @@ export interface EmptyClause {
 /**
  * Clause specifying the belonging of a cell to a set of tribes.
  *
- * @export
  * @interface IsClause<T extends readonly Tribe[]>
  * @typedef {IsClause<T extends readonly Tribe[]>}
  */
@@ -208,7 +200,6 @@ export interface IsClause<T extends readonly Tribe[]> {
 /**
  * Clause specifying a cell's neighbor count interval.
  *
- * @export
  * @interface IntervalClause<T extends readonly Tribe[]>
  * @typedef {IntervalClause<T extends readonly Tribe[]>}
  */
@@ -237,7 +228,6 @@ export interface IntervalClause<T extends readonly Tribe[]> {
 /**
  * Clause specifying a comparison between neighbor counts of two tribe groups.
  *
- * @export
  * @interface ComparisonClause<T extends readonly Tribe[]>
  * @typedef {ComparisonClause<T extends readonly Tribe[]>}
  */
@@ -279,7 +269,6 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
 /**
  * Alias clause: no matching neighbors from selected tribes.
  *
- * @export
  * @interface NoneClause<T extends readonly Tribe[]>
  * @typedef {NoneClause<T extends readonly Tribe[]>}
  */
@@ -302,7 +291,6 @@ export interface NoneClause<T extends readonly Tribe[]> {
 /**
  * Alias clause: exactly N neighbors from selected tribes.
  *
- * @export
  * @interface ExactlyClause<T extends readonly Tribe[]>
  * @typedef {ExactlyClause<T extends readonly Tribe[]>}
  */
@@ -331,7 +319,6 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
 /**
  * Alias clause: at least N neighbors from selected tribes.
  *
- * @export
  * @interface MinClause<T extends readonly Tribe[]>
  * @typedef {MinClause<T extends readonly Tribe[]>}
  */
@@ -360,7 +347,6 @@ export interface MinClause<T extends readonly Tribe[]> {
 /**
  * Alias clause: at most N neighbors from selected tribes.
  *
- * @export
  * @interface MaxClause<T extends readonly Tribe[]>
  * @typedef {MaxClause<T extends readonly Tribe[]>}
  */
@@ -389,7 +375,6 @@ export interface MaxClause<T extends readonly Tribe[]> {
 /**
  * Clause inverting the value of another clause.
  *
- * @export
  * @interface NotClause<T extends readonly Tribe[]>
  * @typedef {NotClause<T extends readonly Tribe[]>}
  */
@@ -412,7 +397,6 @@ export interface NotClause<T extends readonly Tribe[]> {
 /**
  * Clause requiring other clauses to be all true.
  *
- * @export
  * @interface AndClause<T extends readonly Tribe[]>
  * @typedef {AndClause<T extends readonly Tribe[]>}
  */
@@ -435,7 +419,6 @@ export interface AndClause<T extends readonly Tribe[]> {
 /**
  * Clause requiring at least one of other clauses to be true.
  *
- * @export
  * @interface OrClause<T extends readonly Tribe[]>
  * @typedef {OrClause<T extends readonly Tribe[]>}
  */
@@ -458,7 +441,6 @@ export interface OrClause<T extends readonly Tribe[]> {
 /**
  * Clause requiring an odd number of affected clauses to be true.
  *
- * @export
  * @interface XorClause<T extends readonly Tribe[]>
  * @typedef {XorClause<T extends readonly Tribe[]>}
  */
@@ -481,7 +463,6 @@ export interface XorClause<T extends readonly Tribe[]> {
 /**
  * Rule logical clause.
  *
- * @export
  * @typedef {Clause}
  */
 export type Clause<T extends readonly Tribe[]> = EmptyClause | IsClause<T> | IntervalClause<T> | NoneClause<T> | ExactlyClause<T> | MinClause<T> | MaxClause<T> | ComparisonClause<T> | NotClause<T> | AndClause<T> | OrClause<T> | XorClause<T>;
@@ -489,7 +470,6 @@ export type Clause<T extends readonly Tribe[]> = EmptyClause | IsClause<T> | Int
 /**
  * Rule.
  *
- * @export
  * @interface Rule
  * @typedef {Rule}
  */
@@ -523,7 +503,6 @@ export interface Rule<T extends readonly Tribe[]> {
 /**
  * Ruleset.
  *
- * @export
  * @interface Ruleset
  * @typedef {Ruleset}
  * @extends {Grid}

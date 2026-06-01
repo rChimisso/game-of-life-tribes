@@ -1,16 +1,15 @@
 import {GPU_STATE_BUCKETS} from './recorded-gpu-metrics-model';
 import {GridFormat} from '../../../model/grid-format';
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
-import {FrameMetricStats, OfflineMetricComputeOptions} from '../core/offline';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
+import {FrameMetricStats, OfflineMetricComputeOptions} from '../core/offline-compute-types';
 
 /**
  * Creates the device-loss error used to retire the GPU Metrics backend.
  *
- * @export
  * @param {GPUDeviceLostInfo} info device loss information.
  * @returns {Error} device-loss error.
  */
-function createRecordedGpuMetricsDeviceLostError(info: GPUDeviceLostInfo): Error {
+export function createRecordedGpuMetricsDeviceLostError(info: GPUDeviceLostInfo): Error {
   const message = info.message ? `Recorded GPU Metrics device lost: ${info.message}` : 'Recorded GPU Metrics device lost.';
   return new Error(message);
 }
@@ -18,14 +17,13 @@ function createRecordedGpuMetricsDeviceLostError(info: GPUDeviceLostInfo): Error
 /**
  * Builds the recorded-frame metric shader.
  *
- * @export
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {GridFormat} previousFormat previous frame packing format.
  * @param {number} tribeCount known state count.
  * @param {number} deadIndex dead tribe index.
  * @returns {string} wgsl shader source.
  */
-function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): string {
+export function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): string {
   return `
 @group(0) @binding(0) var<storage, read> currentGrid: array<u32>;
 @group(0) @binding(1) var<storage, read> previousGrid: array<u32>;
@@ -158,13 +156,12 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_ind
 /**
  * Converts gpu readback counters into shared offline metric stats.
  *
- * @export
  * @param {Uint32Array} readback gpu readback counters.
  * @param {number} tribeCount known state count.
  * @param {boolean} exactTransition whether transition counters were computed.
  * @returns {FrameMetricStats} aggregate frame stats.
  */
-function buildGpuFrameMetricStats(readback: Uint32Array, tribeCount: number, exactTransition: boolean): FrameMetricStats {
+export function buildGpuFrameMetricStats(readback: Uint32Array, tribeCount: number, exactTransition: boolean): FrameMetricStats {
   return {
     counts: Array.from(readback.slice(0, tribeCount)),
     frontierCounts: Array.from(readback.slice(GPU_STATE_BUCKETS, GPU_STATE_BUCKETS + tribeCount)),
@@ -182,13 +179,10 @@ function buildGpuFrameMetricStats(readback: Uint32Array, tribeCount: number, exa
 /**
  * Throws when Metrics computation has been cancelled.
  *
- * @export
  * @param {OfflineMetricComputeOptions} options compute options.
  */
-function assertNotCancelled(options: OfflineMetricComputeOptions): void {
+export function assertNotCancelled(options: OfflineMetricComputeOptions): void {
   if (options.shouldCancel()) {
     throw new Error('Metrics computation cancelled');
   }
 }
-
-export {assertNotCancelled, buildGpuFrameMetricStats, buildRecordedMetricWgsl, createRecordedGpuMetricsDeviceLostError};

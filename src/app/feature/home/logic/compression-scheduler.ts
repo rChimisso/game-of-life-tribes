@@ -7,19 +7,27 @@ import {ChunkSealedMessage, UncompressedChunksMessage} from '../model/worker-mes
 /**
  * Main-thread background compression scheduler.
  *
- * @export
  * @class CompressionScheduler
  * @typedef {CompressionScheduler}
  */
 export class CompressionScheduler {
   /**
-   * Scheduler callbacks.
+   * Compression jobs currently active by filename.
    *
    * @private
    * @readonly
-   * @type {CompressionSchedulerCallbacks}
+   * @type {Map<string, QueuedCompressionJob>}
    */
-  private readonly callbacks: CompressionSchedulerCallbacks;
+  private readonly activeCompressionJobs = new Map<string, QueuedCompressionJob>();
+
+  /**
+   * Promise resolvers waiting for compression queue changes.
+   *
+   * @private
+   * @readonly
+   * @type {Set<() => void>}
+   */
+  private readonly compressionDrainResolvers = new Set<() => void>();
 
   /**
    * Background compression worker pool.
@@ -54,15 +62,6 @@ export class CompressionScheduler {
   private deferredCompressionJobs: QueuedCompressionJob[] = [];
 
   /**
-   * Compression jobs currently active by filename.
-   *
-   * @private
-   * @readonly
-   * @type {Map<string, QueuedCompressionJob>}
-   */
-  private readonly activeCompressionJobs = new Map<string, QueuedCompressionJob>();
-
-  /**
    * Pending compression retry timers.
    *
    * @private
@@ -87,23 +86,11 @@ export class CompressionScheduler {
   private compressionDispatchPaused = false;
 
   /**
-   * Promise resolvers waiting for compression queue changes.
-   *
-   * @private
-   * @readonly
-   * @type {Set<() => void>}
-   */
-  private readonly compressionDrainResolvers = new Set<() => void>();
-
-  /**
-   * Creates a compression scheduler.
-   *
+   * @constructor
    * @public
    * @param {CompressionSchedulerCallbacks} callbacks scheduler callbacks.
    */
-  public constructor(callbacks: CompressionSchedulerCallbacks) {
-    this.callbacks = callbacks;
-  }
+  public constructor(private readonly callbacks: CompressionSchedulerCallbacks) {}
 
   /**
    * Queues one sealed recording chunk for background compression.

@@ -4,20 +4,6 @@ import {BuildMetricMessageRequest, CreateInteractiveMetricsResourcesRequest, Enc
 import {GPU_LABELS} from '../../gpu/gpu-labels';
 
 /**
- * Histogram buffer size in bytes.
- *
- * @type {number}
- */
-const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
-
-/**
- * Boundary buffer size in bytes.
- *
- * @type {number}
- */
-const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
-
-/**
  * Builds dispatch constants for remapped metrics dispatches.
  *
  * @param {MetricsDispatchPlan2D} dispatchPlan metrics dispatch plan.
@@ -178,141 +164,6 @@ ${metricsCoordinateWgsl(dispatchPlan)}
 }
 `;
 }
-
-/**
- * Creates live metric WebGPU resources.
- *
- * @param {CreateInteractiveMetricsResourcesRequest} request resource creation request.
- * @returns {InteractiveMetricsResources} live metric GPU resources.
- */
-function createInteractiveMetricsResources(request: CreateInteractiveMetricsResourcesRequest): InteractiveMetricsResources {
-  const {device} = request;
-  const histModule = device.createShaderModule({label: GPU_LABELS.histogramMetricsShaderModule, code: generateHistogramWgsl(request)});
-  const histogramPipeline = device.createComputePipeline({
-    label: GPU_LABELS.histogramMetricsPipeline,
-    layout: 'auto',
-    compute: {module: histModule, entryPoint: 'main'}
-  });
-  const histogramBuffer = device.createBuffer({
-    label: GPU_LABELS.histogramMetricsBuffer,
-    size: HISTOGRAM_BUFFER_SIZE,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-  });
-  const histogramReadBuffer = device.createBuffer({
-    label: GPU_LABELS.histogramMetricsReadBuffer,
-    size: HISTOGRAM_BUFFER_SIZE,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
-  const boundaryModule = device.createShaderModule({label: GPU_LABELS.interfaceMetricsShaderModule, code: generateBoundaryWgsl(request)});
-  const boundaryPipeline = device.createComputePipeline({
-    label: GPU_LABELS.interfaceMetricsPipeline,
-    layout: 'auto',
-    compute: {module: boundaryModule, entryPoint: 'main'}
-  });
-  const boundaryBuffer = device.createBuffer({
-    label: GPU_LABELS.interfaceMetricsBuffer,
-    size: BOUNDARY_BUFFER_SIZE,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-  });
-  const boundaryReadBuffer = device.createBuffer({
-    label: GPU_LABELS.interfaceMetricsReadBuffer,
-    size: BOUNDARY_BUFFER_SIZE,
-    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-  });
-  return {
-    histogramPipeline,
-    histogramBuffer,
-    histogramReadBuffer,
-    boundaryPipeline,
-    boundaryBuffer,
-    boundaryReadBuffer
-  };
-}
-
-/**
- * Destroys live metric WebGPU resources.
- *
- * @param {(InteractiveMetricsResources | null)} resources live metric GPU resources.
- */
-function destroyInteractiveMetricsResources(resources: InteractiveMetricsResources | null): void {
-  resources?.histogramBuffer.destroy();
-  resources?.histogramReadBuffer.destroy();
-  resources?.boundaryBuffer.destroy();
-  resources?.boundaryReadBuffer.destroy();
-}
-
-/**
- * Encodes live metric GPU work into a command encoder.
- *
- * @param {EncodeInteractiveMetricsRequest} request encode request.
- */
-function encodeInteractiveMetrics(request: EncodeInteractiveMetricsRequest): void {
-  const {device, encoder, resources, sourceBuffer, dispatchPlan, enabledSections} = request;
-  if (hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity')) {
-    const zeros256 = new Uint32Array(256);
-    device.queue.writeBuffer(resources.histogramBuffer, 0, zeros256);
-    const bindGroup = device.createBindGroup({
-      layout: resources.histogramPipeline.getBindGroupLayout(0),
-      entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.histogramBuffer} }]
-    });
-    const pass = encoder.beginComputePass({label: GPU_LABELS.histogramMetricsPass});
-    pass.setPipeline(resources.histogramPipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);
-    pass.end();
-    encoder.copyBufferToBuffer(resources.histogramBuffer, 0, resources.histogramReadBuffer, 0, HISTOGRAM_BUFFER_SIZE);
-  }
-  if (hasInteractiveMetricSection(enabledSections, 'interfaces')) {
-    const zeros1 = new Uint32Array([0]);
-    device.queue.writeBuffer(resources.boundaryBuffer, 0, zeros1);
-    const bindGroup = device.createBindGroup({
-      layout: resources.boundaryPipeline.getBindGroupLayout(0),
-      entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.boundaryBuffer} }]
-    });
-    const pass = encoder.beginComputePass({label: GPU_LABELS.interfaceMetricsPass});
-    pass.setPipeline(resources.boundaryPipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);
-    pass.end();
-    encoder.copyBufferToBuffer(resources.boundaryBuffer, 0, resources.boundaryReadBuffer, 0, BOUNDARY_BUFFER_SIZE);
-  }
-}
-
-/**
- * Reads live metric GPU outputs.
- *
- * @async
- * @param {ReadInteractiveMetricsRequest} request readback request.
- * @returns {Promise<InteractiveMetricsReadback>} live metric readback.
- */
-async function readInteractiveMetrics(request: ReadInteractiveMetricsRequest): Promise<InteractiveMetricsReadback> {
-  const {resources, enabledSections} = request;
-  const needsHistogram = hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity');
-  const needsBoundary = hasInteractiveMetricSection(enabledSections, 'interfaces');
-  const mapPromises: Promise<void>[] = [];
-  if (needsHistogram) {
-    mapPromises.push(resources.histogramReadBuffer.mapAsync(GPUMapMode.READ));
-  }
-  if (needsBoundary) {
-    mapPromises.push(resources.boundaryReadBuffer.mapAsync(GPUMapMode.READ));
-  }
-  await Promise.all(mapPromises);
-
-  let histogram = new Uint32Array(256);
-  if (needsHistogram) {
-    histogram = new Uint32Array(resources.histogramReadBuffer.getMappedRange().slice(0));
-    resources.histogramReadBuffer.unmap();
-  }
-
-  let crossStateContactEdges = 0;
-  if (needsBoundary) {
-    const bData = new Uint32Array(resources.boundaryReadBuffer.getMappedRange().slice(0));
-    resources.boundaryReadBuffer.unmap();
-    crossStateContactEdges = bData[0] ?? 0;
-  }
-  return {histogram, crossStateContactEdges};
-}
-
 /**
  * Computes live population stats.
  *
@@ -395,12 +246,160 @@ function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interface
 }
 
 /**
+ * Histogram buffer size in bytes.
+ *
+ * @type {number}
+ */
+export const HISTOGRAM_BUFFER_SIZE = 256 * Uint32Array.BYTES_PER_ELEMENT;
+
+/**
+ * Boundary buffer size in bytes.
+ *
+ * @type {number}
+ */
+export const BOUNDARY_BUFFER_SIZE = Uint32Array.BYTES_PER_ELEMENT;
+
+/**
+ * Creates live metric WebGPU resources.
+ *
+ * @param {CreateInteractiveMetricsResourcesRequest} request resource creation request.
+ * @returns {InteractiveMetricsResources} live metric GPU resources.
+ */
+export function createInteractiveMetricsResources(request: CreateInteractiveMetricsResourcesRequest): InteractiveMetricsResources {
+  const {device} = request;
+  const histModule = device.createShaderModule({label: GPU_LABELS.histogramMetricsShaderModule, code: generateHistogramWgsl(request)});
+  const histogramPipeline = device.createComputePipeline({
+    label: GPU_LABELS.histogramMetricsPipeline,
+    layout: 'auto',
+    compute: {module: histModule, entryPoint: 'main'}
+  });
+  const histogramBuffer = device.createBuffer({
+    label: GPU_LABELS.histogramMetricsBuffer,
+    size: HISTOGRAM_BUFFER_SIZE,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  });
+  const histogramReadBuffer = device.createBuffer({
+    label: GPU_LABELS.histogramMetricsReadBuffer,
+    size: HISTOGRAM_BUFFER_SIZE,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+  const boundaryModule = device.createShaderModule({label: GPU_LABELS.interfaceMetricsShaderModule, code: generateBoundaryWgsl(request)});
+  const boundaryPipeline = device.createComputePipeline({
+    label: GPU_LABELS.interfaceMetricsPipeline,
+    layout: 'auto',
+    compute: {module: boundaryModule, entryPoint: 'main'}
+  });
+  const boundaryBuffer = device.createBuffer({
+    label: GPU_LABELS.interfaceMetricsBuffer,
+    size: BOUNDARY_BUFFER_SIZE,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  });
+  const boundaryReadBuffer = device.createBuffer({
+    label: GPU_LABELS.interfaceMetricsReadBuffer,
+    size: BOUNDARY_BUFFER_SIZE,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+  });
+  return {
+    histogramPipeline,
+    histogramBuffer,
+    histogramReadBuffer,
+    boundaryPipeline,
+    boundaryBuffer,
+    boundaryReadBuffer
+  };
+}
+
+/**
+ * Destroys live metric WebGPU resources.
+ *
+ * @param {(InteractiveMetricsResources | null)} resources live metric GPU resources.
+ */
+export function destroyInteractiveMetricsResources(resources: InteractiveMetricsResources | null): void {
+  resources?.histogramBuffer.destroy();
+  resources?.histogramReadBuffer.destroy();
+  resources?.boundaryBuffer.destroy();
+  resources?.boundaryReadBuffer.destroy();
+}
+
+/**
+ * Encodes live metric GPU work into a command encoder.
+ *
+ * @param {EncodeInteractiveMetricsRequest} request encode request.
+ */
+export function encodeInteractiveMetrics(request: EncodeInteractiveMetricsRequest): void {
+  const {device, encoder, resources, sourceBuffer, dispatchPlan, enabledSections} = request;
+  if (hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity')) {
+    const zeros256 = new Uint32Array(256);
+    device.queue.writeBuffer(resources.histogramBuffer, 0, zeros256);
+    const bindGroup = device.createBindGroup({
+      layout: resources.histogramPipeline.getBindGroupLayout(0),
+      entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.histogramBuffer} }]
+    });
+    const pass = encoder.beginComputePass({label: GPU_LABELS.histogramMetricsPass});
+    pass.setPipeline(resources.histogramPipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);
+    pass.end();
+    encoder.copyBufferToBuffer(resources.histogramBuffer, 0, resources.histogramReadBuffer, 0, HISTOGRAM_BUFFER_SIZE);
+  }
+  if (hasInteractiveMetricSection(enabledSections, 'interfaces')) {
+    const zeros1 = new Uint32Array([0]);
+    device.queue.writeBuffer(resources.boundaryBuffer, 0, zeros1);
+    const bindGroup = device.createBindGroup({
+      layout: resources.boundaryPipeline.getBindGroupLayout(0),
+      entries: [{binding: 0, resource: {buffer: sourceBuffer} }, {binding: 1, resource: {buffer: resources.boundaryBuffer} }]
+    });
+    const pass = encoder.beginComputePass({label: GPU_LABELS.interfaceMetricsPass});
+    pass.setPipeline(resources.boundaryPipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(dispatchPlan.dispatchWgX, dispatchPlan.dispatchWgY);
+    pass.end();
+    encoder.copyBufferToBuffer(resources.boundaryBuffer, 0, resources.boundaryReadBuffer, 0, BOUNDARY_BUFFER_SIZE);
+  }
+}
+
+/**
+ * Reads live metric GPU outputs.
+ *
+ * @async
+ * @param {ReadInteractiveMetricsRequest} request readback request.
+ * @returns {Promise<InteractiveMetricsReadback>} live metric readback.
+ */
+export async function readInteractiveMetrics(request: ReadInteractiveMetricsRequest): Promise<InteractiveMetricsReadback> {
+  const {resources, enabledSections} = request;
+  const needsHistogram = hasInteractiveMetricSection(enabledSections, 'population') || hasInteractiveMetricSection(enabledSections, 'diversity');
+  const needsBoundary = hasInteractiveMetricSection(enabledSections, 'interfaces');
+  const mapPromises: Promise<void>[] = [];
+  if (needsHistogram) {
+    mapPromises.push(resources.histogramReadBuffer.mapAsync(GPUMapMode.READ));
+  }
+  if (needsBoundary) {
+    mapPromises.push(resources.boundaryReadBuffer.mapAsync(GPUMapMode.READ));
+  }
+  await Promise.all(mapPromises);
+
+  let histogram = new Uint32Array(256);
+  if (needsHistogram) {
+    histogram = new Uint32Array(resources.histogramReadBuffer.getMappedRange().slice(0));
+    resources.histogramReadBuffer.unmap();
+  }
+
+  let crossStateContactEdges = 0;
+  if (needsBoundary) {
+    const bData = new Uint32Array(resources.boundaryReadBuffer.getMappedRange().slice(0));
+    resources.boundaryReadBuffer.unmap();
+    crossStateContactEdges = bData[0] ?? 0;
+  }
+  return {histogram, crossStateContactEdges};
+}
+
+/**
  * Builds a live metric message from GPU readback.
  *
  * @param {BuildMetricMessageRequest} request metric message request.
  * @returns {InteractiveMetricMessage} live metric message.
  */
-function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
+export function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): InteractiveMetricMessage {
   const {generation, enabledSections, availability, liveMetricSettings, cols, rows, totalFrames, fps, canStepBack, recordingBytes, recordingRawBytes} = request;
   const populationEnabled = hasInteractiveMetricSection(enabledSections, 'population') && liveMetricSettings.population;
   const diversityEnabled = hasInteractiveMetricSection(enabledSections, 'diversity') && liveMetricSettings.diversity;
@@ -428,5 +427,3 @@ function buildInteractiveMetricMessage(request: BuildMetricMessageRequest): Inte
     recordingRawBytes
   };
 }
-
-export {BOUNDARY_BUFFER_SIZE, buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, HISTOGRAM_BUFFER_SIZE, readInteractiveMetrics};

@@ -13,7 +13,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Tribe entry editor.
  *
- * @export
  * @class TribeEntry
  * @typedef {TribeEntry}
  * @implements {OnChanges}

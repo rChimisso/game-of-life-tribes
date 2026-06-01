@@ -4,7 +4,6 @@ import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 /**
  * Request to compress one recording chunk.
  *
- * @export
  * @interface CompressRequest
  * @typedef {CompressRequest}
  * @extends {Grid}
@@ -51,7 +50,6 @@ export interface CompressRequest extends Grid {
 /**
  * Request to cancel selected compression jobs.
  *
- * @export
  * @interface CancelRequest
  * @typedef {CancelRequest}
  */
@@ -73,7 +71,6 @@ export interface CancelRequest {
 /**
  * Request to cancel all queued compression jobs.
  *
- * @export
  * @interface CancelAllRequest
  * @typedef {CancelAllRequest}
  */
@@ -89,7 +86,6 @@ export interface CancelAllRequest {
 /**
  * Request to pause compression after active jobs finish.
  *
- * @export
  * @interface PauseCompressionRequest
  * @typedef {PauseCompressionRequest}
  */
@@ -105,7 +101,6 @@ export interface PauseCompressionRequest {
 /**
  * Request to resume queued compression jobs.
  *
- * @export
  * @interface ResumeCompressionRequest
  * @typedef {ResumeCompressionRequest}
  */
@@ -121,7 +116,6 @@ export interface ResumeCompressionRequest {
 /**
  * Compression worker input message.
  *
- * @export
  * @typedef {WorkerInput}
  */
 export type WorkerInput = CompressRequest | CancelRequest | CancelAllRequest | PauseCompressionRequest | ResumeCompressionRequest;
@@ -129,7 +123,6 @@ export type WorkerInput = CompressRequest | CancelRequest | CancelAllRequest | P
 /**
  * Completed compression result.
  *
- * @export
  * @interface CompressResult
  * @typedef {CompressResult}
  */

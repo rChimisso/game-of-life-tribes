@@ -16,7 +16,6 @@ for (let i = 0; i < 256; i++) {
 /**
  * Updates a running CRC-32 value.
  *
- * @export
  * @param {number} crc current running CRC value.
  * @param {Uint8Array} data bytes to include in the CRC.
  * @returns {number} updated running CRC value.
@@ -32,7 +31,6 @@ export function updateCrc32(crc: number, data: Uint8Array): number {
 /**
  * Converts a running CRC-32 value to the stored final value.
  *
- * @export
  * @param {number} crc running CRC value.
  * @returns {number} finalized ZIP CRC-32 value.
  */

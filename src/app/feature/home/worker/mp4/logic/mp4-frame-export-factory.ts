@@ -1,6 +1,6 @@
 import {assertVideoEncoderAvailable, resolveSupportedAvcConfig} from './mp4-avc-config';
 import {resolveMp4OutputSize} from './mp4-output-size';
-import {PackedRecordedFrame, RecordingFrameSelection} from '../../frame/recording-frame-stream';
+import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {Mp4FrameExportWriterImpl} from '../class/mp4-frame-export-writer';
 import {Mp4GpuFrameConverter} from '../class/mp4-gpu-converter';
@@ -14,7 +14,6 @@ import {Tribe} from '~gol/feature/home/model/rule';
 /**
  * Creates an MP4 frame export writer.
  *
- * @export
  * @async
  * @param {ZipWriter} zip target zip archive.
  * @param {Grid} recording recording dimensions.
@@ -24,7 +23,7 @@ import {Tribe} from '~gol/feature/home/model/rule';
  * @param {Mp4FrameExportOptions} options mp4 export options.
  * @returns {Promise<Mp4FrameExportWriter>} MP4 export writer.
  */
-async function createMp4FrameExportWriter(
+export async function createMp4FrameExportWriter(
   zip: ZipWriter,
   recording: Grid,
   selection: RecordingFrameSelection,
@@ -60,5 +59,3 @@ async function createMp4FrameExportWriter(
   });
   return writer;
 }
-
-export {createMp4FrameExportWriter};

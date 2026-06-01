@@ -3,7 +3,6 @@ import {ChunkSealedMessage} from './worker-message';
 /**
  * Compression wait mode.
  *
- * @export
  * @typedef {CompressionWaitMode}
  */
 export type CompressionWaitMode = 'active' | 'all';
@@ -11,7 +10,6 @@ export type CompressionWaitMode = 'active' | 'all';
 /**
  * Compression job tracked by the main-thread scheduler.
  *
- * @export
  * @interface QueuedCompressionJob
  * @typedef {QueuedCompressionJob}
  */
@@ -39,7 +37,6 @@ export interface QueuedCompressionJob {
 /**
  * Compression scheduler callbacks.
  *
- * @export
  * @interface CompressionSchedulerCallbacks
  * @typedef {CompressionSchedulerCallbacks}
  */

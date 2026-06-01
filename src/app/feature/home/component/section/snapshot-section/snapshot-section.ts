@@ -9,7 +9,6 @@ import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/pr
 /**
  * Snapshot save and load section.
  *
- * @export
  * @class SnapshotSection
  * @typedef {SnapshotSection}
  */

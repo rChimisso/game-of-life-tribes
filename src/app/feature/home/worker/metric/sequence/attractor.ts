@@ -1,76 +1,7 @@
 import {AttractorFrameSignature, AttractorTracker} from './attractor-types';
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {finalizeCrc32, updateCrc32} from '../../zip/zip-crc32';
 import {OfflineMetricEntry} from '../core/offline-types';
-
-/**
- * Creates an empty attractor tracker.
- *
- * @export
- * @returns {AttractorTracker} attractor tracker.
- */
-function createAttractorTracker(): AttractorTracker {
-  return {
-    generationStart: null,
-    lastGeneration: null,
-    generationGapCount: 0,
-    candidatesByHash: new Map<number, number[]>(),
-    pendingFrames: [],
-    active: null,
-    attractors: []
-  };
-}
-
-/**
- * Observes one frame in the attractor tracker.
- *
- * @export
- * @param {AttractorTracker} tracker attractor tracker.
- * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {OfflineMetricEntry} metric metric row for the frame.
- */
-function observeAttractorFrame(tracker: AttractorTracker, frame: PackedRecordedFrame, metric: OfflineMetricEntry): void {
-  const signature = createFrameSignature(frame, metric);
-  const {generation} = frame;
-  const gapAfterLastFrame = tracker.lastGeneration !== null && generation - tracker.lastGeneration !== 1;
-  if (tracker.generationStart === null) {
-    tracker.generationStart = generation;
-  }
-  if (gapAfterLastFrame) {
-    tracker.generationGapCount++;
-    finalizeActiveAttractor(tracker);
-    resetAttractorCandidates(tracker);
-  }
-  if (tracker.active) {
-    updateActiveAttractor(tracker, signature);
-  } else {
-    detectOrAddCandidate(tracker, signature);
-  }
-  tracker.lastGeneration = generation;
-}
-
-/**
- * Finalizes any active attractor episode.
- *
- * @export
- * @param {AttractorTracker} tracker attractor tracker.
- */
-function finalizeActiveAttractor(tracker: AttractorTracker): void {
-  const {active} = tracker;
-  if (active) {
-    const previousAttractor = tracker.attractors[tracker.attractors.length - 1] ?? null;
-    tracker.attractors.push({
-      periodicOrbitReached: active.orbitPeriodLength > 1,
-      attractorClass: active.orbitPeriodLength === 1 ? 'fixed' : 'periodic',
-      startGeneration: active.startGeneration,
-      firstRepeatGeneration: active.firstRepeatGeneration,
-      endGeneration: active.lastMatchingGeneration,
-      transientLength: previousAttractor ? active.startGeneration - previousAttractor.endGeneration : active.startGeneration,
-      orbitPeriodLength: active.orbitPeriodLength
-    });
-    tracker.active = null;
-  }
-}
 
 /**
  * Updates an active attractor match or restarts detection when the sequence diverges.
@@ -197,6 +128,68 @@ function hashFrame(packed: Uint8Array): number {
   return finalizeCrc32(updateCrc32(0xffffffff, packed));
 }
 
-export {createAttractorTracker, finalizeActiveAttractor, observeAttractorFrame};
+/**
+ * Creates an empty attractor tracker.
+ *
+ * @returns {AttractorTracker} attractor tracker.
+ */
+export function createAttractorTracker(): AttractorTracker {
+  return {
+    generationStart: null,
+    lastGeneration: null,
+    generationGapCount: 0,
+    candidatesByHash: new Map<number, number[]>(),
+    pendingFrames: [],
+    active: null,
+    attractors: []
+  };
+}
 
-export type {AttractorTracker} from './attractor-types';
+/**
+ * Observes one frame in the attractor tracker.
+ *
+ * @param {AttractorTracker} tracker attractor tracker.
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {OfflineMetricEntry} metric metric row for the frame.
+ */
+export function observeAttractorFrame(tracker: AttractorTracker, frame: PackedRecordedFrame, metric: OfflineMetricEntry): void {
+  const signature = createFrameSignature(frame, metric);
+  const {generation} = frame;
+  const gapAfterLastFrame = tracker.lastGeneration !== null && generation - tracker.lastGeneration !== 1;
+  if (tracker.generationStart === null) {
+    tracker.generationStart = generation;
+  }
+  if (gapAfterLastFrame) {
+    tracker.generationGapCount++;
+    finalizeActiveAttractor(tracker);
+    resetAttractorCandidates(tracker);
+  }
+  if (tracker.active) {
+    updateActiveAttractor(tracker, signature);
+  } else {
+    detectOrAddCandidate(tracker, signature);
+  }
+  tracker.lastGeneration = generation;
+}
+
+/**
+ * Finalizes any active attractor episode.
+ *
+ * @param {AttractorTracker} tracker attractor tracker.
+ */
+export function finalizeActiveAttractor(tracker: AttractorTracker): void {
+  const {active} = tracker;
+  if (active) {
+    const previousAttractor = tracker.attractors[tracker.attractors.length - 1] ?? null;
+    tracker.attractors.push({
+      periodicOrbitReached: active.orbitPeriodLength > 1,
+      attractorClass: active.orbitPeriodLength === 1 ? 'fixed' : 'periodic',
+      startGeneration: active.startGeneration,
+      firstRepeatGeneration: active.firstRepeatGeneration,
+      endGeneration: active.lastMatchingGeneration,
+      transientLength: previousAttractor ? active.startGeneration - previousAttractor.endGeneration : active.startGeneration,
+      orbitPeriodLength: active.orbitPeriodLength
+    });
+    tracker.active = null;
+  }
+}

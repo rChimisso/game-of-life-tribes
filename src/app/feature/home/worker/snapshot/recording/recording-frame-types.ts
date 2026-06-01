@@ -4,7 +4,6 @@ import {ChunkMeta} from '../../../model/recording';
 /**
  * Reference to one recorded frame inside an OPFS chunk.
  *
- * @export
  * @interface RecordingFrameRef
  * @typedef {RecordingFrameRef}
  */
@@ -44,7 +43,6 @@ interface RecordingFrameRef {
 /**
  * Packed frame bytes read from OPFS.
  *
- * @export
  * @interface RecordingFrameData
  * @typedef {RecordingFrameData}
  */

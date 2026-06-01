@@ -1,20 +1,18 @@
 /**
  * PNG frame export progress callback.
  *
- * @export
  * @param {number} rowsProcessed rows encoded for the current frame.
  * @param {number} rowsTotal rows in the current frame.
  */
-type PngFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) => void;
+export type PngFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) => void;
 
 /**
  * Options for PNG frame ZIP export.
  *
- * @export
  * @interface PngFrameExportOptions
  * @typedef {PngFrameExportOptions}
  */
-interface PngFrameExportOptions {
+export interface PngFrameExportOptions {
   /**
    * Returns whether the active download has been cancelled.
    *
@@ -28,5 +26,3 @@ interface PngFrameExportOptions {
    */
   onCancelRequested: (listener: () => void) => () => void;
 }
-
-export type {PngFrameExportOptions, PngFrameProgressReporter};

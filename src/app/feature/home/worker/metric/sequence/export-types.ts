@@ -4,7 +4,6 @@ import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
 /**
  * Metrics export progress update.
  *
- * @export
  * @interface MetricsExportProgress
  * @typedef {MetricsExportProgress}
  */
@@ -26,7 +25,6 @@ interface MetricsExportProgress {
 /**
  * Metrics export options.
  *
- * @export
  * @interface MetricsExportOptions
  * @typedef {MetricsExportOptions}
  */
@@ -60,7 +58,6 @@ interface MetricsExportOptions {
 /**
  * Metrics row-level progress reporter.
  *
- * @export
  * @param {number} rowsProcessed rows processed for the current frame.
  * @param {number} rowsTotal total rows in the current frame.
  */
@@ -69,7 +66,6 @@ type MetricsFrameProgressReporter = (rowsProcessed: number, rowsTotal: number) =
 /**
  * Per-frame Metrics export writer.
  *
- * @export
  * @interface MetricsFrameExportWriter
  * @typedef {MetricsFrameExportWriter}
  */
@@ -99,7 +95,6 @@ interface MetricsFrameExportWriter {
 /**
  * Metrics writer with completed-frame count.
  *
- * @export
  * @typedef {CountingMetricsFrameExportWriter}
  */
 type CountingMetricsFrameExportWriter = MetricsFrameExportWriter & {readonly framesCompleted: number};

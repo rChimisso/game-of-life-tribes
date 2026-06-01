@@ -1,7 +1,6 @@
 /**
  * WebGPU diagnostic labels.
  *
- * @export
  * @type {Readonly<Record<string, string>>}
  */
 export const GPU_LABELS = {

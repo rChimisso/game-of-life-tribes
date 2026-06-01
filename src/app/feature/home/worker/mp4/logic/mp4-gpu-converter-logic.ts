@@ -1,4 +1,4 @@
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {requestWorkerGpuDevice} from '../../gpu/gpu-device';
 import {GPU_LABELS} from '../../gpu/gpu-labels';
 import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameUpload} from '../model/mp4-gpu-converter-types';
@@ -9,22 +9,20 @@ import {packedColsForFormat} from '~gol/feature/home/logic/grid-format';
 /**
  * Requests a WebGPU device suitable for MP4 conversion.
  *
- * @export
  * @async
  * @returns {Promise<GPUDevice>} WebGPU device.
  */
-async function requestMp4GpuDevice(): Promise<GPUDevice> {
+export async function requestMp4GpuDevice(): Promise<GPUDevice> {
   return requestWorkerGpuDevice(GPU_LABELS.mp4ConversionDevice);
 }
 
 /**
  * Creates the user-facing MP4 device-loss error.
  *
- * @export
  * @param {GPUDeviceLostInfo} info device loss information.
  * @returns {Error} MP4 device-loss error.
  */
-function createMp4GpuDeviceLostError(info: GPUDeviceLostInfo): Error {
+export function createMp4GpuDeviceLostError(info: GPUDeviceLostInfo): Error {
   const suffix = info.message ? ` ${info.message}` : '';
   return new Error(`MP4 GPU device lost during export.${suffix} Try again, reduce the MP4 output size, or disable MP4 export.`);
 }
@@ -32,13 +30,12 @@ function createMp4GpuDeviceLostError(info: GPUDeviceLostInfo): Error {
 /**
  * Creates a GPU storage buffer.
  *
- * @export
  * @param {GPUDevice} device webgpu device.
  * @param {string} label buffer label.
  * @param {number} byteLength requested byte length.
  * @returns {GPUBuffer} storage buffer.
  */
-function createStorageBuffer(device: GPUDevice, label: string, byteLength: number): GPUBuffer {
+export function createStorageBuffer(device: GPUDevice, label: string, byteLength: number): GPUBuffer {
   return device.createBuffer({
     label,
     size: Math.max(MIN_GPU_BUFFER_BYTES, byteLength),
@@ -49,14 +46,13 @@ function createStorageBuffer(device: GPUDevice, label: string, byteLength: numbe
 /**
  * Creates the packed-frame conversion uniform config.
  *
- * @export
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {Mp4OutputSize} outputSize output video size.
  * @param {number} paletteLength number of GPU palette entries.
  * @param {boolean} sampledRows whether rows have been sampled for conversion.
  * @returns {Uint32Array} conversion config.
  */
-function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean): Uint32Array {
+export function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean): Uint32Array {
   const config = new Uint32Array(MP4_CONVERSION_CONFIG_U32_COUNT);
   config[0] = frame.cols;
   config[1] = frame.rows;
@@ -74,12 +70,11 @@ function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4Outpu
 /**
  * Creates compact frame upload data for MP4 conversion.
  *
- * @export
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {Mp4OutputSize} outputSize output video size.
  * @returns {Mp4GpuFrameUpload} frame upload data.
  */
-function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputSize): Mp4GpuFrameUpload {
+export function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputSize): Mp4GpuFrameUpload {
   const packedCols = packedColsForFormat(frame.cols, frame.format);
   let upload: Mp4GpuFrameUpload;
   if (outputSize.height < frame.rows) {
@@ -105,10 +100,9 @@ function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputS
 /**
  * Checks whether a converter has already been disposed.
  *
- * @export
  * @param {boolean} disposed disposed state.
  */
-function assertNotDisposed(disposed: boolean): void {
+export function assertNotDisposed(disposed: boolean): void {
   if (disposed) {
     throw new Error('MP4 GPU converter has already been disposed.');
   }
@@ -117,10 +111,9 @@ function assertNotDisposed(disposed: boolean): void {
 /**
  * Throws when MP4 conversion cancellation has been requested.
  *
- * @export
  * @param {() => boolean} shouldCancel cancellation predicate.
  */
-function assertNotCancelled(shouldCancel: () => boolean): void {
+export function assertNotCancelled(shouldCancel: () => boolean): void {
   if (shouldCancel()) {
     throw new Error('MP4 export cancelled');
   }
@@ -129,14 +122,11 @@ function assertNotCancelled(shouldCancel: () => boolean): void {
 /**
  * Formats byte counts for diagnostics and error messages.
  *
- * @export
  * @param {number} bytes byte count.
  * @returns {string} formatted byte count.
  */
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   const gib = bytes / (1024 ** 3);
   const mib = bytes / (1024 ** 2);
   return gib >= 1 ? `${gib.toFixed(2)} GiB` : `${mib.toFixed(1)} MiB`;
 }
-
-export {assertNotCancelled, assertNotDisposed, createConversionConfig, createMp4FrameUpload, createMp4GpuDeviceLostError, createStorageBuffer, formatBytes, requestMp4GpuDevice};

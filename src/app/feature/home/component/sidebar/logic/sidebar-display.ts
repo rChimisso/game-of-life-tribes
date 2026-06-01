@@ -5,7 +5,6 @@ import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayI
 /**
  * Formats the VRAM section title size.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {string} formatted title size.
  */
@@ -16,7 +15,6 @@ export function formatVramTitleSize(input: SidebarVramDisplayInput): string {
 /**
  * Formats the detected VRAM quota.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {string} formatted quota.
  */
@@ -27,7 +25,6 @@ export function formatVramQuota(input: SidebarVramDisplayInput): string {
 /**
  * Formats the recording storage section title size.
  *
- * @export
  * @param {SidebarStorageDisplayInput} input storage display input.
  * @returns {string} formatted title size.
  */
@@ -38,7 +35,6 @@ export function formatDownloadStorageTitleSize(input: SidebarStorageDisplayInput
 /**
  * Formats the recording storage quota.
  *
- * @export
  * @param {SidebarStorageDisplayInput} input storage display input.
  * @returns {string} formatted quota.
  */
@@ -49,7 +45,6 @@ export function formatDownloadStorageQuota(input: SidebarStorageDisplayInput): s
 /**
  * Formats simulation VRAM usage.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {string} formatted simulation bytes.
  */
@@ -60,7 +55,6 @@ export function formatVramSimulation(input: SidebarVramDisplayInput): string {
 /**
  * Formats recording VRAM usage.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {string} formatted recording bytes.
  */
@@ -71,7 +65,6 @@ export function formatVramRecording(input: SidebarVramDisplayInput): string {
 /**
  * Calculates the simulation VRAM percentage.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {number} simulation percentage.
  */
@@ -82,7 +75,6 @@ export function calculateVramSimulationPct(input: SidebarVramDisplayInput): numb
 /**
  * Calculates the recording VRAM percentage.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {number} recording percentage.
  */
@@ -93,7 +85,6 @@ export function calculateVramRecordingPct(input: SidebarVramDisplayInput): numbe
 /**
  * Builds the VRAM usage tooltip.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {string} tooltip text.
  */
@@ -104,7 +95,6 @@ export function createVramBarTooltip(input: SidebarVramDisplayInput): string {
 /**
  * Calculates the total value used by the VRAM usage bar.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {number} VRAM bar total.
  */
@@ -115,7 +105,6 @@ export function calculateVramBarTotal(input: SidebarVramDisplayInput): number {
 /**
  * Builds VRAM storage bar segments.
  *
- * @export
  * @param {SidebarVramDisplayInput} input VRAM display input.
  * @returns {StorageBarSegment[]} storage bar segments.
  */
@@ -139,7 +128,6 @@ export function createVramSegments(input: SidebarVramDisplayInput): StorageBarSe
 /**
  * Calculates the maximum allowed brush size for the current grid.
  *
- * @export
  * @param {SidebarGridDisplayInput} input grid display input.
  * @returns {number} maximum brush size.
  */

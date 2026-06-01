@@ -1,7 +1,6 @@
 /**
  * Packed-word histogram counter for one grid format.
  *
- * @export
  * @interface HistogramLookup
  * @typedef {HistogramLookup}
  */

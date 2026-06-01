@@ -37,7 +37,6 @@ import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/pr
 /**
  * Home page component.
  *
- * @export
  * @class HomePage
  * @typedef {HomePage}
  * @implements {OnDestroy}
@@ -588,13 +587,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     console.log('[GOLT] Home page initialized');
     this.restorePreferences();
     clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files on page init:', error));
-    document.addEventListener('keydown', ev => this.handleKeydown(ev), {
-      capture: true,
-      signal: this.keydownListenerController.signal
-    });
-    document.addEventListener('visibilitychange', () => this.onVisibilityChange(), {
-      signal: this.keydownListenerController.signal
-    });
+    document.addEventListener('keydown', ev => this.handleKeydown(ev), {capture: true, signal: this.keydownListenerController.signal});
+    document.addEventListener('visibilitychange', () => this.onVisibilityChange(), {signal: this.keydownListenerController.signal});
   }
 
   /**

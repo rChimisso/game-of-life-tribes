@@ -18,7 +18,6 @@ type PatchingValue<T> = Parameters<FormGroup<FormType<T>>['patchValue']>[0];
 /**
  * Abstract Form component.
  *
- * @export
  * @abstract
  * @class FormComponent
  * @typedef {FormComponent}

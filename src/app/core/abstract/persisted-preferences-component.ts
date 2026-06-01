@@ -3,7 +3,6 @@ import {Directive} from '@angular/core';
 /**
  * Abstract persisted preferences component.
  *
- * @export
  * @abstract
  * @class PersistedPreferencesComponent
  * @typedef {PersistedPreferencesComponent}
@@ -11,14 +10,6 @@ import {Directive} from '@angular/core';
  */
 @Directive()
 export abstract class PersistedPreferencesComponent<T extends object> {
-  /**
-   * Persisted local storage key.
-   *
-   * @private
-   * @type {string}
-   */
-  private storageKey: string;
-
   /**
    * Default preferences.
    *
@@ -33,20 +24,18 @@ export abstract class PersistedPreferencesComponent<T extends object> {
    *
    * @protected
    * @constructor
-   * @param {string} preferenceKey
+   * @param {string} storageKey persisted local storage key.
    */
-  protected constructor(preferenceKey: string) {
-    this.storageKey = preferenceKey;
-  }
+  protected constructor(private storageKey: string) {}
 
   /**
    * Sets the local storage key.
    *
    * @protected
-   * @param {string} preferenceKey
+   * @param {string} storageKey persisted local storage key.
    */
-  protected setPreferenceKey(preferenceKey: string): void {
-    this.storageKey = preferenceKey;
+  protected setStorageKey(storageKey: string): void {
+    this.storageKey = storageKey;
   }
 
   /**

@@ -2,7 +2,7 @@ import type {Output} from 'mediabunny';
 
 import {SupportedMp4VideoConfig} from './mp4-avc-types';
 import {Mp4OutputSize} from './mp4-types';
-import {RecordingFrameSelection} from '../../frame/recording-frame-stream';
+import {RecordingFrameSelection} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {Mp4GpuFrameConverter} from '../class/mp4-gpu-converter';
 import {Mp4TempOutput} from '../class/mp4-temp-output';
@@ -12,28 +12,28 @@ import {Mp4TempOutput} from '../class/mp4-temp-output';
  *
  * @type {number}
  */
-const MP4_PACKET_DRAIN_THRESHOLD = 8;
+export const MP4_PACKET_DRAIN_THRESHOLD = 8;
 
 /**
  * VideoEncoder queue size where frame writes wait for backpressure.
  *
  * @type {number}
  */
-const MP4_ENCODER_QUEUE_HIGH_WATERMARK = 4;
+export const MP4_ENCODER_QUEUE_HIGH_WATERMARK = 4;
 
 /**
  * VideoEncoder queue size target after backpressure wait.
  *
  * @type {number}
  */
-const MP4_ENCODER_QUEUE_LOW_WATERMARK = 2;
+export const MP4_ENCODER_QUEUE_LOW_WATERMARK = 2;
 
 /**
  * MP4 stream target chunk size.
  *
  * @type {number}
  */
-const MP4_STREAM_TARGET_CHUNK_BYTES = 16 * 1024 * 1024;
+export const MP4_STREAM_TARGET_CHUNK_BYTES = 16 * 1024 * 1024;
 
 /**
  * Options for MP4 frame export.
@@ -41,7 +41,7 @@ const MP4_STREAM_TARGET_CHUNK_BYTES = 16 * 1024 * 1024;
  * @interface Mp4FrameExportOptions
  * @typedef {Mp4FrameExportOptions}
  */
-interface Mp4FrameExportOptions {
+export interface Mp4FrameExportOptions {
   /**
    * MP4 frames per second.
    *
@@ -74,7 +74,7 @@ interface Mp4FrameExportOptions {
  * @interface Mp4FrameExportWriterResources
  * @typedef {Mp4FrameExportWriterResources}
  */
-interface Mp4FrameExportWriterResources {
+export interface Mp4FrameExportWriterResources {
   /**
    * Target ZIP archive.
    *
@@ -124,7 +124,3 @@ interface Mp4FrameExportWriterResources {
    */
   output: Output;
 }
-
-export {MP4_ENCODER_QUEUE_HIGH_WATERMARK, MP4_ENCODER_QUEUE_LOW_WATERMARK, MP4_PACKET_DRAIN_THRESHOLD, MP4_STREAM_TARGET_CHUNK_BYTES};
-
-export type {Mp4FrameExportOptions, Mp4FrameExportWriterResources};

@@ -8,7 +8,6 @@ import {StatusPage} from '~gol/shared/component/status-page/status-page';
 /**
  * WebGPU unsupported page.
  *
- * @export
  * @class UnsupportedPage
  * @typedef {UnsupportedPage}
  */

@@ -1,6 +1,7 @@
 import {CompressedChunkExportOptions, CompressedChunkExportRequest, PlannedCompressedChunk, PreparedCompressedChunk} from './compressed-chunk-types';
 import {gridByteSize, gridFormatFromMetadata} from '../../logic/grid-format';
-import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../logic/opfs-temp';
+import {openTempOpfsDirectory} from '../../logic/opfs-temp';
+import {GOLT_TEMP_DOWNLOAD_DIR} from '../../model/opfs';
 import {RecordingManifest} from '../../model/recording';
 import {resolveRecordingFrameSelection} from '../frame/recording-frame-stream';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
@@ -364,7 +365,6 @@ function assertNotCancelled(options: CompressedChunkExportOptions): void {
 /**
  * Exports selected compressed recording chunks into the ZIP archive.
  *
- * @export
  * @async
  * @param {ZipWriter} zip target ZIP writer.
  * @param {CompressedChunkExportRequest} request compressed chunk export request.

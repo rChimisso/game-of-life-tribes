@@ -205,7 +205,6 @@ function assertGoltCancellationState(cancellation: GoltStreamCancellationState):
 /**
  * Writes a `.golt` state file to a byte sink using a streaming-shaped deflate path.
  *
- * @export
  * @async
  * @param {GoltStateData} data state data to serialize.
  * @param {ByteSink} sink byte sink that receives serialized chunks.
@@ -261,7 +260,6 @@ export async function writeGoltStateStream(data: GoltStateData, sink: ByteSink, 
 /**
  * Collects a streamed `.golt` state into one byte array for browser download handoff.
  *
- * @export
  * @async
  * @param {GoltStateData} data state data to serialize.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
@@ -289,7 +287,6 @@ export async function collectGoltStateStream(data: GoltStateData, reportProgress
 /**
  * Creates the normalized header and packed grid bytes for a `.golt` snapshot.
  *
- * @export
  * @async
  * @param {GoltStateData} data state data to normalize.
  * @returns {{headerBytes: Uint8Array; gridBytes: Uint8Array}} encoded header and packed grid bytes.

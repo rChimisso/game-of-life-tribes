@@ -1,89 +1,4 @@
-/**
- * Common OPFS directory for temporary download handoff files.
- *
- * @type {string}
- */
-const GOLT_TEMP_OPFS_DIR = 'gol-temp';
-
-/**
- * OPFS subdirectory for temporary ZIP files.
- *
- * @type {string}
- */
-const GOLT_TEMP_DOWNLOAD_DIR = 'downloads';
-
-/**
- * OPFS subdirectory for temporary snapshot files.
- *
- * @type {string}
- */
-const GOLT_TEMP_SNAPSHOT_DIR = 'snapshots';
-
-/**
- * OPFS subdirectory for temporary Metrics export files.
- *
- * @type {string}
- */
-const GOLT_TEMP_METRICS_DIR = 'metrics';
-
-/**
- * OPFS subdirectory for temporary MP4 export files.
- *
- * @type {string}
- */
-const GOLT_TEMP_MP4_DIR = 'mp4';
-
-/**
- * OPFS directory handle with browser entry iteration support.
- *
- * @interface IterableFileSystemDirectoryHandle
- * @typedef {IterableFileSystemDirectoryHandle}
- * @extends {FileSystemDirectoryHandle}
- */
-interface IterableFileSystemDirectoryHandle extends FileSystemDirectoryHandle {
-  /**
-   * Iterates child entries.
-   *
-   * @returns {AsyncIterableIterator<[string, FileSystemHandle]>} child entry iterator.
-   */
-  entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-}
-
-/**
- * Opens a temporary OPFS subdirectory.
- *
- * @export
- * @async
- * @param {string} name subdirectory name.
- * @returns {Promise<FileSystemDirectoryHandle>} temporary OPFS subdirectory.
- */
-async function openTempOpfsDirectory(name: string): Promise<FileSystemDirectoryHandle> {
-  const root = await navigator.storage.getDirectory();
-  const tempRoot = await root.getDirectoryHandle(GOLT_TEMP_OPFS_DIR, {create: true});
-  return tempRoot.getDirectoryHandle(name, {create: true});
-}
-
-/**
- * Clears all temporary OPFS handoff files.
- *
- * @export
- * @async
- */
-async function clearTempOpfsDirectory(): Promise<void> {
-  const root = await navigator.storage.getDirectory();
-  try {
-    await root.removeEntry(GOLT_TEMP_OPFS_DIR, {recursive: true});
-  } catch (error) {
-    if (isMissingOpfsEntry(error)) {
-      console.log('[GOLT] Temporary OPFS directory already clear');
-    } else if (isLockedOpfsEntry(error)) {
-      console.warn('[GOLT] Temporary OPFS directory is still in use; attempting entry cleanup:', error);
-      await clearLockedTempDirectory(root);
-    } else {
-      console.warn(`[GOLT] Temporary OPFS cleanup failed for ${GOLT_TEMP_OPFS_DIR}:`, error);
-    }
-  }
-}
+import {GOLT_TEMP_OPFS_DIR, IterableFileSystemDirectoryHandle} from '../model/opfs';
 
 /**
  * Clears entries below a locked temporary directory when recursive root removal fails.
@@ -152,4 +67,36 @@ function isLockedOpfsEntry(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'NoModificationAllowedError';
 }
 
-export {clearTempOpfsDirectory, GOLT_TEMP_DOWNLOAD_DIR, GOLT_TEMP_METRICS_DIR, GOLT_TEMP_MP4_DIR, GOLT_TEMP_OPFS_DIR, GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory};
+/**
+ * Opens a temporary OPFS subdirectory.
+ *
+ * @async
+ * @param {string} name subdirectory name.
+ * @returns {Promise<FileSystemDirectoryHandle>} temporary OPFS subdirectory.
+ */
+export async function openTempOpfsDirectory(name: string): Promise<FileSystemDirectoryHandle> {
+  const root = await navigator.storage.getDirectory();
+  const tempRoot = await root.getDirectoryHandle(GOLT_TEMP_OPFS_DIR, {create: true});
+  return tempRoot.getDirectoryHandle(name, {create: true});
+}
+
+/**
+ * Clears all temporary OPFS handoff files.
+ *
+ * @async
+ */
+export async function clearTempOpfsDirectory(): Promise<void> {
+  const root = await navigator.storage.getDirectory();
+  try {
+    await root.removeEntry(GOLT_TEMP_OPFS_DIR, {recursive: true});
+  } catch (error) {
+    if (isMissingOpfsEntry(error)) {
+      console.log('[GOLT] Temporary OPFS directory already clear');
+    } else if (isLockedOpfsEntry(error)) {
+      console.warn('[GOLT] Temporary OPFS directory is still in use; attempting entry cleanup:', error);
+      await clearLockedTempDirectory(root);
+    } else {
+      console.warn(`[GOLT] Temporary OPFS cleanup failed for ${GOLT_TEMP_OPFS_DIR}:`, error);
+    }
+  }
+}

@@ -12,51 +12,6 @@ import {Grid} from '~gol/feature/home/model/grid';
 const BYTE_STATE_LOOKUP_CACHE: Partial<Record<BitsPerCell, Uint8Array[]>> = {};
 
 /**
- * Creates a packed-word histogram lookup for a grid format.
- *
- * @export
- * @param {GridFormat} format grid packing format.
- * @returns {HistogramLookup} histogram lookup.
- */
-function createHistogramLookup(format: GridFormat): HistogramLookup {
-  if (format.bitsPerCell <= 8) {
-    const byteLookup = getByteStateLookup(format);
-    return {
-      addWord: (word, counts, validCells = format.cellsPerWord) => addSubByteWord(word, counts, format, byteLookup, validCells)
-    };
-  }
-  if (format.bitsPerCell === 16) {
-    return {
-      addWord: (word, counts, validCells = format.cellsPerWord) => addSixteenBitWord(word, counts, validCells)
-    };
-  }
-  return {
-    addWord: (word, counts, validCells = format.cellsPerWord) => addThirtyTwoBitWord(word, counts, validCells)
-  };
-}
-
-/**
- * Adds one packed grid row to the target counts array.
- *
- * @export
- * @param {Uint32Array} words packed grid words.
- * @param {Grid} grid grid dimensions.
- * @param {GridFormat} format grid packing format.
- * @param {number} y row index.
- * @param {number[]} counts population counts by state index.
- * @param {HistogramLookup} [lookup] reusable histogram lookup.
- */
-function addPackedRowToHistogram(words: Uint32Array, grid: Grid, format: GridFormat, y: number, counts: number[], lookup = createHistogramLookup(format)): void {
-  const packedCols = packedColsForFormat(grid.cols, format);
-  const rowOffset = y * packedCols;
-  for (let packedX = 0; packedX < packedCols; packedX++) {
-    const baseX = packedX * format.cellsPerWord;
-    const validCells = Math.min(format.cellsPerWord, grid.cols - baseX);
-    lookup.addWord(words[rowOffset + packedX] ?? 0, counts, validCells);
-  }
-}
-
-/**
  * Resolves the byte lookup table for a sub-byte or byte-aligned format.
  *
  * @param {GridFormat} format grid packing format.
@@ -144,6 +99,45 @@ function countState(counts: number[], state: number): void {
   }
 }
 
-export {addPackedRowToHistogram, createHistogramLookup};
+/**
+ * Creates a packed-word histogram lookup for a grid format.
+ *
+ * @param {GridFormat} format grid packing format.
+ * @returns {HistogramLookup} histogram lookup.
+ */
+function createHistogramLookup(format: GridFormat): HistogramLookup {
+  if (format.bitsPerCell <= 8) {
+    const byteLookup = getByteStateLookup(format);
+    return {
+      addWord: (word, counts, validCells = format.cellsPerWord) => addSubByteWord(word, counts, format, byteLookup, validCells)
+    };
+  }
+  if (format.bitsPerCell === 16) {
+    return {
+      addWord: (word, counts, validCells = format.cellsPerWord) => addSixteenBitWord(word, counts, validCells)
+    };
+  }
+  return {
+    addWord: (word, counts, validCells = format.cellsPerWord) => addThirtyTwoBitWord(word, counts, validCells)
+  };
+}
 
-export type {HistogramLookup} from './histogram-lookup-types';
+/**
+ * Adds one packed grid row to the target counts array.
+ *
+ * @param {Uint32Array} words packed grid words.
+ * @param {Grid} grid grid dimensions.
+ * @param {GridFormat} format grid packing format.
+ * @param {number} y row index.
+ * @param {number[]} counts population counts by state index.
+ */
+export function addPackedRowToHistogram(words: Uint32Array, grid: Grid, format: GridFormat, y: number, counts: number[]): void {
+  const packedCols = packedColsForFormat(grid.cols, format);
+  const rowOffset = y * packedCols;
+  const lookup = createHistogramLookup(format);
+  for (let packedX = 0; packedX < packedCols; packedX++) {
+    const baseX = packedX * format.cellsPerWord;
+    const validCells = Math.min(format.cellsPerWord, grid.cols - baseX);
+    lookup.addWord(words[rowOffset + packedX] ?? 0, counts, validCells);
+  }
+}

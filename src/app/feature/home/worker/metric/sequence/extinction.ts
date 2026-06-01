@@ -1,7 +1,27 @@
 import {ExtinctionTracker, TribeExtinctionState} from './extinction-types';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
-import {OfflineMetricsTribe} from '../core/offline';
+import {OfflineMetricsTribe} from '../core/offline-compute-types';
 import {ExtinctionEpisode, OfflineMetricEntry} from '../core/offline-types';
+
+/**
+ * Closes the current extinction episode when a tribe reappears.
+ *
+ * @param {ExtinctionTracker} tracker extinction tracker.
+ * @param {TribeExtinctionState} state tribe extinction state.
+ * @param {string} tribeId tribe ID.
+ * @param {number} generation current generation.
+ */
+function closeExtinctionEpisode(tracker: ExtinctionTracker, state: TribeExtinctionState, tribeId: string, generation: number): void {
+  if (state.currentExtinctionStart !== null) {
+    const endGeneration = tracker.lastGeneration ?? generation - 1;
+    tracker.extinctions[tribeId]!.push({
+      startGeneration: state.currentExtinctionStart,
+      endGeneration,
+      duration: endGeneration - state.currentExtinctionStart + 1
+    });
+    state.currentExtinctionStart = null;
+  }
+}
 
 /**
  * Creates an extinction tracker for all non-dead tribes.
@@ -9,7 +29,7 @@ import {ExtinctionEpisode, OfflineMetricEntry} from '../core/offline-types';
  * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
  * @returns {ExtinctionTracker} extinction tracker.
  */
-function createExtinctionTracker(tribes: readonly OfflineMetricsTribe[]): ExtinctionTracker {
+export function createExtinctionTracker(tribes: readonly OfflineMetricsTribe[]): ExtinctionTracker {
   const states: Record<string, TribeExtinctionState> = {};
   const extinctions: Record<string, ExtinctionEpisode[]> = {};
   for (const tribe of tribes) {
@@ -35,7 +55,7 @@ function createExtinctionTracker(tribes: readonly OfflineMetricsTribe[]): Extinc
  * @param {ExtinctionTracker} tracker extinction tracker.
  * @param {OfflineMetricEntry} metric metric row.
  */
-function observeExtinctionMetric(tracker: ExtinctionTracker, metric: OfflineMetricEntry): void {
+export function observeExtinctionMetric(tracker: ExtinctionTracker, metric: OfflineMetricEntry): void {
   for (const [tribeId, state] of Object.entries(tracker.states)) {
     const alive = (metric.population[tribeId] ?? 0) > 0;
     if (alive) {
@@ -55,7 +75,7 @@ function observeExtinctionMetric(tracker: ExtinctionTracker, metric: OfflineMetr
  *
  * @param {ExtinctionTracker} tracker extinction tracker.
  */
-function finalizeExtinctionTracker(tracker: ExtinctionTracker): void {
+export function finalizeExtinctionTracker(tracker: ExtinctionTracker): void {
   for (const [tribeId, state] of Object.entries(tracker.states)) {
     if (state.currentExtinctionStart !== null) {
       tracker.extinctions[tribeId]!.push({
@@ -67,27 +87,3 @@ function finalizeExtinctionTracker(tracker: ExtinctionTracker): void {
     }
   }
 }
-
-/**
- * Closes the current extinction episode when a tribe reappears.
- *
- * @param {ExtinctionTracker} tracker extinction tracker.
- * @param {TribeExtinctionState} state tribe extinction state.
- * @param {string} tribeId tribe ID.
- * @param {number} generation current generation.
- */
-function closeExtinctionEpisode(tracker: ExtinctionTracker, state: TribeExtinctionState, tribeId: string, generation: number): void {
-  if (state.currentExtinctionStart !== null) {
-    const endGeneration = tracker.lastGeneration ?? generation - 1;
-    tracker.extinctions[tribeId]!.push({
-      startGeneration: state.currentExtinctionStart,
-      endGeneration,
-      duration: endGeneration - state.currentExtinctionStart + 1
-    });
-    state.currentExtinctionStart = null;
-  }
-}
-
-export {createExtinctionTracker, finalizeExtinctionTracker, observeExtinctionMetric};
-
-export type {ExtinctionTracker} from './extinction-types';

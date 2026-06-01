@@ -81,7 +81,6 @@ function renameClauseTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<stri
 /**
  * Computes whether pending tribe edits can be applied to the committed ruleset.
  *
- * @export
  * @param {readonly EditableTribe[]} committedTribes Baseline tribes currently applied.
  * @param {readonly EditableTribe[]} pendingTribes Pending tribe edits.
  * @param {readonly Rule<Tribe[]>[]} committedRules Rules that may reference committed tribes.
@@ -119,7 +118,6 @@ export function analyzeTribeApplyImpact(committedTribes: readonly EditableTribe[
 /**
  * Clones rules and rewrites tribe ids using the provided rename pairs.
  *
- * @export
  * @param {readonly Rule<Tribe[]>[]} rules Rules to clone and update.
  * @param {readonly TribeRenamePair[]} renamePairs Rename pairs to apply.
  * @returns {Rule<Tribe[]>[]} Cloned rules with updated tribe ids.

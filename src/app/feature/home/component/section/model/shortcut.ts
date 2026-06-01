@@ -1,7 +1,6 @@
 /**
  * Shortcut display value.
  *
- * @export
  * @interface ShortcutValue
  * @typedef {ShortcutValue}
  */
@@ -29,7 +28,6 @@ export interface ShortcutValue {
 /**
  * Shortcut group.
  *
- * @export
  * @interface ShortcutGroup
  * @typedef {ShortcutGroup}
  */

@@ -1,20 +1,19 @@
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 
 /**
  * MP4 ZIP entry path.
  *
  * @type {string}
  */
-const MP4_ZIP_ENTRY_PATH = 'simulation.mp4';
+export const MP4_ZIP_ENTRY_PATH = 'simulation.mp4';
 
 /**
  * MP4 output size resolved from source grid dimensions.
  *
- * @export
  * @interface Mp4OutputSize
  * @typedef {Mp4OutputSize}
  */
-interface Mp4OutputSize {
+export interface Mp4OutputSize {
   /**
    * Source grid columns.
    *
@@ -68,20 +67,18 @@ interface Mp4OutputSize {
 /**
  * MP4 frame progress callback.
  *
- * @export
  * @param {number} processed completed units for the current frame operation.
  * @param {number} total total units for the current frame operation.
  */
-type Mp4FrameProgressReporter = (processed: number, total: number) => void;
+export type Mp4FrameProgressReporter = (processed: number, total: number) => void;
 
 /**
  * MP4 export writer.
  *
- * @export
  * @interface Mp4FrameExportWriter
  * @typedef {Mp4FrameExportWriter}
  */
-interface Mp4FrameExportWriter {
+export interface Mp4FrameExportWriter {
   /**
    * Encodes one packed recorded frame.
    *
@@ -103,7 +100,3 @@ interface Mp4FrameExportWriter {
    */
   dispose(): Promise<void>;
 }
-
-export {MP4_ZIP_ENTRY_PATH};
-
-export type {Mp4FrameExportWriter, Mp4FrameProgressReporter, Mp4OutputSize};

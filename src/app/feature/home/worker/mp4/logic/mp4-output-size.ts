@@ -1,13 +1,6 @@
 import {Mp4OutputSize} from '../model/mp4-types';
 
 /**
- * Maximum MP4 output width and height.
- *
- * @type {number}
- */
-const MP4_MAX_OUTPUT_DIMENSION = 4096;
-
-/**
  * Small-grid reference dimension used for integer upscaling.
  *
  * @type {number}
@@ -22,15 +15,21 @@ const MP4_SMALL_GRID_REFERENCE_DIMENSION = 1080;
 const MP4_MIN_OUTPUT_DIMENSION = 3;
 
 /**
+ * Maximum MP4 output width and height.
+ *
+ * @type {number}
+ */
+export const MP4_MAX_OUTPUT_DIMENSION = 4096;
+
+/**
  * Resolves MP4 output dimensions from source grid dimensions.
  *
- * @export
  * @param {number} cols source grid columns.
  * @param {number} rows source grid rows.
  * @param {boolean} evenRequired whether dimensions must be even.
  * @returns {Mp4OutputSize} resolved MP4 output size.
  */
-function resolveMp4OutputSize(cols: number, rows: number, evenRequired: boolean): Mp4OutputSize {
+export function resolveMp4OutputSize(cols: number, rows: number, evenRequired: boolean): Mp4OutputSize {
   let width = cols;
   let height = rows;
   let xClamped = false;
@@ -69,5 +68,3 @@ function resolveMp4OutputSize(cols: number, rows: number, evenRequired: boolean)
     yClamped
   };
 }
-
-export {MP4_MAX_OUTPUT_DIMENSION, resolveMp4OutputSize};

@@ -56,7 +56,6 @@ export type StepBackTarget = BufferedStepBackTarget | SealedStepBackTarget;
 /**
  * Repacked chunk prefix used to restore a sealed step-back target.
  *
- * @export
  * @interface StepBackPrefix
  * @typedef {StepBackPrefix}
  */

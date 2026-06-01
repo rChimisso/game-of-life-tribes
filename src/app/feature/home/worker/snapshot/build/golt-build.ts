@@ -6,7 +6,6 @@ import {ByteSink, GoltStateData, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotPro
 /**
  * Compresses bytes with the `.golt` raw deflate codec.
  *
- * @export
  * @async
  * @param {Uint8Array} data uncompressed packed grid bytes.
  * @returns {Promise<ArrayBuffer>} compressed bytes.
@@ -23,7 +22,6 @@ async function deflateRaw(data: Uint8Array): Promise<ArrayBuffer> {
 /**
  * Builds a `.golt` state file.
  *
- * @export
  * @async
  * @param {GoltStateData} data state data to serialize.
  * @param {SnapshotProgressReporter} reportProgress progress callback.
@@ -53,7 +51,6 @@ export async function buildGoltStateFile(data: GoltStateData, reportProgress: Sn
 /**
  * Writes a `.golt` state file to a byte sink.
  *
- * @export
  * @async
  * @param {GoltStateData} data state data to serialize.
  * @param {ByteSink} sink byte sink that receives serialized bytes.
@@ -71,7 +68,6 @@ export async function writeGoltStateFileToSink(data: GoltStateData, sink: ByteSi
 /**
  * Whether the snapshot should use the streaming `.golt` path.
  *
- * @export
  * @param {GoltStateData} data state data to serialize.
  * @returns {boolean} whether the target packed grid is at least the streaming threshold.
  */

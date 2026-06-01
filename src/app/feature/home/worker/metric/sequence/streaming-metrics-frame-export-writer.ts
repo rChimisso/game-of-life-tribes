@@ -1,16 +1,16 @@
 import {BaseMetricsFrameExportWriter} from './base-metrics-frame-export-writer';
 import {assertNotCancelled, buildMetricsJsonSummary, createBufferedTextEntryWriter, createUniqueMetricsTempFilename, isMissingOpfsEntry, METRICS_TEXT_ENCODER} from './export-logic';
 import {MetricsExportOptions, StreamingMetricsFrameExportResources} from './export-types';
-import {GOLT_TEMP_METRICS_DIR, openTempOpfsDirectory} from '../../../logic/opfs-temp';
-import {RecordingManifest} from '../../../model/recording';
-import {RecordingFrameSelection} from '../../frame/recording-frame-stream';
+import {openTempOpfsDirectory} from '../../../logic/opfs-temp';
+import {Recording} from '../../../model/recording';
+import {RecordingFrameSelection} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
 import {buildMetricsCsvHeader, buildMetricsCsvRow} from '../core/csv';
-import {OfflineMetricsTribe} from '../core/offline';
+import {OfflineMetricsTribe} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
 
-import {Grid} from '~gol/feature/home/model/grid';
+import {GOLT_TEMP_METRICS_DIR} from '~gol/feature/home/model/opfs';
 
 /**
  * OPFS-backed streaming Metrics frame writer.
@@ -19,7 +19,7 @@ import {Grid} from '~gol/feature/home/model/grid';
  * @typedef {StreamingMetricsFrameExportWriter}
  * @extends {BaseMetricsFrameExportWriter}
  */
-class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
+export class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
   /**
    * Temporary Metrics directory.
    *
@@ -101,7 +101,7 @@ class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
    * Creates a streaming Metrics writer.
    *
    * @param {ZipWriter} zip target ZIP writer.
-   * @param {Grid & {manifest: RecordingManifest}} recording recording dimensions and manifest.
+   * @param {Recording} recording recording dimensions and manifest.
    * @param {RecordingFrameSelection} selection selected frame range.
    * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
    * @param {MetricsExportOptions} options export options.
@@ -110,7 +110,7 @@ class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
    */
   private constructor(
     zip: ZipWriter,
-    recording: Grid & {manifest: RecordingManifest},
+    recording: Recording,
     selection: RecordingFrameSelection,
     tribes: readonly OfflineMetricsTribe[],
     options: MetricsExportOptions,
@@ -136,7 +136,7 @@ class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
    * @static
    * @async
    * @param {ZipWriter} zip target ZIP writer.
-   * @param {Grid & {manifest: RecordingManifest}} recording recording dimensions and manifest.
+   * @param {Recording} recording recording dimensions and manifest.
    * @param {RecordingFrameSelection} selection selected frame range.
    * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
    * @param {MetricsExportOptions} options export options.
@@ -145,7 +145,7 @@ class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
    */
   public static async create(
     zip: ZipWriter,
-    recording: Grid & {manifest: RecordingManifest},
+    recording: Recording,
     selection: RecordingFrameSelection,
     tribes: readonly OfflineMetricsTribe[],
     options: MetricsExportOptions,
@@ -265,5 +265,3 @@ class StreamingMetricsFrameExportWriter extends BaseMetricsFrameExportWriter {
     }
   }
 }
-
-export {StreamingMetricsFrameExportWriter};

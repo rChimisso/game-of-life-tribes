@@ -3,7 +3,6 @@ import {BrushFill, BrushShape, TouchMode} from '../../../model/draw-mode';
 /**
  * Two-dimensional point used by engine input logic.
  *
- * @export
  * @interface EnginePoint
  * @typedef {EnginePoint}
  */
@@ -25,7 +24,6 @@ export interface EnginePoint {
 /**
  * Brush state read by the engine input controller.
  *
- * @export
  * @interface EngineBrushSettings
  * @typedef {EngineBrushSettings}
  */
@@ -59,7 +57,6 @@ export interface EngineBrushSettings {
 /**
  * Active engine pointer interaction mode.
  *
- * @export
  * @typedef {EngineInteractionMode}
  */
 export type EngineInteractionMode = 'idle' | TouchMode | 'pinch';

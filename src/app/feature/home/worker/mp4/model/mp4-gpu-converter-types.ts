@@ -5,14 +5,14 @@ import {Mp4OutputSize} from './mp4-types';
  *
  * @type {number}
  */
-const MP4_CONVERSION_CONFIG_U32_COUNT = 12;
+export const MP4_CONVERSION_CONFIG_U32_COUNT = 12;
 
 /**
  * Minimum storage-buffer size accepted by WebGPU.
  *
  * @type {number}
  */
-const MIN_GPU_BUFFER_BYTES = 4;
+export const MIN_GPU_BUFFER_BYTES = 4;
 
 /**
  * Resources owned by an MP4 GPU converter.
@@ -20,7 +20,7 @@ const MIN_GPU_BUFFER_BYTES = 4;
  * @interface Mp4GpuFrameConverterResources
  * @typedef {Mp4GpuFrameConverterResources}
  */
-interface Mp4GpuFrameConverterResources {
+export interface Mp4GpuFrameConverterResources {
   /**
    * WebGPU device.
    *
@@ -83,7 +83,7 @@ interface Mp4GpuFrameConverterResources {
  * @interface Mp4GpuFrameUpload
  * @typedef {Mp4GpuFrameUpload}
  */
-interface Mp4GpuFrameUpload {
+export interface Mp4GpuFrameUpload {
   /**
    * Packed source words to upload.
    *
@@ -97,7 +97,3 @@ interface Mp4GpuFrameUpload {
    */
   sampledRows: boolean;
 }
-
-export {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT};
-
-export type {Mp4GpuFrameConverterResources, Mp4GpuFrameUpload};

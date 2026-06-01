@@ -3,7 +3,6 @@ import {Tribe} from './rule';
 /**
  * Save event for adding a tribe.
  *
- * @export
  * @interface AddTribeSaveEvent
  * @typedef {AddTribeSaveEvent}
  */
@@ -25,7 +24,6 @@ export interface AddTribeSaveEvent {
 /**
  * Save event for editing an existing tribe.
  *
- * @export
  * @interface EditTribeSaveEvent
  * @typedef {EditTribeSaveEvent}
  */
@@ -53,7 +51,6 @@ export interface EditTribeSaveEvent {
 /**
  * Save event for tribe add/edit actions.
  *
- * @export
  * @typedef {TribeSaveEvent}
  */
 export type TribeSaveEvent = AddTribeSaveEvent | EditTribeSaveEvent;

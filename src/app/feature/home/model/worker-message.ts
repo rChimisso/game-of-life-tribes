@@ -9,7 +9,6 @@ import {Grid} from '~gol/feature/home/model/grid';
 /**
  * Initial worker bootstrap payload.
  *
- * @export
  * @interface InitMessage
  * @typedef {InitMessage}
  */
@@ -67,7 +66,6 @@ export interface InitMessage {
 /**
  * Ruleset rebuild request payload.
  *
- * @export
  * @interface SetRulesetMessage
  * @typedef {SetRulesetMessage}
  */
@@ -95,7 +93,6 @@ export interface SetRulesetMessage {
 /**
  * Simulation running-state update payload.
  *
- * @export
  * @interface SetRunningMessage
  * @typedef {SetRunningMessage}
  */
@@ -117,7 +114,6 @@ export interface SetRunningMessage {
 /**
  * Simulation speed update payload.
  *
- * @export
  * @interface SetSpeedMessage
  * @typedef {SetSpeedMessage}
  */
@@ -139,7 +135,6 @@ export interface SetSpeedMessage {
 /**
  * Brush draw command payload.
  *
- * @export
  * @interface DrawMessage
  * @typedef {DrawMessage}
  */
@@ -191,7 +186,6 @@ export interface DrawMessage {
 /**
  * Brush footprint preview shown over the rendered grid.
  *
- * @export
  * @interface BrushPreviewMessage
  * @typedef {BrushPreviewMessage}
  */
@@ -237,7 +231,6 @@ export interface BrushPreviewMessage {
 /**
  * Camera update payload.
  *
- * @export
  * @interface CameraMessage
  * @typedef {CameraMessage}
  */
@@ -271,7 +264,6 @@ export interface CameraMessage {
 /**
  * Canvas resize payload.
  *
- * @export
  * @interface ResizeMessage
  * @typedef {ResizeMessage}
  */
@@ -299,7 +291,6 @@ export interface ResizeMessage {
 /**
  * Snapshot request payload.
  *
- * @export
  * @interface GetSnapshotMessage
  * @typedef {GetSnapshotMessage}
  */
@@ -315,7 +306,6 @@ export interface GetSnapshotMessage {
 /**
  * Snapshot load payload.
  *
- * @export
  * @interface LoadSnapshotMessage
  * @typedef {LoadSnapshotMessage}
  */
@@ -349,7 +339,6 @@ export interface LoadSnapshotMessage {
 /**
  * Recording toggle payload.
  *
- * @export
  * @interface SetRecordingMessage
  * @typedef {SetRecordingMessage}
  */
@@ -371,7 +360,6 @@ export interface SetRecordingMessage {
 /**
  * Live-metrics configuration payload.
  *
- * @export
  * @interface SetLiveMetricsMessage
  * @typedef {SetLiveMetricsMessage}
  */
@@ -393,7 +381,6 @@ export interface SetLiveMetricsMessage {
 /**
  * Recording manifest request payload.
  *
- * @export
  * @interface GetRecordingMessage
  * @typedef {GetRecordingMessage}
  */
@@ -409,7 +396,6 @@ export interface GetRecordingMessage {
 /**
  * Step-back request payload.
  *
- * @export
  * @interface StepBackMessage
  * @typedef {StepBackMessage}
  */
@@ -431,7 +417,6 @@ export interface StepBackMessage {
 /**
  * Step-forward request payload.
  *
- * @export
  * @interface StepForwardMessage
  * @typedef {StepForwardMessage}
  */
@@ -453,7 +438,6 @@ export interface StepForwardMessage {
 /**
  * Step-cancellation request payload.
  *
- * @export
  * @interface CancelSteppingMessage
  * @typedef {CancelSteppingMessage}
  */
@@ -469,7 +453,6 @@ export interface CancelSteppingMessage {
 /**
  * Request for raw recorded chunks.
  *
- * @export
  * @interface GetUncompressedChunksMessage
  * @typedef {GetUncompressedChunksMessage}
  */
@@ -485,7 +468,6 @@ export interface GetUncompressedChunksMessage {
 /**
  * Recorded chunk payload with grid dimensions and storage metadata.
  *
- * @export
  * @interface RecordedChunk
  * @typedef {RecordedChunk}
  */
@@ -525,7 +507,6 @@ export interface RecordedChunk extends Grid {
 /**
  * Raw recorded chunk payload.
  *
- * @export
  * @interface UncompressedChunksMessage
  * @typedef {UncompressedChunksMessage}
  */
@@ -547,7 +528,6 @@ export interface UncompressedChunksMessage {
 /**
  * Live metrics payload emitted by the worker.
  *
- * @export
  * @interface MetricMessage
  * @typedef {MetricMessage}
  */
@@ -653,7 +633,6 @@ export interface MetricMessage {
 /**
  * Snapshot payload emitted by the worker.
  *
- * @export
  * @interface SnapshotMessage
  * @typedef {SnapshotMessage}
  */
@@ -687,7 +666,6 @@ export interface SnapshotMessage extends Grid {
 /**
  * Recording manifest payload emitted by the worker.
  *
- * @export
  * @interface RecordingMessage
  * @typedef {RecordingMessage}
  */
@@ -709,7 +687,6 @@ export interface RecordingMessage extends Grid {
 /**
  * Runtime limits payload emitted by the worker.
  *
- * @export
  * @interface LimitsMessage
  * @typedef {LimitsMessage}
  */
@@ -767,7 +744,6 @@ export interface LimitsMessage {
 /**
  * Step activity payload emitted by the worker.
  *
- * @export
  * @interface SteppingMessage
  * @typedef {SteppingMessage}
  */
@@ -789,7 +765,6 @@ export interface SteppingMessage {
 /**
  * Chunk-save activity payload emitted by the worker.
  *
- * @export
  * @interface ChunksSavingMessage
  * @typedef {ChunksSavingMessage}
  */
@@ -811,7 +786,6 @@ export interface ChunksSavingMessage {
 /**
  * Recording backpressure payload emitted by the worker.
  *
- * @export
  * @interface BackpressureMessage
  * @typedef {BackpressureMessage}
  */
@@ -833,7 +807,6 @@ export interface BackpressureMessage {
 /**
  * Storage quota payload emitted by the worker.
  *
- * @export
  * @interface StorageQuotaMessage
  * @typedef {StorageQuotaMessage}
  */
@@ -879,7 +852,6 @@ export interface StorageQuotaMessage {
 /**
  * Chunk-sealed payload emitted by the worker.
  *
- * @export
  * @interface ChunkSealedMessage
  * @typedef {ChunkSealedMessage}
  */
@@ -925,7 +897,6 @@ export interface ChunkSealedMessage extends Grid {
 /**
  * Chunk-codec update payload.
  *
- * @export
  * @interface UpdateChunkCodecMessage
  * @typedef {UpdateChunkCodecMessage}
  */
@@ -971,7 +942,6 @@ export interface UpdateChunkCodecMessage {
 /**
  * Lightweight generation progress payload.
  *
- * @export
  * @interface GenerationMessage
  * @typedef {GenerationMessage}
  */
@@ -999,7 +969,6 @@ export interface GenerationMessage {
 /**
  * Rebuild activity payload emitted by the worker.
  *
- * @export
  * @interface RebuildingMessage
  * @typedef {RebuildingMessage}
  */
@@ -1021,7 +990,6 @@ export interface RebuildingMessage {
 /**
  * GPU device loss payload emitted by the worker.
  *
- * @export
  * @interface DeviceLostMessage
  * @typedef {DeviceLostMessage}
  */
@@ -1043,7 +1011,6 @@ export interface DeviceLostMessage {
 /**
  * GPU error payload emitted by the worker.
  *
- * @export
  * @interface GpuErrorMessage
  * @typedef {GpuErrorMessage}
  */
@@ -1065,7 +1032,6 @@ export interface GpuErrorMessage {
 /**
  * Inbound messages accepted by the simulation worker.
  *
- * @export
  * @typedef {WorkerMessage}
  */
 export type WorkerMessage =

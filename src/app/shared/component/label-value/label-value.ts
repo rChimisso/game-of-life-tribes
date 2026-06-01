@@ -5,7 +5,6 @@ import {SeverityLevel} from '../../../core/model/severity-level';
 /**
  * Label value pair.
  *
- * @export
  * @class LabelValue
  * @typedef {LabelValue}
  */

@@ -1,7 +1,6 @@
 /**
  * Button data for ExclusiveButtonGroup.
  *
- * @export
  * @interface ExclusiveButtonOption
  * @typedef {ExclusiveButtonOption}
  * @template T

@@ -5,7 +5,6 @@ import {Button} from '~gol/shared/component/button/button';
 /**
  * Button pair for coupled actions.
  *
- * @export
  * @class ApplyRestoreButtons
  * @typedef {ApplyRestoreButtons}
  */

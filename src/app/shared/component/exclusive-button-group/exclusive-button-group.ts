@@ -7,7 +7,6 @@ import {ExclusiveButtonOption} from './model/exclusive-button-option';
 /**
  * Exclusive button group.
  *
- * @export
  * @class ExclusiveButtonGroup
  * @typedef {ExclusiveButtonGroup}
  * @template T 

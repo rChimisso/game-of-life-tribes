@@ -3,7 +3,6 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@
 /**
  * Tribe swatch.
  *
- * @export
  * @class TribeSwatch
  * @typedef {TribeSwatch}
  */

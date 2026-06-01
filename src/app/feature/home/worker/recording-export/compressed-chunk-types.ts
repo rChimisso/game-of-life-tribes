@@ -1,13 +1,10 @@
 import {DownloadFrameRange} from '../../model/download';
-import {ChunkMeta, RecordingManifest} from '../../model/recording';
+import {ChunkMeta, Recording} from '../../model/recording';
 import {GoltStateData} from '../snapshot/model/golt-types';
-
-import {Grid} from '~gol/feature/home/model/grid';
 
 /**
  * Cancellation and progress hooks for compressed chunk export.
  *
- * @export
  * @interface CompressedChunkExportOptions
  * @typedef {CompressedChunkExportOptions}
  */
@@ -27,17 +24,8 @@ export interface CompressedChunkExportOptions {
 }
 
 /**
- * Recording data used by compressed chunk export.
- *
- * @export
- * @typedef {CompressedChunkExportRecording}
- */
-export type CompressedChunkExportRecording = Grid & {manifest: RecordingManifest};
-
-/**
  * Simulation metadata written beside exported recording chunks.
  *
- * @export
  * @interface CompressedChunkExportMetadata
  * @typedef {CompressedChunkExportMetadata}
  */
@@ -59,7 +47,6 @@ export interface CompressedChunkExportMetadata {
 /**
  * Exported chunk source type.
  *
- * @export
  * @typedef {CompressedChunkExportSource}
  */
 export type CompressedChunkExportSource = 'copied' | 'rebuilt';
@@ -67,7 +54,6 @@ export type CompressedChunkExportSource = 'copied' | 'rebuilt';
 /**
  * Planned output chunk.
  *
- * @export
  * @interface PlannedCompressedChunk
  * @typedef {PlannedCompressedChunk}
  */
@@ -107,7 +93,6 @@ export interface PlannedCompressedChunk {
 /**
  * Exported chunk file ready for ZIP writing.
  *
- * @export
  * @interface PreparedCompressedChunk
  * @typedef {PreparedCompressedChunk}
  */
@@ -141,7 +126,6 @@ export interface PreparedCompressedChunk {
 /**
  * Compressed chunk export request.
  *
- * @export
  * @interface CompressedChunkExportRequest
  * @typedef {CompressedChunkExportRequest}
  */
@@ -149,9 +133,9 @@ export interface CompressedChunkExportRequest {
   /**
    * Recording dimensions and manifest.
    *
-   * @type {CompressedChunkExportRecording}
+   * @type {Recording}
    */
-  recording: CompressedChunkExportRecording;
+  recording: Recording;
   /**
    * Selected frame range.
    *

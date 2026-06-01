@@ -13,7 +13,6 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
 /**
  * Download frame range form.
  *
- * @export
  * @class DownloadFrameRangeForm
  * @typedef {DownloadFrameRangeForm}
  * @extends {FormComponent<DownloadFrameRangeFormValue>}

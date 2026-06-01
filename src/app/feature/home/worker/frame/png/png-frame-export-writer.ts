@@ -10,11 +10,10 @@ import {Tribe} from '~gol/feature/home/model/rule';
 /**
  * Writes recorded frames as indexed-color PNG ZIP entries.
  *
- * @export
  * @class PngFrameExportWriter
  * @typedef {PngFrameExportWriter}
  */
-class PngFrameExportWriter {
+export class PngFrameExportWriter {
   /**
    * PNG palette shared by all frames in this export.
    *
@@ -42,19 +41,14 @@ class PngFrameExportWriter {
   private framesWritten = 0;
 
   /**
-   * Creates a PNG frame export writer.
-   *
-   * @param {ZipWriter} zip target ZIP writer.
+   * @constructor
+   * @public
    * @param {readonly Pick<Tribe, 'id' | 'color'>[]} tribes ordered tribe metadata.
    * @param {number} selectedFrameCount selected frame count.
+   * @param {ZipWriter} zip target ZIP writer.
    * @param {PngFrameExportOptions} options export options.
    */
-  public constructor(
-    private readonly zip: ZipWriter,
-    tribes: readonly Pick<Tribe, 'id' | 'color'>[],
-    selectedFrameCount: number,
-    private readonly options: PngFrameExportOptions
-  ) {
+  public constructor(tribes: readonly Pick<Tribe, 'id' | 'color'>[], selectedFrameCount: number, private readonly zip: ZipWriter, private readonly options: PngFrameExportOptions) {
     this.palette = buildIndexedPngPalette(tribes);
     this.filenameFrameWidth = Math.max(1, String(selectedFrameCount).length);
   }
@@ -102,7 +96,3 @@ class PngFrameExportWriter {
     return createPngFrameEntryPath(this.framesWritten, this.filenameFrameWidth, frame.generation);
   }
 }
-
-export {PngFrameExportWriter};
-
-export type {PngFrameExportOptions, PngFrameProgressReporter};

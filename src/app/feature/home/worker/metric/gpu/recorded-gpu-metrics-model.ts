@@ -1,25 +1,4 @@
 /**
- * Number of state buckets supported by the recorded-frame GPU metric backend.
- *
- * @type {number}
- */
-const GPU_STATE_BUCKETS = 256;
-
-/**
- * Number of u32 counters in one GPU metric readback.
- *
- * @type {number}
- */
-const GPU_STATS_U32_COUNT = (GPU_STATE_BUCKETS * 2) + 5;
-
-/**
- * Metrics stats buffer byte size.
- *
- * @type {number}
- */
-const GPU_STATS_BYTE_SIZE = GPU_STATS_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
-
-/**
  * Size of the uniform config buffer.
  *
  * @type {number}
@@ -27,18 +6,39 @@ const GPU_STATS_BYTE_SIZE = GPU_STATS_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
 const GPU_CONFIG_U32_COUNT = 1;
 
 /**
+ * Number of state buckets supported by the recorded-frame GPU metric backend.
+ *
+ * @type {number}
+ */
+export const GPU_STATE_BUCKETS = 256;
+
+/**
+ * Number of u32 counters in one GPU metric readback.
+ *
+ * @type {number}
+ */
+export const GPU_STATS_U32_COUNT = (GPU_STATE_BUCKETS * 2) + 5;
+
+/**
+ * Metrics stats buffer byte size.
+ *
+ * @type {number}
+ */
+export const GPU_STATS_BYTE_SIZE = GPU_STATS_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
+
+/**
  * Metrics config buffer byte size.
  *
  * @type {number}
  */
-const GPU_CONFIG_BYTE_SIZE = GPU_CONFIG_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
+export const GPU_CONFIG_BYTE_SIZE = GPU_CONFIG_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT;
 
 /**
  * Maximum value representable by WebGPU u32 counters.
  *
  * @type {number}
  */
-const U32_MAX = 0xffff_ffff;
+export const U32_MAX = 0xffff_ffff;
 
 /**
  * Reusable GPU Metrics resources for one export.
@@ -46,7 +46,7 @@ const U32_MAX = 0xffff_ffff;
  * @interface RecordedGpuMetricsContext
  * @typedef {RecordedGpuMetricsContext}
  */
-interface RecordedGpuMetricsContext {
+export interface RecordedGpuMetricsContext {
   /**
    * Compute pipeline specialized for the export layout.
    *
@@ -102,7 +102,3 @@ interface RecordedGpuMetricsContext {
    */
   frameByteSize: number;
 }
-
-export {GPU_CONFIG_BYTE_SIZE, GPU_STATS_BYTE_SIZE, GPU_STATE_BUCKETS, U32_MAX};
-
-export type {RecordedGpuMetricsContext};

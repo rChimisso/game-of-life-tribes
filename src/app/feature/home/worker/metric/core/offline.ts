@@ -1,9 +1,9 @@
-import {addPackedRowToHistogram, createHistogramLookup} from './histogram-lookup';
+import {addPackedRowToHistogram} from './histogram-lookup';
 import {FrameMetricStats, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame, TransitionAccumulator} from './offline-compute-types';
 import {OfflineMetricEntry} from './offline-types';
 import {GridFormat} from '../../../model/grid-format';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
-import {PackedRecordedFrame} from '../../frame/recording-frame-stream';
+import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {decodePackedRow, DecodedPackedRow} from '../../snapshot/packing/packed-access';
 
 /**
@@ -12,84 +12,6 @@ import {decodePackedRow, DecodedPackedRow} from '../../snapshot/packing/packed-a
  * @type {number}
  */
 const DEFAULT_METRIC_YIELD_EVERY_ROWS = 128;
-
-/**
- * Computes one offline Metrics row from a packed recorded frame.
- *
- * @export
- * @async
- * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
- * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
- * @param {OfflineMetricComputeOptions} options compute options.
- * @returns {Promise<OfflineMetricEntry>} metric row.
- */
-async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
-  const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
-  const stats = await collectFrameMetricStats(frame, previous, deadIndex, tribes.length, options);
-  return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex);
-}
-
-/**
- * Builds one offline Metrics row from aggregate frame stats.
- *
- * @export
- * @param {PackedRecordedFrame} frame packed recorded frame.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
- * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
- * @param {FrameMetricStats} stats aggregate frame stats.
- * @param {number} deadIndex dead tribe index.
- * @returns {OfflineMetricEntry} metric row.
- */
-function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
-  const totalCells = frame.cols * frame.rows;
-  const population = buildPopulationRecord(tribes, stats.counts);
-  const populationDelta = previous ? buildPopulationDelta(tribes, population, previous.metric.population) : undefined;
-  const deadCells = deadIndex >= 0 ? stats.counts[deadIndex]! : 0;
-  const aliveCells = Math.max(0, totalCells - deadCells);
-  const totalContactEdges = totalCells * 2;
-  const sameStateContactEdges = Math.max(0, totalContactEdges - stats.crossStateContactEdges);
-  const diversity = computeDiversity(stats.counts, deadIndex, aliveCells);
-  return {
-    type: 'metrics',
-    generation: frame.generation,
-    population,
-    populationDelta,
-    aliveCells,
-    deadCells,
-    occupancy: totalCells > 0 ? aliveCells / totalCells : 0,
-    shannonEntropy: diversity.shannonEntropy,
-    simpsonIndex: diversity.simpsonIndex,
-    sameStateContactEdges,
-    crossStateContactEdges: stats.crossStateContactEdges,
-    sameStateContactFraction: totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
-    crossStateContactFraction: totalContactEdges > 0 ? stats.crossStateContactEdges / totalContactEdges : 0,
-    changedCells: stats.transition.exact ? stats.transition.changedCells : null,
-    changedFraction: stats.transition.exact && totalCells > 0 ? stats.transition.changedCells / totalCells : null,
-    births: stats.transition.exact ? stats.transition.births : null,
-    deaths: stats.transition.exact ? stats.transition.deaths : null,
-    tribeSwitches: stats.transition.exact ? stats.transition.tribeSwitches : null,
-    netGrowth: previous ? aliveCells - previous.metric.aliveCells : null,
-    frontierLength: buildFrontierRecord(tribes, stats.frontierCounts, deadIndex)
-  };
-}
-
-/**
- * Creates retained previous-frame state for the next metric row.
- *
- * @export
- * @param {PackedRecordedFrame} frame current packed recorded frame.
- * @param {OfflineMetricEntry} metric current metric row.
- * @returns {PreviousOfflineMetricFrame} retained previous-frame state.
- */
-function createPreviousOfflineMetricFrame(frame: PackedRecordedFrame, metric: OfflineMetricEntry): PreviousOfflineMetricFrame {
-  return {
-    generation: frame.generation,
-    words: new Uint32Array(frame.words),
-    format: frame.format,
-    metric
-  };
-}
 
 /**
  * Scans one packed frame to collect raw offline metric stats.
@@ -109,7 +31,6 @@ async function collectFrameMetricStats(frame: PackedRecordedFrame, previous: Pre
   let nextRow = createMetricRowBuffer(frame.format, frame.cols);
   let scratchRow = createMetricRowBuffer(frame.format, frame.cols);
   const previousRow = transition.exact && previous ? createMetricRowBuffer(previous.format, frame.cols) : null;
-  const histogramLookup = createHistogramLookup(frame.format);
   let crossStateContactEdges = 0;
 
   assertNotCancelled(options);
@@ -119,7 +40,7 @@ async function collectFrameMetricStats(frame: PackedRecordedFrame, previous: Pre
   }
 
   for (let y = 0; y < frame.rows; y++) {
-    addPackedRowToHistogram(frame.words, frame, frame.format, y, counts, histogramLookup);
+    addPackedRowToHistogram(frame.words, frame, frame.format, y, counts);
     if (previousRow && previous) {
       decodePackedRow(previous.words, frame, previous.format, y, previousRow);
     }
@@ -360,6 +281,77 @@ function buildFrontierRecord(tribes: readonly OfflineMetricsTribe[], frontierCou
   return frontierLength;
 }
 
-export {buildOfflineMetricEntry, computeOfflineMetricEntryAsync, createPreviousOfflineMetricFrame};
+/**
+ * Computes one offline Metrics row from a packed recorded frame.
+ *
+ * @async
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+ * @param {OfflineMetricComputeOptions} options compute options.
+ * @returns {Promise<OfflineMetricEntry>} metric row.
+ */
+export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
+  const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
+  const stats = await collectFrameMetricStats(frame, previous, deadIndex, tribes.length, options);
+  return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex);
+}
 
-export type {FrameMetricStats, OfflineMetricComputeOptions, OfflineMetricsTribe, PreviousOfflineMetricFrame, TransitionAccumulator} from './offline-compute-types';
+/**
+ * Builds one offline Metrics row from aggregate frame stats.
+ *
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
+ * @param {FrameMetricStats} stats aggregate frame stats.
+ * @param {number} deadIndex dead tribe index.
+ * @returns {OfflineMetricEntry} metric row.
+ */
+export function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly OfflineMetricsTribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
+  const totalCells = frame.cols * frame.rows;
+  const population = buildPopulationRecord(tribes, stats.counts);
+  const populationDelta = previous ? buildPopulationDelta(tribes, population, previous.metric.population) : undefined;
+  const deadCells = deadIndex >= 0 ? stats.counts[deadIndex]! : 0;
+  const aliveCells = Math.max(0, totalCells - deadCells);
+  const totalContactEdges = totalCells * 2;
+  const sameStateContactEdges = Math.max(0, totalContactEdges - stats.crossStateContactEdges);
+  const diversity = computeDiversity(stats.counts, deadIndex, aliveCells);
+  return {
+    type: 'metrics',
+    generation: frame.generation,
+    population,
+    populationDelta,
+    aliveCells,
+    deadCells,
+    occupancy: totalCells > 0 ? aliveCells / totalCells : 0,
+    shannonEntropy: diversity.shannonEntropy,
+    simpsonIndex: diversity.simpsonIndex,
+    sameStateContactEdges,
+    crossStateContactEdges: stats.crossStateContactEdges,
+    sameStateContactFraction: totalContactEdges > 0 ? sameStateContactEdges / totalContactEdges : 0,
+    crossStateContactFraction: totalContactEdges > 0 ? stats.crossStateContactEdges / totalContactEdges : 0,
+    changedCells: stats.transition.exact ? stats.transition.changedCells : null,
+    changedFraction: stats.transition.exact && totalCells > 0 ? stats.transition.changedCells / totalCells : null,
+    births: stats.transition.exact ? stats.transition.births : null,
+    deaths: stats.transition.exact ? stats.transition.deaths : null,
+    tribeSwitches: stats.transition.exact ? stats.transition.tribeSwitches : null,
+    netGrowth: previous ? aliveCells - previous.metric.aliveCells : null,
+    frontierLength: buildFrontierRecord(tribes, stats.frontierCounts, deadIndex)
+  };
+}
+
+/**
+ * Creates retained previous-frame state for the next metric row.
+ *
+ * @param {PackedRecordedFrame} frame current packed recorded frame.
+ * @param {OfflineMetricEntry} metric current metric row.
+ * @returns {PreviousOfflineMetricFrame} retained previous-frame state.
+ */
+export function createPreviousOfflineMetricFrame(frame: PackedRecordedFrame, metric: OfflineMetricEntry): PreviousOfflineMetricFrame {
+  return {
+    generation: frame.generation,
+    words: new Uint32Array(frame.words),
+    format: frame.format,
+    metric
+  };
+}

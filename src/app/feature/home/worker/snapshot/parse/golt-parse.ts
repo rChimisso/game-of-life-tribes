@@ -192,7 +192,6 @@ async function fillExpectedInflatedBuffer(
 /**
  * Parses a `.golt` state file.
  *
- * @export
  * @async
  * @param {ArrayBuffer} buffer serialized `.golt` file bytes.
  * @param {SnapshotProgressReporter} reportProgress progress callback.

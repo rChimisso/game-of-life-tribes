@@ -3,7 +3,6 @@ import {SidebarPointerDragOptions} from '../model/sidebar-pointer-drag';
 /**
  * Checks whether a pointer event can start a sidebar drag interaction.
  *
- * @export
  * @param {PointerEvent} event pointer event.
  * @returns {boolean} true when dragging may start.
  */
@@ -14,7 +13,6 @@ export function canStartSidebarPointerDrag(event: PointerEvent): boolean {
 /**
  * Starts a sidebar pointer drag and wires shared cleanup.
  *
- * @export
  * @param {SidebarPointerDragOptions} options drag options.
  */
 export function startSidebarPointerDrag(options: SidebarPointerDragOptions): void {

@@ -6,7 +6,6 @@ import {ShortcutGroup} from '../model/shortcut';
 /**
  * Keyboard shortcuts section.
  *
- * @export
  * @class ShortcutsSection
  * @typedef {ShortcutsSection}
  */

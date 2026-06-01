@@ -5,7 +5,6 @@ import packageJson from '../../../../../../../package.json';
 /**
  * Sidebar footer.
  *
- * @export
  * @class HomeFooter
  * @typedef {HomeFooter}
  */

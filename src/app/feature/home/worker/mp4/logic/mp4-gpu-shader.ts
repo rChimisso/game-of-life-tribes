@@ -3,7 +3,7 @@
  *
  * @type {string}
  */
-const MP4_CONVERSION_SHADER = `
+export const MP4_CONVERSION_SHADER = `
 struct ConvertConfig {
   sourceCols: u32,
   sourceRows: u32,
@@ -57,5 +57,3 @@ fn fragmentMain(@builtin(position) position: vec4f) -> @location(0) vec4f {
   return palette[readPackedState(sourceX, sourceY, outY)];
 }
 `;
-
-export {MP4_CONVERSION_SHADER};

@@ -7,7 +7,6 @@ import {EngineWorkerOutputMessage, EngineWorkerOutputHandlers} from '../model/en
 /**
  * Worker transport and output dispatch for the engine component.
  *
- * @export
  * @class EngineWorkerClient
  * @typedef {EngineWorkerClient}
  */
@@ -21,15 +20,6 @@ export class EngineWorkerClient {
   private worker?: Worker;
 
   /**
-   * Output handlers keyed by worker message type.
-   *
-   * @private
-   * @readonly
-   * @type {EngineWorkerOutputHandlers}
-   */
-  private readonly outputHandlers: EngineWorkerOutputHandlers;
-
-  /**
    * Whether the worker has been initialized.
    *
    * @public
@@ -41,14 +31,11 @@ export class EngineWorkerClient {
   }
 
   /**
-   * Creates an engine worker client.
-   *
+   * @constructor
    * @public
-   * @param {EngineWorkerOutputHandlers} outputHandlers output handlers.
+   * @param {EngineWorkerOutputHandlers} outputHandlers output handlers keyed by worker message type.
    */
-  public constructor(outputHandlers: EngineWorkerOutputHandlers) {
-    this.outputHandlers = outputHandlers;
-  }
+  public constructor(private readonly outputHandlers: EngineWorkerOutputHandlers) {}
 
   /**
    * Creates the worker and sends its init payload.

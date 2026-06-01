@@ -1,19 +1,20 @@
 import type {StreamTargetChunk} from 'mediabunny';
 
-import {GOLT_TEMP_MP4_DIR, openTempOpfsDirectory} from '../../../logic/opfs-temp';
+import {openTempOpfsDirectory} from '../../../logic/opfs-temp';
 import {ZipWriter} from '../../zip/zip-writer';
 import {assertNotCancelled, createUniqueMp4TempFilename, isMissingOpfsEntry, removeStaleMp4Files} from '../logic/mp4-temp-output-logic';
 import {Mp4ZipCopyOptions} from '../model/mp4-temp-output-types';
 import {MP4_ZIP_ENTRY_PATH} from '../model/mp4-types';
 
+import {GOLT_TEMP_MP4_DIR} from '~gol/feature/home/model/opfs';
+
 /**
  * OPFS-backed temporary MP4 output.
  *
- * @export
  * @class Mp4TempOutput
  * @typedef {Mp4TempOutput}
  */
-class Mp4TempOutput {
+export class Mp4TempOutput {
   /**
    * Whether the OPFS writable stream has been closed or aborted.
    *
@@ -38,13 +39,7 @@ class Mp4TempOutput {
    * @param {FileSystemWritableFileStream} writable writable OPFS stream.
    * @param {string} filename temporary MP4 filename.
    */
-  private constructor(
-    private readonly directory: FileSystemDirectoryHandle,
-    private readonly fileHandle: FileSystemFileHandle,
-    private readonly writable: FileSystemWritableFileStream,
-    private readonly filename: string
-  ) {
-  }
+  private constructor(private readonly directory: FileSystemDirectoryHandle, private readonly fileHandle: FileSystemFileHandle, private readonly writable: FileSystemWritableFileStream, private readonly filename: string) {}
 
   /**
    * Opens a new temporary MP4 output file.
@@ -182,5 +177,3 @@ class Mp4TempOutput {
     }
   }
 }
-
-export {Mp4TempOutput};

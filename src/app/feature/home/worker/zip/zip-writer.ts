@@ -2,12 +2,12 @@ import {finalizeCrc32, updateCrc32} from './zip-crc32';
 import {ZipEntrySink, ZipEntryWriter} from './zip-types';
 import {createUniqueOpfsFilename, setUint64} from './zip-writer-logic';
 import {CentralDirectoryRecord, ZIP64_END_OF_CENTRAL_DIRECTORY, ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR, ZIP64_EXTRA_FIELD, ZIP64_LIMIT, ZIP_CENTRAL_DIRECTORY, ZIP_DATA_DESCRIPTOR, ZIP_END_OF_CENTRAL_DIRECTORY, ZIP_LOCAL_FILE_HEADER} from './zip-writer-model';
-import {GOLT_TEMP_DOWNLOAD_DIR, openTempOpfsDirectory} from '../../logic/opfs-temp';
+import {openTempOpfsDirectory} from '../../logic/opfs-temp';
+import {GOLT_TEMP_DOWNLOAD_DIR} from '../../model/opfs';
 
 /**
  * OPFS-backed ZIP writer using data descriptors for streamed entries.
  *
- * @export
  * @class ZipWriter
  * @typedef {ZipWriter}
  */
@@ -29,15 +29,6 @@ export class ZipWriter {
    * @type {CentralDirectoryRecord[]}
    */
   private readonly records: CentralDirectoryRecord[] = [];
-
-  /**
-   * OPFS filename for the archive.
-   *
-   * @private
-   * @readonly
-   * @type {string}
-   */
-  private readonly filename: string;
 
   /**
    * Current byte offset in the ZIP file.
@@ -74,19 +65,12 @@ export class ZipWriter {
   /**
    * Creates a ZIP writer around an OPFS writable stream.
    *
-   * @param {FileSystemWritableFileStream} writable opfs writable stream.
-   * @param {FileSystemDirectoryHandle} directory opfs directory handle for the archive.
-   * @param {FileSystemFileHandle} fileHandle opfs file handle for the archive.
-   * @param {string} filename opfs filename for the archive.
+   * @param {FileSystemWritableFileStream} writable OPFS writable stream.
+   * @param {FileSystemDirectoryHandle} directory OPFS directory handle for the archive.
+   * @param {FileSystemFileHandle} fileHandle OPFS file handle for the archive.
+   * @param {string} filename OPFS filename for the archive.
    */
-  private constructor(
-    private readonly writable: FileSystemWritableFileStream,
-    private readonly directory: FileSystemDirectoryHandle,
-    private readonly fileHandle: FileSystemFileHandle,
-    filename: string
-  ) {
-    this.filename = filename;
-  }
+  private constructor(private readonly writable: FileSystemWritableFileStream, private readonly directory: FileSystemDirectoryHandle, private readonly fileHandle: FileSystemFileHandle, private readonly filename: string) {}
 
   /**
    * Opens a new ZIP file in OPFS.

@@ -38,7 +38,6 @@ import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage
 /**
  * Home controls sidebar.
  *
- * @export
  * @class Sidebar
  * @typedef {Sidebar}
  * @extends {PersistedPreferencesComponent<SidebarPreferences>}
@@ -505,6 +504,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public suppressClosedTransition = false;
 
   /**
+   * Default preferences.
+   *
+   * @protected
+   * @readonly
+   * @type {SidebarPreferences}
+   */
+  protected override readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
+
+  /**
    * Mobile layout media query.
    *
    * @private
@@ -512,6 +520,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {(MediaQueryList | null)}
    */
   private readonly mobileLayoutQuery: MediaQueryList | null = null;
+
+  /**
+   * Controller for mobile layout listeners.
+   *
+   * @private
+   * @readonly
+   * @type {AbortController}
+   */
+  private readonly mobileLayoutListenerController = new AbortController();
 
   /**
    * Animation frame used to reset transition suppression.
@@ -528,24 +545,6 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {(number | null)}
    */
   private transitionResetCleanupFrame: number | null = null;
-
-  /**
-   * Controller for mobile layout listeners.
-   *
-   * @private
-   * @readonly
-   * @type {AbortController}
-   */
-  private readonly mobileLayoutListenerController = new AbortController();
-
-  /**
-   * Default preferences.
-   *
-   * @protected
-   * @readonly
-   * @type {SidebarPreferences}
-   */
-  protected override readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
 
   /**
    * Current generation shown in the playback section.
@@ -746,8 +745,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   }
 
   /**
-   * Creates the sidebar and restores persisted layout preferences.
-   *
+   * @constructor
    * @public
    * @param {ElementRef} elRef sidebar host element.
    * @param {NgZone} zone Angular zone.

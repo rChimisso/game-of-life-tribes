@@ -31,7 +31,6 @@ interface RecordingChunkRange {
 /**
  * Packed recorded frame yielded by the shared recording iterator.
  *
- * @export
  * @interface PackedRecordedFrame
  * @typedef {PackedRecordedFrame}
  */
@@ -95,7 +94,6 @@ interface PackedRecordedFrame {
 /**
  * Resolved frame selection for a recording.
  *
- * @export
  * @interface RecordingFrameSelection
  * @typedef {RecordingFrameSelection}
  */
@@ -141,7 +139,6 @@ interface RecordingFrameSelection {
 /**
  * Recording frame iteration progress.
  *
- * @export
  * @interface RecordingFrameIterationProgress
  * @typedef {RecordingFrameIterationProgress}
  */
@@ -181,7 +178,6 @@ interface RecordingFrameIterationProgress {
 /**
  * Options for the shared recording frame iterator.
  *
- * @export
  * @interface RecordingFrameIteratorOptions
  * @typedef {RecordingFrameIteratorOptions}
  */

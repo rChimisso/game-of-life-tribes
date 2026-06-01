@@ -3,7 +3,6 @@ import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, DEFAULT_LIVE_METRICS_SETTINGS, Liv
 /**
  * Normalizes partial live metric section settings.
  *
- * @export
  * @param {(Partial<LiveMetricSectionSettings> | null | undefined)} value
  * @returns {LiveMetricSectionSettings}
  */
@@ -18,7 +17,6 @@ export function normalizeLiveMetricSectionSettings(value: Partial<LiveMetricSect
 /**
  * Normalizes partial live metrics settings.
  *
- * @export
  * @param {(Partial<LiveMetricsSettings> | null | undefined)} value
  * @returns {LiveMetricsSettings}
  */

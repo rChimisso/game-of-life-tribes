@@ -7,7 +7,6 @@ import {ParsedGoltState} from '../worker/snapshot/model/golt-types';
 /**
  * Snapshot progress callback.
  *
- * @export
  * @typedef {SnapshotProgressCallback}
  */
 export type SnapshotProgressCallback = (mode: ProgressStatusMode | undefined, percent: number | null, status: string) => void;
@@ -15,7 +14,6 @@ export type SnapshotProgressCallback = (mode: ProgressStatusMode | undefined, pe
 /**
  * Runs the snapshot worker in save mode.
  *
- * @export
  * @param {SnapshotMessage} snap snapshot to save.
  * @param {readonly Tribe[]} tribes current tribes.
  * @param {Ruleset['rules']} rules current rules.
@@ -80,7 +78,6 @@ export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tr
 /**
  * Runs the snapshot worker in load mode.
  *
- * @export
  * @param {ArrayBuffer} buffer snapshot file buffer.
  * @param {SnapshotProgressCallback} onProgress progress callback.
  * @returns {Promise<ParsedGoltState | null>} parsed state or null when invalid.

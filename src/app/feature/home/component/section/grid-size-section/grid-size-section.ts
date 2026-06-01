@@ -13,7 +13,6 @@ import {Grid} from '~gol/feature/home/model/grid';
 /**
  * Grid size editor section.
  *
- * @export
  * @class GridSizeSection
  * @typedef {GridSizeSection}
  * @implements {OnChanges}

@@ -7,7 +7,6 @@ import {HomeSectionPreferences} from '../../model/preferences';
 /**
  * Home sidebar section.
  *
- * @export
  * @class HomeSection
  * @typedef {HomeSection}
  * @implements {OnInit}
@@ -111,7 +110,7 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
    */
   public ngOnInit(): void {
     if (this.preferenceKey) {
-      this.setPreferenceKey(this.preferenceKey);
+      this.setStorageKey(this.preferenceKey);
       this.restorePreferences();
     }
   }

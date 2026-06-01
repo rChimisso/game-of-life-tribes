@@ -1,7 +1,6 @@
 /**
  * Logical and physical workgroup counts for a remapped two-dimensional dispatch.
  *
- * @export
  * @interface DispatchPlan2D
  * @typedef {DispatchPlan2D}
  */

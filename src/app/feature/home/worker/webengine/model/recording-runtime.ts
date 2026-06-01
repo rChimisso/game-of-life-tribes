@@ -3,7 +3,6 @@ import {GridFormatMetadata} from '../../../model/grid-format';
 /**
  * Storage-quota snapshot posted through the worker protocol.
  *
- * @export
  * @interface StorageQuotaSnapshot
  * @typedef {StorageQuotaSnapshot}
  */
@@ -43,7 +42,6 @@ export interface StorageQuotaSnapshot {
 /**
  * Recording-limit payload posted through the worker protocol.
  *
- * @export
  * @interface RecordingLimitsPayload
  * @typedef {RecordingLimitsPayload}
  */

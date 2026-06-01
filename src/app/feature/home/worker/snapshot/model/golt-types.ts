@@ -4,6 +4,13 @@ import {Rule, Tribe} from '../../../model/rule';
 import {Grid} from '~gol/feature/home/model/grid';
 
 /**
+ * Target byte size for one streamed repack block.
+ *
+ * @type {number}
+ */
+export const STREAM_REPACK_BLOCK_BYTES = 64 * 1024 * 1024;
+
+/**
  * Packed grid size where snapshot building switches to the streaming path.
  *
  * @type {number}
@@ -13,7 +20,6 @@ export const SNAPSHOT_STREAMING_THRESHOLD_BYTES = 256 * 1024 * 1024;
 /**
  * Parsed `.golt` state payload.
  *
- * @export
  * @interface ParsedGoltState
  * @typedef {ParsedGoltState}
  * @extends {Grid}
@@ -54,7 +60,6 @@ export interface ParsedGoltState extends Grid {
 /**
  * Data used to build a `.golt` state file.
  *
- * @export
  * @typedef {GoltStateData}
  */
 export type GoltStateData = ParsedGoltState;
@@ -62,7 +67,6 @@ export type GoltStateData = ParsedGoltState;
 /**
  * Partial `.golt` file header used while parsing.
  *
- * @export
  * @interface GoltHeader
  * @typedef {GoltHeader}
  * @extends {Grid}
@@ -97,7 +101,6 @@ export interface GoltHeader extends Grid {
 /**
  * Streaming sink used by snapshot and ZIP writers.
  *
- * @export
  * @interface ByteSink
  * @typedef {ByteSink}
  */
@@ -114,7 +117,6 @@ export interface ByteSink {
 /**
  * Snapshot progress update.
  *
- * @export
  * @interface SnapshotProgressUpdate
  * @typedef {SnapshotProgressUpdate}
  */
@@ -142,7 +144,6 @@ export interface SnapshotProgressUpdate {
 /**
  * Snapshot progress callback.
  *
- * @export
  * @typedef {SnapshotProgressReporter}
  */
 export type SnapshotProgressReporter = (update: SnapshotProgressUpdate) => void;
@@ -150,7 +151,6 @@ export type SnapshotProgressReporter = (update: SnapshotProgressUpdate) => void;
 /**
  * Cancellation hooks used by streaming snapshot writers.
  *
- * @export
  * @interface SnapshotStreamOptions
  * @typedef {SnapshotStreamOptions}
  */

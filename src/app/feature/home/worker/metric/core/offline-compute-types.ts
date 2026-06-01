@@ -5,7 +5,6 @@ import {Tribe} from '../../../model/rule';
 /**
  * Previous packed frame retained for transition metrics.
  *
- * @export
  * @interface PreviousOfflineMetricFrame
  * @typedef {PreviousOfflineMetricFrame}
  */
@@ -39,7 +38,6 @@ interface PreviousOfflineMetricFrame {
 /**
  * Offline metrics tribe metadata.
  *
- * @export
  * @typedef {OfflineMetricsTribe}
  */
 type OfflineMetricsTribe = Pick<Tribe, 'id' | 'color'>;
@@ -47,7 +45,6 @@ type OfflineMetricsTribe = Pick<Tribe, 'id' | 'color'>;
 /**
  * Options for one offline Metrics computation.
  *
- * @export
  * @interface OfflineMetricComputeOptions
  * @typedef {OfflineMetricComputeOptions}
  */

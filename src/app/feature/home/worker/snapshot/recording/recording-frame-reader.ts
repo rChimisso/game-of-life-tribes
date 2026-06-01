@@ -30,7 +30,6 @@ async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
 /**
  * Reads one packed recorded frame from OPFS.
  *
- * @export
  * @async
  * @param {Grid} grid recording grid dimensions.
  * @param {RecordingFrameRef} ref frame reference to read.

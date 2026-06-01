@@ -6,7 +6,6 @@ import {MetricRowFormat} from '../model/metric-row-format';
 /**
  * Metric label-value row.
  *
- * @export
  * @class MetricRow
  * @typedef {MetricRow}
  */

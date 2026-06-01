@@ -109,65 +109,6 @@ const MP4_SIZE_ALIGNMENT = 16;
 const MP4_MIN_OUTPUT_PIXELS = 128 * 128;
 
 /**
- * Checks that WebCodecs VideoEncoder exists.
- *
- * @export
- */
-function assertVideoEncoderAvailable(): void {
-  if (typeof VideoEncoder === 'undefined') {
-    console.error('[GOLT] MP4 export requires WebCodecs VideoEncoder, which is unavailable in this browser.');
-    throw new Error('MP4 export requires WebCodecs VideoEncoder, which is unavailable in this browser.');
-  }
-}
-
-/**
- * Resolves a supported H.264/AVC encoder config.
- *
- * @export
- * @async
- * @param {Mp4OutputSize} outputSize output video size.
- * @param {Mp4FrameExportOptions} options mp4 export options.
- * @returns {Promise<SupportedMp4VideoConfig>} supported config.
- */
-async function resolveSupportedAvcConfig(outputSize: Mp4OutputSize, options: Mp4FrameExportOptions): Promise<SupportedMp4VideoConfig> {
-  const initialOutputSize = outputSize;
-  let supported = await tryResolveSupportedAvcConfigForSize(initialOutputSize, options);
-  if (!supported) {
-    console.warn('[GOLT] MP4 export unsupported at initial size; searching for largest supported output', {
-      width: initialOutputSize.width,
-      height: initialOutputSize.height,
-      fps: options.fps,
-      bitrate: options.bitrate
-    });
-    supported = await findLargestSupportedAvcConfig(initialOutputSize, options);
-  }
-  if (!supported) {
-    const reason = 'H.264/AVC MP4 export is unsupported in this browser, even after reducing output size.';
-    console.error('[GOLT] MP4 export unsupported:', {
-      requestedWidth: initialOutputSize.width,
-      requestedHeight: initialOutputSize.height,
-      fps: options.fps,
-      bitrate: options.bitrate
-    });
-    throw new Error(reason);
-  }
-  if (supported.outputSize.width !== initialOutputSize.width || supported.outputSize.height !== initialOutputSize.height) {
-    console.warn('[GOLT] MP4 export size reduced for encoder support', {
-      requestedWidth: initialOutputSize.width,
-      requestedHeight: initialOutputSize.height,
-      selectedWidth: supported.outputSize.width,
-      selectedHeight: supported.outputSize.height,
-      codec: supported.codec,
-      profile: supported.profile,
-      level: supported.level,
-      fps: options.fps,
-      bitrate: options.bitrate
-    });
-  }
-  return supported;
-}
-
-/**
  * Finds the largest supported AVC output size below the requested size.
  *
  * @async
@@ -354,4 +295,58 @@ function createAvcConfig(codec: string, outputSize: Mp4OutputSize, options: Mp4F
   };
 }
 
-export {assertVideoEncoderAvailable, resolveSupportedAvcConfig};
+/**
+ * Checks that WebCodecs VideoEncoder exists.
+ */
+export function assertVideoEncoderAvailable(): void {
+  if (typeof VideoEncoder === 'undefined') {
+    console.error('[GOLT] MP4 export requires WebCodecs VideoEncoder, which is unavailable in this browser.');
+    throw new Error('MP4 export requires WebCodecs VideoEncoder, which is unavailable in this browser.');
+  }
+}
+
+/**
+ * Resolves a supported H.264/AVC encoder config.
+ *
+ * @async
+ * @param {Mp4OutputSize} outputSize output video size.
+ * @param {Mp4FrameExportOptions} options mp4 export options.
+ * @returns {Promise<SupportedMp4VideoConfig>} supported config.
+ */
+export async function resolveSupportedAvcConfig(outputSize: Mp4OutputSize, options: Mp4FrameExportOptions): Promise<SupportedMp4VideoConfig> {
+  const initialOutputSize = outputSize;
+  let supported = await tryResolveSupportedAvcConfigForSize(initialOutputSize, options);
+  if (!supported) {
+    console.warn('[GOLT] MP4 export unsupported at initial size; searching for largest supported output', {
+      width: initialOutputSize.width,
+      height: initialOutputSize.height,
+      fps: options.fps,
+      bitrate: options.bitrate
+    });
+    supported = await findLargestSupportedAvcConfig(initialOutputSize, options);
+  }
+  if (!supported) {
+    const reason = 'H.264/AVC MP4 export is unsupported in this browser, even after reducing output size.';
+    console.error('[GOLT] MP4 export unsupported:', {
+      requestedWidth: initialOutputSize.width,
+      requestedHeight: initialOutputSize.height,
+      fps: options.fps,
+      bitrate: options.bitrate
+    });
+    throw new Error(reason);
+  }
+  if (supported.outputSize.width !== initialOutputSize.width || supported.outputSize.height !== initialOutputSize.height) {
+    console.warn('[GOLT] MP4 export size reduced for encoder support', {
+      requestedWidth: initialOutputSize.width,
+      requestedHeight: initialOutputSize.height,
+      selectedWidth: supported.outputSize.width,
+      selectedHeight: supported.outputSize.height,
+      codec: supported.codec,
+      profile: supported.profile,
+      level: supported.level,
+      fps: options.fps,
+      bitrate: options.bitrate
+    });
+  }
+  return supported;
+}

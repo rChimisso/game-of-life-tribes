@@ -14,7 +14,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Drawing tools section.
  *
- * @export
  * @class DrawSection
  * @typedef {DrawSection}
  */
@@ -77,22 +76,6 @@ export class DrawSection implements OnChanges {
    */
   @Input({required: true})
   public brushMaxSize = 1;
-
-  /**
-   * Pending brush size shown in the input.
-   *
-   * @public
-   * @type {number}
-   */
-  public pendingBrushSize = 1;
-
-  /**
-   * Whether the user tried to exceed the max while already at the cap.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public showBrushSizeMaxError = false;
 
   /**
    * Current brush shape.
@@ -266,6 +249,22 @@ export class DrawSection implements OnChanges {
       label: 'Pan'
     }
   ];
+
+  /**
+   * Pending brush size shown in the input.
+   *
+   * @public
+   * @type {number}
+   */
+  public pendingBrushSize = 1;
+
+  /**
+   * Whether the user tried to exceed the max while already at the cap.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public showBrushSizeMaxError = false;
 
   /**
    * Current touch mode.

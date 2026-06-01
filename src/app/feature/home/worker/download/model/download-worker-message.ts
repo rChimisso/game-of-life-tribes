@@ -1,12 +1,11 @@
 import {DownloadRequestPayload} from '../../../model/download';
-import {Grid} from '../../../model/grid';
-import {RecordingManifest} from '../../../model/recording';
 import {GoltStateData, ParsedGoltState} from '../../snapshot/model/golt-types';
+
+import {DownloadEstimateRecording} from '~gol/feature/home/model/download-estimate';
 
 /**
  * Download worker request payload.
  *
- * @export
  * @interface DownloadRequest
  * @typedef {DownloadRequest}
  */
@@ -32,9 +31,9 @@ export interface DownloadRequest {
   /**
    * Recording metadata used to resolve saved frame snapshots.
    *
-   * @type {((Grid & {manifest: RecordingManifest}) | null)}
+   * @type {DownloadEstimateRecording}
    */
-  recording: (Grid & {manifest: RecordingManifest}) | null;
+  recording: DownloadEstimateRecording;
   /**
    * Snapshot tribe color metadata.
    *
@@ -52,7 +51,6 @@ export interface DownloadRequest {
 /**
  * Download worker cancellation request.
  *
- * @export
  * @interface DownloadCancelRequest
  * @typedef {DownloadCancelRequest}
  */
@@ -68,7 +66,6 @@ export interface DownloadCancelRequest {
 /**
  * Download worker input.
  *
- * @export
  * @typedef {WorkerInput}
  */
 export type WorkerInput = DownloadRequest | DownloadCancelRequest;
@@ -76,7 +73,6 @@ export type WorkerInput = DownloadRequest | DownloadCancelRequest;
 /**
  * Download worker request event.
  *
- * @export
  * @typedef {DownloadWorkerEvent}
  */
 export type DownloadWorkerEvent = MessageEvent<WorkerInput>;
@@ -84,7 +80,6 @@ export type DownloadWorkerEvent = MessageEvent<WorkerInput>;
 /**
  * Listener notified when download cancellation is requested.
  *
- * @export
  * @typedef {DownloadCancelListener}
  */
 export type DownloadCancelListener = () => void;

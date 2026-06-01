@@ -13,7 +13,6 @@ const BASE_MAX_SCALE = 128;
 /**
  * Camera math and coordinate conversion for the engine canvas.
  *
- * @export
  * @class EngineViewport
  * @typedef {EngineViewport}
  */

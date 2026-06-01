@@ -9,17 +9,6 @@ import {LiveMetricSectionSettings, MetricAvailability, MetricAvailabilityStatus}
 const U32_MAX = 0xffff_ffff;
 
 /**
- * Checks whether a live metric section is active.
- *
- * @param {readonly InteractiveMetricSection[]} sections active sections.
- * @param {InteractiveMetricSection} section section to find.
- * @returns {boolean} whether the section is active.
- */
-function hasInteractiveMetricSection(sections: readonly InteractiveMetricSection[], section: InteractiveMetricSection): boolean {
-  return sections.includes(section);
-}
-
-/**
  * Resolves one metric section availability status.
  *
  * @param {boolean} enabled whether the section is enabled.
@@ -37,6 +26,17 @@ function availabilityFor(enabled: boolean, safe: boolean): MetricAvailabilitySta
 }
 
 /**
+ * Checks whether a live metric section is active.
+ *
+ * @param {readonly InteractiveMetricSection[]} sections active sections.
+ * @param {InteractiveMetricSection} section section to find.
+ * @returns {boolean} whether the section is active.
+ */
+export function hasInteractiveMetricSection(sections: readonly InteractiveMetricSection[], section: InteractiveMetricSection): boolean {
+  return sections.includes(section);
+}
+
+/**
  * Plans live metric availability for the current grid and settings.
  *
  * @param {number} cols grid columns.
@@ -45,7 +45,7 @@ function availabilityFor(enabled: boolean, safe: boolean): MetricAvailabilitySta
  * @param {LiveMetricSectionSettings} settings live metric section settings.
  * @returns {MetricAvailability} availability by section.
  */
-function planInteractiveMetricAvailability(cols: number, rows: number, liveMetricsEnabled: boolean, settings: LiveMetricSectionSettings): MetricAvailability {
+export function planInteractiveMetricAvailability(cols: number, rows: number, liveMetricsEnabled: boolean, settings: LiveMetricSectionSettings): MetricAvailability {
   const totalCells = cols * rows;
   const populationSafe = totalCells <= U32_MAX;
   const interfacesSafe = totalCells * 2 <= U32_MAX;
@@ -63,7 +63,7 @@ function planInteractiveMetricAvailability(cols: number, rows: number, liveMetri
  * @param {MetricAvailability} availability availability by section.
  * @returns {InteractiveMetricSection[]} active metric sections.
  */
-function activeInteractiveMetricSections(availability: MetricAvailability): InteractiveMetricSection[] {
+export function activeInteractiveMetricSections(availability: MetricAvailability): InteractiveMetricSection[] {
   const sections: InteractiveMetricSection[] = [];
   if (availability.population === 'ok') {
     sections.push('population');
@@ -76,5 +76,3 @@ function activeInteractiveMetricSections(availability: MetricAvailability): Inte
   }
   return sections;
 }
-
-export {activeInteractiveMetricSections, hasInteractiveMetricSection, planInteractiveMetricAvailability};

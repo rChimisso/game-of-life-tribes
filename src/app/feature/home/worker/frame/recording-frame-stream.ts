@@ -1,28 +1,84 @@
 import {PackedRecordedFrame, RecordingChunkRange, RecordingFrameIteratorOptions, RecordingFrameSelection} from './recording-frame-types';
 import {alignPackedBytesToWords, gridByteSize, gridFormatFromMetadata} from '../../logic/grid-format';
 import {DownloadFrameRange} from '../../model/download';
-import {ChunkMeta, RecordingManifest} from '../../model/recording';
+import {OPFS_RECORDING_DIR} from '../../model/opfs';
+import {ChunkMeta, Recording, RecordingManifest} from '../../model/recording';
 import {RAW_DEFLATE_CODEC} from '../snapshot/model/golt-format';
 import {countRecordingFrames} from '../snapshot/recording/recording-frame-ref';
 
-import {Grid} from '~gol/feature/home/model/grid';
+/**
+ * Builds global frame spans for all manifest chunks.
+ *
+ * @param {RecordingManifest} manifest recording manifest.
+ * @returns {RecordingChunkRange[]} chunk ranges.
+ */
+function buildChunkRanges(manifest: RecordingManifest): RecordingChunkRange[] {
+  const ranges: RecordingChunkRange[] = [];
+  let nextStart = 0;
+  for (const chunk of manifest.chunks) {
+    const startIndex = nextStart;
+    const endIndex = startIndex + chunk.blockCount - 1;
+    ranges.push({
+      chunk,
+      startIndex,
+      endIndex
+    });
+    nextStart = endIndex + 1;
+  }
+  return ranges;
+}
 
 /**
- * Directory name for OPFS recording storage.
+ * Throws when iterator cancellation has been requested.
  *
- * @type {string}
+ * @param {RecordingFrameIteratorOptions} options iteration options.
  */
-const OPFS_RECORDING_DIR = 'gol-recording';
+function assertNotCancelled(options: RecordingFrameIteratorOptions): void {
+  if (options.shouldCancel?.() === true) {
+    throw new Error('Recording frame iteration cancelled');
+  }
+}
+
+/**
+ * Reads and inflates one recorded chunk.
+ *
+ * @async
+ * @param {FileSystemDirectoryHandle} directory opfs recording directory.
+ * @param {ChunkMeta} chunk recorded chunk metadata.
+ * @returns {Promise<Uint8Array>} decoded chunk bytes.
+ */
+async function readChunkData(directory: FileSystemDirectoryHandle, chunk: ChunkMeta): Promise<Uint8Array> {
+  const fileHandle = await directory.getFileHandle(chunk.filename);
+  const file = await fileHandle.getFile();
+  const storedData = await file.arrayBuffer();
+  const decoded = chunk.codec === RAW_DEFLATE_CODEC ? await decompressChunk(storedData) : storedData;
+  return new Uint8Array(decoded);
+}
+
+/**
+ * Decompresses a recorded deflate chunk.
+ *
+ * @async
+ * @param {ArrayBuffer} compressed compressed chunk bytes.
+ * @returns {Promise<ArrayBuffer>} decompressed chunk bytes.
+ */
+async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
+  const stream = new DecompressionStream(RAW_DEFLATE_CODEC);
+  const writer = stream.writable.getWriter();
+  const output = new Response(stream.readable).arrayBuffer();
+  await writer.write(new Uint8Array(compressed));
+  await writer.close();
+  return output;
+}
 
 /**
  * Resolves a one-based UI frame range into zero-based recording indexes.
  *
- * @export
  * @param {RecordingManifest} manifest recording manifest.
  * @param {(DownloadFrameRange | null)} frameRange selected UI frame range.
  * @returns {RecordingFrameSelection} resolved selection.
  */
-function resolveRecordingFrameSelection(manifest: RecordingManifest, frameRange: DownloadFrameRange | null): RecordingFrameSelection {
+export function resolveRecordingFrameSelection(manifest: RecordingManifest, frameRange: DownloadFrameRange | null): RecordingFrameSelection {
   const totalFrames = countRecordingFrames(manifest);
   const startIndex = frameRange && totalFrames > 0 ? Math.max(0, Math.min(totalFrames - 1, frameRange.startFrame - 1)) : 0;
   const endIndex = frameRange && totalFrames > 0 ? Math.max(startIndex, Math.min(totalFrames - 1, frameRange.endFrame - 1)) : Math.max(0, totalFrames - 1);
@@ -40,13 +96,12 @@ function resolveRecordingFrameSelection(manifest: RecordingManifest, frameRange:
 /**
  * Iterates selected recorded frames while reading each selected chunk once.
  *
- * @export
  * @async
- * @param {Grid & {manifest: RecordingManifest}} recording recording dimensions and manifest.
+ * @param {Recording} recording recording dimensions and manifest.
  * @param {(DownloadFrameRange | null)} frameRange selected UI frame range.
  * @param {RecordingFrameIteratorOptions} [options] iteration options.
  */
-async function *iterateRecordedFrames(recording: Grid & {manifest: RecordingManifest}, frameRange: DownloadFrameRange | null, options: RecordingFrameIteratorOptions = {}): AsyncIterable<PackedRecordedFrame> {
+export async function *iterateRecordedFrames(recording: Recording, frameRange: DownloadFrameRange | null, options: RecordingFrameIteratorOptions = {}): AsyncIterable<PackedRecordedFrame> {
   const selection = resolveRecordingFrameSelection(recording.manifest, frameRange);
   const chunkRanges = buildChunkRanges(recording.manifest);
   const selectedRanges = chunkRanges.filter(range => selection.framesTotal > 0 && range.endIndex >= selection.startIndex && range.startIndex <= selection.endIndex);
@@ -96,72 +151,3 @@ async function *iterateRecordedFrames(recording: Grid & {manifest: RecordingMani
     }
   }
 }
-
-/**
- * Builds global frame spans for all manifest chunks.
- *
- * @param {RecordingManifest} manifest recording manifest.
- * @returns {RecordingChunkRange[]} chunk ranges.
- */
-function buildChunkRanges(manifest: RecordingManifest): RecordingChunkRange[] {
-  const ranges: RecordingChunkRange[] = [];
-  let nextStart = 0;
-  for (const chunk of manifest.chunks) {
-    const startIndex = nextStart;
-    const endIndex = startIndex + chunk.blockCount - 1;
-    ranges.push({
-      chunk,
-      startIndex,
-      endIndex
-    });
-    nextStart = endIndex + 1;
-  }
-  return ranges;
-}
-
-/**
- * Reads and inflates one recorded chunk.
- *
- * @async
- * @param {FileSystemDirectoryHandle} directory opfs recording directory.
- * @param {ChunkMeta} chunk recorded chunk metadata.
- * @returns {Promise<Uint8Array>} decoded chunk bytes.
- */
-async function readChunkData(directory: FileSystemDirectoryHandle, chunk: ChunkMeta): Promise<Uint8Array> {
-  const fileHandle = await directory.getFileHandle(chunk.filename);
-  const file = await fileHandle.getFile();
-  const storedData = await file.arrayBuffer();
-  const decoded = chunk.codec === RAW_DEFLATE_CODEC ? await decompressChunk(storedData) : storedData;
-  return new Uint8Array(decoded);
-}
-
-/**
- * Decompresses a recorded deflate chunk.
- *
- * @async
- * @param {ArrayBuffer} compressed compressed chunk bytes.
- * @returns {Promise<ArrayBuffer>} decompressed chunk bytes.
- */
-async function decompressChunk(compressed: ArrayBuffer): Promise<ArrayBuffer> {
-  const stream = new DecompressionStream(RAW_DEFLATE_CODEC);
-  const writer = stream.writable.getWriter();
-  const output = new Response(stream.readable).arrayBuffer();
-  await writer.write(new Uint8Array(compressed));
-  await writer.close();
-  return output;
-}
-
-/**
- * Throws when iterator cancellation has been requested.
- *
- * @param {RecordingFrameIteratorOptions} options iteration options.
- */
-function assertNotCancelled(options: RecordingFrameIteratorOptions): void {
-  if (options.shouldCancel?.() === true) {
-    throw new Error('Recording frame iteration cancelled');
-  }
-}
-
-export {iterateRecordedFrames, resolveRecordingFrameSelection};
-
-export type {PackedRecordedFrame, RecordingFrameIterationProgress, RecordingFrameIteratorOptions, RecordingFrameSelection} from './recording-frame-types';

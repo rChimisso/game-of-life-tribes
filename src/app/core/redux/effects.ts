@@ -7,7 +7,6 @@ import {downloadBlob, openBlank, openIssue} from './actions';
 /**
  * Core effects.
  *
- * @export
  * @class CoreEffects
  * @typedef {CoreEffects}
  */

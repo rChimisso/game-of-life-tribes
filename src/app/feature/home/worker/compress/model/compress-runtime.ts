@@ -1,7 +1,6 @@
 /**
  * Source data loaded for one OPFS compression chunk.
  *
- * @export
  * @interface CompressionChunkSource
  * @typedef {CompressionChunkSource}
  */

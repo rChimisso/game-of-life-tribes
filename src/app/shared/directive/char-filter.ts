@@ -19,7 +19,6 @@ const specialKeys: string[] = [
 /**
  * Directive for custom inputs.
  *
- * @export
  * @class CharFilterDirective
  * @typedef {CharFilterDirective}
  */

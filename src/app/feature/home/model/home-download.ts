@@ -8,7 +8,6 @@ import {SeverityLevel} from '~gol/core/model/severity-level';
 /**
  * Home download worker input.
  *
- * @export
  * @interface HomeDownloadWorkerInput
  * @typedef {HomeDownloadWorkerInput}
  */
@@ -54,7 +53,6 @@ export interface HomeDownloadWorkerInput {
 /**
  * Home download worker callbacks.
  *
- * @export
  * @interface HomeDownloadWorkerCallbacks
  * @typedef {HomeDownloadWorkerCallbacks}
  */
@@ -136,7 +134,6 @@ export interface HomeDownloadWorkerCallbacks {
 /**
  * Home download preparation callbacks.
  *
- * @export
  * @interface HomeDownloadPreparationCallbacks
  * @typedef {HomeDownloadPreparationCallbacks}
  */

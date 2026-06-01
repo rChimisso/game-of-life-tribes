@@ -9,7 +9,6 @@ import {StatusPage} from '~gol/shared/component/status-page/status-page';
 /**
  * Error page.
  *
- * @export
  * @class ErrorPage
  * @typedef {ErrorPage}
  */

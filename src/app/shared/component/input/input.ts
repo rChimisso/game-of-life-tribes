@@ -7,7 +7,6 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 /**
  * Input.
  *
- * @export
  * @class InputComponent
  * @typedef {InputComponent}
  * @extends {CvaComponent<string | number>}

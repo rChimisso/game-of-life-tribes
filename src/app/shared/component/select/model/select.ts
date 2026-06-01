@@ -1,7 +1,6 @@
 /**
  * Select value type.
  *
- * @export
  * @typedef {SelectValue}
  */
 export type SelectValue = string | number | null;
@@ -9,7 +8,6 @@ export type SelectValue = string | number | null;
 /**
  * Select option.
  *
- * @export
  * @interface SelectOption
  * @typedef {SelectOption}
  */

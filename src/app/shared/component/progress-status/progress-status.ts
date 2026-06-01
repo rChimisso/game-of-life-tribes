@@ -6,7 +6,6 @@ import {ProgressStatusMode} from './model/progress-status';
 /**
  * Shared progress indicator with status text.
  *
- * @export
  * @class ProgressStatus
  * @typedef {ProgressStatus}
  */

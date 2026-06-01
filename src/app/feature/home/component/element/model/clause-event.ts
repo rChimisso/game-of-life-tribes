@@ -3,7 +3,6 @@ import {Clause, Tribe} from '../../../model/rule';
 /**
  * Clause state change event.
  *
- * @export
  * @interface ClauseStateChangeEvent
  * @typedef {ClauseStateChangeEvent}
  */
@@ -25,7 +24,6 @@ export interface ClauseStateChangeEvent {
 /**
  * Clause change event.
  *
- * @export
  * @interface ClauseChangeEvent
  * @typedef {ClauseChangeEvent}
  * @extends {ClauseStateChangeEvent}

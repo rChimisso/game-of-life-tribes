@@ -11,7 +11,6 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
 /**
  * Playback controls section.
  *
- * @export
  * @class PlaybackSection
  * @typedef {PlaybackSection}
  */

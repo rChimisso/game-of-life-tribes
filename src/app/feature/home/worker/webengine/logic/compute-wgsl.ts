@@ -489,7 +489,6 @@ function resolveVarName(tribeNames: string[], varMap: Map<string, string>, tribe
 /**
  * Plans a two-dimensional compute dispatch within the device workgroup limit.
  *
- * @export
  * @param {number} logicalWgX logical workgroups along x.
  * @param {number} logicalWgY logical workgroups along y.
  * @param {number} limit per-dimension dispatch limit.
@@ -523,7 +522,6 @@ export function plan2DDispatch(logicalWgX: number, logicalWgY: number, limit: nu
 /**
  * Generates the simulation compute shader for the active ruleset and packing format.
  *
- * @export
  * @param {Ruleset<readonly Tribe[]>} ruleset active ruleset.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {number} packedCols packed grid words per row.

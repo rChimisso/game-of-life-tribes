@@ -14,7 +14,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Rules editor section.
  *
- * @export
  * @class RulesSection
  * @typedef {RulesSection}
  * @implements {OnChanges}
@@ -149,11 +148,9 @@ export class RulesSection implements OnChanges {
   }
 
   /**
-   * Creates a rules section.
-   *
-   * @public
    * @constructor
-   * @param {ChangeDetectorRef} cdr
+   * @public
+   * @param {ChangeDetectorRef} cdr change detector.
    */
   public constructor(private readonly cdr: ChangeDetectorRef) {}
 

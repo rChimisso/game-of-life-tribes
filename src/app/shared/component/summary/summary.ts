@@ -11,7 +11,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Clause/rule summary component.
  *
- * @export
  * @class SummaryComponent
  * @typedef {SummaryComponent}
  * @implements {OnChanges}

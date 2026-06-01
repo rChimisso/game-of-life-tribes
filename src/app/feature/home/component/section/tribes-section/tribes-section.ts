@@ -14,7 +14,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Tribe editor section.
  *
- * @export
  * @class TribesSection
  * @typedef {TribesSection}
  * @implements {OnChanges}

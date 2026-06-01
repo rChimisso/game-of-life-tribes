@@ -21,7 +21,6 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 /**
  * Rule clause editor.
  *
- * @export
  * @class RuleClause
  * @typedef {RuleClause}
  * @implements {OnChanges}

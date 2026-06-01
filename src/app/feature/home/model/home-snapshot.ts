@@ -1,7 +1,6 @@
 /**
  * Completed snapshot save output.
  *
- * @export
  * @interface SnapshotSaveOutput
  * @typedef {SnapshotSaveOutput}
  */

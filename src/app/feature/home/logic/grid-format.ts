@@ -5,7 +5,6 @@ import {Grid} from '~gol/feature/home/model/grid';
 /**
  * Checks whether a number is a supported bits per cell value.
  *
- * @export
  * @param {number} bitsPerCell
  * @returns {bitsPerCell is BitsPerCell}
  */
@@ -16,7 +15,6 @@ export function isSupportedBitsPerCell(bitsPerCell: number): bitsPerCell is Bits
 /**
  * Returns the maximum state count supported by the packing size.
  *
- * @export
  * @param {BitsPerCell} bitsPerCell
  * @returns {number}
  */
@@ -27,7 +25,6 @@ export function maxStateCountForBits(bitsPerCell: BitsPerCell): number {
 /**
  * Checks whether a packing size supports the state count.
  *
- * @export
  * @param {BitsPerCell} bitsPerCell
  * @param {number} totalStateCount
  * @returns {boolean}
@@ -39,7 +36,6 @@ export function validatePackingAgainstStateCount(bitsPerCell: BitsPerCell, total
 /**
  * Checks whether a packed grid fits within a byte budget.
  *
- * @export
  * @param {Grid} grid
  * @param {GridFormat} format
  * @param {number} maxBytes
@@ -52,7 +48,6 @@ export function fitsGridFormatInMaxBytes(grid: Grid, format: GridFormat, maxByte
 /**
  * Chooses a tight storage format for a state count.
  *
- * @export
  * @param {number} stateCount
  * @returns {GridFormat}
  */
@@ -63,7 +58,6 @@ export function chooseGridFormat(stateCount: number): GridFormat {
 /**
  * Chooses a tight storage format for a state count.
  *
- * @export
  * @param {number} stateCount
  * @returns {GridFormat}
  */
@@ -89,7 +83,6 @@ export function chooseTightStorageGridFormat(stateCount: number): GridFormat {
 /**
  * Returns the minimum grid format required for a state count.
  *
- * @export
  * @param {number} totalStateCount
  * @returns {GridFormat}
  */
@@ -100,7 +93,6 @@ export function requiredGridFormatForStateCount(totalStateCount: number): GridFo
 /**
  * Resolves a grid format from bits per cell.
  *
- * @export
  * @param {BitsPerCell} bitsPerCell
  * @returns {GridFormat}
  */
@@ -111,7 +103,6 @@ export function gridFormatFromBits(bitsPerCell: BitsPerCell): GridFormat {
 /**
  * Finds the smallest valid simulation grid format.
  *
- * @export
  * @param {number} totalStateCount
  * @param {Grid} [grid]
  * @param {number} [maxBytes]
@@ -124,7 +115,6 @@ export function smallestValidSimulationGridFormat(totalStateCount: number, grid:
 /**
  * Finds the smallest simulation grid format that fits the byte budget.
  *
- * @export
  * @param {number} totalStateCount
  * @param {Grid} [grid]
  * @param {number} [maxBytes]
@@ -143,7 +133,6 @@ export function smallestFittingSimulationGridFormat(totalStateCount: number, gri
 /**
  * Resolves a grid format from metadata.
  *
- * @export
  * @param {(GridFormatMetadata | null)} [metadata]
  * @returns {GridFormat}
  */
@@ -154,7 +143,6 @@ export function gridFormatFromMetadata(metadata?: GridFormatMetadata | null): Gr
 /**
  * Extracts serializable grid format metadata.
  *
- * @export
  * @param {GridFormat} format
  * @returns {GridFormatMetadata}
  */
@@ -165,7 +153,6 @@ export function gridFormatMetadata(format: GridFormat): GridFormatMetadata {
 /**
  * Returns packed columns for a format.
  *
- * @export
  * @param {number} cols
  * @param {GridFormat} format
  * @returns {number}
@@ -177,7 +164,6 @@ export function packedColsForFormat(cols: number, format: GridFormat): number {
 /**
  * Returns packed grid size in bytes.
  *
- * @export
  * @param {Grid} grid
  * @param {GridFormat} format
  * @returns {number}
@@ -189,7 +175,6 @@ export function gridByteSize(grid: Grid, format: GridFormat): number {
 /**
  * Aligns packed bytes to words.
  *
- * @export
  * @param {Uint8Array} packed
  * @returns {Uint32Array}
  */
@@ -206,7 +191,6 @@ export function alignPackedBytesToWords(packed: Uint8Array): Uint32Array {
 /**
  * Packs a frame into words.
  *
- * @export
  * @param {Uint8Array} frame
  * @param {Grid} grid
  * @param {GridFormat} format
@@ -232,7 +216,6 @@ export function packFrameToWords(frame: Uint8Array, grid: Grid, format: GridForm
 /**
  * Unpacks words into a frame.
  *
- * @export
  * @param {Uint32Array} words
  * @param {Grid} grid
  * @param {GridFormat} format
@@ -256,7 +239,6 @@ export function unpackWordsToFrame(words: Uint32Array, grid: Grid, format: GridF
 /**
  * Unpacks bytes into a frame.
  *
- * @export
  * @param {Uint8Array} packed
  * @param {Grid} grid
  * @param {GridFormat} format

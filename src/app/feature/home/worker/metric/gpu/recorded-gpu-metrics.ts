@@ -11,11 +11,19 @@ import {OfflineMetricEntry} from '../core/offline-types';
 /**
  * Recorded-frame GPU metrics backend.
  *
- * @export
  * @class RecordedGpuMetricBackend
  * @typedef {RecordedGpuMetricBackend}
  */
-class RecordedGpuMetricBackend {
+export class RecordedGpuMetricBackend {
+  /**
+   * GPU unsupported-reason warnings already logged.
+   *
+   * @private
+   * @readonly
+   * @type {Set<string>}
+   */
+  private readonly unsupportedWarnings = new Set<string>();
+
   /**
    * Reusable per-export GPU context.
    *
@@ -39,15 +47,6 @@ class RecordedGpuMetricBackend {
    * @type {boolean}
    */
   private disposed = false;
-
-  /**
-   * GPU unsupported-reason warnings already logged.
-   *
-   * @private
-   * @readonly
-   * @type {Set<string>}
-   */
-  private readonly unsupportedWarnings = new Set<string>();
 
   /**
    * Creates a recorded-frame GPU metrics backend.
@@ -363,5 +362,3 @@ class RecordedGpuMetricBackend {
     }
   }
 }
-
-export {RecordedGpuMetricBackend};

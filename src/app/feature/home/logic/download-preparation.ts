@@ -6,50 +6,6 @@ import {PREPARING_SNAPSHOT_STATUS, WAITING_COMPRESSION_JOBS_STATUS} from '../mod
 import {RecordingMessage} from '../model/worker-message';
 
 /**
- * Prepares a consistent snapshot and optional recording manifest for download.
- *
- * @export
- * @async
- * @param {DownloadRequestPayload} opts download options.
- * @param {HomeDownloadPreparationCallbacks} callbacks preparation callbacks.
- */
-async function prepareHomeDownload(opts: DownloadRequestPayload, callbacks: HomeDownloadPreparationCallbacks): Promise<void> {
-  callbacks.setCancelRequested(false);
-  callbacks.setDownloadPreview(opts);
-  const needFrames = needsRecordedFrames(opts);
-  console.log('[GOLT] Download started', {
-    metrics: opts.metrics,
-    mp4: opts.mp4,
-    png: opts.png,
-    saves: opts.saves,
-    forceChunkDownload: opts.forceChunkDownload,
-    frameRange: opts.frameRange
-  });
-  callbacks.pauseIfRunning();
-  callbacks.setProgress(0, needFrames ? 'Saving pending recording frames' : PREPARING_SNAPSHOT_STATUS);
-  callbacks.markForCheck();
-  try {
-    const flushedRecording = await flushRecordingForDownload(needFrames, callbacks);
-    const initialMode = resolveInitialDownloadMode(opts, flushedRecording, callbacks);
-    await waitForPreparedCompression(initialMode, callbacks);
-    callbacks.setProgress(30, needFrames ? 'Refreshing recording manifest' : PREPARING_SNAPSHOT_STATUS);
-    callbacks.markForCheck();
-    const snapshotP = callbacks.requestSnapshot();
-    const recordingP = needFrames ? callbacks.requestRecordingManifest() : Promise.resolve(null);
-    const [snap, rec] = await Promise.all([snapshotP, recordingP]);
-    throwIfDownloadCancelled(callbacks);
-    console.log('[GOLT] Download manifest handoff ready', {
-      chunks: rec?.manifest.chunks.length ?? 0,
-      generationStart: rec?.manifest.generationStart ?? null,
-      generationEnd: rec?.manifest.generationEnd ?? null
-    });
-    callbacks.startDownloadWorker(opts, snap, rec, performance.now());
-  } catch (error) {
-    handleDownloadPreparationFailure(error, callbacks);
-  }
-}
-
-/**
  * Checks whether download outputs need recorded frames.
  *
  * @param {DownloadRequestPayload} opts download options.
@@ -150,4 +106,45 @@ function handleDownloadPreparationFailure(error: unknown, callbacks: HomeDownloa
   callbacks.markForCheck();
 }
 
-export {prepareHomeDownload};
+/**
+ * Prepares a consistent snapshot and optional recording manifest for download.
+ *
+ * @async
+ * @param {DownloadRequestPayload} opts download options.
+ * @param {HomeDownloadPreparationCallbacks} callbacks preparation callbacks.
+ */
+export async function prepareHomeDownload(opts: DownloadRequestPayload, callbacks: HomeDownloadPreparationCallbacks): Promise<void> {
+  callbacks.setCancelRequested(false);
+  callbacks.setDownloadPreview(opts);
+  const needFrames = needsRecordedFrames(opts);
+  console.log('[GOLT] Download started', {
+    metrics: opts.metrics,
+    mp4: opts.mp4,
+    png: opts.png,
+    saves: opts.saves,
+    forceChunkDownload: opts.forceChunkDownload,
+    frameRange: opts.frameRange
+  });
+  callbacks.pauseIfRunning();
+  callbacks.setProgress(0, needFrames ? 'Saving pending recording frames' : PREPARING_SNAPSHOT_STATUS);
+  callbacks.markForCheck();
+  try {
+    const flushedRecording = await flushRecordingForDownload(needFrames, callbacks);
+    const initialMode = resolveInitialDownloadMode(opts, flushedRecording, callbacks);
+    await waitForPreparedCompression(initialMode, callbacks);
+    callbacks.setProgress(30, needFrames ? 'Refreshing recording manifest' : PREPARING_SNAPSHOT_STATUS);
+    callbacks.markForCheck();
+    const snapshotP = callbacks.requestSnapshot();
+    const recordingP = needFrames ? callbacks.requestRecordingManifest() : Promise.resolve(null);
+    const [snap, rec] = await Promise.all([snapshotP, recordingP]);
+    throwIfDownloadCancelled(callbacks);
+    console.log('[GOLT] Download manifest handoff ready', {
+      chunks: rec?.manifest.chunks.length ?? 0,
+      generationStart: rec?.manifest.generationStart ?? null,
+      generationEnd: rec?.manifest.generationEnd ?? null
+    });
+    callbacks.startDownloadWorker(opts, snap, rec, performance.now());
+  } catch (error) {
+    handleDownloadPreparationFailure(error, callbacks);
+  }
+}

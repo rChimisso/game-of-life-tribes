@@ -1,7 +1,6 @@
 /**
  * Part of a summary for a clause/rule.
  *
- * @export
  * @typedef {SummaryPart}
  */
 export type SummaryPart = {
@@ -15,7 +14,6 @@ export type SummaryPart = {
 /**
  * Color information for a tribe in a summary.
  *
- * @export
  * @interface SummaryTribeColor
  * @typedef {SummaryTribeColor}
  */

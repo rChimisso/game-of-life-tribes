@@ -11,7 +11,6 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 /**
  * Shared select component.
  *
- * @export
  * @class SelectComponent
  * @typedef {SelectComponent}
  * @extends {CvaComponent<SelectValue>}

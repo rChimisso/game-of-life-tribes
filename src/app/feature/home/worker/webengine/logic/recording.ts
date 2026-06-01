@@ -273,7 +273,6 @@ export function needsInitialCapture(latestRecordedGeneration: number | null, gen
 /**
  * Counts the frames persisted in sealed chunks, with an optional, additional amount.
  *
- * @export
  * @param {readonly ChunkMeta[]} sealedChunks sealed recording chunks.
  * @param {number} [additionalFrames=0] additional frame count.
  * @returns {number} total frame count.

@@ -39,7 +39,6 @@ function postDownloadRequest(worker: Worker, input: HomeDownloadWorkerInput): vo
 /**
  * Starts the download worker once snapshot and recording data are stable.
  *
- * @export
  * @param {HomeDownloadWorkerInput} input worker input.
  * @param {HomeDownloadWorkerCallbacks} callbacks worker callbacks.
  */

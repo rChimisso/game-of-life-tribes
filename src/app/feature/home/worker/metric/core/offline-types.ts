@@ -1,7 +1,6 @@
 /**
  * Offline metric entry written to Metrics CSV and JSON exports.
  *
- * @export
  * @interface OfflineMetricEntry
  * @typedef {OfflineMetricEntry}
  */
@@ -131,7 +130,6 @@ interface OfflineMetricEntry {
 /**
  * Attractor episode detected during an offline Metrics export.
  *
- * @export
  * @interface AttractorEpisode
  * @typedef {AttractorEpisode}
  */
@@ -210,7 +208,6 @@ interface ExtinctionEpisode {
 /**
  * Metrics JSON summary.
  *
- * @export
  * @interface MetricsJsonSummary
  * @typedef {MetricsJsonSummary}
  */

@@ -4,7 +4,6 @@ import {ControlValueAccessor} from '@angular/forms';
 /**
  * Abstract control value accessor component.
  *
- * @export
  * @abstract
  * @class CvaComponent
  * @typedef {CvaComponent}

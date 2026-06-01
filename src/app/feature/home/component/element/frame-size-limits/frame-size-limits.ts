@@ -10,7 +10,6 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
 /**
  * Shared frame size and limits display.
  *
- * @export
  * @class FrameSizeLimits
  * @typedef {FrameSizeLimits}
  */

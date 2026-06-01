@@ -5,7 +5,6 @@ import {DrawSectionPreferences, MetricsSectionPreferences, SpeedSectionPreferenc
 /**
  * Normalizes persisted draw-section preferences.
  *
- * @export
  * @param {(Partial<DrawSectionPreferences> | undefined)} stored stored preferences.
  * @param {DrawSectionPreferences} defaults default preferences.
  * @returns {DrawSectionPreferences} normalized preferences.
@@ -22,7 +21,6 @@ export function normalizeDrawSectionPreferences(stored: Partial<DrawSectionPrefe
 /**
  * Normalizes persisted speed-section preferences.
  *
- * @export
  * @param {(Partial<SpeedSectionPreferences> | undefined)} stored stored preferences.
  * @param {SpeedSectionPreferences} defaults default preferences.
  * @returns {SpeedSectionPreferences} normalized preferences.
@@ -40,7 +38,6 @@ export function normalizeSpeedSectionPreferences(stored: Partial<SpeedSectionPre
 /**
  * Normalizes persisted metrics-section preferences.
  *
- * @export
  * @param {(Partial<MetricsSectionPreferences> | undefined)} stored stored preferences.
  * @param {MetricsSectionPreferences} defaults default preferences.
  * @returns {MetricsSectionPreferences} normalized preferences.

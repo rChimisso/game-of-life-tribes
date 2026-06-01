@@ -60,7 +60,6 @@ interface StatusCallbackAction extends StatusActionBase {
 /**
  * Status page button action.
  *
- * @export
  * @interface StatusAction
  * @typedef {StatusAction}
  */

@@ -33,7 +33,6 @@ interface ActiveAttractor {
 /**
  * Attractor tracker state.
  *
- * @export
  * @interface AttractorTracker
  * @typedef {AttractorTracker}
  */

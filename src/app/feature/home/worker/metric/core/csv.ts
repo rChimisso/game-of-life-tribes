@@ -4,60 +4,24 @@ import {OfflineMetricEntry} from './offline-types';
 import {DEAD_TRIBE_ID} from '../../../model/rule';
 
 /**
- * Builds the Metrics CSV document.
+ * Converts nullable metric values to CSV cells.
  *
- * @export
- * @param {readonly OfflineMetricEntry[]} metrics offline metric rows.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
- * @returns {string} CSV document.
+ * @param {(number | null)} value nullable metric value.
+ * @returns {(number | string)} csv value.
  */
-function buildMetricsCsv(metrics: readonly OfflineMetricEntry[], tribes: readonly OfflineMetricsTribe[]): string {
-  return [buildMetricsCsvHeader(tribes), ...metrics.map(metric => buildMetricsCsvRow(metric, tribes))].join('\n');
+function csvValue(value: number | null): number | string {
+  return value ?? '';
 }
 
 /**
- * Builds the Metrics CSV header row.
+ * Escapes one CSV cell.
  *
- * @export
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
- * @returns {string} encoded CSV header row.
+ * @param {(number | string)} value csv value.
+ * @returns {string} escaped cell value.
  */
-function buildMetricsCsvHeader(tribes: readonly OfflineMetricsTribe[]): string {
-  return buildMetricsCsvColumns(tribes).header.map(csvCell).join(',');
-}
-
-/**
- * Builds one Metrics CSV data row.
- *
- * @export
- * @param {OfflineMetricEntry} metric offline metric row.
- * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
- * @returns {string} encoded CSV data row.
- */
-function buildMetricsCsvRow(metric: OfflineMetricEntry, tribes: readonly OfflineMetricsTribe[]): string {
-  const {populationColumns, frontierColumns} = buildMetricsCsvColumns(tribes);
-  const row = [
-    metric.generation,
-    ...populationColumns.map(column => metric.population[column] ?? 0),
-    ...populationColumns.map(column => metric.populationDelta?.[column] ?? ''),
-    metric.aliveCells,
-    metric.deadCells,
-    metric.occupancy,
-    metric.shannonEntropy,
-    metric.simpsonIndex,
-    metric.sameStateContactEdges,
-    metric.crossStateContactEdges,
-    metric.sameStateContactFraction,
-    metric.crossStateContactFraction,
-    csvValue(metric.changedCells),
-    csvValue(metric.changedFraction),
-    csvValue(metric.births),
-    csvValue(metric.deaths),
-    csvValue(metric.tribeSwitches),
-    csvValue(metric.netGrowth),
-    ...frontierColumns.map(column => metric.frontierLength[column] ?? 0)
-  ];
-  return row.map(csvCell).join(',');
+function csvCell(value: number | string): string {
+  const text = String(value);
+  return text.includes(',') || text.includes('"') || text.includes('\n') ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 /**
@@ -98,24 +62,55 @@ function buildMetricsCsvColumns(tribes: readonly OfflineMetricsTribe[]): Metrics
 }
 
 /**
- * Converts nullable metric values to CSV cells.
+ * Builds the Metrics CSV header row.
  *
- * @param {(number | null)} value nullable metric value.
- * @returns {(number | string)} csv value.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @returns {string} encoded CSV header row.
  */
-function csvValue(value: number | null): number | string {
-  return value ?? '';
+export function buildMetricsCsvHeader(tribes: readonly OfflineMetricsTribe[]): string {
+  return buildMetricsCsvColumns(tribes).header.map(csvCell).join(',');
 }
 
 /**
- * Escapes one CSV cell.
+ * Builds one Metrics CSV data row.
  *
- * @param {(number | string)} value csv value.
- * @returns {string} escaped cell value.
+ * @param {OfflineMetricEntry} metric offline metric row.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @returns {string} encoded CSV data row.
  */
-function csvCell(value: number | string): string {
-  const text = String(value);
-  return text.includes(',') || text.includes('"') || text.includes('\n') ? `"${text.replaceAll('"', '""')}"` : text;
+export function buildMetricsCsvRow(metric: OfflineMetricEntry, tribes: readonly OfflineMetricsTribe[]): string {
+  const {populationColumns, frontierColumns} = buildMetricsCsvColumns(tribes);
+  const row = [
+    metric.generation,
+    ...populationColumns.map(column => metric.population[column] ?? 0),
+    ...populationColumns.map(column => metric.populationDelta?.[column] ?? ''),
+    metric.aliveCells,
+    metric.deadCells,
+    metric.occupancy,
+    metric.shannonEntropy,
+    metric.simpsonIndex,
+    metric.sameStateContactEdges,
+    metric.crossStateContactEdges,
+    metric.sameStateContactFraction,
+    metric.crossStateContactFraction,
+    csvValue(metric.changedCells),
+    csvValue(metric.changedFraction),
+    csvValue(metric.births),
+    csvValue(metric.deaths),
+    csvValue(metric.tribeSwitches),
+    csvValue(metric.netGrowth),
+    ...frontierColumns.map(column => metric.frontierLength[column] ?? 0)
+  ];
+  return row.map(csvCell).join(',');
 }
 
-export {buildMetricsCsv, buildMetricsCsvHeader, buildMetricsCsvRow};
+/**
+ * Builds the Metrics CSV document.
+ *
+ * @param {readonly OfflineMetricEntry[]} metrics offline metric rows.
+ * @param {readonly OfflineMetricsTribe[]} tribes ordered tribe metadata.
+ * @returns {string} CSV document.
+ */
+export function buildMetricsCsv(metrics: readonly OfflineMetricEntry[], tribes: readonly OfflineMetricsTribe[]): string {
+  return [buildMetricsCsvHeader(tribes), ...metrics.map(metric => buildMetricsCsvRow(metric, tribes))].join('\n');
+}

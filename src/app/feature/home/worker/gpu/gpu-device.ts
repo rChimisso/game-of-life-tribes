@@ -3,13 +3,12 @@ import {GpuAdapterLimitValidator} from './gpu-device-types';
 /**
  * Requests a WebGPU device with the worker-wide buffer limit policy.
  *
- * @export
  * @async
  * @param {string} label gpu label for the requested device.
  * @param {GpuAdapterLimitValidator} [validateAdapterLimits] adapter-limit validation hook.
  * @returns {Promise<GPUDevice>} requested GPU device.
  */
-async function requestWorkerGpuDevice(label: string, validateAdapterLimits?: GpuAdapterLimitValidator): Promise<GPUDevice> {
+export async function requestWorkerGpuDevice(label: string, validateAdapterLimits?: GpuAdapterLimitValidator): Promise<GPUDevice> {
   if (!navigator.gpu) {
     throw new Error('WebGPU is unavailable.');
   }
@@ -26,7 +25,3 @@ async function requestWorkerGpuDevice(label: string, validateAdapterLimits?: Gpu
     }
   });
 }
-
-export {requestWorkerGpuDevice};
-
-export type {GpuAdapterLimitValidator} from './gpu-device-types';

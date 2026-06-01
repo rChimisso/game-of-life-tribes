@@ -4,7 +4,6 @@ import {LiveMetricSectionSettings} from './metrics';
 /**
  * Home preferences.
  *
- * @export
  * @interface HomePreferences
  * @typedef {HomePreferences}
  */
@@ -32,7 +31,6 @@ export interface HomePreferences {
 /**
  * Sidebar preferences.
  *
- * @export
  * @interface SidebarPreferences
  * @typedef {SidebarPreferences}
  */
@@ -48,7 +46,6 @@ export interface SidebarPreferences {
 /**
  * Home section preferences.
  *
- * @export
  * @interface HomeSectionPreferences
  * @typedef {HomeSectionPreferences}
  */
@@ -64,7 +61,6 @@ export interface HomeSectionPreferences {
 /**
  * Playback section preferences.
  *
- * @export
  * @interface PlaybackSectionPreferences
  * @typedef {PlaybackSectionPreferences}
  */
@@ -80,7 +76,6 @@ export interface PlaybackSectionPreferences {
 /**
  * Speed section preferences.
  *
- * @export
  * @interface SpeedSectionPreferences
  * @typedef {SpeedSectionPreferences}
  */
@@ -114,7 +109,6 @@ export interface SpeedSectionPreferences {
 /**
  * Metrics section preferences.
  *
- * @export
  * @interface MetricsSectionPreferences
  * @typedef {MetricsSectionPreferences}
  */
@@ -148,7 +142,6 @@ export interface MetricsSectionPreferences {
 /**
  * Draw section preferences.
  *
- * @export
  * @interface DrawSectionPreferences
  * @typedef {DrawSectionPreferences}
  */

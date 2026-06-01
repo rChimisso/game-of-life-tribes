@@ -4,7 +4,6 @@ import {MonoTypeOperatorFunction, Subject, takeUntil} from 'rxjs';
 /**
  * Abstract component that can manage subscriptions.
  *
- * @export
  * @abstract
  * @class SubscriberComponent
  * @typedef {SubscriberComponent}

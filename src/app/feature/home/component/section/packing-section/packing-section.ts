@@ -12,7 +12,6 @@ import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-grou
 /**
  * Simulation packing editor section.
  *
- * @export
  * @class PackingSection
  * @typedef {PackingSection}
  * @implements {OnChanges}

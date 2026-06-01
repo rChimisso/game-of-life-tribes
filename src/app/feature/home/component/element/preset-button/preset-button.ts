@@ -6,7 +6,6 @@ import {Preset} from '../../../model/preset';
 /**
  * Ruleset preset button.
  *
- * @export
  * @class PresetButton
  * @typedef {PresetButton}
  */

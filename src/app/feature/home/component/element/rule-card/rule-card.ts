@@ -19,7 +19,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Rule card editor.
  *
- * @export
  * @class RuleCard
  * @typedef {RuleCard}
  * @implements {OnChanges}

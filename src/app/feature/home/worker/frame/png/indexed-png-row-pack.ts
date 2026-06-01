@@ -9,26 +9,6 @@ import {DecodedPackedRow} from '../../snapshot/packing/packed-access';
 const PNG_FILTER_NONE = 0;
 
 /**
- * Packs one decoded state row into one indexed-color PNG scanline.
- *
- * @export
- * @param {DecodedPackedRow} decodedRow decoded state row.
- * @param {number} cols number of grid columns.
- * @param {IndexedPngBitDepth} bitDepth png indexed-color bit depth.
- * @param {Uint8Array} out output scanline, including filter byte at index 0.
- * @param {(Uint8Array | null)} stateToPaletteIndex optional state-to-palette lookup.
- */
-function packIndexedPngScanline(decodedRow: DecodedPackedRow, cols: number, bitDepth: IndexedPngBitDepth, out: Uint8Array, stateToPaletteIndex: Uint8Array | null): void {
-  out.fill(0);
-  out[0] = PNG_FILTER_NONE;
-  if (bitDepth === 8) {
-    packEightBitScanline(decodedRow, cols, out, stateToPaletteIndex);
-  } else {
-    packSubByteScanline(decodedRow, cols, bitDepth, out, stateToPaletteIndex);
-  }
-}
-
-/**
  * Packs one 8-bit indexed-color scanline.
  *
  * @param {DecodedPackedRow} decodedRow decoded state row.
@@ -74,4 +54,21 @@ function resolvePaletteIndex(state: number, stateToPaletteIndex: Uint8Array | nu
   return paletteIndex ?? 0;
 }
 
-export {packIndexedPngScanline};
+/**
+ * Packs one decoded state row into one indexed-color PNG scanline.
+ *
+ * @param {DecodedPackedRow} decodedRow decoded state row.
+ * @param {number} cols number of grid columns.
+ * @param {IndexedPngBitDepth} bitDepth png indexed-color bit depth.
+ * @param {Uint8Array} out output scanline, including filter byte at index 0.
+ * @param {(Uint8Array | null)} stateToPaletteIndex optional state-to-palette lookup.
+ */
+export function packIndexedPngScanline(decodedRow: DecodedPackedRow, cols: number, bitDepth: IndexedPngBitDepth, out: Uint8Array, stateToPaletteIndex: Uint8Array | null): void {
+  out.fill(0);
+  out[0] = PNG_FILTER_NONE;
+  if (bitDepth === 8) {
+    packEightBitScanline(decodedRow, cols, out, stateToPaletteIndex);
+  } else {
+    packSubByteScanline(decodedRow, cols, bitDepth, out, stateToPaletteIndex);
+  }
+}

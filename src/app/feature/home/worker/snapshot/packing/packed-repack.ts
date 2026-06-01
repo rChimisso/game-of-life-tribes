@@ -1,16 +1,9 @@
 import {readPackedCell, writePackedCell} from './packed-access';
 import {gridByteSize, packedColsForFormat} from '../../../logic/grid-format';
 import {GridFormat} from '../../../model/grid-format';
-import {ByteSink, SnapshotProgressReporter} from '../model/golt-types';
+import {ByteSink, SnapshotProgressReporter, STREAM_REPACK_BLOCK_BYTES} from '../model/golt-types';
 
 import {Grid} from '~gol/feature/home/model/grid';
-
-/**
- * Target byte size for one streamed repack block.
- *
- * @type {number}
- */
-const STREAM_REPACK_BLOCK_BYTES = 64 * 1024 * 1024;
 
 /**
  * Reports packed-grid streaming progress.
@@ -84,7 +77,6 @@ async function writeConvertedGridToSink(sourceGrid: Uint32Array, grid: Grid, sou
 /**
  * Converts packed grid bytes between packing formats without materializing an unpacked cell frame.
  *
- * @export
  * @param {Uint32Array} sourceGrid source packed grid words.
  * @param {Grid} grid grid dimensions.
  * @param {GridFormat} sourceFormat source packing format.
@@ -110,7 +102,6 @@ export function repackPackedGrid(sourceGrid: Uint32Array, grid: Grid, sourceForm
 /**
  * Writes packed grid bytes to a sink without allocating a full target grid.
  *
- * @export
  * @async
  * @param {Uint32Array} sourceGrid source packed grid words.
  * @param {Grid} grid grid dimensions.
@@ -126,5 +117,3 @@ export async function writeRepackedGridToSink(sourceGrid: Uint32Array, grid: Gri
     await writeConvertedGridToSink(sourceGrid, grid, sourceFormat, targetFormat, sink, reportProgress);
   }
 }
-
-export {STREAM_REPACK_BLOCK_BYTES};

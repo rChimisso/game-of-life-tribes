@@ -24,8 +24,6 @@ interface TimestampedConsoleGlobal {
 
 /**
  * Installs timestamp prefixes for console info, warning, and error messages.
- *
- * @export
  */
 function installTimestampedConsole(): void {
   const consoleGlobal = globalThis as typeof globalThis & TimestampedConsoleGlobal;

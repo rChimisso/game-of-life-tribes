@@ -1,7 +1,6 @@
 /**
  * Supported bits per cell values.
  *
- * @export
  * @typedef {BitsPerCell}
  */
 export type BitsPerCell = 1 | 2 | 4 | 8 | 16 | 32;
@@ -9,7 +8,6 @@ export type BitsPerCell = 1 | 2 | 4 | 8 | 16 | 32;
 /**
  * Grid format metadata.
  *
- * @export
  * @interface GridFormatMetadata
  * @typedef {GridFormatMetadata}
  */
@@ -25,7 +23,6 @@ export interface GridFormatMetadata {
 /**
  * Runtime grid packing format.
  *
- * @export
  * @interface GridFormat
  * @typedef {GridFormat}
  * @extends {GridFormatMetadata}

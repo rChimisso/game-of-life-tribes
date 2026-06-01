@@ -3,7 +3,6 @@ import {Rule, Tribe} from './rule';
 /**
  * Event for when a rule's state changes.
  *
- * @export
  * @interface RuleStateChangeEvent
  * @typedef {RuleStateChangeEvent}
  */
@@ -31,7 +30,6 @@ export interface RuleStateChangeEvent {
 /**
  * Event for when a rule's content changes.
  *
- * @export
  * @interface RuleChangeEvent
  * @typedef {RuleChangeEvent}
  * @extends {RuleStateChangeEvent}

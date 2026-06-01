@@ -5,7 +5,6 @@ import {MatIconModule} from '@angular/material/icon';
 /**
  * Button.
  *
- * @export
  * @class Button
  * @typedef {Button}
  */

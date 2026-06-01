@@ -44,7 +44,6 @@ function formatBytesWithBase(bytes: number, base: number): string {
 /**
  * Formats a byte value using the binary base.
  *
- * @export
  * @param {number} bytes bytes value to format.
  * @returns {string} formatted byte value.
  */
@@ -55,7 +54,6 @@ export function formatBinaryBytes(bytes: number): string {
 /**
  * Formats a byte value using the decimal base.
  *
- * @export
  * @param {number} bytes bytes value to format.
  * @returns {string} formatted byte value.
  */

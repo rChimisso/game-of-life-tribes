@@ -1,7 +1,6 @@
 /**
  * Live metric section.
  *
- * @export
  * @typedef {LiveMetricSection}
  */
 export type LiveMetricSection = 'population' | 'diversity' | 'interfaces';
@@ -9,7 +8,6 @@ export type LiveMetricSection = 'population' | 'diversity' | 'interfaces';
 /**
  * Metric availability status.
  *
- * @export
  * @typedef {MetricAvailabilityStatus}
  */
 export type MetricAvailabilityStatus = 'ok' | 'disabled' | 'tooLarge';
@@ -17,7 +15,6 @@ export type MetricAvailabilityStatus = 'ok' | 'disabled' | 'tooLarge';
 /**
  * Metric availability by live section.
  *
- * @export
  * @typedef {MetricAvailability}
  */
 export type MetricAvailability = Record<LiveMetricSection, MetricAvailabilityStatus>;
@@ -25,7 +22,6 @@ export type MetricAvailability = Record<LiveMetricSection, MetricAvailabilitySta
 /**
  * Live metric section settings.
  *
- * @export
  * @interface LiveMetricSectionSettings
  * @typedef {LiveMetricSectionSettings}
  */
@@ -53,7 +49,6 @@ export interface LiveMetricSectionSettings {
 /**
  * Live metrics settings.
  *
- * @export
  * @interface LiveMetricsSettings
  * @typedef {LiveMetricsSettings}
  */
@@ -75,7 +70,6 @@ export interface LiveMetricsSettings {
 /**
  * Live interface metrics.
  *
- * @export
  * @interface LiveInterfaceMetrics
  * @typedef {LiveInterfaceMetrics}
  */

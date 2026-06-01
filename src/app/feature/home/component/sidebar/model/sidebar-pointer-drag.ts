@@ -1,7 +1,6 @@
 /**
  * Pointer drag options shared by sidebar drag interactions.
  *
- * @export
  * @interface SidebarPointerDragOptions
  * @typedef {SidebarPointerDragOptions}
  */

@@ -7,7 +7,6 @@ import {PresetButton} from '../../element/preset-button/preset-button';
 /**
  * Preset selection section.
  *
- * @export
  * @class PresetsSection
  * @typedef {PresetsSection}
  */

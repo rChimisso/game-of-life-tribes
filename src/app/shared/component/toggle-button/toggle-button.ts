@@ -7,7 +7,6 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 /**
  * Toggle button.
  *
- * @export
  * @class ToggleButtonComponent
  * @typedef {ToggleButtonComponent}
  * @extends {CvaComponent<boolean>}

@@ -1,7 +1,8 @@
 import '../../../core/function/timestamped-console';
 
-import {GOLT_TEMP_SNAPSHOT_DIR, openTempOpfsDirectory} from '../logic/opfs-temp';
+import {openTempOpfsDirectory} from '../logic/opfs-temp';
 import {postWorkerTransfer} from '../logic/worker-post';
+import {GOLT_TEMP_SNAPSHOT_DIR} from '../model/opfs';
 import {buildGoltStateFile, shouldStreamGoltState, writeGoltStateFileToSink} from './snapshot/build/golt-build';
 import {GoltStateData, SnapshotProgressUpdate, SnapshotStreamOptions} from './snapshot/model/golt-types';
 import {SnapshotLoadedMessage, SnapshotWorkerEvent, SnapshotWorkerRequest} from './snapshot/model/snapshot-worker-message';

@@ -1,7 +1,6 @@
 /**
  * Storage bar segment data.
  *
- * @export
  * @interface StorageBarSegment
  * @typedef {StorageBarSegment}
  */

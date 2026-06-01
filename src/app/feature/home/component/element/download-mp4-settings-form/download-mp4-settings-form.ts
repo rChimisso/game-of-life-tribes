@@ -11,7 +11,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 /**
  * Download MP4 settings form.
  *
- * @export
  * @class DownloadMp4SettingsForm
  * @typedef {DownloadMp4SettingsForm}
  * @extends {FormComponent<DownloadMp4SettingsFormValue>}

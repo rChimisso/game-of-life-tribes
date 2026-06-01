@@ -5,7 +5,6 @@ import {EngineBrushSettings, EngineInteractionMode, EnginePoint} from '../model/
 /**
  * Pointer input and brush-preview behavior for the engine canvas.
  *
- * @export
  * @class EngineInputController
  * @typedef {EngineInputController}
  */

@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 
+import {requiredGridFormatForStateCount} from '~gol/feature/home/logic/grid-format';
 import {Preset} from '~gol/feature/home/model/preset';
 
 /**
@@ -35,4 +36,34 @@ export class PresetButton {
    */
   @Input()
   public isSelected = false;
+
+  /**
+   * Required minimum packing size.
+   *
+   * @public
+   * @returns {number}
+   */
+  public get requiredBitsPerCell(): number {
+    return requiredGridFormatForStateCount(this.preset.ruleset.tribes.length).bitsPerCell;
+  }
+
+  /**
+   * Required minimum packing display label.
+   *
+   * @public
+   * @returns {string}
+   */
+  public get requiredPackingLabel(): string {
+    return `${this.requiredBitsPerCell}-bit`;
+  }
+
+  /**
+   * Preset button tooltip.
+   *
+   * @public
+   * @returns {string}
+   */
+  public get presetTitle(): string {
+    return `${this.preset.name}: ${this.preset.description}. Requires at least ${this.requiredPackingLabel} packing.`;
+  }
 }

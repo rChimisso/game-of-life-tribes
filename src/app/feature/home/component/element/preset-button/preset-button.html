@@ -1,6 +1,9 @@
-<button mat-flat-button [class.selected]="isSelected" [title]="preset.name + ': ' + preset.description">
+<button mat-flat-button [class.selected]="isSelected" [title]="presetTitle">
   <div class="preset-content">
-    <span class="preset-name">{{ preset.name }}</span>
+    <span class="preset-heading">
+      <span class="preset-packing" [title]="requiredPackingLabel + ' minimum packing'">{{ requiredPackingLabel }}</span>
+      <span class="preset-name">{{ preset.name }}</span>
+    </span>
     <span class="preset-desc">{{ preset.description }}</span>
   </div>
 </button>

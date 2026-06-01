@@ -1,3 +1,4 @@
+import {dispatchWorkerMessage} from '../../../logic/worker-runner';
 import {EngineWorkerOutputMessage, EngineWorkerOutputHandlers} from '../model/engine-worker-output';
 
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
@@ -47,8 +48,8 @@ export class EngineWorkerClient {
    */
   public initialize(message: InitMessage, transfer: Transferable[]): void {
     this.worker = new Worker(new URL('../../../worker/webengine.ts', import.meta.url), {type: 'module'});
-    this.worker.onmessage = (ev: MessageEvent<EngineWorkerOutputMessage>) => {
-      this.dispatchOutput(ev.data);
+    this.worker.onmessage = (ev: MessageEvent<unknown>) => {
+      dispatchWorkerMessage<EngineWorkerOutputMessage>(ev.data, this.outputHandlers);
     };
     this.worker.onerror = (err: ErrorEvent) => {
       this.outputHandlers.gpuError({
@@ -274,32 +275,6 @@ export class EngineWorkerClient {
       this.worker?.postMessage(message, transfer);
     } else {
       this.worker?.postMessage(message);
-    }
-  }
-
-  /**
-   * Dispatches a worker output message.
-   *
-   * @private
-   * @param {EngineWorkerOutputMessage} message worker output message.
-   */
-  private dispatchOutput(message: EngineWorkerOutputMessage): void {
-    switch (message?.type) {
-      case 'metrics': this.outputHandlers.metrics(message); break;
-      case 'snapshot': this.outputHandlers.snapshot(message); break;
-      case 'recording': this.outputHandlers.recording(message); break;
-      case 'limits': this.outputHandlers.limits(message); break;
-      case 'stepping': this.outputHandlers.stepping(message); break;
-      case 'chunksSaving': this.outputHandlers.chunksSaving(message); break;
-      case 'backpressure': this.outputHandlers.backpressure(message); break;
-      case 'storageQuota': this.outputHandlers.storageQuota(message); break;
-      case 'chunkSealed': this.outputHandlers.chunkSealed(message); break;
-      case 'uncompressedChunks': this.outputHandlers.uncompressedChunks(message); break;
-      case 'generation': this.outputHandlers.generation(message); break;
-      case 'rebuilding': this.outputHandlers.rebuilding(message); break;
-      case 'deviceLost': this.outputHandlers.deviceLost(message); break;
-      case 'gpuError': this.outputHandlers.gpuError(message); break;
-      default: console.warn('Unknown message from worker:', message); break;
     }
   }
 }

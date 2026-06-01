@@ -1,6 +1,22 @@
 import {createSnapshotPayload} from './snapshot-worker-runner';
+import {dispatchWorkerMessage} from './worker-runner';
 import {HomeDownloadWorkerCallbacks, HomeDownloadWorkerInput} from '../model/home-download';
-import {DownloadWorkerResponseEvent} from '../worker/download/model/download-worker-message';
+import {WorkerMessageHandlerMap} from '../model/worker-runner';
+import {DownloadWorkerMessage} from '../worker/download/model/download-worker-message';
+
+/**
+ * Download part-ready response type.
+ *
+ * @type {'done-part'}
+ */
+const DOWNLOAD_DONE_PART_TYPE = 'done-part';
+
+/**
+ * Download cancel-cleanup response type.
+ *
+ * @type {'cancel-cleanup-done'}
+ */
+const DOWNLOAD_CANCEL_CLEANUP_DONE_TYPE = 'cancel-cleanup-done';
 
 /**
  * Posts the download request payload.
@@ -64,35 +80,44 @@ export function startHomeDownloadWorker(input: HomeDownloadWorkerInput, callback
     callbacks.openSnack('Download failed unexpectedly. Try again.', 'error');
     cleanupDownload();
   };
-  worker.onmessage = async(e: DownloadWorkerResponseEvent) => {
-    if (e.data.type === 'progress') {
-      callbacks.setProgress(e.data.percent, e.data.status ?? '');
+  const downloadHandlers: WorkerMessageHandlerMap<DownloadWorkerMessage> = {
+    progress: message => {
+      callbacks.setProgress(message.percent, message.status ?? '');
       callbacks.markForCheck();
-    } else if (e.data.type === 'warning') {
-      callbacks.openSnack(e.data.message ?? 'Download warning.', 'warn');
-    } else if (e.data.type === 'done-part') {
-      console.log('[GOLT] Download part ready:', e.data.filename);
-      const {filename, file} = e.data;
+    },
+    warning: message => {
+      callbacks.openSnack(message.message ?? 'Download warning.', 'warn');
+    },
+    [DOWNLOAD_DONE_PART_TYPE]: message => {
+      console.log('[GOLT] Download part ready:', message.filename);
+      const {filename, file} = message;
       const sideEffect = callbacks.waitForMinimumVisibleTime(input.startedAt).then(() => {
         if (!callbacks.isCancelRequested() && callbacks.getWorker() === worker) {
           callbacks.downloadBlob(file, filename);
         }
       });
       pendingDownloadSideEffects.push(sideEffect);
-    } else if (e.data.type === 'error') {
-      const reason = e.data.reason ?? 'Unknown error';
+    },
+    error: message => {
+      const reason = message.reason ?? 'Unknown error';
       const suggestion = typeof reason === 'string' && reason.includes('Array buffer allocation failed') ? ' Try downloading fewer frames or fewer output selections.' : '';
       callbacks.openSnack(`Download error: ${reason}${suggestion}`, 'error');
       cleanupDownload();
-    } else if (e.data.type === 'cancelled') {
+    },
+    cancelled: () => {
       releaseDownloadUi();
-    } else if (e.data.type === 'cancel-cleanup-done') {
+    },
+    [DOWNLOAD_CANCEL_CLEANUP_DONE_TYPE]: () => {
       terminateDownloadWorker('cancel cleanup done');
-    } else if (e.data.type === 'done') {
+    },
+    done: async() => {
       console.log('[GOLT] Download completed');
       await Promise.all(pendingDownloadSideEffects);
       cleanupDownload();
     }
+  };
+  worker.onmessage = (event: MessageEvent<unknown>) => {
+    dispatchWorkerMessage<DownloadWorkerMessage>(event.data, downloadHandlers);
   };
   postDownloadRequest(worker, input);
 }

@@ -2855,7 +2855,7 @@ function handleGetUncompressedChunksMessage(): void {
  *
  * @param {WorkerMessage} message incoming worker message.
  */
-async function dispatchWorkerMessage(message: WorkerMessage): Promise<void> {
+async function handleWorkerMessage(message: WorkerMessage): Promise<void> {
   switch (message.type) {
     case 'init':
       await handleInitMessage(message);
@@ -2920,5 +2920,5 @@ async function dispatchWorkerMessage(message: WorkerMessage): Promise<void> {
  * @param {MessageEvent<WorkerMessage>} event worker message event.
  */
 self.onmessage = async(event: MessageEvent<WorkerMessage>) => {
-  await dispatchWorkerMessage(event.data);
+  await handleWorkerMessage(event.data);
 };

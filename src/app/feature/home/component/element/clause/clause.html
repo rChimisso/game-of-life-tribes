@@ -20,19 +20,13 @@
       }
       @case ("is") {
         <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
           @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
+            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id, $event)" />
           }
         </div>
       }
       @case ("count") {
-        <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
-          @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
-          }
-        </div>
+        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.interval[0]" (ngModelChange)="emitSetInterval(path, 0, $event)" />
           <span>-</span>
@@ -41,67 +35,37 @@
         </div>
       }
       @case ("none") {
-        <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
-          @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
-          }
-        </div>
+        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <span class="interval-label">neighbors = 0</span>
         </div>
       }
       @case ("exactly") {
-        <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
-          @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
-          }
-        </div>
+        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <span class="interval-label">neighbors =</span>
           <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
         </div>
       }
       @case ("min") {
-        <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
-          @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
-          }
-        </div>
+        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
-          <span class="interval-label">neighbors ≥</span>
+          <span class="interval-label">neighbors &ge;</span>
           <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
         </div>
       }
       @case ("max") {
-        <div class="clause-tribes">
-          <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribes)" (ngModelChange)="onToggleAllClauseTribes(path, clause.tribes, $event)" />
-          @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
-          }
-        </div>
+        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
-          <span class="interval-label">neighbors ≤</span>
+          <span class="interval-label">neighbors &le;</span>
           <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
         </div>
       }
       @case ("comparison") {
         <div class="clause-eq">
-          <div class="clause-tribes">
-            <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribe1)" (ngModelChange)="onToggleAllEqTribes(path, 1, clause.tribe1, $event)" />
-            @for (t of tribes; track t.id) {
-              <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribe1.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 1, t.id)" />
-            }
-          </div>
+          <gol-selector-editor [disabled]="disabled" [selector]="comparisonLeftSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'left', $event)" />
           <gol-select [disabled]="disabled" [ngModel]="clause.operator || '='" [options]="comparisonOperatorOptions" (ngModelChange)="emitSetOperator(path, $event)" />
-          <div class="clause-tribes">
-            <gol-checkbox label="All" size="sm" [disabled]="disabled" [ngModel]="tribeSelectionState(clause.tribe2)" (ngModelChange)="onToggleAllEqTribes(path, 2, clause.tribe2, $event)" />
-            @for (t of tribes; track t.id) {
-              <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribe2.includes(t.id)" [title]="t.id" (clicked)="emitToggleEqTribe(path, 2, t.id)" />
-            }
-          </div>
+          <gol-selector-editor [disabled]="disabled" [selector]="comparisonRightSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'right', $event)" />
           <span class="interval-label">+</span>
           <input charFilter inputmode="numeric" max="8" min="-8" regex="^-?[0-8]?$" [disabled]="disabled" [ngModel]="clause.margin ?? 0" (ngModelChange)="emitSetMargin(path, $event)" />
         </div>

@@ -1,18 +1,17 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
+import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
+import {BecomeChangeEvent, BecomeStateChangeEvent} from '../model/become-event';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {Rule, Tribe} from '~gol/feature/home/model/rule';
+import {normalizeBecome, rulesEqual, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
+import {Become, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {Button} from '~gol/shared/component/button/button';
-import {SelectOption} from '~gol/shared/component/select/model/select';
-import {SelectComponent} from '~gol/shared/component/select/select';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
@@ -27,11 +26,10 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   selector: 'gol-rule-card',
   standalone: true,
   imports: [
-    FormsModule,
     DragDropModule,
+    BecomeEditor,
     RuleClause,
     Button,
-    SelectComponent,
     SummaryComponent,
     TribeSwatch,
     MatIconModule
@@ -156,6 +154,14 @@ export class RuleCard implements OnChanges {
   private clauseInvalid = false;
 
   /**
+   * Whether the outcome editor is invalid.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private becomeInvalid = false;
+
+  /**
    * Whether the rule differs from its baseline.
    *
    * @public
@@ -177,22 +183,7 @@ export class RuleCard implements OnChanges {
    * @type {boolean}
    */
   public get isInvalid(): boolean {
-    return this.clauseInvalid;
-  }
-
-  /**
-   * Selectable tribes for the rule output.
-   *
-   * @public
-   * @readonly
-   * @type {SelectOption[]}
-   */
-  public get tribeSelectOptions(): SelectOption[] {
-    return this.tribes.map(tribe => ({
-      value: tribe.id,
-      label: tribe.id,
-      swatchColor: tribe.color
-    }));
+    return this.clauseInvalid || this.becomeInvalid;
   }
 
   /**
@@ -205,25 +196,110 @@ export class RuleCard implements OnChanges {
   }
 
   /**
-   * Returns the color for the output tribe.
+   * Returns the normalized output expression.
    *
    * @public
-   * @returns {string} hex color code for the output tribe.
+   * @returns {Become<Tribe[]>} normalized output expression.
    */
-  public outputTribeColor(): string {
-    return this.tribes.find(tribe => tribe.id === this.rule.tribe)?.color ?? '888888';
+  public outputBecome(): Become<Tribe[]> {
+    return normalizeBecome(this.rule);
   }
 
   /**
-   * Sets the output tribe.
+   * Returns the normalized baseline output expression.
    *
    * @public
-   * @param {string} tribeId tribe ID to set as output.
+   * @returns {(Become<Tribe[]> | null)} normalized baseline output expression.
    */
-  public onSetRuleOutput(tribeId: string): void {
-    if (!this.rule.muted) {
-      this.updateRule(rule => (rule.tribe = tribeId));
+  public baselineBecome(): Become<Tribe[]> | null {
+    return this.baselineRule ? normalizeBecome(this.baselineRule) : null;
+  }
+
+  /**
+   * Returns the fixed output tribe id when the rule has a fixed outcome.
+   *
+   * @public
+   * @returns {(string | null)} fixed output tribe id.
+   */
+  public fixedOutputTribeId(): string | null {
+    const become = this.outputBecome();
+    return become.kind === 'fixed' ? become.tribe : null;
+  }
+
+  /**
+   * Returns the rule output label.
+   *
+   * @public
+   * @returns {string} output label.
+   */
+  public outputBecomeLabel(): string {
+    const become = this.outputBecome();
+    let label = 'Unsupported';
+    switch (become.kind) {
+      case 'fixed':
+        label = become.tribe;
+        break;
+      case 'same':
+        label = 'Same';
+        break;
+      case 'majority':
+        label = 'Majority';
+        break;
+      case 'minority':
+        label = 'Minority';
+        break;
+      case 'combine':
+        label = 'Combine';
+        break;
     }
+    return label;
+  }
+
+  /**
+   * Returns the color for the fixed output tribe.
+   *
+   * @public
+   * @returns {string} hex color code for the fixed output tribe.
+   */
+  public outputTribeColor(): string {
+    return this.tribes.find(tribe => tribe.id === this.fixedOutputTribeId())?.color ?? '888888';
+  }
+
+  /**
+   * Applies outcome edits to the rule.
+   *
+   * @public
+   * @param {BecomeChangeEvent} event outcome change event.
+   */
+  public onBecomeChanged(event: BecomeChangeEvent): void {
+    if (!this.rule.muted) {
+      this.becomeInvalid = event.invalid;
+      this.updateRule(rule => {
+        rule.become = event.become;
+        delete rule.tribe;
+      });
+    }
+  }
+
+  /**
+   * Updates derived outcome state.
+   *
+   * @public
+   * @param {BecomeStateChangeEvent} event outcome state event.
+   */
+  public onBecomeStateChanged(event: BecomeStateChangeEvent): void {
+    this.becomeInvalid = event.invalid;
+    this.emitRuleState();
+  }
+
+  /**
+   * Returns the normalized rule JSON for advanced inspection.
+   *
+   * @public
+   * @returns {string} normalized rule JSON.
+   */
+  public normalizedRuleJson(): string {
+    return JSON.stringify(toPersistedRule(this.rule), null, 2);
   }
 
   /**

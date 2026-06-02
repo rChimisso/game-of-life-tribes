@@ -6,7 +6,8 @@ import {isBinaryLogicalClause} from './util/clause';
 import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {normalizeCountExpression, normalizeSelector} from '~gol/feature/home/logic/rule-editor';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Clause/rule summary component.
@@ -192,25 +193,28 @@ export class SummaryComponent implements OnChanges {
         this.appendSummaryText(parts, this.summaryTokens.empty);
         break;
       case IS_CLAUSE_KIND:
-      case NONE_CLAUSE_KIND:
         this.appendSummaryText(parts, this.summaryTokens[clause.kind]);
         this.appendTribeSummaryParts(parts, clause.tribes);
+        break;
+      case NONE_CLAUSE_KIND:
+        this.appendSummaryText(parts, this.summaryTokens[clause.kind]);
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
         break;
       case EXACTLY_CLAUSE_KIND:
       case MIN_CLAUSE_KIND:
       case MAX_CLAUSE_KIND:
         this.appendSummaryText(parts, `${this.summaryTokens[clause.kind]}${clause.value} `);
-        this.appendTribeSummaryParts(parts, clause.tribes);
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
         break;
       case COUNT_CLAUSE_KIND:
-        this.appendTribeSummaryParts(parts, clause.tribes);
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
         this.appendSummaryText(parts, ` ∈ [${clause.interval[0]},${clause.interval[1]}]`);
         break;
       case COMPARISON_CLAUSE_KIND: {
         this.appendSummaryText(parts, this.summaryTokens.comparisonCountPrefix);
-        this.appendTribeSummaryParts(parts, clause.tribe1);
+        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.left, clause.tribe1).selector);
         this.appendSummaryText(parts, ` ${clause.operator} ${this.summaryTokens.comparisonCountPrefix}`);
-        this.appendTribeSummaryParts(parts, clause.tribe2);
+        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.right, clause.tribe2).selector);
         const {margin = 0} = clause;
         if (margin !== 0) {
           this.appendSummaryText(parts, margin >= 0 ? ` +${margin}` : ` -${Math.abs(margin)}`);
@@ -236,13 +240,38 @@ export class SummaryComponent implements OnChanges {
   }
 
   /**
+   * Appends summary parts for a selector expression.
+   *
+   * @private
+   * @param {SummaryPart[]} parts summary parts to append to.
+   * @param {TribeSelector<Tribe[]>} selector selector to summarize.
+   */
+  private appendSelectorSummaryParts(parts: SummaryPart[], selector: TribeSelector<Tribe[]>): void {
+    switch (selector.kind) {
+      case 'tribes':
+        this.appendTribeSummaryParts(parts, selector.tribes);
+        break;
+      case 'same':
+        this.appendSummaryText(parts, 'same');
+        break;
+      case 'different':
+        this.appendSummaryText(parts, 'different');
+        break;
+      case 'tiedMajority':
+        this.appendSummaryText(parts, 'tied majority of ');
+        this.appendSelectorSummaryParts(parts, selector.source);
+        break;
+    }
+  }
+
+  /**
    * Appends the summary parts for the given tribe IDs.
    *
    * @private
    * @param {SummaryPart[]} parts summary parts to append to.
-   * @param {string[]} tribeIds tribe IDs.
+   * @param {readonly string[]} tribeIds tribe IDs.
    */
-  private appendTribeSummaryParts(parts: SummaryPart[], tribeIds: string[]): void {
+  private appendTribeSummaryParts(parts: SummaryPart[], tribeIds: readonly string[]): void {
     const normalized = this.normalizeTribeSelection(new Set(tribeIds));
     switch (normalized.kind) {
       case 'empty':

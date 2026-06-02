@@ -1,11 +1,153 @@
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, NOT_CLAUSE_KIND, Ruleset} from './rule';
+import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NOT_CLAUSE_KIND, Ruleset} from './rule';
+/**
+ * Named application preset.
+ *
+ * @interface Preset
+ * @typedef {Preset}
+ */
+export interface Preset {
+  /**
+   * Preset display name.
+   *
+   * @type {string}
+   */
+  readonly name: string;
+  /**
+   * Preset short description.
+   *
+   * @type {string}
+   */
+  readonly description: string;
+  /**
+   * Ruleset loaded by the preset.
+   *
+   * @type {Ruleset}
+   */
+  readonly ruleset: Ruleset;
+}
+
+/**
+ * Conway's Game of Life preset.
+ *
+ * @type {Preset}
+ */
+export const CONWAY_PRESET: Preset = {
+  name: 'Conway',
+  description: 'Classic Game of Life',
+  ruleset: {
+    cols: 128,
+    rows: 128,
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: 'Alive',
+        color: 'ffffff'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: MAX_CLAUSE_KIND,
+              value: 1,
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: DEAD_TRIBE_ID
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [2, 3],
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: 'Alive'
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: ['Alive']
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 4,
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: DEAD_TRIBE_ID
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: EXACTLY_CLAUSE_KIND,
+              value: 3,
+              tribes: ['Alive']
+            }
+          ]
+        },
+        tribe: 'Alive'
+      }
+    ]
+  }
+};
+
+export const PALETTE_PRESET: Preset = {
+  name: 'Palette',
+  description: 'Tribes merge and change color',
+  ruleset: {
+    cols: 128,
+    rows: 128,
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: 'Red',
+        color: 'ff0000'
+      },
+      {
+        id: 'Green',
+        color: '00ff00'
+      },
+      {
+        id: 'Blue',
+        color: '0000ff'
+      }
+    ],
+    rules: []
+  }
+};
 
 /**
  * Ecosystem simulation preset.
  *
  * @type {Preset}
  */
-const ECOSYSTEM_PRESET: Preset = {
+export const ECOSYSTEM_PRESET: Preset = {
   name: 'Ecosystem',
   description: 'Grass, Rabbits, and Foxes',
   ruleset: {
@@ -223,126 +365,8 @@ const ECOSYSTEM_PRESET: Preset = {
 };
 
 /**
- * Conway's Game of Life preset.
- *
- * @type {Preset}
- */
-export const CONWAY_PRESET: Preset = {
-  name: 'Conway',
-  description: 'Classic Game of Life',
-  ruleset: {
-    cols: 128,
-    rows: 128,
-    tribes: [
-      DEAD_TRIBE,
-      {
-        id: 'Alive',
-        color: 'ffffff'
-      }
-    ],
-    rules: [
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [0, 1],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [4, 8],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [3, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      }
-    ]
-  }
-};
-
-/**
- * Named application preset.
- *
- * @interface Preset
- * @typedef {Preset}
- */
-export interface Preset {
-  /**
-   * Preset display name.
-   *
-   * @type {string}
-   */
-  readonly name: string;
-  /**
-   * Preset short description.
-   *
-   * @type {string}
-   */
-  readonly description: string;
-  /**
-   * Ruleset loaded by the preset.
-   *
-   * @type {Ruleset}
-   */
-  readonly ruleset: Ruleset;
-}
-
-/**
  * Available built-in presets.
  *
  * @type {readonly Preset[]}
  */
-export const PRESETS: readonly Preset[] = [CONWAY_PRESET, ECOSYSTEM_PRESET];
+export const PRESETS: readonly Preset[] = [CONWAY_PRESET, PALETTE_PRESET, ECOSYSTEM_PRESET];

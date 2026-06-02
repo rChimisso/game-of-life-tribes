@@ -1,0 +1,86 @@
+<div class="become-editor" [class.invalid]="isInvalid">
+  <div class="become-row primary-row">
+    <span class="become-label">&rarr; becomes</span>
+    <gol-select class="mode-select" title="Choose the rule outcome" [disabled]="disabled" [ngModel]="become.kind" [options]="modeOptions" (ngModelChange)="onSetMode($event)" />
+    @if (become.kind === "fixed") {
+      <gol-select class="tribe-select" title="Choose the fixed output tribe" [disabled]="disabled" [ngModel]="fixedTribe" [options]="tribeSelectOptions" (ngModelChange)="onSetFixedTribe($event)" />
+    }
+    @if (become.kind === "same") {
+      <span class="become-detail inline">Keep current tribe</span>
+    }
+    @if (isRankedBecome(become)) {
+      <span class="field-label inline-label">{{ rankSelectorLabel(become) }}</span>
+      <gol-selector-editor title="Choose which neighbor tribes are ranked" [disabled]="disabled" [selector]="become.selector" [tribes]="tribes" (selectorChange)="onSetRankSelector($event)" />
+    }
+  </div>
+  @switch (become.kind) {
+    @case ("majority") {
+      <ng-container *ngTemplateOutlet="rankedRows; context: { $implicit: become }" />
+    }
+    @case ("minority") {
+      <ng-container *ngTemplateOutlet="rankedRows; context: { $implicit: become }" />
+    }
+    @case ("combine") {
+      <ng-container *ngTemplateOutlet="combineRows; context: { combine: become, target: 'root' }" />
+    }
+  }
+</div>
+@if (invalidMessage(); as message) {
+  <div class="become-error">{{ message }}</div>
+}
+
+<ng-template #rankedRows let-ranked>
+  <div class="become-row">
+    <span class="field-label">Tie</span>
+    <gol-select class="mode-select" title="Choose what happens when ranked candidates tie" [disabled]="disabled" [ngModel]="nestedMode(ranked.tie)" [options]="nestedOptions" (ngModelChange)="onSetTieMode($event)" />
+    @if (showsNestedFixedTribe(ranked.tie)) {
+      <gol-select class="tribe-select" title="Choose the fixed tribe for ties" [disabled]="disabled" [ngModel]="nestedFixedTribe(ranked.tie)" [options]="tribeSelectOptions" (ngModelChange)="onSetRankNestedFixedTribe('tie', $event)" />
+    }
+  </div>
+  @if (ranked.tie?.kind === "combine") {
+    <div class="nested-combine">
+      <ng-container *ngTemplateOutlet="combineRows; context: { combine: ranked.tie, target: 'tie' }" />
+    </div>
+  }
+  <div class="become-row">
+    <span class="field-label">Fallback</span>
+    <gol-select class="mode-select" title="Choose what happens when no ranked candidate exists" [disabled]="disabled" [ngModel]="nestedMode(ranked.fallback)" [options]="nestedOptions" (ngModelChange)="onSetRankFallbackMode($event)" />
+    @if (showsNestedFixedTribe(ranked.fallback)) {
+      <gol-select class="tribe-select" title="Choose the fixed fallback tribe" [disabled]="disabled" [ngModel]="nestedFixedTribe(ranked.fallback)" [options]="tribeSelectOptions" (ngModelChange)="onSetRankNestedFixedTribe('fallback', $event)" />
+    }
+  </div>
+  @if (ranked.fallback?.kind === "combine") {
+    <div class="nested-combine">
+      <ng-container *ngTemplateOutlet="combineRows; context: { combine: ranked.fallback, target: 'fallback' }" />
+    </div>
+  }
+</ng-template>
+
+<ng-template #combineRows let-combine="combine" let-target="target">
+  <div class="lookup-table">
+    @for (entry of combine.strategy.entries; track $index; let rowIndex = $index) {
+      <div class="lookup-row">
+        <div class="lookup-inputs">
+          @for (input of entry.inputs; track $index; let inputIndex = $index) {
+            <div class="lookup-input">
+              @if (inputIndex > 0) {
+                <span class="input-separator">+</span>
+              }
+              <gol-selector-editor title="Choose one combination input" [allowedKinds]="combinationInputKinds" [disabled]="disabled" [selector]="input" [tribes]="tribes" (selectorChange)="onSetCombinationInput(target, rowIndex, inputIndex, $event)" />
+              <gol-button icon="close" label="Remove combination input" size="sm" title="Remove this input" variant="icon" [disabled]="disabled || entry.inputs.length <= 1" (clicked)="onRemoveCombinationInput(target, rowIndex, inputIndex)" />
+            </div>
+          }
+          <gol-button class="lookup-add-input" icon="add" label="Add input" size="sm" title="Add another input to this combination" variant="icon" [disabled]="disabled || !canAddCombinationInput(entry)" (clicked)="onAddCombinationInput(target, rowIndex)" />
+        </div>
+        <span>&rarr;</span>
+        <gol-select class="tribe-select" title="Choose the output tribe for this combination" [disabled]="disabled" [ngModel]="entry.output" [options]="tribeSelectOptions" (ngModelChange)="onSetCombinationOutput(target, rowIndex, $event)" />
+        <gol-button icon="delete" label="Remove combination row" size="sm" title="Remove combination row" variant="icon" [disabled]="disabled" (clicked)="onRemoveCombinationRow(target, rowIndex)" />
+      </div>
+    }
+    <div class="lookup-row">
+      <span class="field-label">Otherwise</span>
+      <gol-select class="tribe-select" title="Choose the default output tribe when no combination row matches" [disabled]="disabled" [ngModel]="lookupDefaultTribe(combine)" [options]="tribeSelectOptions" (ngModelChange)="onSetLookupDefaultTribe(target, $event)" />
+      <gol-button class="lookup-add-row" icon="add" label="Add combination row" size="sm" title="Add combination row" variant="icon" [disabled]="disabled" (clicked)="onAddCombinationRow(target)" />
+    </div>
+  </div>
+</ng-template>

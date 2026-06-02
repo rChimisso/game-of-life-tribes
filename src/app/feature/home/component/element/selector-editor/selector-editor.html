@@ -1,0 +1,13 @@
+<div class="selector-editor" [class.invalid]="isInvalid">
+  <gol-select class="selector-kind" title="Choose how this tribe set is resolved" [disabled]="disabled" [ngModel]="selector.kind" [options]="selectorKindOptions" (ngModelChange)="onSetSelectorKind($event)" />
+  @if (selector.kind === "tribes") {
+    <div class="selector-tribes">
+      @for (tribe of tribes; track tribe.id) {
+        <gol-tribe-swatch size="sm" [color]="tribe.color" [interactive]="!disabled" [selected]="isTribeSelected(tribe.id)" [title]="tribe.id" (clicked)="onToggleTribe(tribe.id, $event)" />
+      }
+    </div>
+  }
+</div>
+@if (selectorInvalidMessage(); as message) {
+  <div class="selector-error">{{ message }}</div>
+}

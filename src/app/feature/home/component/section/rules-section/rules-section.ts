@@ -4,7 +4,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Inp
 import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeClauseForEditor, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
+import {normalizeClauseForEditor, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
@@ -183,11 +183,14 @@ export class RulesSection implements OnChanges {
    * @public
    */
   public onAddRule(): void {
-    const newRule = {
+    const newRule: Rule<Tribe[]> = {
       key: this.createEditableRuleKey(),
       muted: false,
       clause: EMPTY_CLAUSE,
-      tribe: this.defaultTribeId()
+      become: {
+        kind: 'fixed',
+        tribe: this.defaultTribeId()
+      }
     };
     this.editRules.push(newRule);
     this.ruleStatesByKey.set(this.ruleStateKey(newRule, this.editRules.length - 1), {dirty: true, invalid: true});
@@ -375,7 +378,7 @@ export class RulesSection implements OnChanges {
    * @returns {Rule<Tribe[]>}
    */
   private toEditableRule(rule: Rule<Tribe[]>, preferredKey?: string): Rule<Tribe[]> {
-    const editableRule = structuredClone(rule);
+    const editableRule = normalizeRule(rule);
     editableRule.clause = normalizeClauseForEditor(editableRule.clause);
     editableRule.key = preferredKey ?? this.createEditableRuleKey();
     editableRule.muted = !!editableRule.muted;

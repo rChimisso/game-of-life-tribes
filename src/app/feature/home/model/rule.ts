@@ -153,6 +153,297 @@ export type Interval = [NeighborCount, NeighborCount];
 export type Operator = '=' | '≠' | '>' | '<' | '≥' | '≤';
 
 /**
+ * Selector that targets one explicit set of tribes.
+ *
+ * @interface ExplicitTribesSelector<T extends readonly Tribe[]>
+ * @typedef {ExplicitTribesSelector<T extends readonly Tribe[]>}
+ */
+export interface ExplicitTribesSelector<T extends readonly Tribe[]> {
+  /**
+   * Selector type.
+   *
+   * @type {"tribes"}
+   */
+  kind: 'tribes';
+  /**
+   * Explicit tribes selected by this selector.
+   *
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   */
+  tribes: [TribeId<T>, ...TribeId<T>[]];
+}
+
+/**
+ * Selector that targets neighbors matching the current cell tribe.
+ *
+ * @interface SameTribeSelector
+ * @typedef {SameTribeSelector}
+ */
+export interface SameTribeSelector {
+  /**
+   * Selector type.
+   *
+   * @type {"same"}
+   */
+  kind: 'same';
+}
+
+/**
+ * Selector that targets neighbors different from the current cell tribe.
+ *
+ * @interface DifferentTribeSelector
+ * @typedef {DifferentTribeSelector}
+ */
+export interface DifferentTribeSelector {
+  /**
+   * Selector type.
+   *
+   * @type {"different"}
+   */
+  kind: 'different';
+}
+
+/**
+ * Selector that targets tied majority candidates from another selector.
+ *
+ * @interface TiedMajoritySelector<T extends readonly Tribe[]>
+ * @typedef {TiedMajoritySelector<T extends readonly Tribe[]>}
+ */
+export interface TiedMajoritySelector<T extends readonly Tribe[]> {
+  /**
+   * Selector type.
+   *
+   * @type {"tiedMajority"}
+   */
+  kind: 'tiedMajority';
+  /**
+   * Source selector used to find majority ties.
+   *
+   * @type {TribeSelector<T>}
+   */
+  source: TribeSelector<T>;
+}
+
+/**
+ * Rule tribe selector expression.
+ *
+ * @typedef {TribeSelector}
+ */
+export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | TiedMajoritySelector<T>;
+
+/**
+ * Fixed rule outcome equivalent to the legacy rule target.
+ *
+ * @interface FixedBecome<T extends readonly Tribe[]>
+ * @typedef {FixedBecome<T extends readonly Tribe[]>}
+ */
+export interface FixedBecome<T extends readonly Tribe[]> {
+  /**
+   * Outcome type.
+   *
+   * @type {"fixed"}
+   */
+  kind: 'fixed';
+  /**
+   * Fixed output tribe.
+   *
+   * @type {TribeId<T>}
+   */
+  tribe: TribeId<T>;
+}
+
+/**
+ * Rule outcome that keeps the current cell tribe.
+ *
+ * @interface SameBecome
+ * @typedef {SameBecome}
+ */
+export interface SameBecome {
+  /**
+   * Outcome type.
+   *
+   * @type {"same"}
+   */
+  kind: 'same';
+}
+
+/**
+ * Rule outcome that chooses the most common selected neighbor tribe.
+ *
+ * @interface MajorityBecome<T extends readonly Tribe[]>
+ * @typedef {MajorityBecome<T extends readonly Tribe[]>}
+ */
+export interface MajorityBecome<T extends readonly Tribe[]> {
+  /**
+   * Outcome type.
+   *
+   * @type {"majority"}
+   */
+  kind: 'majority';
+  /**
+   * Selector used to choose majority candidates.
+   *
+   * @type {TribeSelector<T>}
+   */
+  selector: TribeSelector<T>;
+  /**
+   * Outcome evaluated when multiple candidates tie.
+   *
+   * @type {?Become<T>}
+   */
+  tie?: Become<T>;
+  /**
+   * Outcome evaluated when no candidates exist.
+   *
+   * @type {?Become<T>}
+   */
+  fallback?: Become<T>;
+}
+
+/**
+ * Rule outcome that chooses the least common selected neighbor tribe.
+ *
+ * @interface MinorityBecome<T extends readonly Tribe[]>
+ * @typedef {MinorityBecome<T extends readonly Tribe[]>}
+ */
+export interface MinorityBecome<T extends readonly Tribe[]> {
+  /**
+   * Outcome type.
+   *
+   * @type {"minority"}
+   */
+  kind: 'minority';
+  /**
+   * Selector used to choose minority candidates.
+   *
+   * @type {TribeSelector<T>}
+   */
+  selector: TribeSelector<T>;
+  /**
+   * Outcome evaluated when multiple candidates tie.
+   *
+   * @type {?Become<T>}
+   */
+  tie?: Become<T>;
+  /**
+   * Outcome evaluated when no candidates exist.
+   *
+   * @type {?Become<T>}
+   */
+  fallback?: Become<T>;
+}
+
+/**
+ * Lookup-table combination strategy.
+ *
+ * @interface LookupCombineStrategy<T extends readonly Tribe[]>
+ * @typedef {LookupCombineStrategy<T extends readonly Tribe[]>}
+ */
+export interface LookupCombineStrategy<T extends readonly Tribe[]> {
+  /**
+   * Strategy type.
+   *
+   * @type {"lookup"}
+   */
+  kind: 'lookup';
+  /**
+   * Lookup rows.
+   *
+   * @type {readonly CombinationEntry<T>[]}
+   */
+  entries: readonly CombinationEntry<T>[];
+  /**
+   * Default outcome for unmatched input sets.
+   *
+   * @type {?Become<T>}
+   */
+  default?: Become<T>;
+}
+
+/**
+ * Combine strategy expression.
+ *
+ * @typedef {CombineStrategy}
+ */
+export type CombineStrategy<T extends readonly Tribe[]> = LookupCombineStrategy<T>;
+
+/**
+ * One unordered combination lookup row.
+ *
+ * @interface CombinationEntry<T extends readonly Tribe[]>
+ * @typedef {CombinationEntry<T extends readonly Tribe[]>}
+ */
+export interface CombinationEntry<T extends readonly Tribe[]> {
+  /**
+   * Input selectors.
+   *
+   * @type {readonly TribeSelector<T>[]}
+   */
+  inputs: readonly TribeSelector<T>[];
+  /**
+   * Output tribe.
+   *
+   * @type {TribeId<T>}
+   */
+  output: TribeId<T>;
+}
+
+/**
+ * Rule outcome that combines selected tribes with a declared strategy.
+ *
+ * @interface CombineBecome<T extends readonly Tribe[]>
+ * @typedef {CombineBecome<T extends readonly Tribe[]>}
+ */
+export interface CombineBecome<T extends readonly Tribe[]> {
+  /**
+   * Outcome type.
+   *
+   * @type {"combine"}
+   */
+  kind: 'combine';
+  /**
+   * Combination strategy.
+   *
+   * @type {CombineStrategy<T>}
+   */
+  strategy: CombineStrategy<T>;
+  /**
+   * Outcome evaluated when the strategy has no match.
+   *
+   * @type {?Become<T>}
+   */
+  fallback?: Become<T>;
+}
+
+/**
+ * Rule outcome expression.
+ *
+ * @typedef {Become}
+ */
+export type Become<T extends readonly Tribe[]> = FixedBecome<T> | SameBecome | MajorityBecome<T> | MinorityBecome<T> | CombineBecome<T>;
+
+/**
+ * Neighbor count expression.
+ *
+ * @interface CountExpression<T extends readonly Tribe[]>
+ * @typedef {CountExpression<T extends readonly Tribe[]>}
+ */
+export interface CountExpression<T extends readonly Tribe[]> {
+  /**
+   * Expression type.
+   *
+   * @type {"count"}
+   */
+  kind: 'count';
+  /**
+   * Selector counted by the expression.
+   *
+   * @type {TribeSelector<T>}
+   */
+  selector: TribeSelector<T>;
+}
+
+/**
  * Placeholder clause used while building rule expressions.
  *
  * @interface EmptyClause
@@ -205,11 +496,17 @@ export interface IntervalClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof COUNT_CLAUSE_KIND;
   /**
-   * Set of tribes that this clause counts.
+   * Legacy set of tribes that this clause counts.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [TribeId<T>, ...TribeId<T>[]];
+  tribes?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Selector counted by this clause.
+   *
+   * @type {?TribeSelector<T>}
+   */
+  selector?: TribeSelector<T>;
   /**
    * Count interval for the cell's neighbors that makes this clause true.
    *
@@ -233,17 +530,29 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof COMPARISON_CLAUSE_KIND;
   /**
-   * Tribes for the left-hand side count.
+   * Left-hand side count expression.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?CountExpression<T>}
    */
-  tribe1: [TribeId<T>, ...TribeId<T>[]];
+  left?: CountExpression<T>;
   /**
-   * Tribes for the right-hand side count.
+   * Right-hand side count expression.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?CountExpression<T>}
    */
-  tribe2: [TribeId<T>, ...TribeId<T>[]];
+  right?: CountExpression<T>;
+  /**
+   * Legacy tribes for the left-hand side count.
+   *
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
+   */
+  tribe1?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Legacy tribes for the right-hand side count.
+   *
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
+   */
+  tribe2?: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Comparison operator between the two counts.
    *
@@ -274,11 +583,17 @@ export interface NoneClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof NONE_CLAUSE_KIND;
   /**
-   * Set of tribes this alias counts.
+   * Legacy set of tribes this alias counts.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [TribeId<T>, ...TribeId<T>[]];
+  tribes?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Selector counted by this alias.
+   *
+   * @type {?TribeSelector<T>}
+   */
+  selector?: TribeSelector<T>;
 }
 
 /**
@@ -296,11 +611,17 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof EXACTLY_CLAUSE_KIND;
   /**
-   * Set of tribes this alias counts.
+   * Legacy set of tribes this alias counts.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [TribeId<T>, ...TribeId<T>[]];
+  tribes?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Selector counted by this alias.
+   *
+   * @type {?TribeSelector<T>}
+   */
+  selector?: TribeSelector<T>;
   /**
    * Required exact neighbor count.
    *
@@ -324,11 +645,17 @@ export interface MinClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof MIN_CLAUSE_KIND;
   /**
-   * Set of tribes this alias counts.
+   * Legacy set of tribes this alias counts.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [TribeId<T>, ...TribeId<T>[]];
+  tribes?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Selector counted by this alias.
+   *
+   * @type {?TribeSelector<T>}
+   */
+  selector?: TribeSelector<T>;
   /**
    * Minimum neighbor count.
    *
@@ -352,11 +679,17 @@ export interface MaxClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof MAX_CLAUSE_KIND;
   /**
-   * Set of tribes this alias counts.
+   * Legacy set of tribes this alias counts.
    *
-   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   * @type {?[TribeId<T>, ...TribeId<T>[]]}
    */
-  tribes: [TribeId<T>, ...TribeId<T>[]];
+  tribes?: [TribeId<T>, ...TribeId<T>[]];
+  /**
+   * Selector counted by this alias.
+   *
+   * @type {?TribeSelector<T>}
+   */
+  selector?: TribeSelector<T>;
   /**
    * Maximum neighbor count.
    *
@@ -480,17 +813,39 @@ export interface Rule<T extends readonly Tribe[]> {
    */
   clause: Clause<T>;
   /**
-   * Tribe the cell will transform into if the rule applies.
+   * Outcome evaluated when the rule applies.
    *
-   * @type {TribeId<T>}
+   * @type {?Become<T>}
    */
-  tribe: TribeId<T>;
+  become?: Become<T>;
+  /**
+   * Legacy fixed tribe target.
+   *
+   * @type {?TribeId<T>}
+   */
+  tribe?: TribeId<T>;
   /**
    * Whether this rule is temporarily disabled in the editor/runtime.
    *
    * @type {boolean}
    */
   muted?: boolean;
+}
+
+/**
+ * Rule with a normalized outcome expression.
+ *
+ * @interface NormalizedRule<T extends readonly Tribe[]>
+ * @typedef {NormalizedRule<T extends readonly Tribe[]>}
+ * @extends {Rule<T>}
+ */
+export interface NormalizedRule<T extends readonly Tribe[]> extends Rule<T> {
+  /**
+   * Normalized outcome evaluated when the rule applies.
+   *
+   * @type {Become<T>}
+   */
+  become: Become<T>;
 }
 
 /**

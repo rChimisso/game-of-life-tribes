@@ -5,18 +5,40 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
+import {SelectorChangeEvent} from '../model/selector-event';
+import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {clausesEqual} from '~gol/feature/home/logic/rule-editor';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {clausesEqual, normalizeCountExpression, normalizeSelector} from '~gol/feature/home/logic/rule-editor';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
-import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
 import {SelectOption} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 import {CharFilterDirective} from '~gol/shared/directive/char-filter';
+
+/**
+ * Clause fragment that stores a count selector.
+ *
+ * @interface CountSelectorClause
+ * @typedef {CountSelectorClause}
+ */
+interface CountSelectorClause {
+  /**
+   * Selector expression.
+   *
+   * @type {?TribeSelector<Tribe[]>}
+   */
+  selector?: TribeSelector<Tribe[]>;
+  /**
+   * Legacy explicit tribe list.
+   *
+   * @type {?[string, ...string[]]}
+   */
+  tribes?: [string, ...string[]];
+}
 
 /**
  * Rule clause editor.
@@ -34,7 +56,7 @@ import {CharFilterDirective} from '~gol/shared/directive/char-filter';
     MatButtonModule,
     MatIconModule,
     CharFilterDirective,
-    CheckboxComponent,
+    SelectorEditor,
     SelectComponent,
     SummaryComponent,
     TribeSwatch,
@@ -129,6 +151,14 @@ export class RuleClause implements OnChanges {
   public collapsedGroupKeys = new Set<string>();
 
   /**
+   * Last clicked IS-clause tribe by clause path.
+   *
+   * @private
+   * @type {Map<string, string>}
+   */
+  private readonly lastToggledTribeByPath = new Map<string, string>();
+
+  /**
    * Selectable clause kinds.
    *
    * @public
@@ -213,15 +243,30 @@ export class RuleClause implements OnChanges {
         case COUNT_CLAUSE_KIND:
           nextClause = {
             kind: COUNT_CLAUSE_KIND,
-            tribes: [DEAD_TRIBE_ID],
+            selector: {
+              kind: 'tribes',
+              tribes: [DEAD_TRIBE_ID]
+            },
             interval: [0, 8]
           };
           break;
         case COMPARISON_CLAUSE_KIND:
           nextClause = {
             kind: COMPARISON_CLAUSE_KIND,
-            tribe1: [DEAD_TRIBE_ID],
-            tribe2: [DEAD_TRIBE_ID],
+            left: {
+              kind: 'count',
+              selector: {
+                kind: 'tribes',
+                tribes: [DEAD_TRIBE_ID]
+              }
+            },
+            right: {
+              kind: 'count',
+              selector: {
+                kind: 'tribes',
+                tribes: [DEAD_TRIBE_ID]
+              }
+            },
             operator: '=',
             margin: 0
           };
@@ -287,20 +332,33 @@ export class RuleClause implements OnChanges {
    * @public
    * @param {number[]} path path to the clause to update.
    * @param {string} tribeId tribe ID to toggle.
+   * @param {Event} event click event.
    */
-  public emitToggleTribe(path: number[], tribeId: string): void {
+  public emitToggleTribe(path: number[], tribeId: string, event: Event): void {
     if (!this.disabled) {
       this.updateClause(clauseRoot => {
         const clause = this.getClauseAtPath(clauseRoot, path);
-        if (clause.kind === IS_CLAUSE_KIND || clause.kind === COUNT_CLAUSE_KIND || clause.kind === NONE_CLAUSE_KIND || clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
-          const idx = clause.tribes.indexOf(tribeId);
-          if (idx >= 0) {
-            if (clause.tribes.length > 1) {
-              clause.tribes.splice(idx, 1);
+        if (clause.kind === IS_CLAUSE_KIND) {
+          const pathKey = this.groupKey(path);
+          const lastTribeId = this.lastToggledTribeByPath.get(pathKey);
+          const isRangeSelection = event instanceof MouseEvent && event.shiftKey && lastTribeId !== undefined;
+          if (isRangeSelection) {
+            for (const id of this.tribeRange(lastTribeId, tribeId)) {
+              if (!clause.tribes.includes(id)) {
+                clause.tribes.push(id);
+              }
             }
           } else {
-            clause.tribes.push(tribeId);
+            const idx = clause.tribes.indexOf(tribeId);
+            if (idx >= 0) {
+              if (clause.tribes.length > 1) {
+                clause.tribes.splice(idx, 1);
+              }
+            } else {
+              clause.tribes.push(tribeId);
+            }
           }
+          this.lastToggledTribeByPath.set(pathKey, tribeId);
         }
         return clauseRoot;
       });
@@ -320,7 +378,7 @@ export class RuleClause implements OnChanges {
       this.updateClause(clauseRoot => {
         const clause = this.getClauseAtPath(clauseRoot, path);
         if (clause.kind === COMPARISON_CLAUSE_KIND) {
-          const target = group === 1 ? clause.tribe1 : clause.tribe2;
+          const target = group === 1 ? clause.tribe1 ?? [DEAD_TRIBE_ID] : clause.tribe2 ?? [DEAD_TRIBE_ID];
           const idx = target.indexOf(tribeId);
           if (idx >= 0) {
             if (target.length > 1) {
@@ -329,6 +387,50 @@ export class RuleClause implements OnChanges {
           } else {
             target.push(tribeId);
           }
+        }
+        return clauseRoot;
+      });
+    }
+  }
+
+  /**
+   * Applies selector edits to count-style clauses and comparison groups.
+   *
+   * @public
+   * @param {number[]} path path to the clause to update.
+   * @param {'count' | 'left' | 'right'} target selector target.
+   * @param {SelectorChangeEvent} event selector change event.
+   */
+  public onSelectorChanged(path: number[], target: 'count' | 'left' | 'right', event: SelectorChangeEvent): void {
+    if (!this.disabled) {
+      this.updateClause(clauseRoot => {
+        const clause = this.getClauseAtPath(clauseRoot, path);
+        switch (clause.kind) {
+          case COUNT_CLAUSE_KIND:
+          case NONE_CLAUSE_KIND:
+          case EXACTLY_CLAUSE_KIND:
+          case MIN_CLAUSE_KIND:
+          case MAX_CLAUSE_KIND:
+            if (target === 'count') {
+              clause.selector = event.selector;
+              delete clause.tribes;
+            }
+            break;
+          case COMPARISON_CLAUSE_KIND:
+            if (target === 'left') {
+              clause.left = {
+                kind: 'count',
+                selector: event.selector
+              };
+              delete clause.tribe1;
+            } else if (target === 'right') {
+              clause.right = {
+                kind: 'count',
+                selector: event.selector
+              };
+              delete clause.tribe2;
+            }
+            break;
         }
         return clauseRoot;
       });
@@ -465,50 +567,6 @@ export class RuleClause implements OnChanges {
   }
 
   /**
-   * Whether all selectable tribes are selected.
-   *
-   * @public
-   * @param {string[]} tribes selected tribe IDs.
-   * @returns {boolean} `true` if all selectable tribes are selected, `false` otherwise.
-   */
-  public tribeSelectionState(tribes: string[]): boolean {
-    const allIds = this.selectableTribeIds();
-    let allSelected = false;
-    if (allIds.length > 0) {
-      const selectedCount = allIds.filter(id => tribes.includes(id)).length;
-      allSelected = selectedCount === allIds.length;
-    }
-    return allSelected;
-  }
-
-  /**
-   * Toggles all tribes for a clause selection.
-   *
-   * @public
-   * @param {number[]} path path to the clause to update.
-   * @param {string[]} tribes currently selected tribe IDs.
-   * @param {boolean} next next all-selected state.
-   */
-  public onToggleAllClauseTribes(path: number[], tribes: string[], next: boolean): void {
-    if (!this.disabled) {
-      const allIds = this.selectableTribeIds();
-      if (allIds.length > 0) {
-        const selected = allIds.filter(id => tribes.includes(id));
-        let idsToToggle: string[] = [];
-        if (next === true) {
-          idsToToggle = allIds.filter(id => !tribes.includes(id));
-        } else {
-          const keep = selected[0] ?? allIds[0]!;
-          idsToToggle = selected.filter(id => id !== keep);
-        }
-        for (const id of idsToToggle) {
-          this.emitToggleTribe(path, id);
-        }
-      }
-    }
-  }
-
-  /**
    * Toggles all tribes for one comparison group.
    *
    * @public
@@ -537,6 +595,39 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Returns the normalized count selector for a count-style clause.
+   *
+   * @public
+   * @param {CountSelectorClause} clause count-style clause.
+   * @returns {TribeSelector<Tribe[]>} normalized selector.
+   */
+  public countSelector(clause: CountSelectorClause): TribeSelector<Tribe[]> {
+    return normalizeSelector(clause.selector, clause.tribes);
+  }
+
+  /**
+   * Returns the normalized left comparison selector.
+   *
+   * @public
+   * @param {Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>} clause comparison clause.
+   * @returns {TribeSelector<Tribe[]>} normalized selector.
+   */
+  public comparisonLeftSelector(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>): TribeSelector<Tribe[]> {
+    return normalizeCountExpression(clause.left, clause.tribe1).selector;
+  }
+
+  /**
+   * Returns the normalized right comparison selector.
+   *
+   * @public
+   * @param {Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>} clause comparison clause.
+   * @returns {TribeSelector<Tribe[]>} normalized selector.
+   */
+  public comparisonRightSelector(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>): TribeSelector<Tribe[]> {
+    return normalizeCountExpression(clause.right, clause.tribe2).selector;
+  }
+
+  /**
    * Serializes a path into a group key.
    *
    * @private
@@ -555,6 +646,27 @@ export class RuleClause implements OnChanges {
    */
   private selectableTribeIds(): string[] {
     return this.tribes.map(t => t.id);
+  }
+
+  /**
+   * Returns the tribe ids between two swatches in display order.
+   *
+   * @private
+   * @param {string} fromId starting tribe id.
+   * @param {string} toId ending tribe id.
+   * @returns {string[]} selected range.
+   */
+  private tribeRange(fromId: string, toId: string): string[] {
+    const ids = this.selectableTribeIds();
+    const fromIndex = ids.indexOf(fromId);
+    const toIndex = ids.indexOf(toId);
+    let range: string[] = [toId];
+    if (fromIndex >= 0 && toIndex >= 0) {
+      const start = Math.min(fromIndex, toIndex);
+      const end = Math.max(fromIndex, toIndex);
+      range = ids.slice(start, end + 1);
+    }
+    return range;
   }
 
   /**
@@ -619,7 +731,7 @@ export class RuleClause implements OnChanges {
    * @returns {boolean} `true` if the clause contains empty placeholders, `false` otherwise.
    */
   private isInvalid(): boolean {
-    return this.containsEmptyClause(this.clause);
+    return this.containsEmptyClause(this.clause) || this.containsInvalidSelector(this.clause);
   }
 
   /**
@@ -642,6 +754,59 @@ export class RuleClause implements OnChanges {
       default:
         return false;
     }
+  }
+
+  /**
+   * Whether a clause tree contains an invalid selector.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @returns {boolean} `true` if the clause tree contains an invalid selector, `false` otherwise.
+   */
+  private containsInvalidSelector(clause: Clause<Tribe[]>): boolean {
+    let invalid = false;
+    switch (clause.kind) {
+      case COUNT_CLAUSE_KIND:
+      case NONE_CLAUSE_KIND:
+      case EXACTLY_CLAUSE_KIND:
+      case MIN_CLAUSE_KIND:
+      case MAX_CLAUSE_KIND:
+        invalid = this.isSelectorInvalid(normalizeSelector(clause.selector, clause.tribes));
+        break;
+      case COMPARISON_CLAUSE_KIND:
+        invalid = this.isSelectorInvalid(normalizeCountExpression(clause.left, clause.tribe1).selector) || this.isSelectorInvalid(normalizeCountExpression(clause.right, clause.tribe2).selector);
+        break;
+      case NOT_CLAUSE_KIND:
+        invalid = this.containsInvalidSelector(clause.clause);
+        break;
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND:
+        invalid = clause.clauses.some(child => this.containsInvalidSelector(child));
+        break;
+    }
+    return invalid;
+  }
+
+  /**
+   * Whether a selector is invalid for this editor.
+   *
+   * @private
+   * @param {TribeSelector<Tribe[]>} selector selector to inspect.
+   * @returns {boolean} `true` if invalid.
+   */
+  private isSelectorInvalid(selector: TribeSelector<Tribe[]>): boolean {
+    const knownIds = new Set(this.tribes.map(tribe => tribe.id));
+    let invalid = false;
+    switch (selector.kind) {
+      case 'tribes':
+        invalid = selector.tribes.length === 0 || selector.tribes.some(id => !knownIds.has(id));
+        break;
+      case 'tiedMajority':
+        invalid = true;
+        break;
+    }
+    return invalid;
   }
 
   /**

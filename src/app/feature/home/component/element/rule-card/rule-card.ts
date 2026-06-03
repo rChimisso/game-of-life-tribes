@@ -1,5 +1,5 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, isDevMode} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
 import {BecomeEditor} from '../become-editor/become-editor';
@@ -144,6 +144,15 @@ export class RuleCard implements OnChanges {
    */
   @Output()
   public readonly dragHandlePointerDown = new EventEmitter<void>();
+
+  /**
+   * Whether development-only inspection UI should be shown.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public readonly devMode = isDevMode();
 
   /**
    * Whether the clause editor is invalid.

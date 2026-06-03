@@ -21,10 +21,12 @@
       <div class="rule-output-row">
         <gol-become-editor [baselineBecome]="baselineBecome()" [become]="outputBecome()" [disabled]="!!rule.muted" [tribes]="tribes" (becomeChange)="onBecomeChanged($event)" (becomeStateChange)="onBecomeStateChanged($event)" />
       </div>
-      <details class="rule-debug">
-        <summary>Normalized rule</summary>
-        <pre>{{ normalizedRuleJson() }}</pre>
-      </details>
+      @if (devMode) {
+        <details class="rule-debug">
+          <summary>Normalized rule</summary>
+          <pre>{{ normalizedRuleJson() }}</pre>
+        </details>
+      }
     </div>
   </div>
 </div>

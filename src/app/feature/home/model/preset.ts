@@ -1,4 +1,17 @@
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NOT_CLAUSE_KIND, Ruleset} from './rule';
+import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MIN_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset} from './rule';
+
+const CONWAY_TRIBE = 'Alive';
+
+const REPLICATOR_TRIBE = 'Replicant';
+
+const ETERNAL_TRIBE = 'Immortal';
+
+const DIAMOEBA_TRIBE = 'Foam';
+
+const DAY_AND_NIGHT_TRIBE = 'Yang';
+
+const ANNEAL_TRIBE = 'Smooth';
+
 /**
  * Named application preset.
  *
@@ -23,7 +36,7 @@ export interface Preset {
    *
    * @type {Ruleset}
    */
-  readonly ruleset: Ruleset;
+  readonly ruleset: Omit<Ruleset, 'cols' | 'rows'>;
 }
 
 /**
@@ -35,67 +48,14 @@ export const CONWAY_PRESET: Preset = {
   name: 'Conway',
   description: 'Classic Game of Life',
   ruleset: {
-    cols: 128,
-    rows: 128,
     tribes: [
       DEAD_TRIBE,
       {
-        id: 'Alive',
+        id: CONWAY_TRIBE,
         color: 'ffffff'
       }
     ],
     rules: [
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: MAX_CLAUSE_KIND,
-              value: 1,
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: 'Alive'
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Alive']
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 4,
-              tribes: ['Alive']
-            }
-          ]
-        },
-        tribe: DEAD_TRIBE_ID
-      },
       {
         clause: {
           kind: AND_CLAUSE_KIND,
@@ -107,211 +67,145 @@ export const CONWAY_PRESET: Preset = {
             {
               kind: EXACTLY_CLAUSE_KIND,
               value: 3,
-              tribes: ['Alive']
+              tribes: [CONWAY_TRIBE]
             }
           ]
         },
-        tribe: 'Alive'
+        tribe: CONWAY_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [CONWAY_TRIBE]
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              interval: [2, 3],
+              tribes: [CONWAY_TRIBE]
+            }
+          ]
+        },
+        tribe: CONWAY_TRIBE
       }
     ]
   }
 };
 
-export const PALETTE_PRESET: Preset = {
-  name: 'Palette',
-  description: 'Primary colors reproduce, mix, decay, and mutate',
+/**
+ * Replicator preset.
+ *
+ * @type {Preset}
+ */
+export const REPLICATOR_PRESET: Preset = {
+  name: 'Replicator',
+  description: 'Replicates itself indefinitely',
   ruleset: {
-    cols: 128,
-    rows: 128,
     tribes: [
       DEAD_TRIBE,
       {
-        id: 'Red',
-        color: 'ff0000'
-      },
-      {
-        id: 'Yellow',
-        color: 'ffff00'
-      },
-      {
-        id: 'Blue',
-        color: '0000ff'
-      },
-      {
-        id: 'Orange',
-        color: 'ff8000'
-      },
-      {
-        id: 'Purple',
-        color: '8000ff'
-      },
-      {
-        id: 'Green',
-        color: '00ff00'
-      },
-      {
-        id: 'Brown',
-        color: '8b4513'
-      },
-      {
-        id: 'Gray',
-        color: '808080'
+        id: REPLICATOR_TRIBE,
+        color: 'ffff88'
       }
     ],
     rules: [
       {
         clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: ['Gray']
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 1,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 5,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 7,
+                  tribes: [REPLICATOR_TRIBE]
+                }
+              ]
+            }
+          ]
         },
-        become: {
-          kind: 'fixed',
-          tribe: DEAD_TRIBE_ID
-        }
+        tribe: REPLICATOR_TRIBE
       },
       {
         clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: ['Brown']
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [REPLICATOR_TRIBE]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 1,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 5,
+                  tribes: [REPLICATOR_TRIBE]
+                },
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 7,
+                  tribes: [REPLICATOR_TRIBE]
+                }
+              ]
+            }
+          ]
         },
-        become: {
-          kind: 'fixed',
-          tribe: 'Gray'
-        }
-      },
+        tribe: REPLICATOR_TRIBE
+      }
+    ]
+  }
+};
 
+/**
+ * Eternal preset.
+ *
+ * @type {Preset}
+ */
+export const ETERNAL_PRESET: Preset = {
+  name: 'Eternal',
+  description: 'Never dies once alive',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
       {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Red', 'Yellow', 'Blue']
-            },
-            {
-              kind: MAX_CLAUSE_KIND,
-              value: 1,
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'fixed',
-          tribe: DEAD_TRIBE_ID
-        }
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Red', 'Yellow', 'Blue']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'same'
-        }
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Red', 'Yellow', 'Blue']
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 4,
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'fixed',
-          tribe: DEAD_TRIBE_ID
-        }
-      },
-
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Orange', 'Purple', 'Green']
-            },
-            {
-              kind: MAX_CLAUSE_KIND,
-              value: 1,
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'fixed',
-          tribe: DEAD_TRIBE_ID
-        }
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Orange', 'Purple', 'Green']
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [2, 4],
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'same'
-        }
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: ['Orange', 'Purple', 'Green']
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 5,
-              selector: {
-                kind: 'same'
-              }
-            }
-          ]
-        },
-        become: {
-          kind: 'fixed',
-          tribe: DEAD_TRIBE_ID
-        }
-      },
-
+        id: ETERNAL_TRIBE,
+        color: 'fffff0'
+      }
+    ],
+    rules: [
       {
         clause: {
           kind: AND_CLAUSE_KIND,
@@ -322,104 +216,234 @@ export const PALETTE_PRESET: Preset = {
             },
             {
               kind: EXACTLY_CLAUSE_KIND,
-              value: 4,
-              selector: {
-                kind: 'tribes',
-                tribes: [
-                  'Red',
-                  'Yellow',
-                  'Blue',
-                  'Orange',
-                  'Purple',
-                  'Green',
-                  'Brown'
-                ]
-              }
+              value: 3,
+              tribes: [ETERNAL_TRIBE]
             }
           ]
         },
-        become: {
-          kind: 'majority',
-          selector: {
-            kind: 'tribes',
-            tribes: [
-              'Red',
-              'Yellow',
-              'Blue',
-              'Orange',
-              'Purple',
-              'Green',
-              'Brown'
-            ]
-          },
-          tie: {
-            kind: 'combine',
-            strategy: {
-              kind: 'lookup',
-              entries: [
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Red', 'Yellow']}],
-                  output: 'Orange'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Red', 'Blue']}],
-                  output: 'Purple'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Yellow', 'Blue']}],
-                  output: 'Green'
-                },
+        tribe: ETERNAL_TRIBE
+      },
+      {
+        clause: {
+          kind: IS_CLAUSE_KIND,
+          tribes: [ETERNAL_TRIBE]
+        },
+        tribe: ETERNAL_TRIBE
+      }
+    ]
+  }
+};
 
+/**
+ * Diamoeba preset.
+ *
+ * @type {Preset}
+ */
+export const DIAMOEBA_PRESET: Preset = {
+  name: 'Diamoeba',
+  description: 'Diamonds with fluctuating boundaries',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: DIAMOEBA_TRIBE,
+        color: '3dd8ff'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
                 {
-                  inputs: [{kind: 'tribes', tribes: ['Orange', 'Red']}],
-                  output: 'Orange'
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [DIAMOEBA_TRIBE]
                 },
                 {
-                  inputs: [{kind: 'tribes', tribes: ['Orange', 'Yellow']}],
-                  output: 'Orange'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Orange', 'Red', 'Yellow']}],
-                  output: 'Orange'
-                },
-
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Purple', 'Red']}],
-                  output: 'Purple'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Purple', 'Blue']}],
-                  output: 'Purple'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Purple', 'Red', 'Blue']}],
-                  output: 'Purple'
-                },
-
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Green', 'Yellow']}],
-                  output: 'Green'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Green', 'Blue']}],
-                  output: 'Green'
-                },
-                {
-                  inputs: [{kind: 'tribes', tribes: ['Green', 'Yellow', 'Blue']}],
-                  output: 'Green'
+                  kind: MIN_CLAUSE_KIND,
+                  value: 5,
+                  tribes: [DIAMOEBA_TRIBE]
                 }
-              ],
-              default: {
-                kind: 'fixed',
-                tribe: 'Brown'
-              }
+              ]
             }
-          },
-          fallback: {
-            kind: 'fixed',
-            tribe: DEAD_TRIBE_ID
-          }
-        }
+          ]
+        },
+        tribe: DIAMOEBA_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DIAMOEBA_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 5,
+              tribes: [DIAMOEBA_TRIBE]
+            }
+          ]
+        },
+        tribe: DIAMOEBA_TRIBE
+      }
+    ]
+  }
+};
+
+/**
+ * Day and Night preset.
+ *
+ * @type {Preset}
+ */
+export const DAY_AND_NIGHT_PRESET: Preset = {
+  name: 'Day & Night',
+  description: 'Symmetric under on-off reversal',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: DAY_AND_NIGHT_TRIBE,
+        color: 'ffffff'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [DAY_AND_NIGHT_TRIBE]
+                },
+                {
+                  kind: MIN_CLAUSE_KIND,
+                  value: 6,
+                  tribes: [DAY_AND_NIGHT_TRIBE]
+                }
+              ]
+            }
+          ]
+        },
+        tribe: DAY_AND_NIGHT_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DAY_AND_NIGHT_TRIBE]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: COUNT_CLAUSE_KIND,
+                  interval: [3, 4],
+                  tribes: [DAY_AND_NIGHT_TRIBE]
+                },
+                {
+                  kind: MIN_CLAUSE_KIND,
+                  value: 6,
+                  tribes: [DAY_AND_NIGHT_TRIBE]
+                }
+              ]
+            }
+          ]
+        },
+        tribe: DAY_AND_NIGHT_TRIBE
+      }
+    ]
+  }
+};
+
+/**
+ * Anneal preset.
+ *
+ * @type {Preset}
+ */
+export const ANNEAL_PRESET: Preset = {
+  name: 'Anneal',
+  description: 'Converges to smooth blobs',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: ANNEAL_TRIBE,
+        color: 'c4c4c4'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 4,
+                  tribes: [ANNEAL_TRIBE]
+                },
+                {
+                  kind: MIN_CLAUSE_KIND,
+                  value: 6,
+                  tribes: [ANNEAL_TRIBE]
+                }
+              ]
+            }
+          ]
+        },
+        tribe: ANNEAL_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [ANNEAL_TRIBE]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [ANNEAL_TRIBE]
+                },
+                {
+                  kind: MIN_CLAUSE_KIND,
+                  value: 5,
+                  tribes: [ANNEAL_TRIBE]
+                }
+              ]
+            }
+          ]
+        },
+        tribe: ANNEAL_TRIBE
       }
     ]
   }
@@ -434,8 +458,6 @@ export const ECOSYSTEM_PRESET: Preset = {
   name: 'Ecosystem',
   description: 'Grass, Rabbits, and Foxes',
   ruleset: {
-    cols: 128,
-    rows: 128,
     tribes: [
       DEAD_TRIBE,
       {
@@ -652,4 +674,12 @@ export const ECOSYSTEM_PRESET: Preset = {
  *
  * @type {readonly Preset[]}
  */
-export const PRESETS: readonly Preset[] = [CONWAY_PRESET, PALETTE_PRESET, ECOSYSTEM_PRESET];
+export const PRESETS: readonly Preset[] = [
+  CONWAY_PRESET,
+  REPLICATOR_PRESET,
+  ETERNAL_PRESET,
+  DIAMOEBA_PRESET,
+  DAY_AND_NIGHT_PRESET,
+  ANNEAL_PRESET,
+  ECOSYSTEM_PRESET
+];

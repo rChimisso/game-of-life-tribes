@@ -92,6 +92,14 @@ fn previewRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bool {
   return inside && min(distanceInside.x, distanceInside.y) <= stroke;
 }
 
+fn previewSubpixelRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bool {
+  let q = abs(p) - halfSize;
+  let outsideDistance = length(max(q, vec2f(0.0)));
+  let insideDistance = min(max(q.x, q.y), 0.0);
+  let signedDistance = outsideDistance + insideDistance;
+  return abs(signedDistance) <= stroke;
+}
+
 fn previewCellBorderOutlineMask(ix: u32, iy: u32, cell_frac: vec2f) -> bool {
   let size = max(u.preview_size, 1u);
   let half = i32(size - 1u) / 2;
@@ -127,10 +135,10 @@ fn previewContinuousOutlineMask(local: vec2f) -> bool {
       return abs(abs(p.x) + abs(p.y) - halfSize) <= stroke;
     }
     case 3u: {
-      return previewRectangleOutline(p, vec2f(0.5, halfSize), stroke);
+      return previewSubpixelRectangleOutline(p, vec2f(0.5, halfSize), stroke);
     }
     case 4u: {
-      return previewRectangleOutline(p, vec2f(halfSize, 0.5), stroke);
+      return previewSubpixelRectangleOutline(p, vec2f(halfSize, 0.5), stroke);
     }
     default: {
       return previewRectangleOutline(p, vec2f(halfSize, halfSize), stroke);

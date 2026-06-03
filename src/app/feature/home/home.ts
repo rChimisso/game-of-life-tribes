@@ -71,7 +71,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @public
    * @type {Ruleset}
    */
-  public ruleset: Ruleset = CONWAY_PRESET.ruleset;
+  public ruleset: Ruleset = {
+    ...CONWAY_PRESET.ruleset,
+    cols: 512,
+    rows: 512
+  };
 
   /**
    * Current simulation run state.
@@ -1018,10 +1022,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const fittingFormat = smallestFittingSimulationGridFormat(preset.ruleset.tribes.length, currentGrid, this.currentMaxBytes());
     let shouldSavePreferences = false;
     if (fittingFormat) {
-      const newRuleset = structuredClone(preset.ruleset);
-      newRuleset.cols = currentGrid.cols;
-      newRuleset.rows = currentGrid.rows;
-      shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
+      shouldSavePreferences = this.applyCommittedRuleset({
+        ...preset.ruleset,
+        cols: currentGrid.cols,
+        rows: currentGrid.rows
+      }, true);
     } else {
       openHomeSnack(this.snackBar, `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`, 'error');
     }

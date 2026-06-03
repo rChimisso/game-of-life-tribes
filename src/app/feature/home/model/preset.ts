@@ -1,15 +1,45 @@
 import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MIN_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset} from './rule';
 
+/**
+ * Tribe ID for the Conway preset.
+ *
+ * @type {string}
+ */
 const CONWAY_TRIBE = 'Alive';
 
+/**
+ * Tribe ID for the Replicator preset.
+ *
+ * @type {string}
+ */
 const REPLICATOR_TRIBE = 'Replicant';
 
+/**
+ * Tribe ID for the Eternal preset.
+ *
+ * @type {string}
+ */
 const ETERNAL_TRIBE = 'Immortal';
 
+/**
+ * Tribe ID for the Diamoeba preset.
+ *
+ * @type {string}
+ */
 const DIAMOEBA_TRIBE = 'Foam';
 
+/**
+ * Tribe ID for the Day & Night preset.
+ *
+ * @type {string}
+ */
 const DAY_AND_NIGHT_TRIBE = 'Yang';
 
+/**
+ * Tribe ID for the Anneal preset.
+ *
+ * @type {string}
+ */
 const ANNEAL_TRIBE = 'Smooth';
 
 /**

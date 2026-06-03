@@ -151,14 +151,6 @@ export class RuleClause implements OnChanges {
   public collapsedGroupKeys = new Set<string>();
 
   /**
-   * Last clicked IS-clause tribe by clause path.
-   *
-   * @private
-   * @type {Map<string, string>}
-   */
-  private readonly lastToggledTribeByPath = new Map<string, string>();
-
-  /**
    * Selectable clause kinds.
    *
    * @public
@@ -332,33 +324,20 @@ export class RuleClause implements OnChanges {
    * @public
    * @param {number[]} path path to the clause to update.
    * @param {string} tribeId tribe ID to toggle.
-   * @param {Event} event click event.
    */
-  public emitToggleTribe(path: number[], tribeId: string, event: Event): void {
+  public emitToggleTribe(path: number[], tribeId: string): void {
     if (!this.disabled) {
       this.updateClause(clauseRoot => {
         const clause = this.getClauseAtPath(clauseRoot, path);
         if (clause.kind === IS_CLAUSE_KIND) {
-          const pathKey = this.groupKey(path);
-          const lastTribeId = this.lastToggledTribeByPath.get(pathKey);
-          const isRangeSelection = event instanceof MouseEvent && event.shiftKey && lastTribeId !== undefined;
-          if (isRangeSelection) {
-            for (const id of this.tribeRange(lastTribeId, tribeId)) {
-              if (!clause.tribes.includes(id)) {
-                clause.tribes.push(id);
-              }
+          const idx = clause.tribes.indexOf(tribeId);
+          if (idx >= 0) {
+            if (clause.tribes.length > 1) {
+              clause.tribes.splice(idx, 1);
             }
           } else {
-            const idx = clause.tribes.indexOf(tribeId);
-            if (idx >= 0) {
-              if (clause.tribes.length > 1) {
-                clause.tribes.splice(idx, 1);
-              }
-            } else {
-              clause.tribes.push(tribeId);
-            }
+            clause.tribes.push(tribeId);
           }
-          this.lastToggledTribeByPath.set(pathKey, tribeId);
         }
         return clauseRoot;
       });
@@ -646,27 +625,6 @@ export class RuleClause implements OnChanges {
    */
   private selectableTribeIds(): string[] {
     return this.tribes.map(t => t.id);
-  }
-
-  /**
-   * Returns the tribe ids between two swatches in display order.
-   *
-   * @private
-   * @param {string} fromId starting tribe id.
-   * @param {string} toId ending tribe id.
-   * @returns {string[]} selected range.
-   */
-  private tribeRange(fromId: string, toId: string): string[] {
-    const ids = this.selectableTribeIds();
-    const fromIndex = ids.indexOf(fromId);
-    const toIndex = ids.indexOf(toId);
-    let range: string[] = [toId];
-    if (fromIndex >= 0 && toIndex >= 0) {
-      const start = Math.min(fromIndex, toIndex);
-      const end = Math.max(fromIndex, toIndex);
-      range = ids.slice(start, end + 1);
-    }
-    return range;
   }
 
   /**

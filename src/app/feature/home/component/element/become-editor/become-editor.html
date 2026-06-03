@@ -66,11 +66,11 @@
               @if (inputIndex > 0) {
                 <span class="input-separator">+</span>
               }
-              <gol-selector-editor title="Choose one combination input" [allowedKinds]="combinationInputKinds" [disabled]="disabled" [selector]="input" [tribes]="tribes" (selectorChange)="onSetCombinationInput(target, rowIndex, inputIndex, $event)" />
+              <gol-select class="combination-input-select" title="Choose one combination input" [disabled]="disabled" [ngModel]="combinationInputValue(input)" [options]="combinationInputOptions(target, entry, inputIndex)" (ngModelChange)="onSetCombinationInput(target, rowIndex, inputIndex, $event)" />
               <gol-button icon="close" label="Remove combination input" size="sm" title="Remove this input" variant="icon" [disabled]="disabled || entry.inputs.length <= 1" (clicked)="onRemoveCombinationInput(target, rowIndex, inputIndex)" />
             </div>
           }
-          <gol-button class="lookup-add-input" icon="add" label="Add input" size="sm" title="Add another input to this combination" variant="icon" [disabled]="disabled || !canAddCombinationInput(entry)" (clicked)="onAddCombinationInput(target, rowIndex)" />
+          <gol-button class="lookup-add-input" icon="add" label="Add input" size="sm" title="Add another input to this combination" variant="icon" [disabled]="disabled || !canAddCombinationInput(target, entry)" (clicked)="onAddCombinationInput(target, rowIndex)" />
         </div>
         <span>&rarr;</span>
         <gol-select class="tribe-select" title="Choose the output tribe for this combination" [disabled]="disabled" [ngModel]="entry.output" [options]="tribeSelectOptions" (ngModelChange)="onSetCombinationOutput(target, rowIndex, $event)" />

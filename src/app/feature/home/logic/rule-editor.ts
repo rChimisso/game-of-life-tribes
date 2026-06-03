@@ -252,8 +252,7 @@ export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Be
             inputs: entry.inputs.map(input => normalizeCombinationInput(input as TribeSelector<T> | TribeId<T>)).sort((left, right) => selectorSignature(left).localeCompare(selectorSignature(right)))
           })),
           default: become.strategy.default ? normalizeBecomeExpression(become.strategy.default) : undefined
-        },
-        fallback: become.fallback ? normalizeBecomeExpression(become.fallback) : undefined
+        }
       };
       break;
     default:

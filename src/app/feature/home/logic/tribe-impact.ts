@@ -153,9 +153,6 @@ function collectBecomeTribeIds(become: Become<Tribe[]>, ids: Set<string>): void 
       if (become.strategy.default) {
         collectBecomeTribeIds(become.strategy.default, ids);
       }
-      if (become.fallback) {
-        collectBecomeTribeIds(become.fallback, ids);
-      }
       break;
   }
 }
@@ -263,9 +260,6 @@ function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<stri
       }
       if (become.strategy.default) {
         renameBecomeTribes(become.strategy.default, renameMap);
-      }
-      if (become.fallback) {
-        renameBecomeTribes(become.fallback, renameMap);
       }
       break;
   }

@@ -3,7 +3,7 @@
   @if (selector.kind === "tribes") {
     <div class="selector-tribes">
       @for (tribe of tribes; track tribe.id) {
-        <gol-tribe-swatch size="sm" [color]="tribe.color" [interactive]="!disabled" [selected]="isTribeSelected(tribe.id)" [title]="tribe.id" (clicked)="onToggleTribe(tribe.id, $event)" />
+        <gol-tribe-swatch size="sm" [color]="tribe.color" [interactive]="!disabled" [selected]="isTribeSelected(tribe.id)" [title]="tribe.id" (clicked)="onToggleTribe(tribe.id)" />
       }
     </div>
   }

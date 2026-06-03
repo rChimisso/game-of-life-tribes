@@ -324,18 +324,23 @@ function pushCombineBecomeAssignment(
     lines.push(`${indent}  ${maskVar} = ${maskVar} | ${maskBitExpr(candidateId)};`);
     lines.push(`${indent}}`);
   }
-  const entries = [...become.strategy.entries];
+  const deadPresentVar = `${label}_dead_present`;
+  const deadCountExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u`);
+  lines.push(`${indent}let ${deadPresentVar} = ${deadCountExpr} > 0u;`);
+  const entries = [...become.strategy.entries].sort((left, right) => Number(rowRequiresExplicitDead(right, tribeIndex)) - Number(rowRequiresExplicitDead(left, tribeIndex)));
   entries.forEach((entry, index) => {
     const rowMask = combineRowMaskExpr(entry.inputs, tribes, tribeIndex, tieContext);
-    lines.push(index === 0 ? `${indent}if (${maskVar} == (${rowMask})) {` : `${indent}} else if (${maskVar} == (${rowMask})) {`);
+    const deadCondition = rowRequiresExplicitDead(entry, tribeIndex) ? ` && ${deadPresentVar}` : '';
+    const rowCondition = `${maskVar} == (${rowMask})${deadCondition}`;
+    lines.push(index === 0 ? `${indent}if (${rowCondition}) {` : `${indent}} else if (${rowCondition}) {`);
     lines.push(`${indent}  result = ${resolveTribeTarget(entry.output, tribeIndex)}u;`);
   });
   if (entries.length > 0) {
     lines.push(`${indent}} else {`);
-    pushFallbackBecomeAssignment(lines, become.strategy.default ?? become.fallback, tribes, tribeIndex, `${label}_fallback`, `${indent}  `);
+    pushFallbackBecomeAssignment(lines, become.strategy.default, tribes, tribeIndex, `${label}_fallback`, `${indent}  `);
     lines.push(`${indent}}`);
   } else {
-    pushFallbackBecomeAssignment(lines, become.strategy.default ?? become.fallback, tribes, tribeIndex, `${label}_fallback`, indent);
+    pushFallbackBecomeAssignment(lines, become.strategy.default, tribes, tribeIndex, `${label}_fallback`, indent);
   }
 }
 
@@ -589,7 +594,7 @@ function combineCandidateIds(tribes: readonly Tribe[], tribeIndex: ReadonlyMap<s
   } else {
     ids = tribes.map(tribe => resolveRuleTribeIndex(tribe.id, tribeIndex, 'selector'));
   }
-  return [...new Set(ids)].sort((a, b) => a - b);
+  return [...new Set(ids)].filter(id => id !== resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)).sort((a, b) => a - b);
 }
 
 /**
@@ -605,10 +610,10 @@ function combineBaseParticipationExpr(candidateId: number, tribeIndex: ReadonlyM
   if (tieContext) {
     const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
     const eligibleExpr = selectorCandidateEligibilityExpr(tieContext.selector, candidateId, tribeIndex);
-    expression = `(${tieContext.tieCountVar} > 1u && ${tieContext.bestCountVar} > 0u && ${eligibleExpr} && ${countExpr} == ${tieContext.bestCountVar})`;
+    expression = `(${candidateId}u != ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u && ${tieContext.tieCountVar} > 1u && ${tieContext.bestCountVar} > 0u && ${eligibleExpr} && ${countExpr} == ${tieContext.bestCountVar})`;
   } else {
     const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
-    expression = `(${countExpr} > 0u)`;
+    expression = `(${candidateId}u != ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u && ${countExpr} > 0u)`;
   }
   return expression;
 }
@@ -627,11 +632,28 @@ function combineRowMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], 
   for (const input of inputs) {
     const selector = normalizeSelector(input);
     for (const candidateId of selectorCandidateIds(selector, tribes, tribeIndex)) {
-      const participationExpr = combineRowSelectorParticipationExpr(selector, candidateId, tribeIndex, tieContext);
-      parts.push(`select(0u, ${maskBitExpr(candidateId)}, ${participationExpr})`);
+      if (candidateId !== resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)) {
+        const participationExpr = combineRowSelectorParticipationExpr(selector, candidateId, tribeIndex, tieContext);
+        parts.push(`select(0u, ${maskBitExpr(candidateId)}, ${participationExpr})`);
+      }
     }
   }
   return parts.length > 0 ? parts.join(' | ') : '0u';
+}
+
+/**
+ * Returns whether a combination row explicitly requires a dead neighbor.
+ *
+ * @param {Readonly<{inputs: readonly TribeSelector<readonly Tribe[]>[]}>} entry combination row.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ * @returns {boolean} whether the dead tribe is explicitly selected.
+ */
+function rowRequiresExplicitDead(entry: Readonly<{inputs: readonly TribeSelector<readonly Tribe[]>[]}>, tribeIndex: ReadonlyMap<string, number>): boolean {
+  const deadId = resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex);
+  return entry.inputs.some(input => {
+    const selector = normalizeSelector(input);
+    return selector.kind === 'tribes' && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
+  });
 }
 
 /**

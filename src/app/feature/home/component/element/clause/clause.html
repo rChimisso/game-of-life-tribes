@@ -21,7 +21,7 @@
       @case ("is") {
         <div class="clause-tribes">
           @for (t of tribes; track t.id) {
-            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id, $event)" />
+            <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="clause.tribes.includes(t.id)" [title]="t.id" (clicked)="emitToggleTribe(path, t.id)" />
           }
         </div>
       }

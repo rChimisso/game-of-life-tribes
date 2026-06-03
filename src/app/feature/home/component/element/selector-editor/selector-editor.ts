@@ -100,14 +100,6 @@ export class SelectorEditor implements OnChanges {
   public readonly selectorStateChange = new EventEmitter<SelectorStateChangeEvent>();
 
   /**
-   * Last explicit tribe clicked in this editor.
-   *
-   * @private
-   * @type {(string | null)}
-   */
-  private lastToggledTribeId: string | null = null;
-
-  /**
    * Human-readable selector mode options.
    *
    * @public
@@ -210,22 +202,15 @@ export class SelectorEditor implements OnChanges {
    *
    * @public
    * @param {string} tribeId tribe id to toggle.
-   * @param {Event} event click event.
    */
-  public onToggleTribe(tribeId: string, event: Event): void {
+  public onToggleTribe(tribeId: string): void {
     if (!this.disabled && this.selector.kind === 'tribes') {
       const selected = new Set(this.selector.tribes);
-      const isRangeSelection = event instanceof MouseEvent && event.shiftKey && this.lastToggledTribeId !== null;
-      if (isRangeSelection) {
-        for (const id of this.tribeRange(this.lastToggledTribeId!, tribeId)) {
-          selected.add(id);
-        }
-      } else if (selected.has(tribeId)) {
+      if (selected.has(tribeId)) {
         selected.delete(tribeId);
       } else {
         selected.add(tribeId);
       }
-      this.lastToggledTribeId = tribeId;
       const nextIds = [...selected];
       const fallbackId = this.defaultTribeId();
       this.selector = {
@@ -335,26 +320,5 @@ export class SelectorEditor implements OnChanges {
    */
   private defaultTribeId(): string {
     return this.tribes[0]?.id ?? '';
-  }
-
-  /**
-   * Returns the tribe ids between two swatches in display order.
-   *
-   * @private
-   * @param {string} fromId starting tribe id.
-   * @param {string} toId ending tribe id.
-   * @returns {string[]} selected range.
-   */
-  private tribeRange(fromId: string, toId: string): string[] {
-    const ids = this.tribes.map(tribe => tribe.id);
-    const fromIndex = ids.indexOf(fromId);
-    const toIndex = ids.indexOf(toId);
-    let range: string[] = [toId];
-    if (fromIndex >= 0 && toIndex >= 0) {
-      const start = Math.min(fromIndex, toIndex);
-      const end = Math.max(fromIndex, toIndex);
-      range = ids.slice(start, end + 1);
-    }
-    return range;
   }
 }

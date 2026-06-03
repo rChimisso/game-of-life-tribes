@@ -407,12 +407,6 @@ export interface CombineBecome<T extends readonly Tribe[]> {
    * @type {CombineStrategy<T>}
    */
   strategy: CombineStrategy<T>;
-  /**
-   * Outcome evaluated when the strategy has no match.
-   *
-   * @type {?Become<T>}
-   */
-  fallback?: Become<T>;
 }
 
 /**

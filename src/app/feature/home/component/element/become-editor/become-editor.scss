@@ -24,7 +24,7 @@
       min-width: max-content;
 
       &.primary-row {
-        align-items: flex-start;
+        align-items: center;
       }
     }
 
@@ -40,7 +40,6 @@
 
       &.inline-label {
         min-width: auto;
-        padding-top: 11px;
       }
     }
 
@@ -50,7 +49,7 @@
       padding-left: 84px;
 
       &.inline {
-        padding: 11px 0 0;
+        padding: 0;
       }
     }
 
@@ -60,6 +59,11 @@
     }
 
     .tribe-select {
+      width: 128px;
+      flex: 0 0 auto;
+    }
+
+    .combination-input-select {
       width: 128px;
       flex: 0 0 auto;
     }
@@ -82,25 +86,24 @@
       min-width: max-content;
 
       .lookup-row {
-        align-items: flex-start;
+        align-items: center;
       }
 
       .lookup-inputs {
         display: flex;
-        align-items: flex-start;
-        flex-wrap: wrap;
+        align-items: center;
+        flex-wrap: nowrap;
         gap: 4px 8px;
-        max-width: 720px;
+        min-width: max-content;
       }
 
       .lookup-input {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 4px;
       }
 
       .input-separator {
-        padding-top: 10px;
         color: #888;
       }
 

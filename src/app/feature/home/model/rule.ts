@@ -71,66 +71,77 @@ export const DEAD_TRIBE: Tribe<typeof DEAD_TRIBE_ID> = {id: DEAD_TRIBE_ID, color
  * @type {"empty"}
  */
 export const EMPTY_CLAUSE_KIND = 'empty';
+
 /**
  * Is clause kind.
  *
  * @type {"is"}
  */
 export const IS_CLAUSE_KIND = 'is';
+
 /**
  * Comparison clause kind.
  *
  * @type {"comparison"}
  */
 export const COMPARISON_CLAUSE_KIND = 'comparison';
+
 /**
  * Count clause kind.
  *
  * @type {"count"}
  */
 export const COUNT_CLAUSE_KIND = 'count';
+
 /**
  * None clause kind.
  *
  * @type {"none"}
  */
 export const NONE_CLAUSE_KIND = 'none';
+
 /**
  * Exactly clause kind.
  *
  * @type {"exactly"}
  */
 export const EXACTLY_CLAUSE_KIND = 'exactly';
+
 /**
  * Min clause kind.
  *
  * @type {"min"}
  */
 export const MIN_CLAUSE_KIND = 'min';
+
 /**
  * Max clause kind.
  *
  * @type {"max"}
  */
 export const MAX_CLAUSE_KIND = 'max';
+
 /**
  * Not clause kind.
  *
  * @type {"not"}
  */
 export const NOT_CLAUSE_KIND = 'not';
+
 /**
  * And clause kind.
  *
  * @type {"and"}
  */
 export const AND_CLAUSE_KIND = 'and';
+
 /**
  * Or clause kind.
  *
  * @type {"or"}
  */
 export const OR_CLAUSE_KIND = 'or';
+
 /**
  * Xor clause kind.
  *

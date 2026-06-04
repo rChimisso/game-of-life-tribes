@@ -2,7 +2,7 @@ import {DownloadRequestPayload} from './download';
 import {BrushFill, BrushShape} from './draw-mode';
 import {BitsPerCell} from './grid-format';
 import {LiveMetricSectionSettings} from './metrics';
-import {Preset} from './preset';
+import {Preset} from '../preset';
 import {Rule, Tribe} from './rule';
 import {TribeRenamePair} from './tribe-impact';
 

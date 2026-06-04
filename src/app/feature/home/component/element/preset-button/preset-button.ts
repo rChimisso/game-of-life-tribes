@@ -2,7 +2,7 @@ import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 
 import {requiredGridFormatForStateCount} from '~gol/feature/home/logic/grid-format';
-import {Preset} from '~gol/feature/home/model/preset';
+import {Preset} from '~gol/feature/home/preset';
 
 /**
  * Ruleset preset button.

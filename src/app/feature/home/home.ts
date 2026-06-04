@@ -25,10 +25,11 @@ import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePreferences} from './model/preferences';
-import {CONWAY_PRESET, Preset} from './model/preset';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
+import {Preset} from './preset';
+import {CONWAY_PRESET} from './preset/conway';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
 import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 

@@ -1,0 +1,74 @@
+import {Preset} from '.';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MIN_CLAUSE_KIND} from '../model/rule';
+
+/**
+ * Tribe ID.
+ *
+ * @type {string}
+ */
+const DIAMOEBA_TRIBE = 'Foam';
+
+/**
+ * Diamoeba preset.
+ *
+ * @type {Preset}
+ */
+export const DIAMOEBA_PRESET: Preset = {
+  name: 'Diamoeba',
+  description: 'Diamonds with fluctuating boundaries',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: DIAMOEBA_TRIBE,
+        color: '3dd8ff'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID]
+            },
+            {
+              kind: OR_CLAUSE_KIND,
+              clauses: [
+                {
+                  kind: EXACTLY_CLAUSE_KIND,
+                  value: 3,
+                  tribes: [DIAMOEBA_TRIBE]
+                },
+                {
+                  kind: MIN_CLAUSE_KIND,
+                  value: 5,
+                  tribes: [DIAMOEBA_TRIBE]
+                }
+              ]
+            }
+          ]
+        },
+        tribe: DIAMOEBA_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DIAMOEBA_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 5,
+              tribes: [DIAMOEBA_TRIBE]
+            }
+          ]
+        },
+        tribe: DIAMOEBA_TRIBE
+      }
+    ]
+  }
+};

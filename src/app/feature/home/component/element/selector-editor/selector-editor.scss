@@ -1,0 +1,30 @@
+:host {
+  display: block;
+  min-width: max-content;
+
+  > .selector-editor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: max-content;
+
+    > .selector-kind {
+      width: 164px;
+      flex: 0 0 auto;
+    }
+
+    > .selector-tribes {
+      display: flex;
+      gap: 3px;
+      flex-wrap: nowrap;
+      min-width: max-content;
+      padding: 2px 0;
+    }
+  }
+
+  > .selector-error {
+    margin-top: 4px;
+    color: #ffb4ab;
+    font-size: 0.75rem;
+  }
+}

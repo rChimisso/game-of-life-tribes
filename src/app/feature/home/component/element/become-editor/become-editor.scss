@@ -1,0 +1,128 @@
+:host {
+  display: block;
+  min-width: max-content;
+
+  > .become-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: max-content;
+    font-size: 0.8rem;
+    color: #aaa;
+
+    &.invalid {
+      .mode-select {
+        color: #ffb4ab;
+      }
+    }
+
+    .become-row,
+    .lookup-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: max-content;
+
+      &.primary-row {
+        align-items: center;
+      }
+    }
+
+    .become-label,
+    .field-label {
+      flex: 0 0 auto;
+      color: #888;
+    }
+
+    .field-label {
+      min-width: 64px;
+      font-size: 0.75rem;
+
+      &.inline-label {
+        min-width: auto;
+      }
+    }
+
+    .become-detail {
+      color: #c8c8c8;
+      font-size: 0.75rem;
+      padding-left: 84px;
+
+      &.inline {
+        padding: 0;
+      }
+    }
+
+    .mode-select {
+      width: 176px;
+      flex: 0 0 auto;
+    }
+
+    .tribe-select {
+      width: 128px;
+      flex: 0 0 auto;
+    }
+
+    .combination-input-select {
+      width: 128px;
+      flex: 0 0 auto;
+    }
+
+    .nested-combine {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-left: 72px;
+
+      > .field-label {
+        min-width: 0;
+      }
+    }
+
+    .lookup-table {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: max-content;
+
+      .lookup-row {
+        align-items: center;
+      }
+
+      .lookup-inputs {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 4px 8px;
+        min-width: max-content;
+      }
+
+      .lookup-input {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .input-separator {
+        color: #888;
+      }
+
+      .lookup-add-input,
+      .lookup-add-row {
+        flex: 0 0 auto;
+      }
+
+      .lookup-add-row {
+        border: 1px dashed #666;
+        border-radius: 4px;
+      }
+    }
+  }
+
+  > .become-error {
+    margin-top: 4px;
+    padding-left: 84px;
+    color: #ffb4ab;
+    font-size: 0.75rem;
+  }
+}

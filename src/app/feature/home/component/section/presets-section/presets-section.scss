@@ -1,10 +1,17 @@
 :host {
   display: block;
+  container-type: inline-size;
 
   .presets {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 8px;
+    grid-template-columns: 1fr;
     margin-bottom: 18px;
+  }
+
+  @container (min-width: 530px) {
+    .presets {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 }

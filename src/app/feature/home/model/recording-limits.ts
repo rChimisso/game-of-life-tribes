@@ -11,3 +11,10 @@ export const RECORDING_MAX_FRAME_BYTES = 1024 * 1024 * 1024;
  * @type {number}
  */
 export const OPFS_PENDING_WRITE_BYTE_BUDGET = 512 * 1024 * 1024;
+
+/**
+ * Maximum queued compression bytes before compression jobs are throttled.
+ *
+ * @type {number}
+ */
+export const OPFS_PENDING_COMPRESSION_BYTE_BUDGET = 1024 * 1024 * 1024;

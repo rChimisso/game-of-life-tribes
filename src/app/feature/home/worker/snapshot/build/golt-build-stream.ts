@@ -6,6 +6,7 @@ import {ParsedGoltState, SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE, SnapshotProgre
 import {repackPackedGrid, writeRepackedGridToSink} from '../packing/packed-repack';
 
 import {chooseTightStorageGridFormat, gridFormatFromMetadata, gridFormatMetadata} from '~gol/feature/home/logic/grid-format';
+import {toPersistedRule} from '~gol/feature/home/logic/rule-editor';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
@@ -16,13 +17,17 @@ import {GridFormat} from '~gol/feature/home/model/grid-format';
  * @returns {Uint8Array} encoded header bytes.
  */
 function createGoltHeaderBytes(data: ParsedGoltState, targetFormat: GridFormat): Uint8Array {
+  console.info('[GOLT] Preparing snapshot header.', {
+    tribes: data.tribes.length,
+    rules: data.rules.length
+  });
   return new TextEncoder().encode(JSON.stringify({
     generation: data.generation,
     cols: data.cols,
     rows: data.rows,
     gridFormat: gridFormatMetadata(targetFormat),
     tribes: data.tribes.map(t => ({id: t.id, color: t.color})),
-    rules: data.rules
+    rules: data.rules.map(rule => toPersistedRule(rule))
   }));
 }
 

@@ -71,7 +71,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @public
    * @type {Ruleset}
    */
-  public ruleset: Ruleset = CONWAY_PRESET.ruleset;
+  public ruleset: Ruleset = {
+    ...CONWAY_PRESET.ruleset,
+    cols: 512,
+    rows: 512
+  };
 
   /**
    * Current simulation run state.
@@ -1018,10 +1022,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const fittingFormat = smallestFittingSimulationGridFormat(preset.ruleset.tribes.length, currentGrid, this.currentMaxBytes());
     let shouldSavePreferences = false;
     if (fittingFormat) {
-      const newRuleset = structuredClone(preset.ruleset);
-      newRuleset.cols = currentGrid.cols;
-      newRuleset.rows = currentGrid.rows;
-      shouldSavePreferences = this.applyCommittedRuleset(newRuleset, true);
+      shouldSavePreferences = this.applyCommittedRuleset({
+        ...preset.ruleset,
+        cols: currentGrid.cols,
+        rows: currentGrid.rows
+      }, true);
     } else {
       openHomeSnack(this.snackBar, `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`, 'error');
     }
@@ -1086,6 +1091,12 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       case ' ':
         this.toggleRun();
         return {handled: true, shouldSavePreferences: false};
+      case 'ArrowLeft':
+        this.stepGenerationWithShortcut('back');
+        return {handled: true, shouldSavePreferences: false};
+      case 'ArrowRight':
+        this.stepGenerationWithShortcut('forward');
+        return {handled: true, shouldSavePreferences: false};
       case 'r':
         this.restart();
         return {handled: true, shouldSavePreferences: false};
@@ -1136,22 +1147,6 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.speed = Math.max(1, this.speed - 1);
         console.log(FIXED_SPEED_LOG_MESSAGE, {speed: this.speed});
         return {handled: true, shouldSavePreferences: true};
-      case 'ArrowRight':
-        this.drawTribeIndex = (this.drawTribeIndex + 1) % this.tribes.length;
-        if (this.drawTribeIndex === 0) {
-          this.drawTribeIndex = 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        return {handled: true, shouldSavePreferences: false};
-      case 'ArrowLeft':
-        this.drawTribeIndex -= 1;
-        if (this.drawTribeIndex <= 0) {
-          this.drawTribeIndex = this.tribes.length - 1;
-        }
-        this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        this.deleteMode = false;
-        return {handled: true, shouldSavePreferences: false};
       case 'd':
         this.deleteMode = !this.deleteMode;
         if (this.deleteMode) {
@@ -1213,6 +1208,38 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       return t !== 'checkbox' && t !== 'radio';
     }
     return false;
+  }
+
+  /**
+   * Steps one generation with the arrow key shortcut when playback controls allow it.
+   *
+   * @private
+   * @param {'back' | 'forward'} direction step direction.
+   */
+  private stepGenerationWithShortcut(direction: 'back' | 'forward'): void {
+    if (this.canStepGenerationWithShortcut(direction)) {
+      if (direction === 'back') {
+        this.engine.stepBack(1);
+      } else {
+        this.engine.stepForward(1);
+      }
+    }
+  }
+
+  /**
+   * Returns whether arrow key stepping can run now.
+   *
+   * @private
+   * @param {'back' | 'forward'} direction step direction.
+   * @returns {boolean} whether stepping can run.
+   */
+  private canStepGenerationWithShortcut(direction: 'back' | 'forward'): boolean {
+    const isBusy = this.downloadProgress >= 0 || this.stepping || this.backpressure || this.rebuilding;
+    let canStep = this.state !== 'running' && !isBusy;
+    if (direction === 'back') {
+      canStep = canStep && !this.chunksSaving && (this.latestMetrics?.canStepBack ?? false);
+    }
+    return canStep;
   }
 
   /**

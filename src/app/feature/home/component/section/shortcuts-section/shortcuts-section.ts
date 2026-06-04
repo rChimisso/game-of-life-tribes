@@ -46,6 +46,11 @@ export class ShortcutsSection {
           tooltip: 'Use up and down arrows to change simulation speed'
         },
         {
+          code: '← / →',
+          label: 'Step',
+          tooltip: 'Use left and right arrows to step backward or forward by one generation'
+        },
+        {
           code: 'M',
           label: 'Max speed',
           tooltip: 'Press M to toggle max simulation speed'
@@ -74,11 +79,6 @@ export class ShortcutsSection {
           code: 'D',
           label: 'Delete mode',
           tooltip: 'Press D to toggle delete mode'
-        },
-        {
-          code: '← / →',
-          label: 'Cycle tribe',
-          tooltip: 'Use left and right arrows to cycle through tribes'
         },
         {
           code: '+ / −',

@@ -1,4 +1,5 @@
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, XOR_CLAUSE_KIND} from '../model/rule';
+import {normalizeBecome, normalizeCountExpression, normalizeRule, normalizeSelector} from './rule-editor';
+import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
 
 /**
@@ -10,7 +11,7 @@ import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
 function collectReferencedTribeIds(rules: readonly Rule<Tribe[]>[]): Set<string> {
   const ids = new Set<string>();
   for (const rule of rules) {
-    ids.add(rule.tribe);
+    collectBecomeTribeIds(normalizeBecome(rule), ids);
     collectClauseTribeIds(rule.clause, ids);
   }
   return ids;
@@ -30,11 +31,17 @@ function visitClauseTribeIdLists(clause: Clause<Tribe[]>, visit: (ids: [string, 
     case EXACTLY_CLAUSE_KIND:
     case MIN_CLAUSE_KIND:
     case MAX_CLAUSE_KIND:
-      visit(clause.tribes);
+      if (clause.tribes) {
+        visit(clause.tribes);
+      }
       break;
     case COMPARISON_CLAUSE_KIND:
-      visit(clause.tribe1);
-      visit(clause.tribe2);
+      if (clause.tribe1) {
+        visit(clause.tribe1);
+      }
+      if (clause.tribe2) {
+        visit(clause.tribe2);
+      }
       break;
     case NOT_CLAUSE_KIND:
       visitClauseTribeIdLists(clause.clause, visit);
@@ -61,6 +68,93 @@ function collectClauseTribeIds(clause: Clause<Tribe[]>, ids: Set<string>): void 
       ids.add(id);
     }
   });
+  collectClauseSelectorTribeIds(clause, ids);
+}
+
+/**
+ * Adds every tribe id referenced by clause selectors into a set.
+ *
+ * @param {Clause<Tribe[]>} clause Clause tree to scan.
+ * @param {Set<string>} ids Output set receiving referenced ids.
+ */
+function collectClauseSelectorTribeIds(clause: Clause<Tribe[]>, ids: Set<string>): void {
+  switch (clause.kind) {
+    case COUNT_CLAUSE_KIND:
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      collectSelectorTribeIds(normalizeSelector(clause.selector, clause.tribes), ids);
+      break;
+    case COMPARISON_CLAUSE_KIND:
+      collectSelectorTribeIds(normalizeCountExpression(clause.left, clause.tribe1).selector, ids);
+      collectSelectorTribeIds(normalizeCountExpression(clause.right, clause.tribe2).selector, ids);
+      break;
+    case NOT_CLAUSE_KIND:
+      collectClauseSelectorTribeIds(clause.clause, ids);
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND:
+      for (const child of clause.clauses) {
+        collectClauseSelectorTribeIds(child, ids);
+      }
+      break;
+  }
+}
+
+/**
+ * Adds every tribe id referenced by a selector expression into a set.
+ *
+ * @param {TribeSelector<Tribe[]>} selector Selector expression to scan.
+ * @param {Set<string>} ids Output set receiving referenced ids.
+ */
+function collectSelectorTribeIds(selector: TribeSelector<Tribe[]>, ids: Set<string>): void {
+  switch (selector.kind) {
+    case 'tribes':
+      for (const id of selector.tribes) {
+        ids.add(id);
+      }
+      break;
+    case 'tiedMajority':
+      collectSelectorTribeIds(selector.source, ids);
+      break;
+  }
+}
+
+/**
+ * Adds every tribe id referenced by a become expression into a set.
+ *
+ * @param {Become<Tribe[]>} become Outcome expression to scan.
+ * @param {Set<string>} ids Output set receiving referenced ids.
+ */
+function collectBecomeTribeIds(become: Become<Tribe[]>, ids: Set<string>): void {
+  switch (become.kind) {
+    case 'fixed':
+      ids.add(become.tribe);
+      break;
+    case 'majority':
+    case 'minority':
+      collectSelectorTribeIds(become.selector, ids);
+      if (become.tie) {
+        collectBecomeTribeIds(become.tie, ids);
+      }
+      if (become.fallback) {
+        collectBecomeTribeIds(become.fallback, ids);
+      }
+      break;
+    case 'combine':
+      for (const entry of become.strategy.entries) {
+        for (const selector of entry.inputs) {
+          collectSelectorTribeIds(selector, ids);
+        }
+        ids.add(entry.output);
+      }
+      if (become.strategy.default) {
+        collectBecomeTribeIds(become.strategy.default, ids);
+      }
+      break;
+  }
 }
 
 /**
@@ -76,6 +170,99 @@ function renameClauseTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<stri
       tribeIds[i] = renameMap.get(currentId) ?? currentId;
     }
   });
+  renameClauseSelectorTribes(clause, renameMap);
+}
+
+/**
+ * Applies tribe id renames to clause selectors.
+ *
+ * @param {Clause<Tribe[]>} clause Clause tree to mutate.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ */
+function renameClauseSelectorTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
+  switch (clause.kind) {
+    case COUNT_CLAUSE_KIND:
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      clause.selector = normalizeSelector(clause.selector, clause.tribes);
+      renameSelectorTribes(clause.selector, renameMap);
+      delete clause.tribes;
+      break;
+    case COMPARISON_CLAUSE_KIND:
+      clause.left = normalizeCountExpression(clause.left, clause.tribe1);
+      clause.right = normalizeCountExpression(clause.right, clause.tribe2);
+      renameSelectorTribes(clause.left.selector, renameMap);
+      renameSelectorTribes(clause.right.selector, renameMap);
+      delete clause.tribe1;
+      delete clause.tribe2;
+      break;
+    case NOT_CLAUSE_KIND:
+      renameClauseSelectorTribes(clause.clause, renameMap);
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND:
+      for (const child of clause.clauses) {
+        renameClauseSelectorTribes(child, renameMap);
+      }
+      break;
+  }
+}
+
+/**
+ * Applies tribe id renames to a selector expression.
+ *
+ * @param {TribeSelector<Tribe[]>} selector Selector expression to mutate.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ */
+function renameSelectorTribes(selector: TribeSelector<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
+  switch (selector.kind) {
+    case 'tribes':
+      selector.tribes = selector.tribes.map(id => renameMap.get(id) ?? id) as [string, ...string[]];
+      break;
+    case 'tiedMajority':
+      renameSelectorTribes(selector.source, renameMap);
+      break;
+  }
+}
+
+/**
+ * Applies tribe id renames to a become expression.
+ *
+ * @param {Become<Tribe[]>} become Outcome expression to mutate.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ */
+function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
+  switch (become.kind) {
+    case 'fixed':
+      become.tribe = renameMap.get(become.tribe) ?? become.tribe;
+      break;
+    case 'majority':
+    case 'minority':
+      renameSelectorTribes(become.selector, renameMap);
+      if (become.tie) {
+        renameBecomeTribes(become.tie, renameMap);
+      }
+      if (become.fallback) {
+        renameBecomeTribes(become.fallback, renameMap);
+      }
+      break;
+    case 'combine':
+      for (const entry of become.strategy.entries) {
+        entry.inputs = entry.inputs.map(selector => {
+          const renamedSelector = structuredClone(selector);
+          renameSelectorTribes(renamedSelector, renameMap);
+          return renamedSelector;
+        });
+        entry.output = renameMap.get(entry.output) ?? entry.output;
+      }
+      if (become.strategy.default) {
+        renameBecomeTribes(become.strategy.default, renameMap);
+      }
+      break;
+  }
 }
 
 /**
@@ -127,9 +314,10 @@ export function applyRuleTribeRenames(rules: readonly Rule<Tribe[]>[], renamePai
     return rules.map(rule => structuredClone(rule));
   }
   const renameMap = new Map(renamePairs.map(pair => [pair.fromId, pair.toId]));
-  const renamedRules = rules.map(rule => structuredClone(rule));
+  const renamedRules = rules.map(rule => normalizeRule(rule));
   for (const rule of renamedRules) {
-    rule.tribe = renameMap.get(rule.tribe) ?? rule.tribe;
+    renameBecomeTribes(rule.become, renameMap);
+    delete rule.tribe;
     renameClauseTribes(rule.clause, renameMap);
   }
   return renamedRules;

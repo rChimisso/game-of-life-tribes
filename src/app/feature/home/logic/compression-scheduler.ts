@@ -1,7 +1,7 @@
 import {CompressionSchedulerCallbacks, CompressionWaitMode, QueuedCompressionJob} from '../model/compression-scheduler';
 import {CompressionFailedMessage} from '../model/download';
 import {COMPRESSION_RETRY_DELAY_MS, MAX_COMPRESSION_DEFERRED_REQUEUES, MAX_COMPRESSION_RETRIES, WAITING_COMPRESSION_JOBS_STATUS} from '../model/home-runtime';
-import {OPFS_PENDING_WRITE_BYTE_BUDGET} from '../model/recording-limits';
+import {OPFS_PENDING_COMPRESSION_BYTE_BUDGET} from '../model/recording-limits';
 import {ChunkSealedMessage, UncompressedChunksMessage} from '../model/worker-message';
 
 /**
@@ -273,7 +273,7 @@ export class CompressionScheduler {
    * @returns {boolean} true when the job can start now.
    */
   private canDispatchCompressionJob(job: QueuedCompressionJob): boolean {
-    return this.activeCompressionBytes === 0 || this.activeCompressionBytes + job.chunk.rawBytes <= OPFS_PENDING_WRITE_BYTE_BUDGET;
+    return this.activeCompressionBytes === 0 || this.activeCompressionBytes + job.chunk.rawBytes <= OPFS_PENDING_COMPRESSION_BYTE_BUDGET;
   }
 
   /**

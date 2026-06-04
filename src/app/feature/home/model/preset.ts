@@ -1,4 +1,4 @@
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset} from './rule';
+import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset} from './rule';
 
 /**
  * Tribe ID for the Conway preset.
@@ -41,6 +41,41 @@ const DAY_AND_NIGHT_TRIBE = 'Yang';
  * @type {string}
  */
 const ANNEAL_TRIBE = 'Smooth';
+
+/**
+ * Light vegetation tribe ID for the Wildfire preset.
+ *
+ * @type {string}
+ */
+const WILDFIRE_LIGHT_VEGETATION_TRIBE = 'Light Green';
+
+/**
+ * Medium vegetation tribe ID for the Wildfire preset.
+ *
+ * @type {string}
+ */
+const WILDFIRE_MEDIUM_VEGETATION_TRIBE = 'Green';
+
+/**
+ * Dense vegetation tribe ID for the Wildfire preset.
+ *
+ * @type {string}
+ */
+const WILDFIRE_DARK_VEGETATION_TRIBE = 'Dark Green';
+
+/**
+ * Fire tribe ID for the Wildfire preset.
+ *
+ * @type {string}
+ */
+const WILDFIRE_FIRE_TRIBE = 'Fire';
+
+/**
+ * Ash tribe ID for the Wildfire preset.
+ *
+ * @type {string}
+ */
+const WILDFIRE_ASH_TRIBE = 'Ash';
 
 /**
  * Named application preset.
@@ -480,6 +515,145 @@ export const ANNEAL_PRESET: Preset = {
 };
 
 /**
+ * Wildfire preset.
+ *
+ * @type {Preset}
+ */
+export const WILDFIRE_PRESET: Preset = {
+  name: 'Wildfire',
+  description: 'Fire spreads through varied vegetation',
+  ruleset: {
+    tribes: [
+      DEAD_TRIBE,
+      {
+        id: WILDFIRE_LIGHT_VEGETATION_TRIBE,
+        color: '9be564'
+      },
+      {
+        id: WILDFIRE_MEDIUM_VEGETATION_TRIBE,
+        color: '2f9e44'
+      },
+      {
+        id: WILDFIRE_DARK_VEGETATION_TRIBE,
+        color: '0d5c2a'
+      },
+      {
+        id: WILDFIRE_FIRE_TRIBE,
+        color: 'ff5a1f'
+      },
+      {
+        id: WILDFIRE_ASH_TRIBE,
+        color: '6f6f6f'
+      }
+    ],
+    rules: [
+      {
+        clause: {
+          kind: IS_CLAUSE_KIND,
+          tribes: [WILDFIRE_FIRE_TRIBE]
+        },
+        tribe: WILDFIRE_ASH_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 1,
+              tribes: [WILDFIRE_FIRE_TRIBE]
+            }
+          ]
+        },
+        tribe: WILDFIRE_FIRE_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [WILDFIRE_MEDIUM_VEGETATION_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 2,
+              tribes: [WILDFIRE_FIRE_TRIBE]
+            }
+          ]
+        },
+        tribe: WILDFIRE_FIRE_TRIBE
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [WILDFIRE_DARK_VEGETATION_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 3,
+              tribes: [WILDFIRE_FIRE_TRIBE]
+            }
+          ]
+        },
+        tribe: WILDFIRE_FIRE_TRIBE
+      },
+      {
+        clause: {
+          kind: IS_CLAUSE_KIND,
+          tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE]
+        },
+        become: {
+          kind: 'same'
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: IS_CLAUSE_KIND,
+              tribes: [DEAD_TRIBE_ID, WILDFIRE_ASH_TRIBE]
+            },
+            {
+              kind: NONE_CLAUSE_KIND,
+              tribes: [WILDFIRE_FIRE_TRIBE]
+            },
+            {
+              kind: MIN_CLAUSE_KIND,
+              value: 5,
+              tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE]
+            }
+          ]
+        },
+        become: {
+          kind: 'majority',
+          selector: {
+            kind: 'tribes',
+            tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE]
+          },
+          tie: {
+            kind: 'fixed',
+            tribe: WILDFIRE_MEDIUM_VEGETATION_TRIBE
+          },
+          fallback: {
+            kind: 'fixed',
+            tribe: WILDFIRE_MEDIUM_VEGETATION_TRIBE
+          }
+        }
+      }
+    ]
+  }
+};
+
+/**
  * Available built-in presets.
  *
  * @type {readonly Preset[]}
@@ -490,5 +664,6 @@ export const PRESETS: readonly Preset[] = [
   ETERNAL_PRESET,
   DIAMOEBA_PRESET,
   DAY_AND_NIGHT_PRESET,
-  ANNEAL_PRESET
+  ANNEAL_PRESET,
+  WILDFIRE_PRESET
 ];

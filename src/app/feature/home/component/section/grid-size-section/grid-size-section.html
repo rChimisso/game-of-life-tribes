@@ -1,11 +1,11 @@
 <div class="gol-cell-12 gol-grid-tiny" title="Grid columns">
   <span class="input-label gol-cell-2">Cols</span>
-  <gol-input class="gol-cell-5" name="columns" regex="^[1-9][0-9]*$" [ngModel]="pendingCols" (ngModelChange)="onPendingColsChange($event)" />
+  <gol-input class="gol-cell-5" name="columns" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingCols" (ngModelChange)="onPendingColsChange($event)" />
   <span class="gol-cell-5 error-message">{{ gridColsError }}</span>
 </div>
 <div class="gol-cell-12 gol-grid-tiny" title="Grid rows">
   <span class="input-label gol-cell-2">Rows</span>
-  <gol-input class="gol-cell-5" name="rows" regex="^[1-9][0-9]*$" [ngModel]="pendingRows" (ngModelChange)="onPendingRowsChange($event)" />
+  <gol-input class="gol-cell-5" name="rows" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingRows" (ngModelChange)="onPendingRowsChange($event)" />
   <span class="gol-cell-5 error-message">{{ gridRowsError }}</span>
 </div>
 <gol-frame-size-limits class="gol-cell-12" [frameBytes]="pendingGridFrameByteSize" [maxBytes]="maxBytes" (overAllowedLimitChange)="pendingGridOverAllowedFrameLimit = $event" />

@@ -570,6 +570,17 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   /**
+   * Whether a blocking overlay owns keyboard shortcuts.
+   *
+   * @private
+   * @readonly
+   * @type {boolean}
+   */
+  private get shortcutOverlayActive(): boolean {
+    return this.gpuErrorMessage !== null || this.rebuilding || this.backpressure;
+  }
+
+  /**
    * Whether an active download is waiting for cancellation to complete.
    *
    * @public
@@ -1056,7 +1067,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       }
       return;
     }
-    if (this.overlayActive) {
+    if (this.shortcutOverlayActive) {
       return;
     }
     if (this.activeElementBlocksShortcut(document.activeElement)) {

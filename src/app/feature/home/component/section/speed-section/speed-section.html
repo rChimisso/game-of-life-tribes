@@ -1,5 +1,5 @@
 <div class="gol-grid-tiny">
-  <gol-input class="gol-cell-4" name="speed" regex="^[1-9][0-9]*$" title="Target speed" [disabled]="maxSpeed || downloading" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
+  <gol-input class="gol-cell-4" name="speed" regex="^[1-9][0-9]*$" title="Target speed" type="number" [disabled]="maxSpeed || downloading" [ngModel]="speed" (ngModelChange)="onSpeedChange($event)" />
   <span class="speed-unit gol-cell-3" title="Target speed">gen/s</span>
   <gol-toggle-button class="gol-cell-5" label="Max" title="Toggle max speed" [disabled]="downloading" [ngModel]="maxSpeed" (ngModelChange)="onMaxSpeedChange($event)" />
   <span class="warning-message gol-cell-7" title="">{{ recordingGateMessage }}</span>

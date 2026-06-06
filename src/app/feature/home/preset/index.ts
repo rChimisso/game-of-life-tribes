@@ -6,6 +6,7 @@ import {DIAMOEBA_PRESET} from './diamoeba';
 import {ETERNAL_PRESET} from './eternal';
 import {REPLICATOR_PRESET} from './replicator';
 import {SENESCENCE_PRESET} from './senescence';
+import {SLIME_MOLD_PRESET} from './slime-mold';
 import {WILDFIRE_PRESET} from './wildfire';
 import {Ruleset} from '../model/rule';
 
@@ -50,5 +51,6 @@ export const PRESETS: readonly Preset[] = [
   ANNEAL_PRESET,
   AFTERIMAGE_PRESET,
   SENESCENCE_PRESET,
+  SLIME_MOLD_PRESET,
   WILDFIRE_PRESET
 ];

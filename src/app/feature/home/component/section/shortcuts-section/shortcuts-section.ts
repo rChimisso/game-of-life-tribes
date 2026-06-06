@@ -81,6 +81,11 @@ export class ShortcutsSection {
           tooltip: 'Press D to toggle delete mode'
         },
         {
+          code: 'T',
+          label: 'Draw tribe',
+          tooltip: 'Press T to cycle the tribe selected for drawing'
+        },
+        {
           code: '+ / −',
           label: 'Brush size',
           tooltip: 'Use plus or minus to increase or decrease brush size'

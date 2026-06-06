@@ -1054,40 +1054,35 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @param {KeyboardEvent} ev keyboard event.
    */
   private handleKeydown(ev: KeyboardEvent): void {
-    if (this.downloadProgress >= 0) {
-      return;
-    }
-    if (this.stepping) {
-      if (ev.key === ' ') {
-        this.cancelStepping();
-        ev.preventDefault();
-        ev.stopPropagation();
-        (document.activeElement as HTMLElement)?.blur?.();
-        this.cdr.markForCheck();
+    if (this.downloadProgress < 0) {
+      if (this.stepping) {
+        if (ev.key === ' ') {
+          this.cancelStepping();
+          ev.preventDefault();
+          ev.stopPropagation();
+          (document.activeElement as HTMLElement)?.blur?.();
+          this.cdr.markForCheck();
+        }
+        return;
       }
-      return;
-    }
-    if (this.shortcutOverlayActive) {
-      return;
-    }
-    if (this.activeElementBlocksShortcut(document.activeElement)) {
-      return;
-    }
-    let shortcut = this.handlePlaybackShortcut(ev.key);
-    if (!shortcut.handled) {
-      shortcut = this.handleSelectionShortcut(ev.key);
-    }
-    if (!shortcut.handled) {
-      shortcut = this.handleBrushShortcut(ev.key);
-    }
-    if (shortcut.handled) {
-      if (shortcut.shouldSavePreferences) {
-        this.savePreferences();
+      if (!(this.shortcutOverlayActive || this.activeElementBlocksShortcut(document.activeElement))) {
+        let shortcut = this.handlePlaybackShortcut(ev.key);
+        if (!shortcut.handled) {
+          shortcut = this.handleSelectionShortcut(ev.key);
+        }
+        if (!shortcut.handled) {
+          shortcut = this.handleBrushShortcut(ev.key);
+        }
+        if (shortcut.handled) {
+          if (shortcut.shouldSavePreferences) {
+            this.savePreferences();
+          }
+          ev.preventDefault();
+          ev.stopPropagation();
+          (document.activeElement as HTMLElement)?.blur?.();
+          this.cdr.markForCheck();
+        }
       }
-      ev.preventDefault();
-      ev.stopPropagation();
-      (document.activeElement as HTMLElement)?.blur?.();
-      this.cdr.markForCheck();
     }
   }
 
@@ -1136,8 +1131,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         });
         this.syncLiveMetrics();
         return {handled: true, shouldSavePreferences: true};
-      default:
-        return {handled: false, shouldSavePreferences: false};
+      default: return {handled: false, shouldSavePreferences: false};
     }
   }
 
@@ -1167,8 +1161,27 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
           this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
         }
         return {handled: true, shouldSavePreferences: false};
-      default:
-        return {handled: false, shouldSavePreferences: false};
+      case 't':
+        this.selectNextDrawTribe();
+        return {handled: true, shouldSavePreferences: false};
+      default: return {handled: false, shouldSavePreferences: false};
+    }
+  }
+
+  /**
+   * Selects the next non-dead tribe for drawing.
+   *
+   * @private
+   */
+  private selectNextDrawTribe(): void {
+    const selectableTribes = this.tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID);
+    if (selectableTribes.length > 0) {
+      const selectedTribeId = this.deleteMode ? this.tribes[this.drawTribeIndex]?.id : this.drawTribes[0];
+      const selectedIndex = selectableTribes.findIndex(tribe => tribe.id === selectedTribeId);
+      const nextTribe = selectableTribes[(selectedIndex + 1) % selectableTribes.length]!;
+      this.deleteMode = false;
+      this.drawTribes = [nextTribe.id];
+      this.drawTribeIndex = this.tribes.findIndex(tribe => tribe.id === nextTribe.id);
     }
   }
 
@@ -1181,26 +1194,20 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private handleBrushShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
     switch (key) {
-      case '+': {
+      case '+':
         const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
         this.brushSize = Math.min(max, this.brushSize + 1);
         return {handled: true, shouldSavePreferences: true};
-      }
       case '-':
         this.brushSize = Math.max(1, this.brushSize - 1);
         return {handled: true, shouldSavePreferences: true};
-      case 'b': {
-        const idx = BRUSH_SHAPE_VALUES.indexOf(this.brushShape);
-        this.brushShape = BRUSH_SHAPE_VALUES[(idx + 1) % BRUSH_SHAPE_VALUES.length]!;
+      case 'b':
+        this.brushShape = BRUSH_SHAPE_VALUES[(BRUSH_SHAPE_VALUES.indexOf(this.brushShape) + 1) % BRUSH_SHAPE_VALUES.length]!;
         return {handled: true, shouldSavePreferences: true};
-      }
-      case 'f': {
-        const idx = BRUSH_FILL_VALUES.indexOf(this.brushFill);
-        this.brushFill = BRUSH_FILL_VALUES[(idx + 1) % BRUSH_FILL_VALUES.length]!;
+      case 'f':
+        this.brushFill = BRUSH_FILL_VALUES[(BRUSH_FILL_VALUES.indexOf(this.brushFill) + 1) % BRUSH_FILL_VALUES.length]!;
         return {handled: true, shouldSavePreferences: true};
-      }
-      default:
-        return {handled: false, shouldSavePreferences: false};
+      default: return {handled: false, shouldSavePreferences: false};
     }
   }
 
@@ -1216,8 +1223,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       return true;
     }
     if (active instanceof HTMLInputElement) {
-      const t = active.type;
-      return t !== 'checkbox' && t !== 'radio';
+      return active.type !== 'checkbox' && active.type !== 'radio';
     }
     return false;
   }
@@ -1246,8 +1252,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @returns {boolean} whether stepping can run.
    */
   private canStepGenerationWithShortcut(direction: 'back' | 'forward'): boolean {
-    const isBusy = this.downloadProgress >= 0 || this.stepping || this.backpressure || this.rebuilding;
-    let canStep = this.state !== 'running' && !isBusy;
+    let canStep = this.state !== 'running' && !(this.downloadProgress >= 0 || this.stepping || this.backpressure || this.rebuilding);
     if (direction === 'back') {
       canStep = canStep && !this.chunksSaving && (this.latestMetrics?.canStepBack ?? false);
     }
@@ -1262,9 +1267,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private toggleRun(): void {
     if (this.stepping) {
       this.cancelStepping();
-      return;
+    } else {
+      this.setRunState(this.state === 'paused' ? 'running' : 'paused');
     }
-    this.setRunState(this.state === 'paused' ? 'running' : 'paused');
   }
 
   /**
@@ -1312,32 +1317,28 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @private
    */
   private requestWakeLock(): void {
-    if (this.wakeLock || this.wakeLockRequestPending || document.visibilityState !== 'visible') {
-      return;
-    }
-    if (!('wakeLock' in navigator)) {
-      console.warn('[GOLT] Screen Wake Lock API is unavailable');
-      return;
-    }
-    this.wakeLockRequestPending = true;
-    navigator.wakeLock.request('screen').then(lock => {
-      if (this.state !== 'running' || document.visibilityState !== 'visible') {
-        lock.release().catch(error => console.warn('Failed to release unused wake lock:', error));
-        return;
+    if (!(this.wakeLock || this.wakeLockRequestPending || document.visibilityState !== 'visible')) {
+      if ('wakeLock' in navigator) {
+        this.wakeLockRequestPending = true;
+        navigator.wakeLock.request('screen').then(lock => {
+          if (this.state !== 'running' || document.visibilityState !== 'visible') {
+            lock.release().catch(error => console.warn('Failed to release unused wake lock:', error));
+            return;
+          }
+          this.wakeLock = lock;
+          console.log('[GOLT] Screen wake lock acquired');
+          lock.addEventListener('release', () => {
+            if (this.wakeLock === lock) {
+              console.log('[GOLT] Screen wake lock released by browser');
+              this.wakeLock = null;
+              this.syncWakeLock();
+            }
+          });
+        }).catch(error => console.warn('Failed to request screen wake lock:', error)).finally(() => (this.wakeLockRequestPending = false));
+      } else {
+        console.warn('[GOLT] Screen Wake Lock API is unavailable');
       }
-      this.wakeLock = lock;
-      console.log('[GOLT] Screen wake lock acquired');
-      lock.addEventListener('release', () => {
-        if (this.wakeLock === lock) {
-          console.log('[GOLT] Screen wake lock released by browser');
-          this.wakeLock = null;
-          this.syncWakeLock();
-        }
-      });
-    }).catch(error => console.warn('Failed to request screen wake lock:', error))
-      .finally(() => {
-        this.wakeLockRequestPending = false;
-      });
+    }
   }
 
   /**
@@ -1348,11 +1349,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private releaseWakeLock(): void {
     const lock = this.wakeLock;
     this.wakeLock = null;
-    if (!lock) {
-      return;
+    if (lock) {
+      console.log('[GOLT] Screen wake lock released');
+      lock.release().catch(error => console.warn('Failed to release screen wake lock:', error));
     }
-    console.log('[GOLT] Screen wake lock released');
-    lock.release().catch(error => console.warn('Failed to release screen wake lock:', error));
   }
 
   /**

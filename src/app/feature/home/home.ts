@@ -1237,6 +1237,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private stepGenerationWithShortcut(direction: 'back' | 'forward'): void {
     if (this.canStepGenerationWithShortcut(direction)) {
       if (direction === 'back') {
+        this.resetVisibleGenPerSecond();
         this.engine.stepBack(1);
       } else {
         this.engine.stepForward(1);
@@ -1458,6 +1459,21 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private resetDownloadState(): void {
     this.downloadProgress = -1;
     this.downloadMainStatus = '';
+  }
+
+  /**
+   * Clears the visible generations-per-second metric without changing other live metrics.
+   *
+   * @private
+   */
+  private resetVisibleGenPerSecond(): void {
+    if (this.latestMetrics) {
+      this.latestMetrics = {
+        ...this.latestMetrics,
+        fps: 0
+      };
+      this.cdr.markForCheck();
+    }
   }
 
   /**
@@ -1900,6 +1916,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         });
         break;
       case 'stepBack':
+        this.resetVisibleGenPerSecond();
         this.engine.stepBack(event.value);
         break;
       case 'stepForward':

@@ -1613,6 +1613,15 @@ function updateFps(now: number): void {
 }
 
 /**
+ * Clears the rolling FPS sample window after non-forward navigation.
+ */
+function resetFps(): void {
+  stepCount = 0;
+  lastFpsTime = 0;
+  currentFps = 0;
+}
+
+/**
  * Chooses the active run kind from the current recording state.
  *
  * @returns {RunKind} run kind for the next run pump.
@@ -2472,6 +2481,7 @@ async function handleSetRulesetMessage(message: SetRulesetMessage): Promise<void
     const rebuilt = await rebuildForNewRuleset();
     if (rebuilt) {
       genCounter = 0;
+      resetFps();
       await resetRecording(0);
       queueMetricsRefresh(true);
       if (simulationRunning) {
@@ -2657,6 +2667,7 @@ async function handleLoadSnapshotMessage(message: LoadSnapshotMessage): Promise<
     const gridData = repackPackedGrid(message.grid, grid, incomingGridFormat, gridFormat);
     device.queue.writeBuffer(pingPong ? gridBufferB : gridBufferA, 0, gridData);
     genCounter = message.generation;
+    resetFps();
     await resetRecording(message.generation);
   }
 }
@@ -2753,6 +2764,7 @@ async function handleStepBackMessage(message: StepBackMessage): Promise<void> {
     }
     updateManifestRange(manifest, sealedChunks, chunkGenerations);
     postStorageQuota();
+    resetFps();
     queueMetricsRefresh(true);
     renderFrame();
   }

@@ -23,7 +23,8 @@ Rules are evaluated as clauses plus outcomes:
 - Rules are evaluated from top to bottom, and the first matching rule wins.
 - If no rule matches, the cell becomes `dead`.
 
-This ordering matters. A broad rule placed near the top can catch cells before a more specific rule below it ever runs. When designing a ruleset, put exceptional or narrow cases first, and use broader fallback-style rules later. Muting a rule removes it from this chain without deleting it, which is useful when testing whether a behavior comes from one rule or from an interaction between several rules.
+This ordering matters. A broad rule placed near the top can catch cells before a more specific rule below it ever runs. When designing a ruleset, put exceptional or narrow cases first, and use broader fallback-style rules later.  
+Muting a rule removes it from this chain without deleting it, which is useful when testing whether a behavior comes from one rule or from an interaction between several rules.
 
 Clauses can ask questions such as:
 
@@ -111,8 +112,6 @@ MP4 export uses browser media APIs together with [Mediabunny](https://mediabunny
 
 Browser support, device capabilities, GPU limits, and available storage can heavily affect what the engine can do. A browser without WebGPU cannot run the simulation engine, a device with smaller GPU limits may reject very large grids or exports, and limited storage can shorten practical recording sessions. These constraints matter most when combining large grids, many tribes, high bits-per-cell formats, live metrics, long recordings, PNG frame export, or MP4 generation.
 
-> Image slot: architecture diagram showing Angular UI, Web Worker, WebGPU engine, OPFS recording, and export workers.
-
 For local development:
 
 ```bash
@@ -123,30 +122,60 @@ pnpm run build # Create the production build
 
 ## Benchmarks
 
-This section is a good place to report how the engine behaves on a real machine. Useful benchmark rows should include grid size, number of tribes, bits per cell, ruleset or preset, live metrics on/off, recording on/off, and the observed max generations per second.
+These benchmarks are measured on a laptop using the **Conway** preset. The goal is to compare how max speed changes across grid sizes, bit-packing formats, live metrics, and recording.
 
-Hardware details are important because WebGPU performance depends heavily on the device. Include at least CPU, GPU, RAM, operating system, browser name/version, and whether the browser is using integrated or dedicated graphics.
+Hardware:
 
-Suggested table:
+- **CPU**: Intel Core i7-12700H
+- **GPU**: NVIDIA RTX 3070 Ti Laptop GPU, 150 W, 8 GB GDDR6 VRAM
+- **RAM**: 64 GB DDR5 SODIMM Corsair 4800 MHz, 2 x 32 GB
+- **Browser**: Opera GX 131.0.5877.111, based on Chromium 147.0.7727.56
+- **GPU selection**: dedicated GPU
+- **Power**: plugged in
 
-| Grid        | Tribes | Bits/cell | Ruleset | Metrics | Recording | Max gen/s | Notes              |
-| ----------- | ------ | --------- | ------- | ------- | --------- | --------- | ------------------ |
-| 512 x 512   | TBD    | TBD       | TBD     | Off     | Off       | TBD       | Baseline           |
-| 512 x 512   | TBD    | TBD       | TBD     | On      | Off       | TBD       | Metrics overhead   |
-| 512 x 512   | TBD    | TBD       | TBD     | Off     | On        | TBD       | Recording overhead |
-| 1024 x 1024 | TBD    | TBD       | TBD     | Off     | Off       | TBD       | Larger grid        |
+Method:
 
-Other useful benchmark notes:
+- Each grid is initialized by using the round spray brush everywhere.
+- Max speed mode is enabled immediately, before starting the simulation.
+- The reported value is read by eye after one minute.
+- No visible UI slowdown was observed during these runs.
+- Every result uses the Conway preset.
 
-- Whether the grid is sparse, dense, or randomly seeded.
-- The measurement window, including any warm-up time before reading max gen/s.
-- Whether max speed stabilizes after a few seconds.
-- Approximate recording storage growth per second.
-- Whether the run hits storage, GPU, or browser limits.
-- Whether the laptop is plugged in, on battery, or using a performance-saving power profile.
-- Any visible UI slowdown while the simulation is running.
+> Image slot: screenshot of the initialized benchmark grid before max speed is enabled.
 
-> Image slot: benchmark chart comparing max gen/s across grid sizes, packing formats, and recording modes.
+Grid and packing coverage:
+
+| Grid            | Tested bit packing |
+| --------------- | ------------------ |
+| 128 x 128       | 1, 2, 4, 8, 16, 32 |
+| 256 x 256       | 1, 2, 4, 8, 16, 32 |
+| 512 x 512       | 1, 2, 4, 8, 16, 32 |
+| 1024 x 1024     | 1, 2, 4, 8, 16, 32 |
+| 2048 x 2048     | 1, 2, 4, 8, 16, 32 |
+| 4096 x 4096     | 1, 2, 4, 8, 16, 32 |
+| 8192 x 8192     | 1, 2, 4, 8, 16, 32 |
+| 16384 x 16384   | 1, 2, 4, 8, 16, 32 |
+| 32768 x 32768   | 1, 2, 4, 8, 16     |
+| 65536 x 65536   | 1, 2, 4            |
+| 131072 x 131071 | 1                  |
+
+Some very large grids use one fewer row in specific packing modes because of maximum frame-size limits: `32768 x 32767` at 16-bit packing and `65536 x 65535` at 4-bit packing. Recording is not supported when the frame size is above 1 GB, so those combinations are measured only with recording disabled. Live metrics are included only where they are supported.
+
+> Image slot: grid and packing coverage chart showing where larger grids stop supporting wider bit-packing formats.
+
+Results:
+
+Add one row for each supported grid, bit-packing, and mode combination. The Conway preset uses two tribes, `dead` and `Alive`.
+
+| Grid | Tribes | Bit packing | Metrics | Recording | Max gen/s |
+| ---- | ------ | ----------- | ------- | --------- | --------- |
+| TBD  | 2      | TBD         | Off     | Off       | TBD       |
+| TBD  | 2      | TBD         | On      | Off       | TBD       |
+| TBD  | 2      | TBD         | Off     | On        | TBD       |
+
+> Image slot: benchmark chart comparing max gen/s across grid sizes.
+> Image slot: benchmark chart comparing bit packing with recording disabled and enabled.
+> Image slot: benchmark chart comparing live metrics overhead by grid size.
 
 ## Useful Notes
 

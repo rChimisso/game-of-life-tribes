@@ -1,7 +1,44 @@
 import {StopRunOptions} from '../model/run-control';
-import {RunKind, RunPacing, RunRestoreAfterStop, RunState, RunStopReason} from '../model/run-state';
+import {AdaptiveBatchState, RunKind, RunPacing, RunRestoreAfterStop, RunState, RunStopReason} from '../model/run-state';
 
 import {Grid} from '~gol/feature/home/model/grid';
+
+/**
+ * Target GPU queue drain duration for adaptive non-recording batches.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_TARGET_DRAIN_MS = 32;
+/**
+ * Maximum adaptive batch growth after one measured drain.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_MAX_GROWTH = 2;
+/**
+ * Maximum adaptive batch shrink after one measured drain.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_MAX_SHRINK = 0.5;
+/**
+ * Smoothing factor for measured drain durations.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_SMOOTHING = 0.2;
+/**
+ * Minimum generation budget for adaptive drains.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_MIN_GENERATIONS_PER_DRAIN = 1;
+/**
+ * Maximum generation budget for adaptive drains.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_MAX_GENERATIONS_PER_DRAIN = 1_048_576;
 
 /**
  * Maps the current grid size to one of the predefined non-recording run tiers.
@@ -31,6 +68,47 @@ export function skipBatchSize(grid: Grid): number {
  */
 export function nonRecordingMaxSpeedBatchesPerDrain(grid: Grid): number {
   return 16 / (2 ** gridSizeTier(grid));
+}
+
+/**
+ * Returns the tiered generation budget used to seed adaptive batching.
+ *
+ * @param {Grid} grid logical grid dimensions.
+ * @returns {number} initial generation budget per GPU drain.
+ */
+export function initialAdaptiveGenerationsPerDrain(grid: Grid): number {
+  return Math.max(ADAPTIVE_MIN_GENERATIONS_PER_DRAIN, Math.round(skipBatchSize(grid) * nonRecordingMaxSpeedBatchesPerDrain(grid)));
+}
+
+/**
+ * Creates fresh adaptive batching state for a non-recording run.
+ *
+ * @param {Grid} grid logical grid dimensions.
+ * @returns {AdaptiveBatchState} adaptive batch state.
+ */
+export function createAdaptiveBatchState(grid: Grid): AdaptiveBatchState {
+  return {
+    generationsPerDrain: initialAdaptiveGenerationsPerDrain(grid),
+    targetDrainMs: ADAPTIVE_TARGET_DRAIN_MS,
+    smoothedDrainMs: 0,
+    lastDrainStartedAt: 0,
+    lastSubmittedGenerations: 0
+  };
+}
+
+/**
+ * Updates adaptive batch state from a measured GPU queue drain.
+ *
+ * @param {AdaptiveBatchState} state adaptive batch state to update.
+ * @param {number} measuredDrainMs measured drain duration in milliseconds.
+ */
+export function updateAdaptiveBatchState(state: AdaptiveBatchState, measuredDrainMs: number): void {
+  if (measuredDrainMs > 0 && state.lastSubmittedGenerations > 0) {
+    const smoothed = state.smoothedDrainMs === 0 ? measuredDrainMs : state.smoothedDrainMs * (1 - ADAPTIVE_SMOOTHING) + measuredDrainMs * ADAPTIVE_SMOOTHING;
+    const scale = Math.min(ADAPTIVE_MAX_GROWTH, Math.max(ADAPTIVE_MAX_SHRINK, state.targetDrainMs / smoothed));
+    state.smoothedDrainMs = smoothed;
+    state.generationsPerDrain = Math.max(ADAPTIVE_MIN_GENERATIONS_PER_DRAIN, Math.min(ADAPTIVE_MAX_GENERATIONS_PER_DRAIN, Math.round(state.generationsPerDrain * scale)));
+  }
 }
 
 /**

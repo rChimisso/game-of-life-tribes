@@ -27,6 +27,45 @@ export type RunKind = 'nonRecording' | 'recording';
 export type RunStopReason = 'manual' | 'targetReached' | 'cancelled' | 'restart' | 'rebuild' | 'deviceLost' | 'error';
 
 /**
+ * Adaptive batching state for non-recording high-throughput runs.
+ *
+ * @interface AdaptiveBatchState
+ * @typedef {AdaptiveBatchState}
+ */
+export interface AdaptiveBatchState {
+  /**
+   * Current generation budget submitted before draining the GPU queue.
+   *
+   * @type {number}
+   */
+  generationsPerDrain: number;
+  /**
+   * Target GPU queue drain duration in milliseconds.
+   *
+   * @type {number}
+   */
+  targetDrainMs: number;
+  /**
+   * Smoothed GPU queue drain duration in milliseconds.
+   *
+   * @type {number}
+   */
+  smoothedDrainMs: number;
+  /**
+   * Timestamp when the latest measured drain started.
+   *
+   * @type {number}
+   */
+  lastDrainStartedAt: number;
+  /**
+   * Generation count submitted for the latest measured drain.
+   *
+   * @type {number}
+   */
+  lastSubmittedGenerations: number;
+}
+
+/**
  * Runtime state to restore after a temporary run interruption.
  *
  * @interface RunRestoreAfterStop
@@ -129,4 +168,10 @@ export interface RunState {
    * @type {number}
    */
   lastRenderTime: number;
+  /**
+   * Adaptive batching state for non-recording runs.
+   *
+   * @type {(AdaptiveBatchState | null)}
+   */
+  adaptiveBatch: AdaptiveBatchState | null;
 }

@@ -21,7 +21,7 @@ import {createBrushDispatchRects, generateBrushWgsl} from './webengine/logic/bru
 import {generateComputeWgsl, plan2DDispatch} from './webengine/logic/compute-wgsl';
 import {buildRecordingLimitsPayload, buildStorageQuotaSnapshot, canRecord, canSealCurrentChunk, cloneRecordingChunks, computeChunkFrameCapacity, countFrames, evaluateRecordingBackpressure, majorBufferAllocationYieldBytes, maxPendingOpfsWritesForCurrentChunk, maxRecordingBufferBytes, maxSimulationBufferBytes, needsInitialCapture, recordingAvailableForCurrentFrame, recordingRawBytes, recordingStoredBytes, updateManifestRange, vramBudgetBytes} from './webengine/logic/recording';
 import {createRenderUniformData, createTribeColorData, generateRenderWgsl} from './webengine/logic/render';
-import {currentRunPacing, fixedRunStepBudget, isTargetRun, nextFixedRunAccumulator, nonRecordingMaxSpeedBatchesPerDrain, remainingTargetSteps, restoreAfterStopState, runTargetReached, shouldPostStopStepping, shouldRestartRestoredRun, skipBatchSize} from './webengine/logic/run';
+import {createAdaptiveBatchState, currentRunPacing, fixedRunStepBudget, isTargetRun, nextFixedRunAccumulator, nonRecordingMaxSpeedBatchesPerDrain, remainingTargetSteps, restoreAfterStopState, runTargetReached, shouldPostStopStepping, shouldRestartRestoredRun, skipBatchSize, updateAdaptiveBatchState} from './webengine/logic/run';
 import {bufferedStepBackState, buildStepBackPrefix, resolveStepBackTarget} from './webengine/logic/step-back';
 import {BrushPreview, PendingBrush} from './webengine/model/brush';
 import {DispatchPlan2D} from './webengine/model/dispatch-plan';
@@ -1730,6 +1730,55 @@ function scheduleIdleFrame(): void {
 }
 
 /**
+ * Updates adaptive batching from a completed GPU queue drain.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} now current high-resolution timestamp.
+ */
+function completeAdaptiveDrain(run: RunState, now: number): void {
+  const adaptive = run.adaptiveBatch;
+  if (adaptive && adaptive.lastDrainStartedAt > 0) {
+    updateAdaptiveBatchState(adaptive, now - adaptive.lastDrainStartedAt);
+    adaptive.lastDrainStartedAt = 0;
+    adaptive.lastSubmittedGenerations = 0;
+  }
+}
+
+/**
+ * Marks the submitted work used for the next adaptive drain measurement.
+ *
+ * @param {RunState} run active run state.
+ * @param {number} submittedGenerations generations submitted before draining.
+ * @param {number} startedAt drain start timestamp.
+ */
+function markAdaptiveDrain(run: RunState, submittedGenerations: number, startedAt: number): void {
+  const adaptive = run.adaptiveBatch;
+  if (adaptive && submittedGenerations > 0) {
+    adaptive.lastSubmittedGenerations = submittedGenerations;
+    adaptive.lastDrainStartedAt = startedAt;
+  }
+}
+
+/**
+ * Submits non-recording simulation work in bounded command chunks.
+ *
+ * @param {number} generations generation count to submit.
+ * @param {Grid} grid current logical grid dimensions.
+ * @returns {number} generations submitted.
+ */
+function submitNonRecordingBatches(generations: number, grid: Grid): number {
+  const commandBatchSize = Math.max(1, Math.round(skipBatchSize(grid)));
+  let submitted = 0;
+  while (submitted < generations) {
+    const remaining = generations - submitted;
+    const steps = Math.min(commandBatchSize, remaining);
+    batchStep(steps);
+    submitted += steps;
+  }
+  return submitted;
+}
+
+/**
  * Schedules the next run pump using the requested wake-up strategy.
  *
  * @param {PumpSchedule} schedule scheduling strategy for the next pump.
@@ -1741,8 +1790,12 @@ function scheduleRunPump(schedule: PumpSchedule): void {
     run.pumpPending = true;
     const pump = (): void => {
       if (activeRun && activeRun.token === token) {
+        const now = performance.now();
         activeRun.pumpPending = false;
-        pumpRun(performance.now());
+        if (schedule === 'drain') {
+          completeAdaptiveDrain(activeRun, now);
+        }
+        pumpRun(now);
       }
     };
     if (schedule === 'raf') {
@@ -1774,6 +1827,17 @@ function startRun(kind: RunKind, request: RunRequest): void {
       restartRestoredRun: false
     });
   }
+  const grid = currentGridSize();
+  const adaptiveBatch = kind === 'nonRecording' ? createAdaptiveBatchState(grid) : null;
+  if (adaptiveBatch) {
+    console.info('[GOLT worker] Adaptive non-recording batching started', {
+      cols: grid.cols,
+      rows: grid.rows,
+      bitsPerCell: gridFormat.bitsPerCell,
+      generationsPerDrain: adaptiveBatch.generationsPerDrain,
+      targetDrainMs: adaptiveBatch.targetDrainMs
+    });
+  }
   activeRun = {
     kind,
     request,
@@ -1782,7 +1846,8 @@ function startRun(kind: RunKind, request: RunRequest): void {
     lastFrameTime: 0,
     stepAccumulator: 0,
     lastProgressTime: 0,
-    lastRenderTime: 0
+    lastRenderTime: 0,
+    adaptiveBatch
   };
   scheduleRunPump(request.pacing.kind === 'fixedGenPerSecond' ? 'raf' : 'microtask');
 }
@@ -1898,21 +1963,15 @@ function handleRecordingBlocked(run: RunState, now: number, didStep: boolean): v
  */
 function pumpNonRecordingMaxRun(run: RunState, now: number): void {
   const grid = currentGridSize();
-  const batchSize = skipBatchSize(grid);
-  const batchesPerDrain = nonRecordingMaxSpeedBatchesPerDrain(grid);
-  let didStep = false;
-  for (let i = 0; i < batchesPerDrain; i++) {
-    const remaining = remainingTargetSteps(run, genCounter);
-    if (remaining <= 0) {
-      break;
-    }
-    batchStep(Math.min(batchSize, remaining));
-    didStep = true;
-  }
+  const adaptiveBudget = run.adaptiveBatch?.generationsPerDrain ?? Math.round(skipBatchSize(grid) * nonRecordingMaxSpeedBatchesPerDrain(grid));
+  const generations = Math.min(adaptiveBudget, remainingTargetSteps(run, genCounter));
+  const submitted = submitNonRecordingBatches(generations, grid);
+  const didStep = submitted > 0;
   maybePostRunProgress(run, now);
   if (runTargetReached(run, genCounter)) {
     stopRun('targetReached');
   } else if (didStep) {
+    markAdaptiveDrain(run, submitted, performance.now());
     scheduleRunPump('drain');
   } else {
     scheduleRunPump('raf');
@@ -1970,22 +2029,24 @@ function pumpNonRecordingFixedRun(run: RunState, duration: number, now: number):
   run.stepAccumulator += delta;
   const startingAccumulator = run.stepAccumulator;
   const dueSteps = Math.floor(run.stepAccumulator / duration);
-  const stepBudget = fixedRunStepBudget(run.kind, currentGridSize());
+  const grid = currentGridSize();
+  const stepBudget = run.adaptiveBatch?.generationsPerDrain ?? fixedRunStepBudget(run.kind, grid);
   const steps = Math.min(dueSteps, remainingTargetSteps(run, genCounter), stepBudget);
-  const didStep = steps > 0;
-  if (didStep) {
-    batchStep(steps);
-  }
-  run.stepAccumulator = nextFixedRunAccumulator(startingAccumulator, duration, dueSteps, steps, stepBudget);
+  const submitted = submitNonRecordingBatches(steps, grid);
+  const didStep = submitted > 0;
+  run.stepAccumulator = nextFixedRunAccumulator(startingAccumulator, duration, dueSteps, submitted, stepBudget);
   maybePostRunProgress(run, now);
   if (runTargetReached(run, genCounter)) {
     stopRun('targetReached');
   } else {
-    const shouldDrain = didStep && dueSteps > steps;
+    const shouldDrain = didStep && dueSteps > submitted;
     if (!isTargetRun(run) && !shouldDrain || now - run.lastRenderTime >= 33 || run.lastRenderTime === 0) {
       run.lastRenderTime = now;
       renderFrame();
       maybeRunPeriodicMetrics(now, didStep);
+    }
+    if (shouldDrain) {
+      markAdaptiveDrain(run, submitted, performance.now());
     }
     scheduleRunPump(shouldDrain ? 'drain' : 'raf');
   }

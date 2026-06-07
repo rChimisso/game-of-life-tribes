@@ -137,6 +137,7 @@ Method:
 
 - Each grid is initialized by using the round spray brush everywhere.
 - Max speed mode is enabled immediately, before starting the simulation.
+- Max speed uses adaptive non-recording batching, so the value is read only after the initial batching warm-up has settled.
 - The reported value is read by eye after one minute.
 - No visible UI slowdown was observed during these runs.
 - Every result uses the Conway preset.

@@ -4,11 +4,17 @@ import {AdaptiveBatchState, RunKind, RunPacing, RunRestoreAfterStop, RunState, R
 import {Grid} from '~gol/feature/home/model/grid';
 
 /**
- * Target GPU queue drain duration for adaptive non-recording batches.
+ * Target GPU queue drain duration for max-speed adaptive non-recording batches.
  *
  * @type {number}
  */
-const ADAPTIVE_TARGET_DRAIN_MS = 32;
+const ADAPTIVE_MAX_TARGET_DRAIN_MS = 500;
+/**
+ * Target GPU queue drain duration for fixed-speed catch-up adaptive non-recording batches.
+ *
+ * @type {number}
+ */
+const ADAPTIVE_FIXED_TARGET_DRAIN_MS = 33;
 /**
  * Maximum adaptive batch growth after one measured drain.
  *
@@ -84,12 +90,13 @@ export function initialAdaptiveGenerationsPerDrain(grid: Grid): number {
  * Creates fresh adaptive batching state for a non-recording run.
  *
  * @param {Grid} grid logical grid dimensions.
+ * @param {RunPacing} pacing run pacing strategy.
  * @returns {AdaptiveBatchState} adaptive batch state.
  */
-export function createAdaptiveBatchState(grid: Grid): AdaptiveBatchState {
+export function createAdaptiveBatchState(grid: Grid, pacing: RunPacing): AdaptiveBatchState {
   return {
     generationsPerDrain: initialAdaptiveGenerationsPerDrain(grid),
-    targetDrainMs: ADAPTIVE_TARGET_DRAIN_MS,
+    targetDrainMs: pacing.kind === 'max' ? ADAPTIVE_MAX_TARGET_DRAIN_MS : ADAPTIVE_FIXED_TARGET_DRAIN_MS,
     smoothedDrainMs: 0,
     lastDrainStartedAt: 0,
     lastSubmittedGenerations: 0

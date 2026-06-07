@@ -1828,7 +1828,7 @@ function startRun(kind: RunKind, request: RunRequest): void {
     });
   }
   const grid = currentGridSize();
-  const adaptiveBatch = kind === 'nonRecording' ? createAdaptiveBatchState(grid) : null;
+  const adaptiveBatch = kind === 'nonRecording' ? createAdaptiveBatchState(grid, request.pacing) : null;
   if (adaptiveBatch) {
     console.info('[GOLT worker] Adaptive non-recording batching started', {
       cols: grid.cols,

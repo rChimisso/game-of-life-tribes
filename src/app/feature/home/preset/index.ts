@@ -8,7 +8,7 @@ import {REPLICATOR_PRESET} from './replicator';
 import {SENESCENCE_PRESET} from './senescence';
 import {SLIME_MOLD_PRESET} from './slime-mold';
 import {WILDFIRE_PRESET} from './wildfire';
-import {Ruleset} from '../model/rule';
+import {IS_CLAUSE_KIND, Rule, Ruleset, Tribe} from '../model/rule';
 
 /**
  * Named application preset.
@@ -35,6 +35,24 @@ export interface Preset {
    * @type {Omit<Ruleset, 'cols' | 'rows'>}
    */
   readonly ruleset: Omit<Ruleset, 'cols' | 'rows'>;
+}
+
+/**
+ * Builds a rule that changes a cell from one tribe to another.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {string} fromTribe current tribe ID.
+ * @param {string} toTribe next tribe ID.
+ * @returns {Rule<T>} transition rule for the change step.
+ */
+export function directRule<T extends readonly Tribe[]>(fromTribe: string, toTribe: string): Rule<T> {
+  return {
+    clause: {
+      kind: IS_CLAUSE_KIND,
+      tribes: [fromTribe]
+    },
+    tribe: toTribe
+  };
 }
 
 /**

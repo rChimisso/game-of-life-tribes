@@ -1,5 +1,5 @@
-import {Preset} from '.';
-import {DEAD_TRIBE, IS_CLAUSE_KIND, AND_CLAUSE_KIND, MIN_CLAUSE_KIND, DEAD_TRIBE_ID, NONE_CLAUSE_KIND} from '../model/rule';
+import {directRule, Preset} from '.';
+import {DEAD_TRIBE, IS_CLAUSE_KIND, AND_CLAUSE_KIND, MIN_CLAUSE_KIND, DEAD_TRIBE_ID, NONE_CLAUSE_KIND, Rule, Tribe, NeighborCount} from '../model/rule';
 
 /**
  * Light vegetation tribe ID.
@@ -58,6 +58,70 @@ const WILDFIRE_ASH_TRIBE = 'Ash';
 const WILDFIRE_ROCK_TRIBE = 'Rock';
 
 /**
+ * Builds rules for the burning of a vegetation tribe with a given fire resistance.
+ *
+ * @template {Tribe[]} T 
+ * @param {string} vegetationTribe tribe ID.
+ * @param {NeighborCount} fireResistance minimum number of burning neighbors required for the tribe to catch fire.
+ * @returns {Rule<T>[]} transition rules for the burning process.
+ */
+function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: NeighborCount): Rule<T>[] {
+  return [
+    {
+      clause: {
+        kind: AND_CLAUSE_KIND,
+        clauses: [
+          {
+            kind: IS_CLAUSE_KIND,
+            tribes: [vegetationTribe]
+          },
+          {
+            kind: MIN_CLAUSE_KIND,
+            value: fireResistance + 2 as NeighborCount,
+            tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
+          }
+        ]
+      },
+      tribe: WILDFIRE_BLAZE_TRIBE
+    },
+    {
+      clause: {
+        kind: AND_CLAUSE_KIND,
+        clauses: [
+          {
+            kind: IS_CLAUSE_KIND,
+            tribes: [vegetationTribe]
+          },
+          {
+            kind: MIN_CLAUSE_KIND,
+            value: fireResistance + 1 as NeighborCount,
+            tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
+          }
+        ]
+      },
+      tribe: WILDFIRE_FIRE_TRIBE
+    },
+    {
+      clause: {
+        kind: AND_CLAUSE_KIND,
+        clauses: [
+          {
+            kind: IS_CLAUSE_KIND,
+            tribes: [vegetationTribe]
+          },
+          {
+            kind: MIN_CLAUSE_KIND,
+            value: fireResistance,
+            tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
+          }
+        ]
+      },
+      tribe: WILDFIRE_EMBER_TRIBE
+    }
+  ];
+}
+
+/**
  * Wildfire preset.
  *
  * @type {Preset}
@@ -102,187 +166,13 @@ export const WILDFIRE_PRESET: Preset = {
       }
     ],
     rules: [
-      {
-        clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [WILDFIRE_BLAZE_TRIBE]
-        },
-        tribe: WILDFIRE_FIRE_TRIBE
-      },
-      {
-        clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [WILDFIRE_FIRE_TRIBE]
-        },
-        tribe: WILDFIRE_EMBER_TRIBE
-      },
-      {
-        clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [WILDFIRE_EMBER_TRIBE]
-        },
-        tribe: WILDFIRE_ASH_TRIBE
-      },
-      {
-        clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [WILDFIRE_ROCK_TRIBE]
-        },
-        tribe: WILDFIRE_ROCK_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 3,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_BLAZE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 2,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_FIRE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 1,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_EMBER_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_MEDIUM_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 4,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_BLAZE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_MEDIUM_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 3,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_FIRE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_MEDIUM_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 2,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_EMBER_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_DARK_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 5,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_BLAZE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_DARK_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 4,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_FIRE_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [WILDFIRE_DARK_VEGETATION_TRIBE]
-            },
-            {
-              kind: MIN_CLAUSE_KIND,
-              value: 3,
-              tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]
-            }
-          ]
-        },
-        tribe: WILDFIRE_EMBER_TRIBE
-      },
+      directRule(WILDFIRE_BLAZE_TRIBE, WILDFIRE_FIRE_TRIBE),
+      directRule(WILDFIRE_FIRE_TRIBE, WILDFIRE_EMBER_TRIBE),
+      directRule(WILDFIRE_EMBER_TRIBE, WILDFIRE_ASH_TRIBE),
+      directRule(WILDFIRE_ROCK_TRIBE, WILDFIRE_ROCK_TRIBE),
+      ...burnRules(WILDFIRE_LIGHT_VEGETATION_TRIBE, 1),
+      ...burnRules(WILDFIRE_MEDIUM_VEGETATION_TRIBE, 2),
+      ...burnRules(WILDFIRE_DARK_VEGETATION_TRIBE, 3),
       {
         clause: {
           kind: IS_CLAUSE_KIND,

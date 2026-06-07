@@ -1,5 +1,5 @@
-import {Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND, Rule, Tribe} from '../model/rule';
+import {directRule, Preset} from '.';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND} from '../model/rule';
 
 /**
  * Fresh living tribe ID.
@@ -70,24 +70,6 @@ const AFTERIMAGE_TRACE_TRIBE = 'Trace';
  * @type {string}
  */
 const AFTERIMAGE_REMNANT_TRIBE = 'Remnant';
-
-/**
- * Builds a rule that advances a cell from one fading tribe to the next.
- *
- * @template {readonly Tribe[]} T
- * @param {string} fromTribe Current fading tribe ID.
- * @param {string} toTribe Next fading tribe ID.
- * @returns {Rule<T>} Transition rule for the fade step.
- */
-function fadeRule<T extends readonly Tribe[]>(fromTribe: string, toTribe: string): Rule<T> {
-  return {
-    clause: {
-      kind: IS_CLAUSE_KIND,
-      tribes: [fromTribe]
-    },
-    tribe: toTribe
-  };
-}
 
 /**
  * Afterimage preset.
@@ -186,16 +168,16 @@ export const AFTERIMAGE_PRESET: Preset = {
         },
         tribe: AFTERIMAGE_SPARK_TRIBE
       },
-      fadeRule(AFTERIMAGE_SPARK_TRIBE, AFTERIMAGE_GLOW_TRIBE),
-      fadeRule(AFTERIMAGE_GLOW_TRIBE, AFTERIMAGE_FLASH_TRIBE),
-      fadeRule(AFTERIMAGE_FLASH_TRIBE, AFTERIMAGE_GLIMMER_TRIBE),
-      fadeRule(AFTERIMAGE_GLIMMER_TRIBE, AFTERIMAGE_FLICKER_TRIBE),
-      fadeRule(AFTERIMAGE_FLICKER_TRIBE, AFTERIMAGE_SHIMMER_TRIBE),
-      fadeRule(AFTERIMAGE_SHIMMER_TRIBE, AFTERIMAGE_FADE_TRIBE),
-      fadeRule(AFTERIMAGE_FADE_TRIBE, AFTERIMAGE_WISP_TRIBE),
-      fadeRule(AFTERIMAGE_WISP_TRIBE, AFTERIMAGE_TRACE_TRIBE),
-      fadeRule(AFTERIMAGE_TRACE_TRIBE, AFTERIMAGE_REMNANT_TRIBE),
-      fadeRule(AFTERIMAGE_REMNANT_TRIBE, DEAD_TRIBE_ID)
+      directRule(AFTERIMAGE_SPARK_TRIBE, AFTERIMAGE_GLOW_TRIBE),
+      directRule(AFTERIMAGE_GLOW_TRIBE, AFTERIMAGE_FLASH_TRIBE),
+      directRule(AFTERIMAGE_FLASH_TRIBE, AFTERIMAGE_GLIMMER_TRIBE),
+      directRule(AFTERIMAGE_GLIMMER_TRIBE, AFTERIMAGE_FLICKER_TRIBE),
+      directRule(AFTERIMAGE_FLICKER_TRIBE, AFTERIMAGE_SHIMMER_TRIBE),
+      directRule(AFTERIMAGE_SHIMMER_TRIBE, AFTERIMAGE_FADE_TRIBE),
+      directRule(AFTERIMAGE_FADE_TRIBE, AFTERIMAGE_WISP_TRIBE),
+      directRule(AFTERIMAGE_WISP_TRIBE, AFTERIMAGE_TRACE_TRIBE),
+      directRule(AFTERIMAGE_TRACE_TRIBE, AFTERIMAGE_REMNANT_TRIBE),
+      directRule(AFTERIMAGE_REMNANT_TRIBE, DEAD_TRIBE_ID)
     ]
   }
 };

@@ -1104,20 +1104,39 @@ function postRecordingLimits(): void {
 }
 
 /**
+ * Returns whether the active generation can be copied into the open recording chunk.
+ *
+ * @returns {boolean} true when a frame copy can be encoded.
+ */
+function canEncodeRecordingFrameCopy(): boolean {
+  return chunkFrameCapacity >= 1 && chunkGpuBuffer !== null && chunkFrameIndex < chunkFrameCapacity;
+}
+
+/**
+ * Encodes a copy of the active generation into the open recording chunk.
+ *
+ * @param {GPUCommandEncoder} encoder destination command encoder.
+ * @param {number} gen generation being recorded.
+ */
+function encodeRecordingFrameCopy(encoder: GPUCommandEncoder, gen: number): void {
+  const activeGridBuffer = pingPong ? gridBufferB : gridBufferA;
+  const offset = chunkFrameIndex * frameByteSize;
+  encoder.copyBufferToBuffer(activeGridBuffer, 0, chunkGpuBuffer!, offset, frameByteSize);
+  chunkGenerations.push(gen);
+  latestRecordedGeneration = gen;
+  chunkFrameIndex++;
+}
+
+/**
  * Copies the active generation into the current recording chunk.
  *
  * @param {number} gen generation being recorded.
  */
 function recordGeneration(gen: number): void {
-  if (chunkFrameCapacity >= 1 && chunkGpuBuffer !== null && chunkFrameIndex < chunkFrameCapacity) {
-    const activeGridBuffer = pingPong ? gridBufferB : gridBufferA;
-    const offset = chunkFrameIndex * frameByteSize;
+  if (canEncodeRecordingFrameCopy()) {
     const enc = device.createCommandEncoder({label: GPU_LABELS.recordingFrameCopyEncoder});
-    enc.copyBufferToBuffer(activeGridBuffer, 0, chunkGpuBuffer, offset, frameByteSize);
+    encodeRecordingFrameCopy(enc, gen);
     device.queue.submit([enc.finish()]);
-    chunkGenerations.push(gen);
-    latestRecordedGeneration = gen;
-    chunkFrameIndex++;
     retrySealCurrentChunkIfPossible();
   }
 }
@@ -1514,22 +1533,31 @@ function readMetricsAndPost(): void {
 }
 
 /**
+ * Encodes one simulation generation into the provided command encoder.
+ *
+ * @param {GPUCommandEncoder} encoder destination command encoder.
+ */
+function encodeSimulationStep(encoder: GPUCommandEncoder): void {
+  const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
+  pass.setPipeline(computePipeline);
+  pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
+  const plan = simulationDispatchPlan;
+  pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
+  pass.end();
+  pingPong = !pingPong;
+  genCounter++;
+}
+
+/**
  * Encodes multiple simulation steps into a single command submission.
  *
  * @param {number} count number of generations to encode.
  */
 function batchStep(count: number): void {
   if (count > 0) {
-    const plan = simulationDispatchPlan;
     const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationBatchEncoder});
     for (let i = 0; i < count; i++) {
-      const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
-      pass.setPipeline(computePipeline);
-      pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
-      pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
-      pass.end();
-      pingPong = !pingPong;
-      genCounter++;
+      encodeSimulationStep(encoder);
     }
     device.queue.submit([encoder.finish()]);
     stepCount += count;
@@ -1552,15 +1580,8 @@ function postGeneration(): void {
  */
 function stepSimulation(): void {
   const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationSingleStepEncoder});
-  const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
-  pass.setPipeline(computePipeline);
-  pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
-  const plan = simulationDispatchPlan;
-  pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
-  pass.end();
+  encodeSimulationStep(encoder);
   device.queue.submit([encoder.finish()]);
-  pingPong = !pingPong;
-  genCounter++;
 }
 
 /**
@@ -1956,6 +1977,43 @@ function handleRecordingBlocked(run: RunState, now: number, didStep: boolean): v
 }
 
 /**
+ * Encodes and submits a bounded group of recorded generations.
+ *
+ * @param {number} maxSteps maximum generations to record in this batch.
+ * @param {number} deadline high-resolution timestamp where this pump should yield.
+ * @returns {{steps: number; blocked: boolean}} submitted step count and backpressure state.
+ */
+function submitRecordingStepCopyBatch(maxSteps: number, deadline: number): {steps: number; blocked: boolean} {
+  const encoder = device.createCommandEncoder({label: GPU_LABELS.recordingStepBatchEncoder});
+  let steps = 0;
+  let blocked = false;
+  let keepEncoding = maxSteps > 0;
+  while (keepEncoding) {
+    if (steps < maxSteps && performance.now() < deadline) {
+      if (prepareRecordingStep() && canEncodeRecordingFrameCopy()) {
+        encodeSimulationStep(encoder);
+        encodeRecordingFrameCopy(encoder, genCounter);
+        steps++;
+        if (chunkFrameIndex >= chunkFrameCapacity) {
+          keepEncoding = false;
+        }
+      } else {
+        blocked = true;
+        keepEncoding = false;
+      }
+    } else {
+      keepEncoding = false;
+    }
+  }
+  if (steps > 0) {
+    device.queue.submit([encoder.finish()]);
+    stepCount += steps;
+    retrySealCurrentChunkIfPossible();
+  }
+  return {steps, blocked};
+}
+
+/**
  * Pumps a max-speed non-recording run until the per-drain batch budget is exhausted.
  *
  * @param {RunState} run active run state.
@@ -1989,16 +2047,16 @@ function pumpRecordingMaxRun(run: RunState, now: number): void {
   let didStep = false;
   let blocked = false;
   const deadline = performance.now() + 14;
-  while (remainingTargetSteps(run, genCounter) > 0 && performance.now() < deadline) {
-    if (prepareRecordingStep()) {
-      stepSimulation();
-      stepCount++;
-      didStep = true;
-      recordGeneration(genCounter);
-    } else {
+  let keepPumping = remainingTargetSteps(run, genCounter) > 0 && performance.now() < deadline;
+  while (keepPumping) {
+    const result = submitRecordingStepCopyBatch(remainingTargetSteps(run, genCounter), deadline);
+    didStep = didStep || result.steps > 0;
+    if (result.blocked) {
       handleRecordingBlocked(run, now, didStep);
       blocked = true;
-      break;
+      keepPumping = false;
+    } else {
+      keepPumping = result.steps > 0 && remainingTargetSteps(run, genCounter) > 0 && performance.now() < deadline;
     }
   }
   if (!blocked) {
@@ -2074,18 +2132,18 @@ function pumpRecordingFixedRun(run: RunState, duration: number, now: number): vo
   const dueSteps = Math.floor(run.stepAccumulator / duration);
   const deadline = performance.now() + 14;
   let blocked = false;
-  while (run.stepAccumulator >= duration && remainingTargetSteps(run, genCounter) > 0 && stepsThisPump < stepBudget && performance.now() < deadline) {
-    if (prepareRecordingStep()) {
-      stepSimulation();
-      stepCount++;
-      stepsThisPump++;
-      run.stepAccumulator -= duration;
-      didStep = true;
-      recordGeneration(genCounter);
-    } else {
+  let keepPumping = dueSteps > 0 && remainingTargetSteps(run, genCounter) > 0 && stepsThisPump < stepBudget && performance.now() < deadline;
+  while (keepPumping) {
+    const maxSteps = Math.min(dueSteps - stepsThisPump, stepBudget - stepsThisPump, remainingTargetSteps(run, genCounter));
+    const result = submitRecordingStepCopyBatch(maxSteps, deadline);
+    stepsThisPump += result.steps;
+    didStep = didStep || result.steps > 0;
+    if (result.blocked) {
       handleRecordingBlocked(run, now, didStep);
       blocked = true;
-      break;
+      keepPumping = false;
+    } else {
+      keepPumping = result.steps > 0 && dueSteps > stepsThisPump && remainingTargetSteps(run, genCounter) > 0 && stepsThisPump < stepBudget && performance.now() < deadline;
     }
   }
   run.stepAccumulator = nextFixedRunAccumulator(startingAccumulator, duration, dueSteps, stepsThisPump, stepBudget);

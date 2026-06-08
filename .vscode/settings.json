@@ -15,5 +15,12 @@
   "editor.codeActionsOnSave": { "source.fixAll.eslint": "always" },
   "eslint.validate": ["typescript", "html"],
   "eslint.format.enable": true,
-  "js/ts.tsdk.path": "node_modules\\typescript\\lib"
+  "js/ts.tsdk.path": "node_modules\\typescript\\lib",
+  "python-envs.pythonProjects": [
+    {
+      "path": ".",
+      "envManager": "ms-python.python:conda",
+      "packageManager": "ms-python.python:conda"
+    }
+  ]
 }

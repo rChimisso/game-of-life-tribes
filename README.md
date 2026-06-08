@@ -120,63 +120,25 @@ pnpm run serve # Start the development server
 pnpm run build # Create the production build
 ```
 
-## Benchmarks
+## Benchmark
 
-These benchmarks are measured on a laptop using the **Conway** preset. The goal is to compare how max speed changes across grid sizes, bit-packing formats, live metrics, and recording.
+A detailed benchmark write-up is available in the wiki:
 
-Hardware:
+- [Hardware, method, and grid coverage](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Hardware-Method-Coverage)
+- [Results](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Results)
+- [Conclusions](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Conclusions)
 
-- **CPU**: Intel Core i7-12700H
-- **GPU**: NVIDIA RTX 3070 Ti Laptop GPU, 150 W, 8 GB GDDR6 VRAM
-- **RAM**: 64 GB DDR5 SODIMM Corsair 4800 MHz, 2 x 32 GB
-- **Browser**: Opera GX 131.0.5877.111, based on Chromium 147.0.7727.56
-- **GPU selection**: dedicated GPU
-- **Power**: plugged in
+The normalized source data is stored in [`readme/benchmark-results.csv`](readme/benchmark-results.csv). The runs use the **Conway** preset on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
 
-Method:
+Main takeaways:
 
-- Each grid is initialized by using the round spray brush everywhere.
-- Max speed mode is enabled immediately, before starting the simulation.
-- Max speed uses adaptive non-recording batching, so the value is read only after the initial batching warm-up has settled.
-- The reported value is read by eye after one minute.
-- No visible UI slowdown was observed during these runs.
-- Every result uses the Conway preset.
-
-> Image slot: screenshot of the initialized benchmark grid before max speed is enabled.
-
-Grid and packing coverage:
-
-| Grid            | Tested bit packing |
-| --------------- | ------------------ |
-| 128 x 128       | 1, 2, 4, 8, 16, 32 |
-| 256 x 256       | 1, 2, 4, 8, 16, 32 |
-| 512 x 512       | 1, 2, 4, 8, 16, 32 |
-| 1024 x 1024     | 1, 2, 4, 8, 16, 32 |
-| 2048 x 2048     | 1, 2, 4, 8, 16, 32 |
-| 4096 x 4096     | 1, 2, 4, 8, 16, 32 |
-| 8192 x 8192     | 1, 2, 4, 8, 16, 32 |
-| 16384 x 16384   | 1, 2, 4, 8, 16, 32 |
-| 32768 x 32768   | 1, 2, 4, 8, 16     |
-| 65536 x 65536   | 1, 2, 4            |
-| 131072 x 131071 | 1                  |
-
-Some very large grids use one fewer row in specific packing modes because of maximum frame-size limits: `32768 x 32767` at 16-bit packing and `65536 x 65535` at 4-bit packing. Recording is not supported when the frame size is above 1 GB, so those combinations are measured only with recording disabled. Live metrics are included only where they are supported.
-
-> Image slot: grid and packing coverage chart showing where larger grids stop supporting wider bit-packing formats.
-
-Results:
-
-Add one row for each supported grid, bit-packing, and mode combination. The Conway preset uses two tribes, `dead` and `Alive`.
-
-| Grid | Tribes | Bit packing | Metrics | Recording | Max gen/s |
-| ---- | ------ | ----------- | ------- | --------- | --------- |
-| TBD  | 2      | TBD         | Off     | Off       | TBD       |
-| TBD  | 2      | TBD         | On      | Off       | TBD       |
-| TBD  | 2      | TBD         | Off     | On        | TBD       |
-
-> Image slot: benchmark chart comparing max gen/s across grid sizes.
-> Image slot: benchmark chart comparing bit packing with recording disabled and enabled.
-> Image slot: benchmark chart comparing live metrics overhead by grid size.
+- Without recording, smaller grids may favor wider bit packings, while larger grids generally benefit from shorter bit packings. This depends heavily on the device, browser, and grid size, so test the combinations you actually use.
+- When recording, prefer the shortest bit packing that can represent your tribes. Smaller frames reduce storage use, readback pressure, and export cost.
+- Bigger grids do fewer generations per second because each generation updates more cells, but total cell updates per second stay fairly consistent once the grid is large enough. Very small grids are mostly overhead-limited.
+- If you only need a reproducible starting point, save a snapshot instead of recording the whole history.
+- If you are unsure whether you will need history later, save a snapshot first. Since evolution is deterministic, you can load it later and record the same run from that point.
+- Max speed can reach higher throughput than fixed target speeds because it disables rendering and does not need to keep the simulation interactive.
+- Recording backpressure can severely limit speed. Once it appears, throughput depends strongly on readback, CPU-side work, browser storage behavior, and storage speed, not only on GPU simulation performance.
 
 ## Useful Notes
 
@@ -188,3 +150,5 @@ Add one row for each supported grid, bit-packing, and mode combination. The Conw
 - Recording is most useful when enabled before the event you care about. Snapshots are better for saving a restart point.
 - Browser storage is not infinite. Long recordings on large grids can consume quota quickly, especially with larger bits-per-cell formats.
 - Presets are starting points. Muting one rule or changing one threshold is often enough to reveal what gives a ruleset its character.
+
+

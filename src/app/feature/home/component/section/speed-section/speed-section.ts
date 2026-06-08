@@ -141,7 +141,7 @@ export class SpeedSection {
    * @type {string}
    */
   public get liveMetricsMessage(): string {
-    return 'Live metrics slow down the simulation.';
+    return 'Support varies depending on grid size.';
   }
 
   /**

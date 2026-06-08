@@ -10,6 +10,7 @@ export const GPU_LABELS = {
   simulationBatchEncoder: 'simulation batch encoder',
   simulationSingleStepEncoder: 'simulation single-step encoder',
   simulationStepPass: 'simulation step pass',
+  recordingStepBatchEncoder: 'recording step batch encoder',
   interactiveMetricsEncoder: 'interactive metrics encoder',
   histogramMetricsPass: 'histogram metrics pass',
   interfaceMetricsPass: 'interface metrics pass',

@@ -145,7 +145,7 @@ Main takeaways:
 - Rules are evaluated over the whole grid at each generation, so larger grids and heavier metric or recording settings can use more memory, storage, and GPU time.
 - The `dead` tribe represents empty cells. Other tribes are the visible, editable states that rules can create, preserve, count, or transform.
 - Rule order is part of the ruleset. Moving a rule can change the simulation even when the rule itself is unchanged.
-- If a cell should survive, persist, or remain as a special tribe, some rule must explicitly produce that result.
+- If a cell should survive, persist, or switch tribe, some rule must explicitly produce that result.
 - Tribe count and bits per cell are connected. More possible tribes require more bits per cell, while fewer tribes can use tighter packing.
 - Recording is most useful when enabled before the event you care about. Snapshots are better for saving a restart point.
 - Browser storage is not infinite. Long recordings on large grids can consume quota quickly, especially with larger bits-per-cell formats.

@@ -235,12 +235,14 @@ export class CompressionScheduler {
     for (let i = 0; i < poolSize; i++) {
       const worker = new Worker(new URL('../worker/compress.ts', import.meta.url), {type: 'module'});
       worker.onmessage = (ev: MessageEvent) => {
-        if (ev.data?.type === 'compressed') {
-          this.callbacks.updateChunkCodec(ev.data);
-          this.completeCompressionJob(ev.data.filename, ev.data.rawBytes);
-        } else if (ev.data?.type === 'compressionFailed') {
-          const failed = ev.data as CompressionFailedMessage;
-          this.failCompressionJob(failed.filename, failed.rawBytes);
+        if (this.compressPool.includes(worker)) {
+          if (ev.data?.type === 'compressed') {
+            this.callbacks.updateChunkCodec(ev.data);
+            this.completeCompressionJob(ev.data.filename, ev.data.rawBytes);
+          } else if (ev.data?.type === 'compressionFailed') {
+            const failed = ev.data as CompressionFailedMessage;
+            this.failCompressionJob(failed.filename, failed.rawBytes);
+          }
         }
       };
       this.compressPool.push(worker);

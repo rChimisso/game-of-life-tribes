@@ -1,19 +1,47 @@
 import {Preset} from '.';
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND} from '../model/rule';
+import {COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID} from '../model/rule';
 
 /**
- * Exploring slime front tribe ID.
+ * Slime leading edge tribe ID.
  *
  * @type {string}
  */
-const SLIME_MOLD_EXPLORER_TRIBE = 'Explorer';
+const SLIME_MOLD_FRONT_TRIBE = 'front';
 
 /**
  * Stable slime body tribe ID.
  *
  * @type {string}
  */
-const SLIME_MOLD_SLIME_TRIBE = 'Slime';
+const SLIME_MOLD_BODY_TRIBE = 'body';
+
+/**
+ * Fresh trail tribe ID.
+ *
+ * @type {string}
+ */
+const SLIME_MOLD_FRESH_TRAIL_TRIBE = 'trailFresh';
+
+/**
+ * Old trail tribe ID.
+ *
+ * @type {string}
+ */
+const SLIME_MOLD_OLD_TRAIL_TRIBE = 'trailOld';
+
+/**
+ * Food source tribe ID.
+ *
+ * @type {string}
+ */
+const SLIME_MOLD_FOOD_TRIBE = 'food';
+
+/**
+ * Depleted food source tribe ID.
+ *
+ * @type {string}
+ */
+const SLIME_MOLD_SPENT_FOOD_TRIBE = 'spentFood';
 
 /**
  * Slime Mold preset.
@@ -27,204 +55,344 @@ export const SLIME_MOLD_PRESET: Preset = {
     tribes: [
       DEAD_TRIBE,
       {
-        id: SLIME_MOLD_EXPLORER_TRIBE,
-        color: 'c9ff4d'
+        id: SLIME_MOLD_FRONT_TRIBE,
+        color: '9ae6b4'
       },
       {
-        id: SLIME_MOLD_SLIME_TRIBE,
-        color: '5fbf1f'
+        id: SLIME_MOLD_BODY_TRIBE,
+        color: '38a169'
+      },
+      {
+        id: SLIME_MOLD_FRESH_TRAIL_TRIBE,
+        color: '718096'
+      },
+      {
+        id: SLIME_MOLD_OLD_TRAIL_TRIBE,
+        color: '2d3748'
+      },
+      {
+        id: SLIME_MOLD_FOOD_TRIBE,
+        color: 'f6e05e'
+      },
+      {
+        id: SLIME_MOLD_SPENT_FOOD_TRIBE,
+        color: '887716'
       }
     ],
     rules: [
-      /*
-       * Dead cells next to sparse slime edges become explorers. This lets a
-       * slime-only body regenerate an outside boundary without changing slime.
-       */
       {
         clause: {
-          kind: AND_CLAUSE_KIND,
+          kind: 'and',
           clauses: [
             {
-              kind: IS_CLAUSE_KIND,
+              kind: 'is',
               tribes: [DEAD_TRIBE_ID]
             },
             {
-              kind: EXACTLY_CLAUSE_KIND,
-              value: 1,
-              tribes: [SLIME_MOLD_SLIME_TRIBE]
-            },
-            {
-              kind: MAX_CLAUSE_KIND,
-              value: 1,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
-            }
-          ]
-        },
-        tribe: SLIME_MOLD_EXPLORER_TRIBE
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: EXACTLY_CLAUSE_KIND,
-              value: 2,
-              tribes: [SLIME_MOLD_SLIME_TRIBE]
-            },
-            {
-              kind: EXACTLY_CLAUSE_KIND,
-              value: 1,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
-            }
-          ]
-        },
-        tribe: SLIME_MOLD_EXPLORER_TRIBE
-      },
-
-      /*
-       * Explorers drive all outward growth. Parity-like sparse counts branch
-       * irregularly and crowded cells stay empty, leaving pores and gaps.
-       */
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: EXACTLY_CLAUSE_KIND,
-              value: 1,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
+              kind: 'min',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FOOD_TRIBE]
+              },
+              value: 1
             },
             {
               kind: COUNT_CLAUSE_KIND,
-              interval: [0, 2],
-              tribes: [SLIME_MOLD_SLIME_TRIBE]
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [1, 4]
             }
           ]
         },
-        tribe: SLIME_MOLD_EXPLORER_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_FRONT_TRIBE
+        }
       },
       {
         clause: {
-          kind: AND_CLAUSE_KIND,
+          kind: 'and',
           clauses: [
             {
-              kind: IS_CLAUSE_KIND,
+              kind: 'is',
+              tribes: [SLIME_MOLD_FRONT_TRIBE]
+            },
+            {
+              kind: 'min',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FOOD_TRIBE]
+              },
+              value: 1
+            },
+            {
+              kind: 'min',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_BODY_TRIBE]
+              },
+              value: 1
+            },
+            {
+              kind: 'max',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
+              },
+              value: 8
+            }
+          ]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_BODY_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
+          clauses: [
+            {
+              kind: 'is',
+              tribes: [SLIME_MOLD_BODY_TRIBE]
+            },
+            {
+              kind: 'min',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FOOD_TRIBE]
+              },
+              value: 1
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [1, 8]
+            }
+          ]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_BODY_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
+          clauses: [
+            {
+              kind: 'is',
               tribes: [DEAD_TRIBE_ID]
             },
             {
-              kind: OR_CLAUSE_KIND,
-              clauses: [
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 2,
-                  tribes: [SLIME_MOLD_EXPLORER_TRIBE]
-                },
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 3,
-                  tribes: [SLIME_MOLD_EXPLORER_TRIBE]
+              kind: 'exactly',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE]
+              },
+              value: 1
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [1, 2]
+            },
+            {
+              kind: 'max',
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRESH_TRAIL_TRIBE, SLIME_MOLD_OLD_TRAIL_TRIBE]
+              },
+              value: 1
+            }
+          ]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_FRONT_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
+          clauses: [
+            {
+              kind: 'is',
+              tribes: [SLIME_MOLD_FRONT_TRIBE]
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [1, 3]
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [2, 4]
+            }
+          ]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_BODY_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
+          clauses: [
+            {
+              kind: 'is',
+              tribes: [SLIME_MOLD_BODY_TRIBE]
+            },
+            {
+              kind: COUNT_CLAUSE_KIND,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
+              },
+              interval: [2, 4]
+            }
+          ]
+        },
+        become: {
+          kind: 'same'
+        }
+      },
+      {
+        clause: {
+          kind: 'is',
+          tribes: [SLIME_MOLD_FRONT_TRIBE]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'is',
+          tribes: [SLIME_MOLD_BODY_TRIBE]
+        },
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
+          clauses: [
+            {
+              kind: 'is',
+              tribes: [SLIME_MOLD_FRESH_TRAIL_TRIBE]
+            },
+            {
+              kind: 'not',
+              clause: {
+                kind: 'min',
+                value: 2,
+                selector: {
+                  kind: 'tribes',
+                  tribes: [SLIME_MOLD_BODY_TRIBE, SLIME_MOLD_FRONT_TRIBE]
                 }
-              ]
-            },
-            {
-              kind: MAX_CLAUSE_KIND,
-              value: 1,
-              tribes: [SLIME_MOLD_SLIME_TRIBE]
+              }
             }
           ]
         },
-        tribe: SLIME_MOLD_EXPLORER_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_OLD_TRAIL_TRIBE
+        }
       },
-
-      /*
-       * Explorers inside or near dense tissue mature into the stable body.
-       */
       {
         clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [0, 1],
-              tribes: [DEAD_TRIBE_ID]
-            }
-          ]
+          kind: 'is',
+          tribes: [SLIME_MOLD_OLD_TRAIL_TRIBE]
         },
-        tribe: SLIME_MOLD_SLIME_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: DEAD_TRIBE_ID
+        }
       },
       {
         clause: {
-          kind: AND_CLAUSE_KIND,
+          kind: 'and',
           clauses: [
             {
-              kind: IS_CLAUSE_KIND,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
+              kind: 'is',
+              tribes: [SLIME_MOLD_FOOD_TRIBE]
             },
             {
-              kind: MIN_CLAUSE_KIND,
+              kind: 'min',
               value: 4,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE, SLIME_MOLD_SLIME_TRIBE]
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_BODY_TRIBE]
+              }
             }
           ]
         },
-        tribe: SLIME_MOLD_SLIME_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_SPENT_FOOD_TRIBE
+        }
       },
-
-      /*
-       * Sparse exposed explorers remain at the boundary.
-       */
       {
         clause: {
-          kind: AND_CLAUSE_KIND,
+          kind: 'is',
+          tribes: [SLIME_MOLD_FOOD_TRIBE]
+        },
+        become: {
+          kind: 'same'
+        }
+      },
+      {
+        clause: {
+          kind: 'and',
           clauses: [
             {
-              kind: IS_CLAUSE_KIND,
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE]
+              kind: 'is',
+              tribes: [SLIME_MOLD_SPENT_FOOD_TRIBE]
             },
             {
-              kind: MIN_CLAUSE_KIND,
-              value: 2,
-              tribes: [DEAD_TRIBE_ID]
-            },
-            {
-              kind: COUNT_CLAUSE_KIND,
-              interval: [1, 2],
-              tribes: [SLIME_MOLD_EXPLORER_TRIBE, SLIME_MOLD_SLIME_TRIBE]
+              kind: 'min',
+              value: 6,
+              selector: {
+                kind: 'tribes',
+                tribes: [SLIME_MOLD_BODY_TRIBE]
+              }
             }
           ]
         },
-        tribe: SLIME_MOLD_EXPLORER_TRIBE
-      },
-
-      /*
-       * Slime itself is permanent. Remaining explorers fold back into the body
-       * rather than oscillating body cells back into explorers.
-       */
-      {
-        clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [SLIME_MOLD_EXPLORER_TRIBE]
-        },
-        tribe: SLIME_MOLD_SLIME_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_BODY_TRIBE
+        }
       },
       {
         clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [SLIME_MOLD_SLIME_TRIBE]
+          kind: 'is',
+          tribes: [SLIME_MOLD_SPENT_FOOD_TRIBE]
         },
-        tribe: SLIME_MOLD_SLIME_TRIBE
+        become: {
+          kind: 'fixed',
+          tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
+        }
       }
     ]
   }

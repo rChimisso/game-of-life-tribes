@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {ChangeDetectorRef, Component, OnDestroy, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
@@ -1005,6 +1006,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @returns {boolean} true when persisted draw preferences changed.
    */
   private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): boolean {
+    this.resetRecordingCompressionState();
     this.rebuilding = true;
     this.simulationGridFormat = preferSmallestFormat ?
       this.smallestSimulationGridFormatForRuleset(newRuleset) :
@@ -1477,6 +1479,22 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   /**
+   * Clears queued compression and transient recording state for a fresh simulation.
+   *
+   * @private
+   */
+  private resetRecordingCompressionState(): void {
+    console.info('[GOLT] Clearing compression jobs for simulation reset');
+    this.compressionScheduler.terminate();
+    this.storagePendingRawBytes = 0;
+    this.storageCompressedBytes = 0;
+    this.storageUsedBytes = 0;
+    this.quotaWarningLevel = 0;
+    this.latestRecordingManifest = null;
+    this.downloadEstimateExceedsChunkThreshold = false;
+  }
+
+  /**
    * Restarts the simulation state and clears transient recording data.
    *
    * @private
@@ -1486,13 +1504,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.snackBar.dismiss();
     clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files:', error));
     this.setRunState('paused');
-    this.compressionScheduler.terminate();
-    this.storagePendingRawBytes = 0;
-    this.storageCompressedBytes = 0;
-    this.storageUsedBytes = 0;
-    this.quotaWarningLevel = 0;
-    this.latestRecordingManifest = null;
-    this.downloadEstimateExceedsChunkThreshold = false;
+    this.resetRecordingCompressionState();
     this.rebuilding = true;
     this.ruleset = {...this.ruleset};
     this.latestMetrics = null;
@@ -1718,6 +1730,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private queueLoadedSnapshotForRebuild(parsed: ParsedGoltState, nextRuleset: Ruleset, nextSimulationGridFormat: GridFormatMetadata): void {
     const {generation, grid, gridFormat} = parsed;
+    this.resetRecordingCompressionState();
     this.rebuilding = true;
     this.pendingStateLoad = {
       grid,
@@ -1864,6 +1877,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         shouldSavePreferences = true;
         break;
       case 'setGridSize':
+        this.resetRecordingCompressionState();
         this.rebuilding = true;
         this.simulationGridFormat = this.resolveSimulationGridFormat(this.simulationGridFormat, this.ruleset, event.value.cols, event.value.rows);
         this.ruleset = {
@@ -1875,6 +1889,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         shouldSavePreferences = this.clampBrushSize();
         break;
       case 'setPacking':
+        this.resetRecordingCompressionState();
         this.rebuilding = true;
         this.simulationGridFormat = this.resolveSimulationGridFormat({bitsPerCell: event.value});
         this.latestMetrics = null;

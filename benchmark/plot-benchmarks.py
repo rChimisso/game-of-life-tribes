@@ -2,10 +2,10 @@
 
 Usage::
 
-  python readme/plot-benchmarks.py
+  python benchmark/plot-benchmarks.py
 
-The script reads ``readme/benchmark-results.csv`` and writes PNG plots to
-``readme/plots``. It requires ``matplotlib``.
+The script reads ``benchmark/benchmark-results.csv`` and writes PNG plots to
+``benchmark/plots``. It requires ``matplotlib``.
 """
 
 import argparse
@@ -20,8 +20,8 @@ def parse_args() -> argparse.Namespace:
   :rtype: argparse.Namespace
   """
   parser = argparse.ArgumentParser(description="Plot README benchmark CSV data.")
-  parser.add_argument("--input", default="readme/benchmark-results.csv", help="Input benchmark CSV path.")
-  parser.add_argument("--output-dir", default="readme/plots", help="Output directory for PNG plots.")
+  parser.add_argument("--input", default="benchmark/benchmark-results.csv", help="Input benchmark CSV path.")
+  parser.add_argument("--output-dir", default="benchmark/plots", help="Output directory for PNG plots.")
   return parser.parse_args()
 
 def read_rows(path: Path) -> list[dict[str, str | float | int]]:
@@ -45,7 +45,6 @@ def read_rows(path: Path) -> list[dict[str, str | float | int]]:
         "gen_per_second": float(row["gen_per_second"]),
         "cell_updates_per_second": float(row["cell_updates_per_second"]),
         "data_volume_bytes_per_second": float(row["data_volume_bytes_per_second"]) if row["data_volume_bytes_per_second"] else 0.0,
-        "backpressure": row["backpressure"],
       })
   return rows
 
@@ -267,26 +266,6 @@ def plot_frame_size_vs_recording_volume(rows: list[dict[str, str | float | int]]
   ax.set_ylabel("Raw data volume (MiB/s)")
   ax.set_xscale("log")
   set_frame_size_ticks(ax, recording)
-
-  no_backpressure = [
-    float(row["data_volume_bytes_per_second"]) / 1024 / 1024
-    for row in recording
-    if row["backpressure"] == "No"
-  ]
-  with_backpressure = [
-    float(row["data_volume_bytes_per_second"]) / 1024 / 1024
-    for row in recording
-    if row["backpressure"] == "Yes"
-  ]
-  if no_backpressure and with_backpressure:
-    threshold = (max(no_backpressure) + min(with_backpressure)) / 2
-    ax.axhline(
-      threshold,
-      color="#dc2626",
-      linestyle="--",
-      linewidth=1.4,
-      label=f"Backpressure separator (~{threshold:.0f} MiB/s)",
-    )
 
   ax.grid(True, alpha=0.25)
   ax.legend(ncol=3)

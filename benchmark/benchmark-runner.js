@@ -21,16 +21,16 @@
   const CHECKPOINT_KEY = 'golt-benchmark-results-v1';
 
   const CONFIG = {
-    runSeconds: 10,
+    runSeconds: 60,
     warmUpSeconds: 5,
     counterSettleSeconds: 2,
     preRunPauseSeconds: 3,
-    repeats: 3,
+    repeats: 5,
     cooldownSeconds: 30,
     rebuildTimeoutSeconds: 240,
     settleAfterClickMs: 150,
     settleAfterStopMs: 1000,
-    outputPrefix: 'golt-benchmark-rerun',
+    outputPrefix: 'golt-benchmark-run',
     modes: [
       {id: 'baseline', recording: false},
       {id: 'recording', recording: true}

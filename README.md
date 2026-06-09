@@ -128,17 +128,17 @@ A detailed benchmark write-up is available in the wiki:
 - [Results](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Results)
 - [Conclusions](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Conclusions)
 
-The normalized source data is stored in [`readme/benchmark-results.csv`](readme/benchmark-results.csv). The runs use the **Conway** preset on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
+The normalized source data is stored in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv). The runs use the **Conway** preset on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
 
 Main takeaways:
 
 - Without recording, smaller grids may favor wider bit packings, while larger grids generally benefit from shorter bit packings. This depends heavily on the device, browser, and grid size, so test the combinations you actually use.
-- When recording, prefer the shortest bit packing that can represent your tribes. Smaller frames reduce storage use, readback pressure, and export cost.
+- When recording, prefer the shortest bit packing that can represent your tribes. Smaller frames reduce storage use and readback pressure.
 - Bigger grids do fewer generations per second because each generation updates more cells, but total cell updates per second stay fairly consistent once the grid is large enough. Very small grids are mostly overhead-limited.
 - If you only need a reproducible starting point, save a snapshot instead of recording the whole history.
 - If you are unsure whether you will need history later, save a snapshot first. Since evolution is deterministic, you can load it later and record the same run from that point.
 - Max speed can reach higher throughput than fixed target speeds because it disables rendering and does not need to keep the simulation interactive.
-- Recording backpressure can severely limit speed. Once it appears, throughput depends strongly on readback, CPU-side work, browser storage behavior, and storage speed, not only on GPU simulation performance.
+- Every recording run hit backpressure. Recording throughput therefore depends strongly on readback, CPU-side work, browser storage behavior, and storage speed, not only on GPU simulation performance.
 
 ## Useful Notes
 
@@ -150,5 +150,3 @@ Main takeaways:
 - Recording is most useful when enabled before the event you care about. Snapshots are better for saving a restart point.
 - Browser storage is not infinite. Long recordings on large grids can consume quota quickly, especially with larger bits-per-cell formats.
 - Presets are starting points. Muting one rule or changing one threshold is often enough to reveal what gives a ruleset its character.
-
-

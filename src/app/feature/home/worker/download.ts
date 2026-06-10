@@ -29,7 +29,7 @@ import {ZipWriter} from './zip/zip-writer';
  *
  * @type {string}
  */
-const ZIP_DOWNLOAD_FILENAME = 'gol-export.zip';
+const ZIP_DOWNLOAD_FILENAME = 'golt-export.zip';
 
 /**
  * First percent used for streaming save-entry writes.

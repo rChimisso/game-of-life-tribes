@@ -92,7 +92,7 @@ export class ZipWriter {
    * @param {string} [visibleFilename] user-visible export filename.
    * @returns {Promise<ZipWriter>} opened ZIP writer.
    */
-  public static async open(visibleFilename = 'gol-export.zip'): Promise<ZipWriter> {
+  public static async open(visibleFilename = 'golt-export.zip'): Promise<ZipWriter> {
     const directory = await ZipWriter.openDirectory();
     await ZipWriter.removeStaleFiles(directory);
     const filename = createUniqueFilename(visibleFilename);

@@ -174,25 +174,38 @@ function createOutputChunkFilename(index: number): string {
 }
 
 /**
+ * Resolves exported generation bounds from prepared chunks.
+ *
+ * @param {PreparedCompressedChunk[]} chunks output chunks.
+ * @returns {{startGen: number; endGen: number}} exported generation range.
+ */
+function resolveExportedGenerationRange(chunks: PreparedCompressedChunk[]): {startGen: number; endGen: number} {
+  let startGen = 0;
+  let endGen = 0;
+  if (chunks.length > 0) {
+    startGen = chunks[0]!.chunk.generationStart;
+    endGen = chunks[chunks.length - 1]!.chunk.generationEnd;
+  }
+  return {startGen, endGen};
+}
+
+/**
  * Writes the compressed chunk manifest.
  *
  * @async
  * @param {ZipWriter} zip target ZIP writer.
- * @param {CompressedChunkExportRequest} request compressed chunk request.
  * @param {RecordingFrameSelection} selection selected frame span.
  * @param {PreparedCompressedChunk[]} chunks output chunks.
  */
-async function writeChunkManifest(zip: ZipWriter, request: CompressedChunkExportRequest, selection: RecordingFrameSelection, chunks: PreparedCompressedChunk[]): Promise<void> {
+async function writeChunkManifest(zip: ZipWriter, selection: RecordingFrameSelection, chunks: PreparedCompressedChunk[]): Promise<void> {
+  const generationRange = resolveExportedGenerationRange(chunks);
   await writeJsonEntry(zip, 'manifest.json', {
     version: COMPRESSED_CHUNK_EXPORT_VERSION,
-    cols: request.recording.cols,
-    rows: request.recording.rows,
-    gridFormat: request.recording.manifest.gridFormat,
-    selectedFrameRange: {
+    selectedRange: {
       startFrame: selection.selectedStartFrame,
       endFrame: selection.selectedEndFrame,
-      startIndex: selection.startIndex,
-      endIndex: selection.endIndex,
+      startGen: generationRange.startGen,
+      endGen: generationRange.endGen,
       framesTotal: selection.framesTotal
     },
     chunks: chunks.map(item => ({
@@ -211,12 +224,11 @@ async function writeChunkManifest(zip: ZipWriter, request: CompressedChunkExport
  */
 async function writeMetadata(zip: ZipWriter, request: CompressedChunkExportRequest): Promise<void> {
   await writeJsonEntry(zip, 'metadata.json', {
+    cols: request.recording.cols,
+    rows: request.recording.rows,
+    gridFormat: request.recording.manifest.gridFormat,
     rules: request.metadata.rules,
-    tribes: request.metadata.tribes,
-    recording: {
-      generationStart: request.recording.manifest.generationStart,
-      generationEnd: request.recording.manifest.generationEnd
-    }
+    tribes: request.metadata.tribes
   });
 }
 
@@ -381,7 +393,7 @@ export async function writeCompressedChunkExport(zip: ZipWriter, request: Compre
       preparedChunks.push(await prepareCompressedChunk(request, item, recordingDirectory, tempDirectory, preparedChunks.length, options));
       preparedCount++;
     }
-    await writeChunkManifest(zip, request, selection, preparedChunks);
+    await writeChunkManifest(zip, selection, preparedChunks);
     await writeMetadata(zip, request);
     let copied = 0;
     for (const chunk of preparedChunks) {

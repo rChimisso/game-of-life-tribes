@@ -1,3 +1,9 @@
 {
-  "recommendations": ["angular.ng-template", "dbaeumer.vscode-eslint", "mhutchie.git-graph", "github.vscode-pull-request-github", "crystal-spider.jsdoc-generator", "esbenp.prettier-vscode"]
+  "recommendations": [
+    "angular.ng-template",
+    "dbaeumer.vscode-eslint",
+    "mhutchie.git-graph",
+    "crystal-spider.jsdoc-generator",
+    "esbenp.prettier-vscode"
+  ]
 }

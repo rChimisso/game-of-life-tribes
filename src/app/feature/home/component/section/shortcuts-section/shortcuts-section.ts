@@ -106,6 +106,11 @@ export class ShortcutsSection {
       title: 'Navigation',
       values: [
         {
+          code: 'S',
+          label: 'Sidebar',
+          tooltip: 'Press S to open or close the sidebar'
+        },
+        {
           code: 'RMB',
           label: 'Pan',
           tooltip: 'Hold the right mouse button to pan the view'

@@ -786,6 +786,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     if (!this.collapsed) {
       this.sheetTranslate = '0px';
     }
+    this.cdr.markForCheck();
   }
 
   /**

@@ -68,6 +68,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   @ViewChild(Engine) public engine!: Engine<Tribe[]>;
 
   /**
+   * Sidebar component instance.
+   *
+   * @private
+   * @type {Sidebar}
+   */
+  @ViewChild(Sidebar) private readonly sidebar!: Sidebar;
+
+  /**
    * Current simulation ruleset.
    *
    * @public
@@ -1068,7 +1076,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         return;
       }
       if (!(this.shortcutOverlayActive || this.activeElementBlocksShortcut(document.activeElement))) {
-        let shortcut = this.handlePlaybackShortcut(ev.key);
+        let shortcut = this.handleInterfaceShortcut(ev.key);
+        if (!shortcut.handled) {
+          shortcut = this.handlePlaybackShortcut(ev.key);
+        }
         if (!shortcut.handled) {
           shortcut = this.handleSelectionShortcut(ev.key);
         }
@@ -1086,6 +1097,24 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         }
       }
     }
+  }
+
+  /**
+   * Handles interface keyboard shortcuts.
+   *
+   * @private
+   * @param {string} key pressed key.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
+  private handleInterfaceShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
+    let shortcut: {handled: boolean; shouldSavePreferences: boolean};
+    if (key === 's') {
+      this.sidebar.toggle();
+      shortcut = {handled: true, shouldSavePreferences: false};
+    } else {
+      shortcut = {handled: false, shouldSavePreferences: false};
+    }
+    return shortcut;
   }
 
   /**

@@ -29,7 +29,7 @@ import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMet
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePreferences} from './model/preferences';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {Preset} from './preset';
 import {CONWAY_PRESET} from './preset/conway';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
@@ -380,6 +380,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   public storageCompressedBytes = 0;
 
   /**
+   * Reserved recording storage headroom in bytes.
+   *
+   * @public
+   * @type {number}
+   */
+  public storageReservedBytes = 0;
+
+  /**
    * Whether snapshot saving is active.
    *
    * @public
@@ -577,6 +585,17 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   public get overlayActive(): boolean {
     return this.gpuErrorMessage !== null || this.rebuilding || this.backpressure || this.stepping || this.maxSpeed;
+  }
+
+  /**
+   * Whether browser storage has enough remaining room for one more frame after reserved headroom.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get recordingStorageAvailable(): boolean {
+    return this.frameByteSize > 0 && this.storageQuotaBytes > 0 && this.storageQuotaBytes - this.storagePendingRawBytes - this.storageCompressedBytes - this.storageReservedBytes >= this.frameByteSize;
   }
 
   /**
@@ -797,14 +816,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.storageQuotaBytes = data.quotaBytes;
     this.storagePendingRawBytes = data.pendingRawBytes;
     this.storageCompressedBytes = data.compressedBytes;
+    this.storageReservedBytes = data.reservedBytes;
     this.refreshDownloadEstimateFlag();
-    if (data.quotaBytes <= 0) {
-      return;
-    }
-    const effectiveUsed = data.usedBytes + data.gpuBufferMarginBytes;
-    const usedDecimalGiga = effectiveUsed / 1e9;
-    const quotaBinaryGiga = data.quotaBytes / (1024 ** 3);
-    const pct = quotaBinaryGiga > 0 ? (usedDecimalGiga / quotaBinaryGiga) * 100 : 0;
+    const effectiveUsed = data.pendingRawBytes + data.compressedBytes + data.reservedBytes;
+    const pct = data.quotaBytes > 0 ? (effectiveUsed / data.quotaBytes) * 100 : 0;
     let level: 0 | 25 | 50 | 75 | 100 = 0;
     switch (true) {
       case pct >= 100:
@@ -820,6 +835,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         level = 25;
         break;
     }
+    const {recordingStorageAvailable} = this;
     if (level > this.quotaWarningLevel) {
       this.quotaWarningLevel = level;
       const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress - size may decrease)' : '';
@@ -837,19 +853,15 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.setRunState('paused');
       } else if (level === 100) {
         openHomeSnack(this.snackBar, `Browser storage quota reached - recording disabled. Save your data, then reset.${compHint}`, 'error');
-        if (this.stepping) {
-          this.cancelStepping();
-        }
-        this.setRunState('paused');
-        if (this.recording) {
-          this.recording = false;
-          this.compressionScheduler.requeueDeferredJobs();
-          this.savePreferences();
-        }
+        this.disableRecordingForStorage();
       }
     } else if (level < this.quotaWarningLevel) {
       this.quotaWarningLevel = level;
       this.snackBar.dismiss();
+    }
+    if (!recordingStorageAvailable && this.recording && level < 100) {
+      openHomeSnack(this.snackBar, 'Browser storage below one frame - recording disabled. Save your data, then reset.', 'error');
+      this.disableRecordingForStorage();
     }
     this.cdr.markForCheck();
   }
@@ -911,6 +923,22 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       this.pendingRecordingResolve(rec);
       this.pendingRecordingResolve = null;
     }
+  }
+
+  /**
+   * Handles recording being stopped by the engine.
+   *
+   * @public
+   * @param {RecordingStoppedMessage} data recording stop message.
+   */
+  public onRecordingStopped(data: RecordingStoppedMessage): void {
+    this.recording = false;
+    this.setRunState('paused');
+    this.compressionScheduler.requeueDeferredJobs();
+    this.savePreferences();
+    const restoreHint = data.restoredGeneration === null ? '' : ` Restored to generation ${data.restoredGeneration.toLocaleString()}.`;
+    openHomeSnack(this.snackBar, `Browser storage quota reached - recording stopped.${restoreHint}`, 'error');
+    this.cdr.markForCheck();
   }
 
   /**
@@ -990,6 +1018,23 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       speed: normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
       metrics: normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
     };
+  }
+
+  /**
+   * Stops recording after the effective storage quota is no longer safe.
+   *
+   * @private
+   */
+  private disableRecordingForStorage(): void {
+    if (this.stepping) {
+      this.cancelStepping();
+    }
+    this.setRunState('paused');
+    if (this.recording) {
+      this.recording = false;
+      this.compressionScheduler.requeueDeferredJobs();
+      this.savePreferences();
+    }
   }
 
   /**
@@ -1134,7 +1179,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.restart();
         return {handled: true, shouldSavePreferences: false};
       case 'e':
-        if (this.recordingAvailable) {
+        if (this.recordingAvailable && (this.recording || this.recordingStorageAvailable)) {
           this.recording = !this.recording;
           console.log(`[GOLT] Recording ${this.toggleStateLabel(this.recording)}`);
           if (this.recording) {
@@ -1513,6 +1558,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.compressionScheduler.terminate();
     this.storagePendingRawBytes = 0;
     this.storageCompressedBytes = 0;
+    this.storageReservedBytes = 0;
     this.storageUsedBytes = 0;
     this.quotaWarningLevel = 0;
     this.latestRecordingManifest = null;
@@ -1903,7 +1949,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         shouldSavePreferences = true;
         break;
       case 'setRecording':
-        this.recording = event.value;
+        this.recording = event.value && this.recordingAvailable && this.recordingStorageAvailable;
         console.log(`[GOLT] Recording ${this.toggleStateLabel(this.recording)}`);
         if (this.recording) {
           this.compressionScheduler.ensurePool();

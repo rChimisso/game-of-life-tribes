@@ -56,6 +56,15 @@ export class SpeedSection {
   public recordingAvailable = false;
 
   /**
+   * Whether browser storage has room for one more recorded frame.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public recordingStorageAvailable = false;
+
+  /**
    * Whether recording is enabled.
    *
    * @public
@@ -120,7 +129,7 @@ export class SpeedSection {
    * @type {boolean}
    */
   public get recordingDisabled(): boolean {
-    return this.downloading || !this.recordingAvailable;
+    return this.downloading || !this.recordingAvailable || !this.recordingStorageAvailable;
   }
 
   /**
@@ -130,7 +139,13 @@ export class SpeedSection {
    * @type {string}
    */
   public get recordingGateMessage(): string {
-    return this.recordingAvailable ? 'Recording slows down the simulation.' : 'Grid is too large for recording.';
+    let message = 'Recording slows down the simulation.';
+    if (!this.recordingAvailable) {
+      message = 'Grid is too large for recording.';
+    } else if (!this.recordingStorageAvailable) {
+      message = 'Not enough browser storage for one frame.';
+    }
+    return message;
   }
 
   /**

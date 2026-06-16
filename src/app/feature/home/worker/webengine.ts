@@ -700,7 +700,7 @@ function checkBackpressure(): void {
 async function postStorageQuota(): Promise<void> {
   self.postMessage({
     type: 'storageQuota',
-    ...buildStorageQuotaSnapshot(await navigator.storage.estimate(), sealedChunks, chunkFrameCapacity, frameByteSize, isRecording)
+    ...buildStorageQuotaSnapshot(await navigator.storage.estimate(), sealedChunks, chunkFrameCapacity, frameByteSize)
   });
 }
 
@@ -1246,6 +1246,13 @@ function sealCurrentChunk(): void {
                   sendRecordingManifest();
                 }
               }
+            }).catch(error => {
+              if (epoch === sealEpoch) {
+                pendingOpfsWrites--;
+                checkBackpressure();
+                updateInflightSeals(-1);
+                handleRecordingChunkWriteFailure(meta, error).catch(reportWorkerError);
+              }
             });
           }
         }).catch(() => {
@@ -1329,9 +1336,155 @@ async function ensureOpfsDir(): Promise<FileSystemDirectoryHandle> {
 async function writeChunkToOpfs(meta: ChunkMeta, payload: ArrayBuffer): Promise<void> {
   const dir = await ensureOpfsDir();
   const file = await dir.getFileHandle(meta.filename, {create: true});
-  const writable = await file.createWritable();
-  await writable.write(payload);
-  await writable.close();
+  let writable: FileSystemWritableFileStream | null = await file.createWritable();
+  let closed = false;
+  try {
+    await writable.write(payload);
+    await writable.close();
+    closed = true;
+    writable = null;
+  } catch (error) {
+    if (writable && !closed) {
+      try {
+        await writable.abort();
+      } catch (abortError) {
+        console.warn('[GOLT worker] Failed to abort recording chunk write after error:', abortError);
+      }
+    }
+    try {
+      await dir.removeEntry(meta.filename);
+    } catch (removeError) {
+      if (!(removeError instanceof DOMException && removeError.name === 'NotFoundError')) {
+        console.warn('[GOLT worker] Failed to remove failed recording chunk:', meta.filename, removeError);
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * Checks whether an OPFS write error indicates storage quota pressure.
+ *
+ * @param {unknown} error write error.
+ * @returns {boolean} true when the error indicates quota exhaustion.
+ */
+function isStorageQuotaError(error: unknown): boolean {
+  const reason = workerErrorReason(error).toLowerCase();
+  return error instanceof DOMException && error.name === 'QuotaExceededError' || reason.includes('storage quota') || reason.includes('quota exceeded') || reason.includes('exceed its storage quota');
+}
+
+/**
+ * Removes a failed recording chunk from in-memory metadata.
+ *
+ * @param {ChunkMeta} meta failed chunk metadata.
+ */
+function removeFailedSealedChunk(meta: ChunkMeta): void {
+  const index = sealedChunks.findIndex(chunk => chunk.filename === meta.filename);
+  if (index >= 0) {
+    sealedChunks.splice(index, 1);
+  }
+}
+
+/**
+ * Restores the active grid to the persisted recording frame before the latest one when available.
+ *
+ * @async
+ * @returns {Promise<(number | null)>} restored generation, or null when no persisted frame was available.
+ */
+async function restorePreviousPersistedRecordingFrame(): Promise<number | null> {
+  let restoredGeneration: number | null = null;
+  const sealedCount = countFrames(sealedChunks);
+  const target = resolveStepBackTarget(sealedChunks, sealedCount, 0, 1);
+  if (target?.source === 'sealed') {
+    const {frameInChunk} = target;
+    const chunk = sealedChunks[target.sealedIndex]!;
+    try {
+      const prefixBytes = (frameInChunk + 1) * frameByteSize;
+      const chunkData = await readChunkFromOpfs(chunk.filename, chunk.codec);
+      const grid = currentGridSize();
+      const storedChunkFormat = gridFormatFromMetadata(chunk.gridFormat);
+      const restoredPrefix = buildStepBackPrefix(chunkData, frameInChunk, frameByteSize, grid, storedChunkFormat, gridFormat);
+      const activeFrame = restoredPrefix.activeFrame ?? restoredPrefix.chunkPrefix.subarray(frameInChunk * frameByteSize, prefixBytes);
+      device.queue.writeBuffer(pingPong ? gridBufferB : gridBufferA, 0, activeFrame);
+      chunkFrameIndex = 0;
+      chunkGenerations = [];
+      genCounter = chunk.generations[frameInChunk] ?? chunk.generationEnd;
+      latestRecordedGeneration = genCounter;
+      restoredGeneration = genCounter;
+      if (frameInChunk < chunk.blockCount - 1) {
+        const frameCount = frameInChunk + 1;
+        const rawBytesPerFrame = chunk.blockCount > 0 ? Math.floor(chunk.uncompressedBytes / chunk.blockCount) : frameByteSize;
+        chunk.blockCount = frameCount;
+        chunk.generationEnd = genCounter;
+        chunk.generations = chunk.generations.slice(0, frameCount);
+        chunk.uncompressedBytes = rawBytesPerFrame * frameCount;
+        if (chunk.codec === RAW_PACKED_CODEC) {
+          chunk.storedBytes = frameByteSize * frameCount;
+        }
+      }
+      const removedChunks = sealedChunks.splice(target.sealedIndex + 1);
+      await deleteChunksFromOpfs(removedChunks.map(removedChunk => removedChunk.filename));
+      resetFps();
+      postGeneration();
+      renderFrame();
+    } catch (error) {
+      console.warn('[GOLT worker] Failed to restore the previous persisted recording frame after storage quota pressure:', error);
+    }
+  } else {
+    const removedChunks = sealedChunks.splice(0);
+    await deleteChunksFromOpfs(removedChunks.map(removedChunk => removedChunk.filename));
+    chunkFrameIndex = 0;
+    chunkGenerations = [];
+  }
+  return restoredGeneration;
+}
+
+/**
+ * Stops recording after OPFS rejects a chunk write because storage quota was reached.
+ *
+ * @async
+ * @param {ChunkMeta} meta failed chunk metadata.
+ * @param {unknown} error write error.
+ */
+async function stopRecordingAfterStorageQuotaFailure(meta: ChunkMeta, error: unknown): Promise<void> {
+  console.warn('[GOLT worker] Recording stopped because OPFS storage quota was reached:', error);
+  removeFailedSealedChunk(meta);
+  stopRun('cancelled', {
+    render: false,
+    postStepping: false,
+    restore: false,
+    restartRestoredRun: false
+  });
+  simulationRunning = false;
+  isRecording = false;
+  recordingAwaitingForward = false;
+  const restoredGeneration = await restorePreviousPersistedRecordingFrame();
+  updateManifestRange(manifest, sealedChunks, chunkGenerations);
+  checkBackpressure();
+  postStorageQuota();
+  sendRecordingManifest();
+  queueMetricsRefresh(true);
+  self.postMessage({
+    type: 'recordingStopped',
+    reason: 'storageQuota',
+    restoredGeneration
+  });
+}
+
+/**
+ * Handles a failed OPFS write for a sealed recording chunk.
+ *
+ * @async
+ * @param {ChunkMeta} meta failed chunk metadata.
+ * @param {unknown} error write error.
+ */
+async function handleRecordingChunkWriteFailure(meta: ChunkMeta, error: unknown): Promise<void> {
+  removeFailedSealedChunk(meta);
+  if (isStorageQuotaError(error)) {
+    await stopRecordingAfterStorageQuotaFailure(meta, error);
+  } else {
+    reportWorkerError(error);
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import {CHUNK_BUFFER_CAP, MAJOR_BUFFER_ALLOCATION_YIELD_BYTES, MAX_PENDING_OPFS_WRITES, RAW_PACKED_CODEC, RecordingLimitsPayload, STAGING_RING_SIZE, STORAGE_CAP, StorageQuotaSnapshot} from '../model/recording-runtime';
+import {CHUNK_BUFFER_CAP, MAJOR_BUFFER_ALLOCATION_YIELD_BYTES, MAX_PENDING_OPFS_WRITES, RAW_PACKED_CODEC, RecordingLimitsPayload, STAGING_RING_SIZE, StorageQuotaSnapshot} from '../model/recording-runtime';
 
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 import {ChunkMeta, RecordingManifest} from '~gol/feature/home/model/recording';
@@ -180,11 +180,10 @@ export function canRecord(recordingAvailable: boolean, chunkFrameCapacity: numbe
  * @param {readonly ChunkMeta[]} sealedChunks sealed recording chunks.
  * @param {number} chunkFrameCapacity frame count per recording chunk.
  * @param {number} frameByteSize frame size in bytes.
- * @param {boolean} isRecording whether recording is enabled.
  * @returns {StorageQuotaSnapshot} storage-quota payload.
  */
-export function buildStorageQuotaSnapshot(estimate: StorageEstimate, sealedChunks: readonly ChunkMeta[], chunkFrameCapacity: number, frameByteSize: number, isRecording: boolean): StorageQuotaSnapshot {
-  const quotaBytes = Math.min(estimate.quota ?? STORAGE_CAP / 128, STORAGE_CAP);
+export function buildStorageQuotaSnapshot(estimate: StorageEstimate, sealedChunks: readonly ChunkMeta[], chunkFrameCapacity: number, frameByteSize: number): StorageQuotaSnapshot {
+  const quotaBytes = estimate.quota ?? 0;
   const usedBytes = estimate.usage ?? 0;
   let pendingRawBytes = 0;
   let compressedBytes = 0;
@@ -196,13 +195,13 @@ export function buildStorageQuotaSnapshot(estimate: StorageEstimate, sealedChunk
     }
   }
   const chunkCapBytes = chunkFrameCapacity * frameByteSize;
-  const gpuBufferMarginBytes = isRecording ? (1 + STAGING_RING_SIZE) * chunkCapBytes : 0;
+  const reservedBytes = (1 + STAGING_RING_SIZE) * chunkCapBytes;
   return {
     quotaBytes,
     usedBytes,
     pendingRawBytes,
     compressedBytes,
-    gpuBufferMarginBytes
+    reservedBytes
   };
 }
 

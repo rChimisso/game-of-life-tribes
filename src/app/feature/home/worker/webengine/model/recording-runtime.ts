@@ -32,11 +32,11 @@ export interface StorageQuotaSnapshot {
 	 */
 	compressedBytes: number;
 	/**
-	 * Bytes reserved for worker recording buffers.
+	 * Bytes reserved as recording storage headroom.
 	 *
 	 * @type {number}
 	 */
-	gpuBufferMarginBytes: number;
+	reservedBytes: number;
 }
 
 /**
@@ -124,8 +124,3 @@ export const CHUNK_BUFFER_CAP = 256 * 1024 * 1024;
  * Maximum bytes allocated before rebuild allocation yields.
  */
 export const MAJOR_BUFFER_ALLOCATION_YIELD_BYTES = 512 * 1024 * 1024;
-
-/**
- * Storage quota ceiling assumed when the browser estimate is missing.
- */
-export const STORAGE_CAP = 128 * 1024 * 1024 * 1024;

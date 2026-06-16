@@ -1,4 +1,4 @@
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '~gol/feature/home/model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '~gol/feature/home/model/worker-message';
 import {WorkerMessageHandlerMap} from '~gol/feature/home/model/worker-runner';
 
 /**
@@ -10,6 +10,7 @@ export type EngineWorkerOutputMessage =
   | MetricMessage
   | SnapshotMessage
   | RecordingMessage
+  | RecordingStoppedMessage
   | LimitsMessage
   | SteppingMessage
   | ChunksSavingMessage

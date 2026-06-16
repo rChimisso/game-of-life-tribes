@@ -6,7 +6,7 @@ import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {formatBinaryBytes, formatDecimalBytes} from '~gol/feature/home/logic/byte-format';
+import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
 import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
@@ -67,6 +67,15 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   @Input({required: true})
   public storageCompressedBytes = 0;
+
+  /**
+   * Reserved recording storage headroom.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public storageReservedBytes = 0;
 
   /**
    * Storage quota in bytes.
@@ -386,7 +395,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public get storagePendingFormatted(): string {
-    return formatDecimalBytes(this.storagePendingRawBytes);
+    return formatBinaryBytes(this.storagePendingRawBytes);
   }
 
   /**
@@ -397,7 +406,18 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public get storageCompressedFormatted(): string {
-    return formatDecimalBytes(this.storageCompressedBytes);
+    return formatBinaryBytes(this.storageCompressedBytes);
+  }
+
+  /**
+   * Reserved storage display.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get storageReservedFormatted(): string {
+    return formatBinaryBytes(this.storageReservedBytes);
   }
 
   /**
@@ -408,7 +428,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public get storageBarTooltip(): string {
-    return `${this.storagePendingFormatted} pending / ${this.storageCompressedFormatted} compressed / ${this.storageQuotaFormatted} browser quota estimate`;
+    return `${this.storagePendingFormatted} pending / ${this.storageCompressedFormatted} compressed / ${this.storageReservedFormatted} reserved / ${this.storageQuotaFormatted} browser quota estimate`;
   }
 
   /**
@@ -431,6 +451,12 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
         value: this.storageCompressedBytes,
         formatted: this.storageCompressedFormatted,
         color: '#e91e8a'
+      },
+      {
+        label: 'reserved',
+        value: this.storageReservedBytes,
+        formatted: this.storageReservedFormatted,
+        color: '#8f0000'
       }
     ];
   }

@@ -9,7 +9,7 @@ import {ExportFrameOrigin} from '../../model/export-frame-origin';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {Ruleset, Tribe} from '../../model/rule';
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -187,6 +187,16 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public readonly recording = new EventEmitter<RecordingMessage>();
 
   /**
+   * Recording stopped output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<RecordingStoppedMessage>}
+   */
+  @Output()
+  public readonly recordingStopped = new EventEmitter<RecordingStoppedMessage>();
+
+  /**
    * Engine limits output stream.
    *
    * @public
@@ -316,6 +326,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     metrics: message => this.metrics.emit(message),
     snapshot: message => this.snapshot.emit(message),
     recording: message => this.recording.emit(message),
+    recordingStopped: message => this.recordingStopped.emit(message),
     limits: message => this.limits.emit(message),
     stepping: message => this.stepping.emit(message),
     chunksSaving: message => this.chunksSaving.emit(message),

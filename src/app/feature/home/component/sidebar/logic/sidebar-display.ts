@@ -1,6 +1,6 @@
 import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from '../model/sidebar-display';
 
-import {formatBinaryBytes, formatDecimalBytes} from '~gol/feature/home/logic/byte-format';
+import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 
 /**
@@ -30,7 +30,7 @@ export function formatVramQuota(input: SidebarVramDisplayInput): string {
  * @returns {string} formatted title size.
  */
 export function formatDownloadStorageTitleSize(input: SidebarStorageDisplayInput): string {
-  return formatDecimalBytes(input.pendingRawBytes + input.compressedBytes);
+  return formatBinaryBytes(input.pendingRawBytes + input.compressedBytes + input.reservedBytes);
 }
 
 /**

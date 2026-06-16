@@ -255,6 +255,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public recordingAvailable = true;
 
   /**
+   * Whether recording has enough browser storage for one more frame.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input()
+  public recordingStorageAvailable = true;
+
+  /**
    * Current frame byte size.
    *
    * @public
@@ -406,6 +415,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   @Input()
   public storageCompressedBytes = 0;
+
+  /**
+   * Reserved storage bytes.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input()
+  public storageReservedBytes = 0;
 
   /**
    * Storage quota in bytes.
@@ -726,6 +744,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
     return {
       pendingRawBytes: this.storagePendingRawBytes,
       compressedBytes: this.storageCompressedBytes,
+      reservedBytes: this.storageReservedBytes,
       quotaBytes: this.storageQuotaBytes
     };
   }
@@ -839,7 +858,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @param {boolean} checked whether recording was requested.
    */
   public onRecordingChange(checked: boolean): void {
-    this.emit({action: 'setRecording', value: checked && this.recordingAvailable});
+    this.emit({action: 'setRecording', value: checked && this.recordingAvailable && this.recordingStorageAvailable});
   }
 
   /**

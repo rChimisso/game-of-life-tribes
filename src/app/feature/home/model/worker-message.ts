@@ -713,6 +713,33 @@ export interface RecordingMessage extends Grid {
 }
 
 /**
+ * Recording stopped payload emitted by the worker.
+ *
+ * @interface RecordingStoppedMessage
+ * @typedef {RecordingStoppedMessage}
+ */
+export interface RecordingStoppedMessage {
+  /**
+   * Worker response discriminator.
+   *
+   * @type {'recordingStopped'}
+   */
+  type: 'recordingStopped';
+  /**
+   * Reason recording stopped.
+   *
+   * @type {'storageQuota'}
+   */
+  reason: 'storageQuota';
+  /**
+   * Generation restored after stopping, when a persisted frame was available.
+   *
+   * @type {(number | null)}
+   */
+  restoredGeneration: number | null;
+}
+
+/**
  * Runtime limits payload emitted by the worker.
  *
  * @interface LimitsMessage
@@ -870,11 +897,11 @@ export interface StorageQuotaMessage {
    */
   compressedBytes: number;
   /**
-   * Remaining GPU buffer safety margin.
+   * Storage bytes reserved as recording headroom.
    *
    * @type {number}
    */
-  gpuBufferMarginBytes: number;
+  reservedBytes: number;
 }
 
 /**

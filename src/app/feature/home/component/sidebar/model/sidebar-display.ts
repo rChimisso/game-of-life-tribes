@@ -45,6 +45,12 @@ export interface SidebarStorageDisplayInput {
    */
   compressedBytes: number;
   /**
+   * Reserved bytes.
+   *
+   * @type {number}
+   */
+  reservedBytes: number;
+  /**
    * Storage quota bytes.
    *
    * @type {number}

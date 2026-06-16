@@ -73,6 +73,15 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   public rebuilding = false;
 
   /**
+   * Whether the live engine is blocked by a GPU error.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public engineBlocked = false;
+
+  /**
    * Whether stepping back is disabled by the engine.
    *
    * @public
@@ -165,7 +174,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {boolean}
    */
   public get runDisabled(): boolean {
-    return this.downloading || this.rebuilding || (this.backpressure && !this.running && !this.stepping);
+    return this.engineBlocked || this.downloading || this.rebuilding || (this.backpressure && !this.running && !this.stepping);
   }
 
   /**
@@ -189,13 +198,23 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   }
 
   /**
+   * Whether live playback controls are unavailable.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public get livePlaybackDisabled(): boolean {
+    return this.engineBlocked || this.isBusy;
+  }
+
+  /**
    * Whether stepping backward is disabled.
    *
    * @public
    * @type {boolean}
    */
   public get stepBackDisabled(): boolean {
-    return this.running || this.isBusy || this.stepBackBaseDisabled;
+    return this.running || this.livePlaybackDisabled || this.stepBackBaseDisabled;
   }
 
   /**
@@ -205,7 +224,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {boolean}
    */
   public get stepForwardDisabled(): boolean {
-    return this.running || this.isBusy;
+    return this.running || this.livePlaybackDisabled;
   }
 
   /**

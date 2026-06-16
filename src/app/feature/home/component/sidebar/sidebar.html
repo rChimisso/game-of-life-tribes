@@ -12,11 +12,11 @@
   <hr class="divider sidebar-divider" />
   <div class="sidebar-content">
     <gol-home-section description="Manage the simulation over time." title="Playback" [collapsible]="false">
-      <gol-playback-section [backpressure]="backpressure" [downloading]="downloading" [generationCounter]="generationCounter" [metricsFps]="metrics?.fps ?? 0" [rebuilding]="rebuilding" [running]="running" [stepBackBaseDisabled]="chunksSaving || !metrics?.canStepBack" [stepping]="stepping" (restart)="emit({action: 'restart'})" (stepBack)="emit({action: 'stepBack', value: $event})" (stepForward)="emit({action: 'stepForward', value: $event})" (toggleRun)="emit({action: 'toggleRun'})" />
+      <gol-playback-section [backpressure]="backpressure" [downloading]="downloading" [engineBlocked]="engineBlocked" [generationCounter]="generationCounter" [metricsFps]="metrics?.fps ?? 0" [rebuilding]="rebuilding" [running]="running" [stepBackBaseDisabled]="chunksSaving || !metrics?.canStepBack" [stepping]="stepping" (restart)="emit({action: 'restart'})" (stepBack)="emit({action: 'stepBack', value: $event})" (stepForward)="emit({action: 'stepForward', value: $event})" (toggleRun)="emit({action: 'toggleRun'})" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Tune how quickly the simulation runs" title="Speed" [collapsible]="false">
-      <gol-speed-section [downloading]="downloading" [liveMetricsEnabled]="liveMetricsEnabled" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [recordingStorageAvailable]="recordingStorageAvailable" [speed]="speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
+      <gol-speed-section [downloading]="downloading" [engineBlocked]="engineBlocked" [liveMetricsEnabled]="liveMetricsEnabled" [maxSpeed]="maxSpeed" [recording]="recording" [recordingAvailable]="recordingAvailable" [recordingStorageAvailable]="recordingStorageAvailable" [speed]="speed" (liveMetricsEnabledChange)="onLiveMetricsEnabledChange($event)" (maxSpeedChange)="onMaxSpeedChange($event)" (recordingChange)="onRecordingChange($event)" (speedChange)="onSpeedChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
@@ -58,7 +58,7 @@
 
     <!-- Snapshot -->
     <gol-home-section title="Snapshot" [collapsible]="false" [description]="'Save or load a .golt snapshot file.'">
-      <gol-snapshot-section [downloading]="downloading" [loadingState]="loadingState" [running]="running" [savingState]="savingState" [snapshotProgressMode]="snapshotProgressMode" [snapshotProgressPercent]="snapshotProgressPercent" [snapshotProgressStatus]="snapshotProgressStatus" [stepping]="stepping" (loadState)="emit({action: 'loadState', value: $event})" (saveState)="emit({action: 'saveState'})" />
+      <gol-snapshot-section [downloading]="downloading" [engineBlocked]="engineBlocked" [loadingState]="loadingState" [running]="running" [savingState]="savingState" [snapshotProgressMode]="snapshotProgressMode" [snapshotProgressPercent]="snapshotProgressPercent" [snapshotProgressStatus]="snapshotProgressStatus" [stepping]="stepping" (loadState)="emit({action: 'loadState', value: $event})" (saveState)="emit({action: 'saveState'})" />
     </gol-home-section>
 
     <hr class="divider shortcuts-divider" />

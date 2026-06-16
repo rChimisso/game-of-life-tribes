@@ -72,8 +72,10 @@ struct BrushParams {
   localStartY: u32,
   spanCols: u32,
   spanRows: u32,
-  pad: u32,
-  tribeIds: array<u32, 32>,
+  pad0: u32,
+  pad1: u32,
+  pad2: u32,
+  tribeIdGroups: array<vec4u, 8>,
 }
 
 @group(0) @binding(0) var<storage, read_write> grid: array<u32>;
@@ -95,6 +97,24 @@ fn writePackedWord(wordIdx: u32, writeMask: u32, writeBits: u32) {
   let old = grid[wordIdx];
   let updated = (old & ~writeMask) | (writeBits & writeMask);
   grid[wordIdx] = updated;
+}
+
+fn brushTribeId(index: u32) -> u32 {
+  let group = params.tribeIdGroups[index >> 2u];
+  switch (index & 3u) {
+    case 1u: {
+      return group.y;
+    }
+    case 2u: {
+      return group.z;
+    }
+    case 3u: {
+      return group.w;
+    }
+    default: {
+      return group.x;
+    }
+  }
 }
 
 fn inShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
@@ -167,7 +187,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
         let idx = localBy * params.brushSize + localBx;
         let spatialHash = (cx * 73856093u) ^ (cy * 19349663u);
         let h = pcg(params.seed ^ idx ^ spatialHash);
-        let selectedTribe = params.tribeIds[h % params.tribeCount];
+        let selectedTribe = brushTribeId(h % params.tribeCount);
         var shouldWrite = true;
         var value = selectedTribe;
 

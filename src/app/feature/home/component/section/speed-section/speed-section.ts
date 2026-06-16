@@ -47,6 +47,15 @@ export class SpeedSection {
   public downloading = false;
 
   /**
+   * Whether the live engine is blocked by a GPU error.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public engineBlocked = false;
+
+  /**
    * Whether recording is available for this grid.
    *
    * @public
@@ -129,7 +138,18 @@ export class SpeedSection {
    * @type {boolean}
    */
   public get recordingDisabled(): boolean {
-    return this.downloading || !this.recordingAvailable || !this.recordingStorageAvailable;
+    return this.engineBlocked || this.downloading || !this.recordingAvailable || !this.recordingStorageAvailable;
+  }
+
+  /**
+   * Whether live speed controls are disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get liveControlDisabled(): boolean {
+    return this.engineBlocked || this.downloading;
   }
 
   /**

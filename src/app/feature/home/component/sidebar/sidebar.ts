@@ -156,6 +156,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public rebuilding = false;
 
   /**
+   * Whether the live engine is blocked by a GPU error.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input()
+  public engineBlocked = false;
+
+  /**
    * Grid column count.
    *
    * @public

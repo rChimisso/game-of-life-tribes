@@ -66,6 +66,15 @@ export class SnapshotSection {
   public stepping = false;
 
   /**
+   * Whether the live engine is blocked by a GPU error.
+   *
+   * @public
+   * @type {boolean}
+   */
+  @Input({required: true})
+  public engineBlocked = false;
+
+  /**
    * Current snapshot progress bar mode.
    *
    * @public
@@ -113,13 +122,24 @@ export class SnapshotSection {
   public readonly loadState = new EventEmitter<ArrayBuffer>();
 
   /**
-   * Whether snapshot actions are disabled.
+   * Whether snapshot save is disabled.
    *
    * @public
    * @readonly
    * @type {boolean}
    */
-  public get snapshotActionsDisabled(): boolean {
+  public get snapshotSaveDisabled(): boolean {
+    return this.engineBlocked || this.snapshotLoadDisabled;
+  }
+
+  /**
+   * Whether snapshot load is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get snapshotLoadDisabled(): boolean {
     return this.running || this.downloading || this.savingState || this.loadingState || this.stepping;
   }
 

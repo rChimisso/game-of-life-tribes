@@ -362,6 +362,46 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   );
 
   /**
+   * Pending animation frame for coalesced resize work.
+   *
+   * @private
+   * @type {(number | null)}
+   */
+  private pendingResizeFrame: number | null = null;
+
+  /**
+   * Latest pending canvas width in device pixels.
+   *
+   * @private
+   * @type {number}
+   */
+  private pendingResizeWidth = 0;
+
+  /**
+   * Latest pending canvas height in device pixels.
+   *
+   * @private
+   * @type {number}
+   */
+  private pendingResizeHeight = 0;
+
+  /**
+   * Last worker canvas width applied in device pixels.
+   *
+   * @private
+   * @type {number}
+   */
+  private appliedCanvasWidth = 0;
+
+  /**
+   * Last worker canvas height applied in device pixels.
+   *
+   * @private
+   * @type {number}
+   */
+  private appliedCanvasHeight = 0;
+
+  /**
    * Zooms the canvas around the wheel pointer position.
    *
    * @public
@@ -424,12 +464,11 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @public
    */
   public onResize(): void {
-    if (this.ruleset) {
-      const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      this.workerClient.resize(Math.round(rect.width * dpr), Math.round(rect.height * dpr));
-      this.viewport.refreshScaleBounds();
-      this.inputController.sendCamera();
+    if (this.ruleset && this.workerClient.initialized) {
+      this.capturePendingResize();
+      if (this.pendingResizeFrame === null) {
+        this.pendingResizeFrame = requestAnimationFrame(() => this.flushPendingResize());
+      }
     }
   }
 
@@ -442,6 +481,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
+    this.appliedCanvasWidth = canvas.width;
+    this.appliedCanvasHeight = canvas.height;
     const offscreen = canvas.transferControlToOffscreen();
     this.workerClient.initialize({
       type: 'init',
@@ -610,6 +651,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @inheritdoc
    */
   public ngOnDestroy(): void {
+    this.cancelPendingResize();
     this.workerClient.terminate();
   }
 
@@ -633,5 +675,48 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     const inputBlockedChangedToBlocked = Boolean(changes.inputBlocked && this.inputBlocked);
     const brushPreviewInputChanged = Boolean(changes.brushSize || changes.brushShape || changes.panMode);
     this.inputController.syncBrushPreviewInputChanges(inputBlockedChangedToBlocked, brushPreviewInputChanged);
+  }
+
+  /**
+   * Captures the latest canvas size requested by the browser resize stream.
+   *
+   * @private
+   */
+  private capturePendingResize(): void {
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    this.pendingResizeWidth = Math.round(rect.width * dpr);
+    this.pendingResizeHeight = Math.round(rect.height * dpr);
+  }
+
+  /**
+   * Applies the latest coalesced canvas resize to the worker.
+   *
+   * @private
+   */
+  private flushPendingResize(): void {
+    this.pendingResizeFrame = null;
+    if (this.pendingResizeWidth > 0 && this.pendingResizeHeight > 0) {
+      const sizeChanged = this.pendingResizeWidth !== this.appliedCanvasWidth || this.pendingResizeHeight !== this.appliedCanvasHeight;
+      this.viewport.refreshScaleBounds();
+      if (sizeChanged) {
+        this.workerClient.resize(this.pendingResizeWidth, this.pendingResizeHeight);
+        this.appliedCanvasWidth = this.pendingResizeWidth;
+        this.appliedCanvasHeight = this.pendingResizeHeight;
+      }
+      this.inputController.sendCamera();
+    }
+  }
+
+  /**
+   * Cancels any pending coalesced resize frame.
+   *
+   * @private
+   */
+  private cancelPendingResize(): void {
+    if (this.pendingResizeFrame !== null) {
+      cancelAnimationFrame(this.pendingResizeFrame);
+      this.pendingResizeFrame = null;
+    }
   }
 }

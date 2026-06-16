@@ -1038,8 +1038,10 @@ function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, cen
     u32View[11] = rect.spanCols;
     u32View[12] = rect.spanRows;
     u32View[13] = 0;
+    u32View[14] = 0;
+    u32View[15] = 0;
     for (let i = 0; i < tribeIds.length && i < 32; i++) {
-      u32View[14 + i] = tribeIds[i]!;
+      u32View[16 + i] = tribeIds[i]!;
     }
     const brushUniformBuffer = brushUniformBuffers[index];
     const bindGroup = bindGroups[index];

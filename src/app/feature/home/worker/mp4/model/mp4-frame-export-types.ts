@@ -5,6 +5,8 @@ import {Mp4OutputSize} from './mp4-types';
 import {RecordingFrameSelection, PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {ZipWriter} from '../../zip/zip-writer';
 
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
+
 /**
  * Encoded packets queued before the writer waits for muxer backpressure.
  *
@@ -64,6 +66,12 @@ export interface Mp4FrameExportOptions {
    * @type {(status: string) => void}
    */
   onStatus: (status: string) => void;
+  /**
+   * Wrapped full-grid origin for MP4 visual exports.
+   *
+   * @type {?(ExportFrameOrigin | null)}
+   */
+  exportFrameOrigin?: ExportFrameOrigin | null;
 }
 
 /**

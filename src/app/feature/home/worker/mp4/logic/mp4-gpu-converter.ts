@@ -6,6 +6,7 @@ import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameConver
 import {MP4_CONVERSION_SHADER} from '../model/mp4-gpu-shader';
 import {Mp4OutputSize} from '../model/mp4-types';
 
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 import {Tribe} from '~gol/feature/home/model/rule';
 
 /**
@@ -49,6 +50,15 @@ export class Mp4GpuFrameConverter {
    * @type {Mp4OutputSize}
    */
   private readonly outputSize: Mp4OutputSize;
+
+  /**
+   * Wrapped full-grid origin for visual export conversion.
+   *
+   * @private
+   * @readonly
+   * @type {(ExportFrameOrigin | null)}
+   */
+  private readonly exportFrameOrigin: ExportFrameOrigin | null;
 
   /**
    * WebGPU canvas format.
@@ -160,6 +170,7 @@ export class Mp4GpuFrameConverter {
       return info;
     });
     this.outputSize = resources.outputSize;
+    this.exportFrameOrigin = resources.exportFrameOrigin;
     this.canvasFormat = resources.canvasFormat;
     this.canvas = new OffscreenCanvas(resources.outputSize.width, resources.outputSize.height);
     const context = this.canvas.getContext('webgpu');
@@ -191,9 +202,10 @@ export class Mp4GpuFrameConverter {
    * @param {Mp4OutputSize} outputSize output video size.
    * @param {readonly Tribe[]} tribes ordered tribe metadata.
    * @param {PackedRecordedFrame} firstFrame first frame used for initial buffer sizing.
+   * @param {(ExportFrameOrigin | null)} exportFrameOrigin wrapped visual export origin.
    * @returns {Promise<Mp4GpuFrameConverter>} GPU converter.
    */
-  public static async create(outputSize: Mp4OutputSize, tribes: readonly Tribe[], firstFrame: PackedRecordedFrame): Promise<Mp4GpuFrameConverter> {
+  public static async create(outputSize: Mp4OutputSize, tribes: readonly Tribe[], firstFrame: PackedRecordedFrame, exportFrameOrigin: ExportFrameOrigin | null): Promise<Mp4GpuFrameConverter> {
     const device = await requestMp4GpuDevice();
     const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     const shaderModule = device.createShaderModule({
@@ -224,13 +236,14 @@ export class Mp4GpuFrameConverter {
       size: MP4_CONVERSION_CONFIG_U32_COUNT * Uint32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    const initialUpload = createMp4FrameUpload(firstFrame, outputSize);
+    const initialUpload = createMp4FrameUpload(firstFrame, outputSize, exportFrameOrigin);
     const frameBuffer = createStorageBuffer(device, GPU_LABELS.mp4ConversionFrameBuffer, initialUpload.words.byteLength);
     console.log('[GOLT] MP4 GPU converter initialized', {
       outputWidth: outputSize.width,
       outputHeight: outputSize.height,
       sourceCols: firstFrame.cols,
       sourceRows: firstFrame.rows,
+      exportFrameOrigin,
       frameBytes: firstFrame.words.byteLength,
       uploadBytes: initialUpload.words.byteLength,
       sampledRows: initialUpload.sampledRows
@@ -244,7 +257,8 @@ export class Mp4GpuFrameConverter {
       paletteBuffer,
       configBuffer,
       frameBuffer,
-      frameBufferBytes: initialUpload.words.byteLength
+      frameBufferBytes: initialUpload.words.byteLength,
+      exportFrameOrigin
     });
   }
 
@@ -263,10 +277,10 @@ export class Mp4GpuFrameConverter {
     assertNotDisposed(this.disposed);
     assertNotCancelled(shouldCancel);
     this.assertDeviceAvailable();
-    const upload = createMp4FrameUpload(frame, this.outputSize);
+    const upload = createMp4FrameUpload(frame, this.outputSize, this.exportFrameOrigin);
     this.ensureFrameBuffer(upload.words.byteLength);
     this.device.queue.writeBuffer(this.frameBuffer, 0, upload.words);
-    this.device.queue.writeBuffer(this.configBuffer, 0, createConversionConfig(frame, this.outputSize, this.paletteLength, upload.sampledRows));
+    this.device.queue.writeBuffer(this.configBuffer, 0, createConversionConfig(frame, this.outputSize, this.paletteLength, upload.sampledRows, this.exportFrameOrigin));
     const encoder = this.device.createCommandEncoder({label: GPU_LABELS.mp4ConversionEncoder});
     const pass = encoder.beginRenderPass({
       label: GPU_LABELS.mp4ConversionPass,

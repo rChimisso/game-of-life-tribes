@@ -371,7 +371,10 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
 async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
   const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
-  const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, createDownloadStreamCancellationOptions()) : null;
+  const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, {
+    ...createDownloadStreamCancellationOptions(),
+    exportFrameOrigin: opts.exportFrameOrigin ?? null
+  }) : null;
   let mp4Writer: Mp4FrameExportWriter | null = null;
   const operationsPerFrame = Number(metricsWriter !== null) + Number(pngWriter !== null) + Number(opts.mp4);
   let framesCompleted = 0;
@@ -442,6 +445,7 @@ function createSharedMp4Options(opts: DownloadRequestPayload): Mp4FrameExportOpt
   return {
     fps: opts.fps,
     bitrate: opts.bitrate,
+    exportFrameOrigin: opts.exportFrameOrigin ?? null,
     shouldCancel: () => cancelRequested,
     onStatus: status => {
       throwIfCancelled();

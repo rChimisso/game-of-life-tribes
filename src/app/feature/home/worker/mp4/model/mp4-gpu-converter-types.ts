@@ -1,11 +1,13 @@
 import {Mp4OutputSize} from './mp4-types';
 
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
+
 /**
  * Uniform config u32 count, padded to a 16-byte boundary.
  *
  * @type {number}
  */
-export const MP4_CONVERSION_CONFIG_U32_COUNT = 12;
+export const MP4_CONVERSION_CONFIG_U32_COUNT = 16;
 
 /**
  * Minimum storage-buffer size accepted by WebGPU.
@@ -75,6 +77,12 @@ export interface Mp4GpuFrameConverterResources {
    * @type {number}
    */
   frameBufferBytes: number;
+  /**
+   * Wrapped full-grid origin for MP4 visual exports.
+   *
+   * @type {(ExportFrameOrigin | null)}
+   */
+  exportFrameOrigin: ExportFrameOrigin | null;
 }
 
 /**

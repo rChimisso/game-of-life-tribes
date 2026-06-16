@@ -408,7 +408,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public get storageBarTooltip(): string {
-    return `${this.storagePendingFormatted} pending / ${this.storageCompressedFormatted} compressed / ${this.storageQuotaFormatted} quota`;
+    return `${this.storagePendingFormatted} pending / ${this.storageCompressedFormatted} compressed / ${this.storageQuotaFormatted} browser quota estimate`;
   }
 
   /**

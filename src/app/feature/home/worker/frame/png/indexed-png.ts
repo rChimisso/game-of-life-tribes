@@ -4,6 +4,7 @@ import {IDAT_CHUNK_TYPE, IndexedPngFrameOptions, IndexedPngPalette, PNG_EXPORT_C
 import {abortWritableStreamWriter, createStreamCancellationState, observeStreamPump, pumpReadableChunks, throwStreamPumpError, waitForCancellablePromise} from '../../io/logic/stream';
 import {ByteSink, StreamCancellationState, StreamPumpState} from '../../io/model/stream';
 import {decodePackedRow} from '../../snapshot/packing/packed-access';
+import {DecodedPackedRow} from '../../snapshot/packing/packed-access-types';
 import {PackedRecordedFrame} from '../recording-frame-types';
 
 /**
@@ -17,7 +18,10 @@ import {PackedRecordedFrame} from '../recording-frame-types';
  * @param {StreamCancellationState} cancellation active cancellation state.
  */
 async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<BufferSource>, frame: PackedRecordedFrame, palette: IndexedPngPalette, options: IndexedPngFrameOptions, cancellation: StreamCancellationState): Promise<void> {
+  const originX = options.exportFrameOrigin?.originX ?? 0;
+  const originY = options.exportFrameOrigin?.originY ?? 0;
   const decodedRow = new Uint8Array(frame.cols);
+  const sourceRow = originX === 0 ? decodedRow : new Uint8Array(frame.cols);
   const scanlineBytes = 1 + Math.ceil((frame.cols * palette.bitDepth) / 8);
   const rowsPerBlock = choosePngRowsPerBlock(scanlineBytes, frame.rows);
   const blockA = new Uint8Array(scanlineBytes * rowsPerBlock);
@@ -28,7 +32,7 @@ async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<Buff
     assertNotCancelled(options);
     const rowOffset = usedRows * scanlineBytes;
     const scanline = activeBlock.subarray(rowOffset, rowOffset + scanlineBytes);
-    decodePackedRow(frame.words, frame, frame.format, y, decodedRow);
+    decodeExportFrameRow(frame, y, originX, originY, sourceRow, decodedRow);
     packIndexedPngScanline(decodedRow, frame.cols, palette.bitDepth, scanline, palette.stateToPaletteIndex);
     usedRows++;
     if (usedRows === rowsPerBlock) {
@@ -41,6 +45,24 @@ async function writeCompressedScanlines(writer: WritableStreamDefaultWriter<Buff
   if (usedRows > 0) {
     await writeScanlineBlock(writer, activeBlock, usedRows, scanlineBytes, cancellation);
     options.onRowsProcessed?.(frame.rows, frame.rows);
+  }
+}
+
+/**
+ * Decodes one visual export row using the frozen toroidal origin.
+ *
+ * @param {PackedRecordedFrame} frame packed recorded frame.
+ * @param {number} outputY output row index.
+ * @param {number} originX wrapped export origin column.
+ * @param {number} originY wrapped export origin row.
+ * @param {DecodedPackedRow} sourceRow decoded source row buffer.
+ * @param {DecodedPackedRow} out decoded export row output.
+ */
+function decodeExportFrameRow(frame: PackedRecordedFrame, outputY: number, originX: number, originY: number, sourceRow: DecodedPackedRow, out: DecodedPackedRow): void {
+  decodePackedRow(frame.words, frame, frame.format, (originY + outputY) % frame.rows, sourceRow);
+  if (originX > 0) {
+    out.set(sourceRow.subarray(originX, frame.cols), 0);
+    out.set(sourceRow.subarray(0, originX), frame.cols - originX);
   }
 }
 

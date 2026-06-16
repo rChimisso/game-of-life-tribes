@@ -1,3 +1,5 @@
+import {ExportFrameOrigin} from './export-frame-origin';
+
 /**
  * Compression worker queue status.
  *
@@ -128,6 +130,12 @@ export interface DownloadRequestPayload {
    * @type {boolean}
    */
   forceChunkDownload: boolean;
+  /**
+   * Optional wrapped full-grid origin for visual frame exports.
+   *
+   * @type {?(ExportFrameOrigin | null)}
+   */
+  exportFrameOrigin?: ExportFrameOrigin | null;
 }
 
 /**

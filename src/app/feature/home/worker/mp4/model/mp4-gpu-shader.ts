@@ -15,8 +15,12 @@ struct ConvertConfig {
   cellMask: u32,
   paletteLength: u32,
   sampledRows: u32,
+  exportOriginX: u32,
+  exportOriginY: u32,
+  pad0: u32,
   pad1: u32,
   pad2: u32,
+  pad3: u32,
 };
 
 @group(0) @binding(0) var<storage, read> frameWords: array<u32>;
@@ -48,12 +52,22 @@ fn readPackedState(sourceX: u32, sourceY: u32, outY: u32) -> u32 {
   return min(state, config.paletteLength - 1u);
 }
 
+fn wrapAdd(base: u32, delta: u32, size: u32) -> u32 {
+  let rem = delta % size;
+  if (base >= size - rem) {
+    return base - (size - rem);
+  }
+  return base + rem;
+}
+
 @fragment
 fn fragmentMain(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let outX = min(u32(position.x), config.outputWidth - 1u);
   let outY = min(u32(position.y), config.outputHeight - 1u);
-  let sourceX = min(config.sourceCols - 1u, u32(floor((f32(outX) + 0.5) * f32(config.sourceCols) / f32(config.outputWidth))));
-  let sourceY = min(config.sourceRows - 1u, u32(floor((f32(outY) + 0.5) * f32(config.sourceRows) / f32(config.outputHeight))));
+  let unwrappedSourceX = min(config.sourceCols - 1u, u32(floor((f32(outX) + 0.5) * f32(config.sourceCols) / f32(config.outputWidth))));
+  let unwrappedSourceY = min(config.sourceRows - 1u, u32(floor((f32(outY) + 0.5) * f32(config.sourceRows) / f32(config.outputHeight))));
+  let sourceX = wrapAdd(config.exportOriginX, unwrappedSourceX, config.sourceCols);
+  let sourceY = wrapAdd(config.exportOriginY, unwrappedSourceY, config.sourceRows);
   return palette[readPackedState(sourceX, sourceY, outY)];
 }
 `;

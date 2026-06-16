@@ -22,6 +22,7 @@ import {applyRuleTribeRenames} from './logic/tribe-impact';
 import {DownloadRequestPayload} from './model/download';
 import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES} from './model/download-estimate';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
+import {ExportFrameOrigin} from './model/export-frame-origin';
 import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
@@ -821,21 +822,21 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     }
     if (level > this.quotaWarningLevel) {
       this.quotaWarningLevel = level;
-      const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress — size may decrease)' : '';
+      const compHint = this.storagePendingRawBytes > 0 ? ' (compression in progress - size may decrease)' : '';
       const alreadyPaused = this.state === 'paused' && !this.stepping;
       if (level === 25) {
-        openHomeSnack(this.snackBar, `Recording storage at 25% capacity${compHint}`, 'info');
+        openHomeSnack(this.snackBar, `Recording storage at 25% of browser quota${compHint}`, 'info');
       } else if (level === 50) {
-        openHomeSnack(this.snackBar, `Recording storage at 50% capacity${compHint}`, 'warn');
+        openHomeSnack(this.snackBar, `Recording storage at 50% of browser quota${compHint}`, 'warn');
       } else if (level === 75) {
-        const pauseHint = alreadyPaused ? '' : ' — simulation paused to preserve data';
-        openHomeSnack(this.snackBar, `Recording storage at 75%${pauseHint}${compHint}`, 'warn');
+        const pauseHint = alreadyPaused ? '' : ' - simulation paused to preserve data';
+        openHomeSnack(this.snackBar, `Recording storage at 75% of browser quota${pauseHint}${compHint}`, 'warn');
         if (this.stepping) {
           this.cancelStepping();
         }
         this.setRunState('paused');
       } else if (level === 100) {
-        openHomeSnack(this.snackBar, `Storage full — recording disabled. Save your data, then reset.${compHint}`, 'error');
+        openHomeSnack(this.snackBar, `Browser storage quota reached - recording disabled. Save your data, then reset.${compHint}`, 'error');
         if (this.stepping) {
           this.cancelStepping();
         }
@@ -1064,38 +1065,32 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @param {KeyboardEvent} ev keyboard event.
    */
   private handleKeydown(ev: KeyboardEvent): void {
-    if (this.downloadProgress < 0) {
+    const shortcutBlockedByFocus = this.activeElementBlocksShortcut(document.activeElement);
+    let shortcut = shortcutBlockedByFocus ? {handled: false, shouldSavePreferences: false} : this.handleInterfaceShortcut(ev.key);
+    if (!shortcut.handled && this.downloadProgress < 0) {
       if (this.stepping) {
-        if (ev.key === ' ') {
+        if (ev.key === ' ' && !shortcutBlockedByFocus) {
           this.cancelStepping();
-          ev.preventDefault();
-          ev.stopPropagation();
-          (document.activeElement as HTMLElement)?.blur?.();
-          this.cdr.markForCheck();
+          shortcut = {handled: true, shouldSavePreferences: false};
         }
-        return;
-      }
-      if (!(this.shortcutOverlayActive || this.activeElementBlocksShortcut(document.activeElement))) {
-        let shortcut = this.handleInterfaceShortcut(ev.key);
-        if (!shortcut.handled) {
-          shortcut = this.handlePlaybackShortcut(ev.key);
-        }
+      } else if (!shortcutBlockedByFocus && !this.shortcutOverlayActive) {
+        shortcut = this.handlePlaybackShortcut(ev.key);
         if (!shortcut.handled) {
           shortcut = this.handleSelectionShortcut(ev.key);
         }
         if (!shortcut.handled) {
           shortcut = this.handleBrushShortcut(ev.key);
         }
-        if (shortcut.handled) {
-          if (shortcut.shouldSavePreferences) {
-            this.savePreferences();
-          }
-          ev.preventDefault();
-          ev.stopPropagation();
-          (document.activeElement as HTMLElement)?.blur?.();
-          this.cdr.markForCheck();
-        }
       }
+    }
+    if (shortcut.handled) {
+      if (shortcut.shouldSavePreferences) {
+        this.savePreferences();
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      (document.activeElement as HTMLElement)?.blur?.();
+      this.cdr.markForCheck();
     }
   }
 
@@ -1468,6 +1463,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   private cancelDownload(): void {
     console.log('[GOLT] Cancelling download');
+    this.clearExportFrameOrigin();
     this.downloadCancelRequested = true;
     this.compressionScheduler.notifyWaiters();
     if (this.downloadWorker) {
@@ -1565,6 +1561,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       setDownloadPreview: preview => {
         this.downloadRequestPreview = preview;
       },
+      beginExportFrameOrigin: downloadOpts => this.beginExportFrameOrigin(downloadOpts),
+      clearExportFrameOrigin: () => this.clearExportFrameOrigin(),
       setCancelRequested: cancelled => {
         this.downloadCancelRequested = cancelled;
       },
@@ -1592,6 +1590,34 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       resetDownloadState: () => this.resetDownloadState(),
       openSnack: (message, tone) => openHomeSnack(this.snackBar, message, tone)
     });
+  }
+
+  /**
+   * Captures and displays the active visual export framing origin.
+   *
+   * @private
+   * @param {DownloadRequestPayload} opts download options.
+   * @returns {(ExportFrameOrigin | null)} active export origin.
+   */
+  private beginExportFrameOrigin(opts: DownloadRequestPayload): ExportFrameOrigin | null {
+    let origin: ExportFrameOrigin | null = null;
+    if ((opts.png || opts.mp4) && !opts.forceChunkDownload) {
+      origin = this.engine.createExportFrameOrigin();
+      this.engine.setExportFrameOrigin(origin);
+      console.info('[GOLT] Visual export framing origin captured', origin);
+    } else {
+      this.engine.setExportFrameOrigin(null);
+    }
+    return origin;
+  }
+
+  /**
+   * Clears the active visual export framing overlay.
+   *
+   * @private
+   */
+  private clearExportFrameOrigin(): void {
+    this.engine.setExportFrameOrigin(null);
   }
 
   /**
@@ -1654,6 +1680,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       requestUncompressedChunks: () => this.engine.requestUncompressedChunks(),
       openSnack: (message, tone) => openHomeSnack(this.snackBar, message, tone),
       waitForMinimumVisibleTime: operationStartedAt => this.waitForMinimumVisibleTime(operationStartedAt),
+      clearExportFrameOrigin: () => this.clearExportFrameOrigin(),
       downloadBlob: (blob, filename) => this.store$.dispatch(downloadBlob({blob, filename}))
     });
   }

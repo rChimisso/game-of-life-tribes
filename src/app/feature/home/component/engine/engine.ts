@@ -5,6 +5,7 @@ import {EngineViewport} from './logic/engine-viewport';
 import {EngineWorkerClient} from './logic/engine-worker-client';
 import {normalizeLiveMetricsSettings} from '../../logic/metric-settings';
 import {BrushFill, BrushShape} from '../../model/draw-mode';
+import {ExportFrameOrigin} from '../../model/export-frame-origin';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {Ruleset, Tribe} from '../../model/rule';
@@ -544,6 +545,26 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    */
   public requestUncompressedChunks(): void {
     this.workerClient.requestUncompressedChunks();
+  }
+
+  /**
+   * Resolves the current full-grid visual export origin.
+   *
+   * @public
+   * @returns {ExportFrameOrigin} wrapped export frame origin.
+   */
+  public createExportFrameOrigin(): ExportFrameOrigin {
+    return this.viewport.createCenteredExportFrameOrigin();
+  }
+
+  /**
+   * Updates the grid-relative visual export framing overlay.
+   *
+   * @public
+   * @param {(ExportFrameOrigin | null)} origin active export origin.
+   */
+  public setExportFrameOrigin(origin: ExportFrameOrigin | null): void {
+    this.workerClient.setExportFrameOrigin(origin);
   }
 
   /**

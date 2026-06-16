@@ -5,6 +5,7 @@ import {MIN_GPU_BUFFER_BYTES, MP4_CONVERSION_CONFIG_U32_COUNT, Mp4GpuFrameUpload
 import {Mp4OutputSize} from '../model/mp4-types';
 
 import {packedColsForFormat} from '~gol/feature/home/logic/grid-format';
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 
 /**
  * Requests a WebGPU device suitable for MP4 conversion.
@@ -50,9 +51,10 @@ export function createStorageBuffer(device: GPUDevice, label: string, byteLength
  * @param {Mp4OutputSize} outputSize output video size.
  * @param {number} paletteLength number of GPU palette entries.
  * @param {boolean} sampledRows whether rows have been sampled for conversion.
+ * @param {(ExportFrameOrigin | null)} exportFrameOrigin wrapped visual export origin.
  * @returns {Uint32Array} conversion config.
  */
-export function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean): Uint32Array {
+export function createConversionConfig(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, paletteLength: number, sampledRows: boolean, exportFrameOrigin: ExportFrameOrigin | null): Uint32Array {
   const config = new Uint32Array(MP4_CONVERSION_CONFIG_U32_COUNT);
   config[0] = frame.cols;
   config[1] = frame.rows;
@@ -64,6 +66,8 @@ export function createConversionConfig(frame: PackedRecordedFrame, outputSize: M
   config[7] = frame.format.cellMask;
   config[8] = Math.max(1, paletteLength);
   config[9] = sampledRows ? 1 : 0;
+  config[10] = exportFrameOrigin?.originX ?? 0;
+  config[11] = exportFrameOrigin?.originY ?? 0;
   return config;
 }
 
@@ -72,16 +76,17 @@ export function createConversionConfig(frame: PackedRecordedFrame, outputSize: M
  *
  * @param {PackedRecordedFrame} frame packed recorded frame.
  * @param {Mp4OutputSize} outputSize output video size.
+ * @param {(ExportFrameOrigin | null)} exportFrameOrigin wrapped visual export origin.
  * @returns {Mp4GpuFrameUpload} frame upload data.
  */
-export function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputSize): Mp4GpuFrameUpload {
+export function createMp4FrameUpload(frame: PackedRecordedFrame, outputSize: Mp4OutputSize, exportFrameOrigin: ExportFrameOrigin | null): Mp4GpuFrameUpload {
   const packedCols = packedColsForFormat(frame.cols, frame.format);
+  const originY = exportFrameOrigin?.originY ?? 0;
   let upload: Mp4GpuFrameUpload;
   if (outputSize.height < frame.rows) {
     const sampled = new Uint32Array(packedCols * outputSize.height);
     for (let outY = 0; outY < outputSize.height; outY++) {
-      const sourceY = Math.min(frame.rows - 1, Math.floor((outY + 0.5) * frame.rows / outputSize.height));
-      const sourceOffset = sourceY * packedCols;
+      const sourceOffset = ((originY + Math.min(frame.rows - 1, Math.floor((outY + 0.5) * frame.rows / outputSize.height))) % frame.rows) * packedCols;
       sampled.set(frame.words.subarray(sourceOffset, sourceOffset + packedCols), outY * packedCols);
     }
     upload = {

@@ -1,3 +1,5 @@
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
+
 /**
  * PNG signature bytes.
  *
@@ -121,4 +123,10 @@ export interface IndexedPngFrameOptions {
    * @type {?((rowsProcessed: number, rowsTotal: number) => void)}
    */
   onRowsProcessed?: (rowsProcessed: number, rowsTotal: number) => void;
+  /**
+   * Wrapped full-grid origin for PNG visual exports.
+   *
+   * @type {?(ExportFrameOrigin | null)}
+   */
+  exportFrameOrigin?: ExportFrameOrigin | null;
 }

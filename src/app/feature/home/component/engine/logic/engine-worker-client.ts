@@ -1,10 +1,11 @@
 import {dispatchWorkerMessage} from '../../../logic/worker-runner';
 import {EngineWorkerOutputMessage, EngineWorkerOutputHandlers} from '../model/engine-worker-output';
 
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 import {LiveMetricsSettings} from '~gol/feature/home/model/metrics';
 import {Ruleset, Tribe} from '~gol/feature/home/model/rule';
-import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, WorkerMessage} from '~gol/feature/home/model/worker-message';
+import {BrushPreviewMessage, CameraMessage, DrawMessage, ExportFrameOverlayMessage, InitMessage, WorkerMessage} from '~gol/feature/home/model/worker-message';
 
 /**
  * Worker transport and output dispatch for the engine component.
@@ -260,6 +261,21 @@ export class EngineWorkerClient {
    * @param {BrushPreviewMessage} message brush preview message.
    */
   public setBrushPreview(message: BrushPreviewMessage): void {
+    this.post(message);
+  }
+
+  /**
+   * Updates the export frame overlay.
+   *
+   * @public
+   * @param {(ExportFrameOrigin | null)} origin active export origin.
+   */
+  public setExportFrameOrigin(origin: ExportFrameOrigin | null): void {
+    const message: ExportFrameOverlayMessage = {
+      type: 'exportFrameOverlay',
+      visible: origin !== null,
+      origin
+    };
     this.post(message);
   }
 

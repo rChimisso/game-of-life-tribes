@@ -10,7 +10,7 @@ import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-forma
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings, MetricAvailability} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../model/rule';
-import {BrushPreviewMessage, CameraMessage, DrawMessage, InitMessage, LoadSnapshotMessage, ResizeMessage, SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
+import {BrushPreviewMessage, CameraMessage, DrawMessage, ExportFrameOverlayMessage, InitMessage, LoadSnapshotMessage, ResizeMessage, SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
 import {requestWorkerGpuDevice} from './gpu/gpu-device';
 import {GPU_LABELS} from './gpu/gpu-labels';
 import {buildInteractiveMetricMessage, createInteractiveMetricsResources, destroyInteractiveMetricsResources, encodeInteractiveMetrics, readInteractiveMetrics} from './metric/interactive/interactive';
@@ -26,7 +26,7 @@ import {bufferedStepBackState, buildStepBackPrefix, resolveStepBackTarget} from 
 import {BrushPreview, PendingBrush} from './webengine/model/brush';
 import {DispatchPlan2D} from './webengine/model/dispatch-plan';
 import {OPFS_DIR, RAW_DEFLATE_CODEC, RAW_PACKED_CODEC, STAGING_RING_SIZE} from './webengine/model/recording-runtime';
-import {TRIBE_COLOR_BUFFER_SIZE, UNIFORM_SIZE} from './webengine/model/render';
+import {ExportFrameOverlay, TRIBE_COLOR_BUFFER_SIZE, UNIFORM_SIZE} from './webengine/model/render';
 import {PumpSchedule, StopRunOptions} from './webengine/model/run-control';
 import {RunKind, RunRequest, RunState, RunStopReason} from './webengine/model/run-state';
 
@@ -306,6 +306,17 @@ let brushPreview: BrushPreview = {
   centerY: 0,
   brushSize: 1,
   shape: 0,
+  visible: false
+};
+
+/**
+ * Visual export framing overlay state rendered over the grid.
+ *
+ * @type {ExportFrameOverlay}
+ */
+let exportFrameOverlay: ExportFrameOverlay = {
+  originX: 0,
+  originY: 0,
   visible: false
 };
 
@@ -823,7 +834,8 @@ function writeUniforms(): void {
     offsetY,
     grid: currentGridSize(),
     tribeCount: tribes.length,
-    brushPreview
+    brushPreview,
+    exportFrameOverlay
   });
   device.queue.writeBuffer(uniformBuffer, 0, data);
 }
@@ -2679,6 +2691,9 @@ function handleCameraMessage(message: CameraMessage): void {
   scale = message.scale;
   offsetX = message.offsetX;
   offsetY = message.offsetY;
+  if (!activeRun && !rebuilding && !deviceLost) {
+    renderFrame();
+  }
 }
 
 /**
@@ -2689,6 +2704,9 @@ function handleCameraMessage(message: CameraMessage): void {
 function handleResizeMessage(message: ResizeMessage): void {
   canvas.width = message.width;
   canvas.height = message.height;
+  if (!activeRun && !rebuilding && !deviceLost) {
+    renderFrame();
+  }
 }
 
 /**
@@ -2741,6 +2759,22 @@ function handleBrushPreviewMessage(message: BrushPreviewMessage): void {
     brushSize: message.size,
     shape: shapeMap[message.shape] ?? 0,
     visible: message.visible
+  };
+  if (!activeRun && !rebuilding && !deviceLost && targetStepDuration <= 0) {
+    renderFrame();
+  }
+}
+
+/**
+ * Handles visual export framing overlay updates.
+ *
+ * @param {ExportFrameOverlayMessage} message export-frame overlay message.
+ */
+function handleExportFrameOverlayMessage(message: ExportFrameOverlayMessage): void {
+  exportFrameOverlay = {
+    originX: message.origin?.originX ?? 0,
+    originY: message.origin?.originY ?? 0,
+    visible: message.visible && message.origin !== null
   };
   if (!activeRun && !rebuilding && !deviceLost && targetStepDuration <= 0) {
     renderFrame();
@@ -3014,6 +3048,9 @@ async function handleWorkerMessage(message: WorkerMessage): Promise<void> {
       break;
     case 'brushPreview':
       handleBrushPreviewMessage(message);
+      break;
+    case 'exportFrameOverlay':
+      handleExportFrameOverlayMessage(message);
       break;
     case 'getSnapshot':
       await handleGetSnapshotMessage();

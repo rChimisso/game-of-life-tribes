@@ -1,5 +1,6 @@
 import {CompressionWaitMode} from './compression-scheduler';
 import {DownloadRequestPayload} from './download';
+import {ExportFrameOrigin} from './export-frame-origin';
 import {Rule, Tribe} from './rule';
 import {RecordingMessage, SnapshotMessage} from './worker-message';
 
@@ -129,6 +130,12 @@ export interface HomeDownloadWorkerCallbacks {
    * @type {(blob: Blob, filename: string) => void}
    */
   downloadBlob: (blob: Blob, filename: string) => void;
+  /**
+   * Clears the active visual export framing overlay.
+   *
+   * @type {() => void}
+   */
+  clearExportFrameOrigin: () => void;
 }
 
 /**
@@ -210,6 +217,18 @@ export interface HomeDownloadPreparationCallbacks {
    * @type {(opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null, startedAt: number) => void}
    */
   startDownloadWorker: (opts: DownloadRequestPayload, snap: SnapshotMessage, rec: RecordingMessage | null, startedAt: number) => void;
+  /**
+   * Captures and displays the active visual export framing origin.
+   *
+   * @type {(opts: DownloadRequestPayload) => ExportFrameOrigin | null}
+   */
+  beginExportFrameOrigin: (opts: DownloadRequestPayload) => ExportFrameOrigin | null;
+  /**
+   * Clears the active visual export framing overlay.
+   *
+   * @type {() => void}
+   */
+  clearExportFrameOrigin: () => void;
   /**
    * Compression resume callback.
    *

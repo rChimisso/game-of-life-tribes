@@ -1,5 +1,6 @@
 import {BrushPreview} from './brush';
 
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 import {Grid} from '~gol/feature/home/model/grid';
 
 /**
@@ -11,6 +12,21 @@ export const MAX_TRIBES = 256;
  * Byte size of the render uniform buffer.
  */
 export const UNIFORM_SIZE = 80;
+
+/**
+ * Export frame overlay rendered over the grid.
+ *
+ * @interface ExportFrameOverlay
+ * @typedef {ExportFrameOverlay}
+ */
+export interface ExportFrameOverlay extends ExportFrameOrigin {
+  /**
+   * Whether the overlay is visible.
+   *
+   * @type {boolean}
+   */
+  visible: boolean;
+}
 
 /**
  * Byte size of the tribe-color lookup buffer.
@@ -72,4 +88,10 @@ export interface RenderUniformInput {
    * @type {BrushPreview}
    */
   brushPreview: BrushPreview;
+  /**
+   * Current visual export framing overlay.
+   *
+   * @type {ExportFrameOverlay}
+   */
+  exportFrameOverlay: ExportFrameOverlay;
 }

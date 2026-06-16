@@ -1,5 +1,6 @@
 import {EnginePoint} from '../model/engine-input';
 
+import {ExportFrameOrigin, wrapExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 import {Grid} from '~gol/feature/home/model/grid';
 import {CameraMessage} from '~gol/feature/home/model/worker-message';
 
@@ -151,6 +152,20 @@ export class EngineViewport {
       offsetX: this.offsetX,
       offsetY: this.offsetY
     };
+  }
+
+  /**
+   * Resolves the full-grid export origin centered on the current viewport.
+   *
+   * @public
+   * @returns {ExportFrameOrigin} wrapped export frame origin.
+   */
+  public createCenteredExportFrameOrigin(): ExportFrameOrigin {
+    const rect = this.getCanvas().getBoundingClientRect();
+    const grid = this.getGrid();
+    const centerX = Math.floor((rect.width / 2) / this.scale + this.offsetX);
+    const centerY = Math.floor((rect.height / 2) / this.scale + this.offsetY);
+    return wrapExportFrameOrigin({originX: centerX - Math.floor(grid.cols / 2), originY: centerY - Math.floor(grid.rows / 2)}, grid);
   }
 
   /**

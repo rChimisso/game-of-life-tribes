@@ -33,6 +33,9 @@ export function createRenderUniformData(input: RenderUniformInput): ArrayBuffer 
   u32[14] = input.brushPreview.brushSize;
   u32[15] = input.brushPreview.shape;
   u32[16] = input.brushPreview.visible ? 1 : 0;
+  u32[17] = input.exportFrameOverlay.originX;
+  u32[18] = input.exportFrameOverlay.originY;
+  u32[19] = input.exportFrameOverlay.visible ? 1 : 0;
   return data;
 }
 

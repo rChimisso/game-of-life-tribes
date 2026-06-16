@@ -117,22 +117,28 @@ function handleDownloadPreparationFailure(error: unknown, callbacks: HomeDownloa
  */
 export async function prepareHomeDownload(opts: DownloadRequestPayload, callbacks: HomeDownloadPreparationCallbacks): Promise<void> {
   callbacks.setCancelRequested(false);
-  callbacks.setDownloadPreview(opts);
-  const needFrames = needsRecordedFrames(opts);
+  const exportFrameOrigin = callbacks.beginExportFrameOrigin(opts);
+  const downloadOpts: DownloadRequestPayload = {
+    ...opts,
+    exportFrameOrigin
+  };
+  callbacks.setDownloadPreview(downloadOpts);
+  const needFrames = needsRecordedFrames(downloadOpts);
   console.log('[GOLT] Download started', {
-    metrics: opts.metrics,
-    mp4: opts.mp4,
-    png: opts.png,
-    saves: opts.saves,
-    forceChunkDownload: opts.forceChunkDownload,
-    frameRange: opts.frameRange
+    metrics: downloadOpts.metrics,
+    mp4: downloadOpts.mp4,
+    png: downloadOpts.png,
+    saves: downloadOpts.saves,
+    forceChunkDownload: downloadOpts.forceChunkDownload,
+    frameRange: downloadOpts.frameRange,
+    exportFrameOrigin: downloadOpts.exportFrameOrigin
   });
   callbacks.pauseIfRunning();
   callbacks.setProgress(0, needFrames ? 'Saving pending recording frames' : PREPARING_SNAPSHOT_STATUS);
   callbacks.markForCheck();
   try {
     const flushedRecording = await flushRecordingForDownload(needFrames, callbacks);
-    const initialMode = resolveInitialDownloadMode(opts, flushedRecording, callbacks);
+    const initialMode = resolveInitialDownloadMode(downloadOpts, flushedRecording, callbacks);
     await waitForPreparedCompression(initialMode, callbacks);
     callbacks.setProgress(30, needFrames ? 'Refreshing recording manifest' : PREPARING_SNAPSHOT_STATUS);
     callbacks.markForCheck();
@@ -145,8 +151,9 @@ export async function prepareHomeDownload(opts: DownloadRequestPayload, callback
       generationStart: rec?.manifest.generationStart ?? null,
       generationEnd: rec?.manifest.generationEnd ?? null
     });
-    callbacks.startDownloadWorker(opts, snap, rec, performance.now());
+    callbacks.startDownloadWorker(downloadOpts, snap, rec, performance.now());
   } catch (error) {
     handleDownloadPreparationFailure(error, callbacks);
+    callbacks.clearExportFrameOrigin();
   }
 }

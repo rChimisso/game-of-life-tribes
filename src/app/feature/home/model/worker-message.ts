@@ -1,4 +1,5 @@
 import {BrushFill, BrushShape} from './draw-mode';
+import {ExportFrameOrigin} from './export-frame-origin';
 import {GridFormatMetadata} from './grid-format';
 import {LiveInterfaceMetrics, LiveMetricsSettings, MetricAvailability} from './metrics';
 import {RecordingManifest} from './recording';
@@ -226,6 +227,33 @@ export interface BrushPreviewMessage {
    * @type {BrushShape}
    */
   shape: BrushShape;
+}
+
+/**
+ * Export frame overlay shown over the rendered grid.
+ *
+ * @interface ExportFrameOverlayMessage
+ * @typedef {ExportFrameOverlayMessage}
+ */
+export interface ExportFrameOverlayMessage {
+  /**
+   * Worker request discriminator.
+   *
+   * @type {'exportFrameOverlay'}
+   */
+  type: 'exportFrameOverlay';
+  /**
+   * Whether the overlay should be visible.
+   *
+   * @type {boolean}
+   */
+  visible: boolean;
+  /**
+   * Wrapped visual export origin.
+   *
+   * @type {(ExportFrameOrigin | null)}
+   */
+  origin: ExportFrameOrigin | null;
 }
 
 /**
@@ -1041,6 +1069,7 @@ export type WorkerMessage =
   | SetSpeedMessage
   | DrawMessage
   | BrushPreviewMessage
+  | ExportFrameOverlayMessage
   | CameraMessage
   | ResizeMessage
   | GetSnapshotMessage

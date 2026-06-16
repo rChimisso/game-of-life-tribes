@@ -58,6 +58,7 @@ export function startHomeDownloadWorker(input: HomeDownloadWorkerInput, callback
   const releaseDownloadUi = () => {
     callbacks.resetDownloadState();
     callbacks.setCancelRequested(false);
+    callbacks.clearExportFrameOrigin();
     if (callbacks.getWorker() === worker) {
       callbacks.setWorker(null);
     }

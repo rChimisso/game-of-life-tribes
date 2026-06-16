@@ -13,6 +13,9 @@ struct Uniforms {
   preview_size: u32,     // Brush preview size in cells.
   preview_shape: u32,    // 0=square 1=round 2=diamond 3=vline 4=hline.
   preview_visible: u32,  // 1 when the brush preview should render.
+  export_origin_x: u32,  // Visual export unwrap origin column.
+  export_origin_y: u32,  // Visual export unwrap origin row.
+  export_visible: u32,   // 1 when the visual export framing overlay should render.
 };
 
 struct VertexOutput {
@@ -153,6 +156,59 @@ fn previewOutlineMask(ix: u32, iy: u32, local: vec2f) -> bool {
   return previewContinuousOutlineMask(local);
 }
 
+fn exportMarkerPixel(local: vec2f, marker: vec2u) -> vec2f {
+  let world = vec2f(f32(u.offset_cell.x), f32(u.offset_cell.y)) + local;
+  let delta = vec2f(
+    signedWrapWorldDelta(world.x, i32(marker.x), u.grid_size.x),
+    signedWrapWorldDelta(world.y, i32(marker.y), u.grid_size.y)
+  );
+  return (delta - vec2f(0.5, 0.5)) * u.scale;
+}
+
+fn exportMarkerMask(local: vec2f, marker: vec2u, includeCenterSquare: bool) -> bool {
+  let p = exportMarkerPixel(local, marker);
+  let arm = 32.0;
+  let stroke = 2.0;
+  let squareHalf = 8.0;
+  let cross = (abs(p.x) <= stroke && abs(p.y) <= arm) || (abs(p.y) <= stroke && abs(p.x) <= arm);
+  let centerSquare = includeCenterSquare && abs(p.x) <= squareHalf && abs(p.y) <= squareHalf;
+  return cross || centerSquare;
+}
+
+fn exportOriginMarkerMask(local: vec2f) -> bool {
+  return exportMarkerMask(local, vec2u(u.export_origin_x, u.export_origin_y), false);
+}
+
+fn exportCenterMarkerMask(local: vec2f) -> bool {
+  let center = vec2u(
+    wrapAdd(u.export_origin_x, u.grid_size.x / 2u, u.grid_size.x),
+    wrapAdd(u.export_origin_y, u.grid_size.y / 2u, u.grid_size.y)
+  );
+  return exportMarkerMask(local, center, true);
+}
+
+fn exportMarkerOutlineMask(local: vec2f, marker: vec2u, includeCenterSquare: bool) -> bool {
+  let p = exportMarkerPixel(local, marker);
+  let arm = 34.0;
+  let stroke = 4.0;
+  let squareHalf = 10.0;
+  let cross = (abs(p.x) <= stroke && abs(p.y) <= arm) || (abs(p.y) <= stroke && abs(p.x) <= arm);
+  let centerSquare = includeCenterSquare && abs(p.x) <= squareHalf && abs(p.y) <= squareHalf;
+  return cross || centerSquare;
+}
+
+fn exportOriginMarkerOutlineMask(local: vec2f) -> bool {
+  return exportMarkerOutlineMask(local, vec2u(u.export_origin_x, u.export_origin_y), false);
+}
+
+fn exportCenterMarkerOutlineMask(local: vec2f) -> bool {
+  let center = vec2u(
+    wrapAdd(u.export_origin_x, u.grid_size.x / 2u, u.grid_size.x),
+    wrapAdd(u.export_origin_y, u.grid_size.y / 2u, u.grid_size.y)
+  );
+  return exportMarkerOutlineMask(local, center, true);
+}
+
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
   // Full-screen triangle trick: 3 vertices cover the entire clip space.
@@ -192,6 +248,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let b = f32((color_packed >> 16u) & 0xFFu) / 255.0;
 
   if (u.preview_visible == 1u && previewOutlineMask(ix, iy, local)) {
+    return vec4f(0.82, 0.84, 0.86, 1.0);
+  }
+
+  if (u.export_visible == 1u && (exportCenterMarkerMask(local) || exportOriginMarkerMask(local))) {
+    return vec4f(0.0, 0.0, 0.0, 1.0);
+  }
+
+  if (u.export_visible == 1u && (exportCenterMarkerOutlineMask(local) || exportOriginMarkerOutlineMask(local))) {
     return vec4f(0.82, 0.84, 0.86, 1.0);
   }
 

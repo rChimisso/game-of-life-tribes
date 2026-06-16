@@ -29,7 +29,7 @@ export async function createMp4FrameExportWriter(zip: ZipWriter, recording: Grid
   const supportedConfig = await resolveSupportedAvcConfig(initialOutputSize, options);
   const {outputSize} = supportedConfig;
   const tempOutput = await Mp4TempOutput.create();
-  const converter = await Mp4GpuFrameConverter.create(outputSize, tribes, firstFrame);
+  const converter = await Mp4GpuFrameConverter.create(outputSize, tribes, firstFrame, options.exportFrameOrigin ?? null);
   const writer = await Mp4FrameExportWriterImpl.create(zip, selection, outputSize, supportedConfig, tempOutput, converter, options);
   console.log('[GOLT] MP4 export started', {
     selectedStartFrame: selection.selectedStartFrame,
@@ -37,6 +37,7 @@ export async function createMp4FrameExportWriter(zip: ZipWriter, recording: Grid
     selectedFrameCount: selection.framesTotal,
     sourceCols: recording.cols,
     sourceRows: recording.rows,
+    exportFrameOrigin: options.exportFrameOrigin ?? null,
     outputWidth: outputSize.width,
     outputHeight: outputSize.height,
     xScale: outputSize.xScale,

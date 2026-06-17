@@ -11,7 +11,7 @@
 <gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
   <gol-download-mp4-settings-form [disabled]="downloadControlsDisabled" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
 </gol-subsection>
-<div class="chunk-mode">
+<div class="chunk-mode" title="">
   <gol-checkbox label="Force chunk download" size="sm" tooltip="Export compressed recording chunks instead of selected outputs" [disabled]="forceChunkDownloadDisabled" [ngModel]="effectiveForceChunkDownload" (ngModelChange)="currentPreferences.forceChunkDownload = $event; onSettingChange()" />
   <div class="warning-message collapsible-message" [class.empty]="!downloadEstimateExceedsChunkThreshold" (transitionend)="onChunkModeMessageTransitionEnd($event)">
     <span class="message-content">{{ chunkModeWarning }}</span>

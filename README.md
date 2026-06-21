@@ -68,25 +68,45 @@ Presets are not locked demos. Load one, resize the world, draw into it, change a
 
 ## Simulation Controls
 
+<img align="left" width="33%" src="readme/playback.png" alt="playback-section">
+
 The playback controls cover both watching and inspecting a simulation. You can run or pause, step forward one or more generations, step backward through available history, reset the current setup, and adjust speed. Max speed mode lets the GPU advance the simulation as fast as the current grid, rules, recording settings, and device allow.
+
+<br clear="left">
+
+<img align="right" width="33%" src="readme/grid-size.png" alt="grid-size-section">
 
 Navigation is canvas-like. Use pan and zoom to inspect dense regions, follow a moving structure, or work at a comfortable scale on large grids. The grid size can be changed from the sidebar, and the app reports frame-size limits so you can see when a configuration is becoming too heavy for recording or your device.
 
-Drawing tools turn the simulation into a live editor:
+<br clear="right">
 
-- Pick one or more tribes to paint.
-- Toggle delete mode to erase cells back to `dead`.
-- Change brush size for fine edits or broad seeding.
-- Switch brush shape and fill mode to draw points, blocks, outlines, or larger regions.
-- Use touch controls on mobile-style input when available.
+<img align="left" width="33%" src="readme/draw-tribe.png" alt="draw-tribe-section">
+
+Drawing tools turn the simulation into a live editor!
+
+Pick one or more tribes to paint, or toggle delete mode to erase cells back to `dead`.  
+Change brush size for fine edits or broad seeding.  
+Switch brush shape and fill mode to draw points, blocks, outlines, or larger regions.
+
+<br clear="left">
+
+<img align="right" width="33%" src="readme/shortcuts.png" alt="shortcuts-section">
 
 Keyboard shortcuts cover the common loop: play and pause, restart, step backward and forward, change speed, toggle max speed, toggle recording, toggle live metrics, cycle drawing tribes, switch brush shape and fill mode, resize the brush, pan, and zoom.
 
+<br clear="right">
+
+<img align="left" width="33%" src="readme/metrics.png" alt="metrics-section">
+
 Live metrics can be enabled while the simulation runs. They give immediate feedback about population, tribe distribution, diversity, and interfaces between states, which is especially useful for keeping an eye on how a multi-tribe simulation is evolving. Metrics cost extra work, so disabling them can increase maximum simulation speed when you only care about raw throughput.
+
+<br clear="left">
+
+<img align="right" width="33%" src="readme/download.png" alt="download-section">
 
 Recording stores simulation history for later use. It makes stepping backward possible and enables frame, video, and metrics exports, but it consumes storage and can reduce maximum speed. Larger grids create larger recorded frames; depending on how many tribes the ruleset needs, reducing bits per cell can keep frame size, recording storage, and export work more manageable.
 
-> Image slot: controls screenshot showing playback, drawing, metrics, and packing controls.
+<br clear="right">
 
 ## Downloads And Snapshots
 

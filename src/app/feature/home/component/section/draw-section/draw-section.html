@@ -22,6 +22,11 @@
     <span class="input-label gol-cell-2">Mode</span>
     <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="onBrushFillChange($event)" />
   </div>
+  <div class="gol-cell-12 gol-grid-tiny" title="Brush density">
+    <span class="input-label gol-cell-2">Density</span>
+    <gol-input class="gol-cell-4" name="brushDensity" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingBrushDensity" (ngModelChange)="onBrushDensityChange($event)" />
+    <span class="gol-cell-6 error-message">{{ brushDensityError }}</span>
+  </div>
   <div class="gol-cell-12 gol-grid-tiny mobile-only">
     <span class="input-label gol-cell-2">Touch</span>
     <gol-exclusive-button-group class="gol-cell-10" [options]="touchModeOptions" [selectedValue]="touchMode" (selectedChange)="touchModeChange.emit($event)" />

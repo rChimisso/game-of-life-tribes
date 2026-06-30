@@ -20,7 +20,7 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Select tribes to draw on the grid. Use the brush options to adjust how drawing works." title="Draw tribe" [collapsible]="false">
-      <gol-draw-section [brushFill]="brushFill" [brushMaxSize]="brushMaxSize" [brushShape]="brushShape" [brushSize]="brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit({action: 'deleteMode'})" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
+      <gol-draw-section [brushDensity]="brushDensity" [brushFill]="brushFill" [brushMaxSize]="brushMaxSize" [brushShape]="brushShape" [brushSize]="brushSize" [deleteMode]="deleteMode" [drawTribes]="drawTribes" [panMode]="panMode" [tribes]="tribes" (brushDensityChange)="onBrushDensityChange($event)" (brushFillChange)="onBrushFillChange($event)" (brushShapeChange)="onBrushShapeChange($event)" (brushSizeChange)="onBrushSizeChange($event)" (deleteModeToggle)="emit({action: 'deleteMode'})" (touchModeChange)="onTouchModeChange($event)" (tribeChange)="onTribeChange($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Set the grid size and monitor VRAM usage." title="Grid size" [collapsible]="false" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">

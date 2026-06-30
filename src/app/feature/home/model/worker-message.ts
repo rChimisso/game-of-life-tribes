@@ -177,6 +177,12 @@ export interface DrawMessage {
    */
   fill: BrushFill;
   /**
+   * Brush density percentage.
+   *
+   * @type {number}
+   */
+  density: number;
+  /**
    * Selected tribe ids for painting.
    *
    * @type {string[]}

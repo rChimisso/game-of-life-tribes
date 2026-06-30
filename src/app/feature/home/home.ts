@@ -8,6 +8,7 @@ import {Store} from '@ngrx/store';
 
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
+import {clampBrushDensity} from './logic/brush-density';
 import {CompressionScheduler} from './logic/compression-scheduler';
 import {estimateDownloadWorkingSet} from './logic/download-estimate';
 import {prepareHomeDownload} from './logic/download-preparation';
@@ -21,7 +22,7 @@ import {runSnapshotLoadWorker, runSnapshotSaveWorker} from './logic/snapshot-wor
 import {applyRuleTribeRenames} from './logic/tribe-impact';
 import {DownloadRequestPayload} from './model/download';
 import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES} from './model/download-estimate';
-import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushFill, BrushShape} from './model/draw-mode';
+import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushDensityByFill, BrushFill, BrushShape, DEFAULT_BRUSH_DENSITY_BY_FILL} from './model/draw-mode';
 import {ExportFrameOrigin} from './model/export-frame-origin';
 import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
@@ -226,6 +227,14 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @type {BrushFill}
    */
   public brushFill: BrushFill = 'full';
+
+  /**
+   * Brush density percentages by fill mode.
+   *
+   * @public
+   * @type {BrushDensityByFill}
+   */
+  public brushDensityByFill: BrushDensityByFill = {...DEFAULT_BRUSH_DENSITY_BY_FILL};
 
   /**
    * Current download progress percentage.
@@ -585,6 +594,17 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    */
   public get overlayActive(): boolean {
     return this.gpuErrorMessage !== null || this.rebuilding || this.backpressure || this.stepping || this.maxSpeed;
+  }
+
+  /**
+   * Active brush density percentage for the current fill mode.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get activeBrushDensity(): number {
+    return this.brushDensityByFill[this.brushFill];
   }
 
   /**
@@ -965,7 +985,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       draw: {
         brushSize: this.brushSize,
         brushShape: this.brushShape,
-        brushFill: this.brushFill
+        brushFill: this.brushFill,
+        brushDensityByFill: {...this.brushDensityByFill}
       },
       speed: {
         speed: this.speed,
@@ -992,6 +1013,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.brushSize = preferences.draw.brushSize;
     this.brushShape = preferences.draw.brushShape;
     this.brushFill = preferences.draw.brushFill;
+    this.brushDensityByFill = {...preferences.draw.brushDensityByFill};
     this.speed = preferences.speed.speed;
     this.maxSpeed = preferences.speed.maxSpeed;
     this.recording = preferences.speed.recording;
@@ -2052,6 +2074,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         break;
       case 'setBrushFill':
         this.brushFill = event.value;
+        shouldSavePreferences = true;
+        break;
+      case 'setBrushDensity':
+        this.brushDensityByFill = {
+          ...this.brushDensityByFill,
+          [this.brushFill]: clampBrushDensity(event.value)
+        };
         shouldSavePreferences = true;
         break;
       case 'applyPreset':

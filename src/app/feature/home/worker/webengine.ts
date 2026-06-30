@@ -2,6 +2,7 @@
 import '~gol/core/function/timestamped-console';
 
 import renderWgsl from './render.wgsl';
+import {clampBrushDensity} from '../logic/brush-density';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../logic/grid-format';
 import {normalizeLiveMetricsSettings} from '../logic/metric-settings';
 import {postWorkerTransfer} from '../logic/worker-post';
@@ -1009,39 +1010,34 @@ function createBrushPipeline(): void {
  * Encodes the wrapped brush stroke as one or more non-overlapping rectangle dispatches.
  *
  * @param {GPUCommandEncoder} encoder destination command encoder.
- * @param {number} centerX brush center x coordinate.
- * @param {number} centerY brush center y coordinate.
- * @param {number} brushSize brush size in logical cells.
- * @param {number} shape numeric brush shape.
- * @param {number} fill numeric brush fill mode.
- * @param {number[]} tribeIds numeric tribe IDs eligible for this brush.
+ * @param {PendingBrush} brush pending brush payload.
  */
-function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, centerX: number, centerY: number, brushSize: number, shape: number, fill: number, tribeIds: number[]): void {
+function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, brush: PendingBrush): void {
   const deadId = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const seed = brushSeedCounter++;
-  const rects = createBrushDispatchRects(centerX, centerY, brushSize, currentGridSize());
+  const rects = createBrushDispatchRects(brush.centerX, brush.centerY, brush.brushSize, currentGridSize());
   const bindGroups = pingPong ? brushBindGroupsB : brushBindGroupsA;
   for (const [index, rect] of rects.entries()) {
     const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
     const u32View = new Uint32Array(data);
     u32View[0] = packedCols;
-    u32View[1] = brushSize;
-    u32View[2] = shape;
-    u32View[3] = fill;
+    u32View[1] = brush.brushSize;
+    u32View[2] = brush.shape;
+    u32View[3] = brush.fill;
     u32View[4] = deadId;
     u32View[5] = seed;
-    u32View[6] = tribeIds.length;
+    u32View[6] = brush.tribeIds.length;
     u32View[7] = rect.destinationStartX;
     u32View[8] = rect.destinationStartY;
     u32View[9] = rect.localStartX;
     u32View[10] = rect.localStartY;
     u32View[11] = rect.spanCols;
     u32View[12] = rect.spanRows;
-    u32View[13] = 0;
+    u32View[13] = brush.density;
     u32View[14] = 0;
     u32View[15] = 0;
-    for (let i = 0; i < tribeIds.length && i < 32; i++) {
-      u32View[16 + i] = tribeIds[i]!;
+    for (let i = 0; i < brush.tribeIds.length && i < 32; i++) {
+      u32View[16 + i] = brush.tribeIds[i]!;
     }
     const brushUniformBuffer = brushUniformBuffers[index];
     const bindGroup = bindGroups[index];
@@ -1587,7 +1583,7 @@ function applyPendingBrush(): void {
       chunkGenerations.pop();
     }
     const encoder = device.createCommandEncoder({label: GPU_LABELS.brushEncoder});
-    dispatchBrushOnEncoder(encoder, b.centerX, b.centerY, b.brushSize, b.shape, b.fill, b.tribeIds);
+    dispatchBrushOnEncoder(encoder, b);
     device.queue.submit([encoder.finish()]);
     if (shouldOverwriteRecordedFrame) {
       recordGeneration(genCounter);
@@ -2890,6 +2886,7 @@ function handleDrawMessage(message: DrawMessage): void {
       brushSize: message.size,
       shape: shapeMap[message.shape] ?? 0,
       fill: fillMap[message.fill] ?? 0,
+      density: clampBrushDensity(message.density),
       tribeIds: ids
     };
   }

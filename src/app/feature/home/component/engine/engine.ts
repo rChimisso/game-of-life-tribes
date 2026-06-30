@@ -157,6 +157,15 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public brushFill: BrushFill = 'full';
 
   /**
+   * Brush density percentage.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input()
+  public brushDensity = 100;
+
+  /**
    * Metrics output stream.
    *
    * @public
@@ -356,6 +365,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       size: this.brushSize,
       shape: this.brushShape,
       fill: this.brushFill,
+      density: this.brushDensity,
       tribes: this.drawTribes
     }),
     () => window.devicePixelRatio || 1

@@ -1,6 +1,23 @@
+import {clampBrushDensity} from './brush-density';
 import {normalizeLiveMetricSectionSettings} from './metric-settings';
-import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES} from '../model/draw-mode';
+import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushDensityByFill} from '../model/draw-mode';
 import {DrawSectionPreferences, MetricsSectionPreferences, SpeedSectionPreferences} from '../model/preferences';
+
+/**
+ * Normalizes persisted brush densities.
+ *
+ * @param {(Partial<BrushDensityByFill> | undefined)} stored stored brush densities.
+ * @param {BrushDensityByFill} defaults default brush densities.
+ * @returns {BrushDensityByFill} normalized brush densities.
+ */
+function normalizeBrushDensityByFill(stored: Partial<BrushDensityByFill> | undefined, defaults: BrushDensityByFill): BrushDensityByFill {
+  const normalizedStored = stored ?? {};
+  return {
+    full: typeof normalizedStored.full === 'number' ? clampBrushDensity(normalizedStored.full) : defaults.full,
+    spray: typeof normalizedStored.spray === 'number' ? clampBrushDensity(normalizedStored.spray) : defaults.spray,
+    outline: typeof normalizedStored.outline === 'number' ? clampBrushDensity(normalizedStored.outline) : defaults.outline
+  };
+}
 
 /**
  * Normalizes persisted draw-section preferences.
@@ -14,7 +31,8 @@ export function normalizeDrawSectionPreferences(stored: Partial<DrawSectionPrefe
   return {
     brushSize: typeof normalizedStored.brushSize === 'number' && normalizedStored.brushSize >= 1 ? Math.floor(normalizedStored.brushSize) : defaults.brushSize,
     brushShape: normalizedStored.brushShape && BRUSH_SHAPE_VALUES.includes(normalizedStored.brushShape) ? normalizedStored.brushShape : defaults.brushShape,
-    brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill
+    brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill,
+    brushDensityByFill: normalizeBrushDensityByFill(normalizedStored.brushDensityByFill, defaults.brushDensityByFill)
   };
 }
 

@@ -72,7 +72,7 @@ struct BrushParams {
   localStartY: u32,
   spanCols: u32,
   spanRows: u32,
-  pad0: u32,
+  density: u32,
   pad1: u32,
   pad2: u32,
   tribeIdGroups: array<vec4u, 8>,
@@ -188,15 +188,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
         let spatialHash = (cx * 73856093u) ^ (cy * 19349663u);
         let h = pcg(params.seed ^ idx ^ spatialHash);
         let selectedTribe = brushTribeId(h % params.tribeCount);
-        var shouldWrite = true;
+        let densityHash = pcg(params.seed ^ idx ^ spatialHash ^ 1013904223u);
+        let selectedForDraw = (densityHash % 100u) < params.density;
+        var shouldWrite = selectedForDraw || params.fill == 1u;
         var value = selectedTribe;
 
-        if (params.fill == 1u && ((h >> 16u) & 1u) != 0u) {
-          if (selectedTribe != params.deadId) {
-            value = params.deadId;
-          } else {
-            shouldWrite = false;
-          }
+        if (!selectedForDraw && params.fill == 1u) {
+          value = params.deadId;
         }
 
         if (shouldWrite) {

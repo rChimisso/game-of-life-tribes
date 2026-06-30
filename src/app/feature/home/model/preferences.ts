@@ -1,4 +1,4 @@
-import {BrushFill, BrushShape} from './draw-mode';
+import {BrushDensityByFill, BrushFill, BrushShape, DEFAULT_BRUSH_DENSITY_BY_FILL} from './draw-mode';
 import {LiveMetricSectionSettings} from './metrics';
 
 /**
@@ -164,6 +164,12 @@ export interface DrawSectionPreferences {
    * @type {BrushFill}
    */
   brushFill: BrushFill;
+  /**
+   * Brush density percentages by fill mode.
+   *
+   * @type {BrushDensityByFill}
+   */
+  brushDensityByFill: BrushDensityByFill;
 }
 
 /**
@@ -174,7 +180,8 @@ export interface DrawSectionPreferences {
 export const DEFAULT_DRAW_SECTION_PREFERENCES: DrawSectionPreferences = {
   brushSize: 1,
   brushShape: 'square',
-  brushFill: 'full'
+  brushFill: 'full',
+  brushDensityByFill: DEFAULT_BRUSH_DENSITY_BY_FILL
 };
 
 /**

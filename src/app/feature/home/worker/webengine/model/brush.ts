@@ -36,6 +36,12 @@ export interface PendingBrush {
    */
   fill: number;
   /**
+   * Brush density percentage.
+   *
+   * @type {number}
+   */
+  density: number;
+  /**
    * Numeric tribe IDs eligible for this brush.
    *
    * @type {number[]}

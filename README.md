@@ -82,11 +82,8 @@ Navigation is canvas-like. Use pan and zoom to inspect dense regions, follow a m
 
 <img align="left" width="33%" src="readme/draw-tribe.png" alt="draw-tribe-section">
 
-Drawing tools turn the simulation into a live editor!
-
-Pick one or more tribes to paint, or toggle delete mode to erase cells back to `dead`.  
-Change brush size for fine edits or broad seeding.  
-Switch brush shape and fill mode to draw points, blocks, outlines, or larger regions.
+Drawing tools turn the simulation into a live editor!  
+Pick one or more tribes to paint, or toggle delete mode to erase cells back to `dead`. Change brush size for fine edits or broad seeding. Switch brush shape and fill mode to draw points, blocks, outlines, or larger regions. Brush density controls how much of the footprint is rewritten for each mode: unselected cells stay unchanged in full and outline mode, while spray mode turns them dead.
 
 <br clear="left">
 

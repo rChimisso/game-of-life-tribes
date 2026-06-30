@@ -3,7 +3,8 @@ import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {BrushFill, BrushShape, TouchMode} from '~gol/feature/home/model/draw-mode';
+import {clampBrushDensity} from '~gol/feature/home/logic/brush-density';
+import {BrushFill, BrushShape, MAX_BRUSH_DENSITY, MIN_BRUSH_DENSITY, TouchMode} from '~gol/feature/home/model/draw-mode';
 import {Tribe} from '~gol/feature/home/model/rule';
 import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
@@ -95,6 +96,15 @@ export class DrawSection implements OnChanges {
   public brushFill: BrushFill = 'full';
 
   /**
+   * Current brush density percentage.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public brushDensity = MAX_BRUSH_DENSITY;
+
+  /**
    * Whether touch interactions pan the grid.
    *
    * @public
@@ -152,6 +162,16 @@ export class DrawSection implements OnChanges {
    */
   @Output()
   public readonly brushFillChange = new EventEmitter<BrushFill>();
+
+  /**
+   * Emitter for brush density changes.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<string>}
+   */
+  @Output()
+  public readonly brushDensityChange = new EventEmitter<string>();
 
   /**
    * Emitter for touch mode changes.
@@ -258,12 +278,28 @@ export class DrawSection implements OnChanges {
   public pendingBrushSize = 1;
 
   /**
+   * Pending brush density shown in the input.
+   *
+   * @public
+   * @type {number}
+   */
+  public pendingBrushDensity = MAX_BRUSH_DENSITY;
+
+  /**
    * Whether the user tried to exceed the max while already at the cap.
    *
    * @public
    * @type {boolean}
    */
   public showBrushSizeMaxError = false;
+
+  /**
+   * Whether the user tried to exceed the max density while already at the cap.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public showBrushDensityMaxError = false;
 
   /**
    * Current touch mode.
@@ -286,7 +322,23 @@ export class DrawSection implements OnChanges {
       return 'Min 1';
     }
     if (this.showBrushSizeMaxError) {
-      return `Max ${ this.normalizedBrushMaxSize }`;
+      return `Max ${this.normalizedBrushMaxSize}`;
+    }
+    return null;
+  }
+
+  /**
+   * Brush density validation message.
+   *
+   * @public
+   * @type {(string | null)}
+   */
+  public get brushDensityError(): string | null {
+    if (this.pendingBrushDensity < MIN_BRUSH_DENSITY) {
+      return `Min ${MIN_BRUSH_DENSITY}`;
+    }
+    if (this.showBrushDensityMaxError) {
+      return `Max ${MAX_BRUSH_DENSITY}`;
     }
     return null;
   }
@@ -309,6 +361,10 @@ export class DrawSection implements OnChanges {
       this.pendingBrushSize = this.clampBrushSize(this.brushSize);
       this.showBrushSizeMaxError = false;
     }
+    if (changes.brushDensity || changes.brushFill) {
+      this.pendingBrushDensity = clampBrushDensity(this.brushDensity);
+      this.showBrushDensityMaxError = false;
+    }
   }
 
   /**
@@ -330,6 +386,28 @@ export class DrawSection implements OnChanges {
     if (!this.brushSizeError) {
       this.brushSize = this.pendingBrushSize;
       this.brushSizeChange.emit(String(this.brushSize));
+    }
+  }
+
+  /**
+   * Handles brush density changes.
+   *
+   * @public
+   * @param {(string | number)} value density form value.
+   */
+  public onBrushDensityChange(value: string | number): void {
+    const parsedBrushDensity = this.parseBrushDensity(value);
+    const wasAtBrushDensityMax = this.pendingBrushDensity >= MAX_BRUSH_DENSITY;
+    if (parsedBrushDensity > MAX_BRUSH_DENSITY) {
+      this.pendingBrushDensity = MAX_BRUSH_DENSITY;
+      this.showBrushDensityMaxError = wasAtBrushDensityMax;
+    } else {
+      this.pendingBrushDensity = parsedBrushDensity;
+      this.showBrushDensityMaxError = false;
+    }
+    if (!this.brushDensityError) {
+      this.brushDensity = this.pendingBrushDensity;
+      this.brushDensityChange.emit(String(this.brushDensity));
     }
   }
 
@@ -376,5 +454,17 @@ export class DrawSection implements OnChanges {
   private parseBrushSize(value: string | number): number {
     const size = Math.floor(+value || 0);
     return Math.max(0, size);
+  }
+
+  /**
+   * Parses a brush density input.
+   *
+   * @private
+   * @param {(string | number)} value
+   * @returns {number}
+   */
+  private parseBrushDensity(value: string | number): number {
+    const density = Math.floor(+value || 0);
+    return Math.max(0, density);
   }
 }

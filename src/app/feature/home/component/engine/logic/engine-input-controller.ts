@@ -350,6 +350,7 @@ export class EngineInputController {
       size: brush.size,
       shape: brush.shape,
       fill: brush.fill,
+      density: brush.density,
       tribes: brush.tribes
     });
     this.showBrushPreview(cell);

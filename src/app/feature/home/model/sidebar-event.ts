@@ -36,6 +36,7 @@ export type SidebarEvent =
   | {action: 'setBrushSize'; value: number}
   | {action: 'setBrushShape'; value: BrushShape}
   | {action: 'setBrushFill'; value: BrushFill}
+  | {action: 'setBrushDensity'; value: number}
   | {action: 'togglePanMode'}
   | {action: 'cancelDownload'}
   | {action: 'setPacking'; value: BitsPerCell}

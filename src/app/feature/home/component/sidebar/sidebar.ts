@@ -336,6 +336,15 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public brushFill: BrushFill = 'full';
 
   /**
+   * Brush density percentage.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input()
+  public brushDensity = 100;
+
+  /**
    * Current download progress percentage.
    *
    * @public
@@ -953,6 +962,19 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   public onBrushFillChange(fill: BrushFill): void {
     this.emit({action: 'setBrushFill', value: fill});
+  }
+
+  /**
+   * Emits a brush density change.
+   *
+   * @public
+   * @param {string} value brush density form value.
+   */
+  public onBrushDensityChange(value: string): void {
+    const n = Math.min(Math.max(1, +value || 1), 100);
+    if (n > 0) {
+      this.emit({action: 'setBrushDensity', value: n});
+    }
   }
 
   /**

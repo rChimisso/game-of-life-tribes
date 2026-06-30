@@ -47,6 +47,12 @@ export interface EngineBrushSettings {
    */
   fill: BrushFill;
   /**
+   * Brush density percentage.
+   *
+   * @type {number}
+   */
+  density: number;
+  /**
    * Tribe ids selected for drawing.
    *
    * @type {string[]}

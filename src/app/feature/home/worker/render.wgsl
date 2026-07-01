@@ -16,6 +16,7 @@ struct Uniforms {
   export_origin_x: u32,  // Visual export unwrap origin column.
   export_origin_y: u32,  // Visual export unwrap origin row.
   export_visible: u32,   // 1 when the visual export framing overlay should render.
+  topology: u32,         // 0=toroidal, 1=bounded.
 };
 
 struct VertexOutput {
@@ -57,6 +58,13 @@ fn signedWrapDelta(cell: u32, center: i32, size: u32) -> i32 {
   return delta;
 }
 
+fn signedGridDelta(cell: u32, center: i32, size: u32) -> i32 {
+  if (u.topology == 1u) {
+    return i32(cell) - center;
+  }
+  return signedWrapDelta(cell, center, size);
+}
+
 fn previewInShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
   if (bx < 0 || by < 0 || bx >= i32(size) || by >= i32(size)) { return false; }
   let hf = f32(size - 1u) / 2.0;
@@ -89,6 +97,13 @@ fn signedWrapWorldDelta(world: f32, center: i32, size: u32) -> f32 {
   return delta - floor((delta + gridSize * 0.5) / gridSize) * gridSize;
 }
 
+fn signedGridWorldDelta(world: f32, center: i32, size: u32) -> f32 {
+  if (u.topology == 1u) {
+    return world - f32(center);
+  }
+  return signedWrapWorldDelta(world, center, size);
+}
+
 fn previewRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bool {
   let distanceInside = halfSize - abs(p);
   let inside = distanceInside.x >= 0.0 && distanceInside.y >= 0.0;
@@ -106,8 +121,8 @@ fn previewSubpixelRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bo
 fn previewCellBorderOutlineMask(ix: u32, iy: u32, cell_frac: vec2f) -> bool {
   let size = max(u.preview_size, 1u);
   let half = i32(size - 1u) / 2;
-  let bx = signedWrapDelta(ix, u.preview_center.x, u.grid_size.x) + half;
-  let by = signedWrapDelta(iy, u.preview_center.y, u.grid_size.y) + half;
+  let bx = signedGridDelta(ix, u.preview_center.x, u.grid_size.x) + half;
+  let by = signedGridDelta(iy, u.preview_center.y, u.grid_size.y) + half;
   let inside = previewInShape(bx, by, size, u.preview_shape);
   let edge = min(1.0, 1.0 / max(u.scale, 0.001));
   return inside && (
@@ -122,8 +137,8 @@ fn previewContinuousOutlineMask(local: vec2f) -> bool {
   let size = max(u.preview_size, 1u);
   let world = vec2f(f32(u.offset_cell.x), f32(u.offset_cell.y)) + local;
   let delta = vec2f(
-    signedWrapWorldDelta(world.x, u.preview_center.x, u.grid_size.x),
-    signedWrapWorldDelta(world.y, u.preview_center.y, u.grid_size.y)
+    signedGridWorldDelta(world.x, u.preview_center.x, u.grid_size.x),
+    signedGridWorldDelta(world.y, u.preview_center.y, u.grid_size.y)
   );
   let footprintCenter = vec2f(0.5, 0.5);
   let p = delta - footprintCenter;
@@ -159,8 +174,8 @@ fn previewOutlineMask(ix: u32, iy: u32, local: vec2f) -> bool {
 fn exportMarkerPixel(local: vec2f, marker: vec2u) -> vec2f {
   let world = vec2f(f32(u.offset_cell.x), f32(u.offset_cell.y)) + local;
   let delta = vec2f(
-    signedWrapWorldDelta(world.x, i32(marker.x), u.grid_size.x),
-    signedWrapWorldDelta(world.y, i32(marker.y), u.grid_size.y)
+    signedGridWorldDelta(world.x, i32(marker.x), u.grid_size.x),
+    signedGridWorldDelta(world.y, i32(marker.y), u.grid_size.y)
   );
   return (delta - vec2f(0.5, 0.5)) * u.scale;
 }
@@ -173,6 +188,22 @@ fn exportMarkerMask(local: vec2f, marker: vec2u, includeCenterSquare: bool) -> b
   let cross = (abs(p.x) <= stroke && abs(p.y) <= arm) || (abs(p.y) <= stroke && abs(p.x) <= arm);
   let centerSquare = includeCenterSquare && abs(p.x) <= squareHalf && abs(p.y) <= squareHalf;
   return cross || centerSquare;
+}
+
+fn exportBoundedCornerPixel(local: vec2f, corner: vec2f) -> vec2f {
+  let world = vec2f(f32(u.offset_cell.x), f32(u.offset_cell.y)) + local;
+  return (world - corner) * u.scale;
+}
+
+fn exportMarkerShape(p: vec2f, arm: f32, stroke: f32, squareHalf: f32, includeCenterSquare: bool) -> bool {
+  let cross = (abs(p.x) <= stroke && abs(p.y) <= arm) || (abs(p.y) <= stroke && abs(p.x) <= arm);
+  let centerSquare = includeCenterSquare && abs(p.x) <= squareHalf && abs(p.y) <= squareHalf;
+  return cross || centerSquare;
+}
+
+fn exportBoundedCornerMarkerMask(local: vec2f) -> bool {
+  let maxCorner = vec2f(f32(u.grid_size.x), f32(u.grid_size.y));
+  return exportMarkerShape(exportBoundedCornerPixel(local, vec2f(0.0, 0.0)), 32.0, 2.0, 8.0, false) || exportMarkerShape(exportBoundedCornerPixel(local, vec2f(maxCorner.x, 0.0)), 32.0, 2.0, 8.0, false) || exportMarkerShape(exportBoundedCornerPixel(local, vec2f(0.0, maxCorner.y)), 32.0, 2.0, 8.0, false) || exportMarkerShape(exportBoundedCornerPixel(local, maxCorner), 32.0, 2.0, 8.0, false);
 }
 
 fn exportOriginMarkerMask(local: vec2f) -> bool {
@@ -195,6 +226,14 @@ fn exportMarkerOutlineMask(local: vec2f, marker: vec2u, includeCenterSquare: boo
   let cross = (abs(p.x) <= stroke && abs(p.y) <= arm) || (abs(p.y) <= stroke && abs(p.x) <= arm);
   let centerSquare = includeCenterSquare && abs(p.x) <= squareHalf && abs(p.y) <= squareHalf;
   return cross || centerSquare;
+}
+
+fn exportBoundedCornerMarkerOutlineMask(local: vec2f) -> bool {
+  let maxCorner = vec2f(f32(u.grid_size.x), f32(u.grid_size.y));
+  return exportMarkerShape(exportBoundedCornerPixel(local, vec2f(0.0, 0.0)), 34.0, 4.0, 10.0, false) ||
+    exportMarkerShape(exportBoundedCornerPixel(local, vec2f(maxCorner.x, 0.0)), 34.0, 4.0, 10.0, false) ||
+    exportMarkerShape(exportBoundedCornerPixel(local, vec2f(0.0, maxCorner.y)), 34.0, 4.0, 10.0, false) ||
+    exportMarkerShape(exportBoundedCornerPixel(local, maxCorner), 34.0, 4.0, 10.0, false);
 }
 
 fn exportOriginMarkerOutlineMask(local: vec2f) -> bool {
@@ -232,8 +271,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let px = in.uv * u.canvas_size;
   let local = px / u.scale + u.offset_frac;
 
-  let ix = wrapAdd(u.offset_cell.x, u32(local.x), u.grid_size.x);
-  let iy = wrapAdd(u.offset_cell.y, u32(local.y), u.grid_size.y);
+  let direct_ix = min(u.grid_size.x - 1u, u.offset_cell.x + u32(local.x));
+  let direct_iy = min(u.grid_size.y - 1u, u.offset_cell.y + u32(local.y));
+  let ix = select(wrapAdd(u.offset_cell.x, u32(local.x), u.grid_size.x), direct_ix, u.topology == 1u);
+  let iy = select(wrapAdd(u.offset_cell.y, u32(local.y), u.grid_size.y), direct_iy, u.topology == 1u);
 
   // Read tribe ID from the active packed grid buffer.
   let packed_cols = (u.grid_size.x + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
@@ -251,11 +292,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     return vec4f(0.82, 0.84, 0.86, 1.0);
   }
 
-  if (u.export_visible == 1u && (exportCenterMarkerMask(local) || exportOriginMarkerMask(local))) {
+  let exportCornerMask = select(exportOriginMarkerMask(local), exportBoundedCornerMarkerMask(local), u.topology == 1u);
+  let exportCornerOutlineMask = select(exportOriginMarkerOutlineMask(local), exportBoundedCornerMarkerOutlineMask(local), u.topology == 1u);
+
+  if (u.export_visible == 1u && (exportCenterMarkerMask(local) || exportCornerMask)) {
     return vec4f(0.0, 0.0, 0.0, 1.0);
   }
 
-  if (u.export_visible == 1u && (exportCenterMarkerOutlineMask(local) || exportOriginMarkerOutlineMask(local))) {
+  if (u.export_visible == 1u && (exportCenterMarkerOutlineMask(local) || exportCornerOutlineMask)) {
     return vec4f(0.82, 0.84, 0.86, 1.0);
   }
 

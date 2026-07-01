@@ -1,6 +1,6 @@
 import {runWorker} from './worker-runner';
 import {SnapshotSaveOutput} from '../model/home-snapshot';
-import {Rule, Tribe} from '../model/rule';
+import {Ruleset} from '../model/rule';
 import {SnapshotMessage} from '../model/worker-message';
 import {WorkerRunnerContext} from '../model/worker-runner';
 import {ParsedGoltState} from '../worker/snapshot/model/golt-types';
@@ -100,6 +100,8 @@ function handleSnapshotLoadMessage(message: SnapshotWorkerResponse, context: Wor
     message.type === 'loaded' &&
     typeof message.cols === 'number' &&
     typeof message.rows === 'number' &&
+    typeof message.topology === 'string' &&
+    typeof message.boundaryTribe === 'string' &&
     typeof message.generation === 'number' &&
     message.grid instanceof Uint32Array &&
     message.gridFormat &&
@@ -110,6 +112,8 @@ function handleSnapshotLoadMessage(message: SnapshotWorkerResponse, context: Wor
     context.resolve({
       cols: message.cols,
       rows: message.rows,
+      topology: message.topology,
+      boundaryTribe: message.boundaryTribe,
       generation: message.generation,
       grid: message.grid,
       gridFormat: message.gridFormat,
@@ -144,19 +148,20 @@ function handleSnapshotLoadMessage(message: SnapshotWorkerResponse, context: Wor
  * Creates the canonical `.golt` snapshot payload shared by save and download workers.
  *
  * @param {SnapshotMessage} snap engine snapshot.
- * @param {readonly Tribe[]} tribes current tribe metadata.
- * @param {Rule<Tribe[]>[]} rules current rule metadata.
+ * @param {Ruleset} ruleset current ruleset metadata.
  * @returns {ParsedGoltState} serializable snapshot payload.
  */
-export function createSnapshotPayload(snap: SnapshotMessage, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): ParsedGoltState {
+export function createSnapshotPayload(snap: SnapshotMessage, ruleset: Ruleset): ParsedGoltState {
   return {
     generation: snap.generation,
     cols: snap.cols,
     rows: snap.rows,
     grid: snap.grid,
     gridFormat: snap.gridFormat,
-    tribes: tribes.map(t => ({id: t.id, color: t.color})),
-    rules
+    topology: ruleset.topology,
+    boundaryTribe: ruleset.boundaryTribe,
+    tribes: ruleset.tribes.map(t => ({id: t.id, color: t.color})),
+    rules: ruleset.rules
   };
 }
 
@@ -164,17 +169,16 @@ export function createSnapshotPayload(snap: SnapshotMessage, tribes: readonly Tr
  * Runs the snapshot worker in save mode.
  *
  * @param {SnapshotMessage} snap snapshot to save.
- * @param {readonly Tribe[]} tribes current tribes.
- * @param {Rule<Tribe[]>[]} rules current rules.
+ * @param {Ruleset} ruleset current ruleset.
  * @param {SnapshotProgressCallback} onProgress progress callback.
  * @returns {Promise<SnapshotSaveOutput>} saved snapshot output.
  */
-export function runSnapshotSaveWorker(snap: SnapshotMessage, tribes: readonly Tribe[], rules: Rule<Tribe[]>[], onProgress: SnapshotProgressCallback): Promise<SnapshotSaveOutput> {
+export function runSnapshotSaveWorker(snap: SnapshotMessage, ruleset: Ruleset, onProgress: SnapshotProgressCallback): Promise<SnapshotSaveOutput> {
   return runWorker<SnapshotSaveRequest, SnapshotWorkerResponse, SnapshotSaveOutput>({
     createWorker: createSnapshotWorker,
     request: {
       type: 'save',
-      snapshot: createSnapshotPayload(snap, tribes, rules)
+      snapshot: createSnapshotPayload(snap, ruleset)
     },
     transfer: [snap.grid.buffer],
     onUnexpectedError: createUnexpectedSnapshotWorkerError,

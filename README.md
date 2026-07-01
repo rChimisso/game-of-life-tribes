@@ -14,7 +14,8 @@ In classic Life, every cell is either alive or dead, and the next generation dep
 
 The simulation advances in generations. During each generation, every cell reads its current state and the state of its [Moore neighborhood](https://en.wikipedia.org/wiki/Moore_neighborhood) and changes state based on that.
 
-The grid is toroidal: moving past one edge wraps around to the opposite edge. A pattern leaving the right side can reappear from the left, and the same applies vertically. This avoids hard borders and makes the simulation behave like a continuous surface with [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions).
+The grid can run as a torus or as a bounded surface. Toroidal grids wrap neighbor reads and brush strokes across opposite edges, so patterns leaving one side reappear from the other. Bounded grids keep the frame dimensions unchanged but resolve off-grid neighbor reads to a selected virtual boundary tribe, and drawing clips at the edge instead of wrapping.  
+Toroidal grid avoids hard borders and makes the simulation behave like a continuous surface with [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions), while bounded grid preserves a finite world with explicit edge effects, allowing borders to act as walls or as a fixed surrounding environment through the selected virtual boundary tribe.
 
 Rules are evaluated as clauses plus outcomes:
 
@@ -76,7 +77,7 @@ The playback controls cover both watching and inspecting a simulation. You can r
 
 <img align="right" width="33%" src="readme/grid-size.png" alt="grid-size-section">
 
-Navigation is canvas-like. Use pan and zoom to inspect dense regions, follow a moving structure, or work at a comfortable scale on large grids. The grid size can be changed from the sidebar, and the app reports frame-size limits so you can see when a configuration is becoming too heavy for recording or your device.
+Navigation is canvas-like. Use pan and zoom to inspect dense regions, follow a moving structure, or work at a comfortable scale on large grids. The grid size and topology can be changed from the sidebar, and the app reports frame-size limits so you can see when a configuration is becoming too heavy for recording or your device. Bounded grids also clamp panning to the grid edges.
 
 <br clear="right">
 
@@ -107,7 +108,7 @@ Recording stores simulation history for later use. It makes stepping backward po
 
 ## Downloads And Snapshots
 
-Snapshots save the current simulation state as a `.golt` file and can be loaded back into the app later. A snapshot is the right tool when you want to preserve a ruleset, grid size, tribe setup, generation counter, and current cell state.
+Snapshots save the current simulation state as a `.golt` file and can be loaded back into the app later. A snapshot is the right tool when you want to preserve a ruleset, grid size, topology, tribe setup, generation counter, and current cell state.
 
 Downloads are for recorded simulation history. After enabling recording and letting the simulation run, you can export selected outputs such as first and last saves, metrics, PNG frames, or an MP4 video. The download panel also lets you choose a frame range and adjust MP4 settings.
 

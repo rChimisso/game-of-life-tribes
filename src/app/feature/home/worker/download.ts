@@ -290,13 +290,15 @@ function formatBytes(bytes: number): string {
 async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, snapshot: ParsedGoltState, recording: Recording | null, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): Promise<void> {
   throwIfCancelled();
   if (opts.saves && recording && recording.manifest.chunks.length > 0) {
-    await writeRecordedSaveEntries(zip, opts, recording, tribes, rules);
+    await writeRecordedSaveEntries(zip, opts, recording, snapshot, tribes, rules);
   } else if (opts.saves) {
     postProgress(SAVE_WRITE_PROGRESS_START, 'Writing current save');
     await zip.addEntry(`state-gen${snapshot.generation}.golt`, entry => writeGoltStateStream({
       generation: snapshot.generation,
       cols: snapshot.cols,
       rows: snapshot.rows,
+      topology: snapshot.topology,
+      boundaryTribe: snapshot.boundaryTribe,
       grid: snapshot.grid,
       gridFormat: snapshot.gridFormat,
       tribes,
@@ -312,10 +314,11 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
  * @param {ZipWriter} zip zip writer.
  * @param {DownloadRequestPayload} opts selected download options.
  * @param {Recording} recording recording manifest and dimensions.
+ * @param {ParsedGoltState} snapshot current snapshot metadata.
  * @param {readonly Tribe[]} tribes snapshot tribe metadata.
  * @param {Rule<Tribe[]>[]} rules snapshot rule metadata.
  */
-async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): Promise<void> {
+async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, snapshot: ParsedGoltState, tribes: readonly Tribe[], rules: Rule<Tribe[]>[]): Promise<void> {
   postProgress(SAVE_WRITE_PROGRESS_START, 'Resolving selected frames');
   throwIfCancelled();
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
@@ -332,6 +335,8 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
       generation: firstFrame.generation,
       cols: recording.cols,
       rows: recording.rows,
+      topology: snapshot.topology,
+      boundaryTribe: snapshot.boundaryTribe,
       grid: alignPackedBytesToWords(firstFrame.packed),
       gridFormat: firstRef.gridFormat,
       tribes,
@@ -347,6 +352,8 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
         generation: lastFrame.generation,
         cols: recording.cols,
         rows: recording.rows,
+        topology: snapshot.topology,
+        boundaryTribe: snapshot.boundaryTribe,
         grid: alignPackedBytesToWords(lastFrame.packed),
         gridFormat: lastRef.gridFormat,
         tribes,

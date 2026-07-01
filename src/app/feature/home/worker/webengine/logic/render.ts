@@ -1,7 +1,7 @@
 import {RenderUniformInput, UNIFORM_SIZE} from '../model/render';
 
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {Tribe} from '~gol/feature/home/model/rule';
+import {BOUNDED_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Packs the current render uniforms into one GPU-ready buffer payload.
@@ -14,8 +14,8 @@ export function createRenderUniformData(input: RenderUniformInput): ArrayBuffer 
   const f32 = new Float32Array(data);
   const i32 = new Int32Array(data);
   const u32 = new Uint32Array(data);
-  const renderOffsetX = ((input.offsetX % input.grid.cols) + input.grid.cols) % input.grid.cols;
-  const renderOffsetY = ((input.offsetY % input.grid.rows) + input.grid.rows) % input.grid.rows;
+  const renderOffsetX = input.topology === BOUNDED_GRID_TOPOLOGY ? input.offsetX : ((input.offsetX % input.grid.cols) + input.grid.cols) % input.grid.cols;
+  const renderOffsetY = input.topology === BOUNDED_GRID_TOPOLOGY ? input.offsetY : ((input.offsetY % input.grid.rows) + input.grid.rows) % input.grid.rows;
   const offsetCellX = Math.floor(renderOffsetX);
   const offsetCellY = Math.floor(renderOffsetY);
   f32[0] = input.canvasWidth;
@@ -36,6 +36,7 @@ export function createRenderUniformData(input: RenderUniformInput): ArrayBuffer 
   u32[17] = input.exportFrameOverlay.originX;
   u32[18] = input.exportFrameOverlay.originY;
   u32[19] = input.exportFrameOverlay.visible ? 1 : 0;
+  u32[20] = input.topology === BOUNDED_GRID_TOPOLOGY ? 1 : 0;
   return data;
 }
 

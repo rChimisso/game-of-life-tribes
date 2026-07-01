@@ -1,5 +1,7 @@
 import {BrushDensityByFill, BrushFill, BrushShape, DEFAULT_BRUSH_DENSITY_BY_FILL} from './draw-mode';
+import {GridTopology} from './grid';
 import {LiveMetricSectionSettings} from './metrics';
+import {DEAD_TRIBE_ID, TOROIDAL_GRID_TOPOLOGY} from './rule';
 
 /**
  * Home preferences.
@@ -26,6 +28,12 @@ export interface HomePreferences {
    * @type {MetricsSectionPreferences}
    */
   metrics: MetricsSectionPreferences;
+  /**
+   * Grid section preferences.
+   *
+   * @type {GridSectionPreferences}
+   */
+  grid: GridSectionPreferences;
 }
 
 /**
@@ -173,6 +181,27 @@ export interface DrawSectionPreferences {
 }
 
 /**
+ * Grid section preferences.
+ *
+ * @interface GridSectionPreferences
+ * @typedef {GridSectionPreferences}
+ */
+export interface GridSectionPreferences {
+  /**
+   * Grid topology.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
+  /**
+   * Virtual bounded-grid boundary tribe.
+   *
+   * @type {string}
+   */
+  boundaryTribe: string;
+}
+
+/**
  * Default draw section preferences.
  *
  * @type {DrawSectionPreferences}
@@ -213,6 +242,16 @@ export const DEFAULT_METRICS_SECTION_PREFERENCES: MetricsSectionPreferences = {
 };
 
 /**
+ * Default grid section preferences.
+ *
+ * @type {GridSectionPreferences}
+ */
+export const DEFAULT_GRID_SECTION_PREFERENCES: GridSectionPreferences = {
+  topology: TOROIDAL_GRID_TOPOLOGY,
+  boundaryTribe: DEAD_TRIBE_ID
+};
+
+/**
  * Default home preferences.
  *
  * @type {HomePreferences}
@@ -220,7 +259,8 @@ export const DEFAULT_METRICS_SECTION_PREFERENCES: MetricsSectionPreferences = {
 export const DEFAULT_HOME_PREFERENCES: HomePreferences = {
   draw: DEFAULT_DRAW_SECTION_PREFERENCES,
   speed: DEFAULT_SPEED_SECTION_PREFERENCES,
-  metrics: DEFAULT_METRICS_SECTION_PREFERENCES
+  metrics: DEFAULT_METRICS_SECTION_PREFERENCES,
+  grid: DEFAULT_GRID_SECTION_PREFERENCES
 };
 
 /**

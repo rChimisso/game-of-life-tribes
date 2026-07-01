@@ -101,6 +101,8 @@ async function loadSnapshot(buffer: ArrayBuffer): Promise<void> {
       type: 'loaded',
       cols: parsed.cols,
       rows: parsed.rows,
+      topology: parsed.topology,
+      boundaryTribe: parsed.boundaryTribe,
       generation: parsed.generation,
       grid: parsed.grid,
       gridFormat: parsed.gridFormat,

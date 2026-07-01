@@ -1,7 +1,7 @@
 import {CompressionWaitMode} from './compression-scheduler';
 import {DownloadRequestPayload} from './download';
 import {ExportFrameOrigin} from './export-frame-origin';
-import {Rule, Tribe} from './rule';
+import {Ruleset} from './rule';
 import {RecordingMessage, SnapshotMessage} from './worker-message';
 
 import {SeverityLevel} from '~gol/core/model/severity-level';
@@ -32,17 +32,11 @@ export interface HomeDownloadWorkerInput {
    */
   recording: RecordingMessage | null;
   /**
-   * Current tribes.
+   * Current ruleset metadata.
    *
-   * @type {readonly Tribe[]}
+   * @type {Ruleset}
    */
-  tribes: readonly Tribe[];
-  /**
-   * Current rules.
-   *
-   * @type {Rule<Tribe[]>[]}
-   */
-  rules: Rule<Tribe[]>[];
+  ruleset: Ruleset;
   /**
    * Download start timestamp.
    *

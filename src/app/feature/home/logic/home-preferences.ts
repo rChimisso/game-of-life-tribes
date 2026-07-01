@@ -1,7 +1,8 @@
 import {clampBrushDensity} from './brush-density';
 import {normalizeLiveMetricSectionSettings} from './metric-settings';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushDensityByFill} from '../model/draw-mode';
-import {DrawSectionPreferences, MetricsSectionPreferences, SpeedSectionPreferences} from '../model/preferences';
+import {DrawSectionPreferences, GridSectionPreferences, MetricsSectionPreferences, SpeedSectionPreferences} from '../model/preferences';
+import {GRID_TOPOLOGY_VALUES} from '../model/rule';
 
 /**
  * Normalizes persisted brush densities.
@@ -67,5 +68,20 @@ export function normalizeMetricsSectionPreferences(stored: Partial<MetricsSectio
     populationExpanded: typeof normalizedStored.populationExpanded === 'boolean' ? normalizedStored.populationExpanded : defaults.populationExpanded,
     diversityExpanded: typeof normalizedStored.diversityExpanded === 'boolean' ? normalizedStored.diversityExpanded : defaults.diversityExpanded,
     interfacesExpanded: typeof normalizedStored.interfacesExpanded === 'boolean' ? normalizedStored.interfacesExpanded : defaults.interfacesExpanded
+  };
+}
+
+/**
+ * Normalizes persisted grid-section preferences.
+ *
+ * @param {(Partial<GridSectionPreferences> | undefined)} stored stored preferences.
+ * @param {GridSectionPreferences} defaults default preferences.
+ * @returns {GridSectionPreferences} normalized preferences.
+ */
+export function normalizeGridSectionPreferences(stored: Partial<GridSectionPreferences> | undefined, defaults: GridSectionPreferences): GridSectionPreferences {
+  const normalizedStored = stored ?? {};
+  return {
+    topology: normalizedStored.topology && GRID_TOPOLOGY_VALUES.includes(normalizedStored.topology) ? normalizedStored.topology : defaults.topology,
+    boundaryTribe: typeof normalizedStored.boundaryTribe === 'string' && normalizedStored.boundaryTribe.length > 0 ? normalizedStored.boundaryTribe : defaults.boundaryTribe
   };
 }

@@ -32,9 +32,9 @@ export interface Preset {
   /**
    * Ruleset loaded by the preset.
    *
-   * @type {Omit<Ruleset, 'cols' | 'rows'>}
+   * @type {Omit<Ruleset, 'cols' | 'rows' | 'topology' | 'boundaryTribe'>}
    */
-  readonly ruleset: Omit<Ruleset, 'cols' | 'rows'>;
+  readonly ruleset: Omit<Ruleset, 'cols' | 'rows' | 'topology' | 'boundaryTribe'>;
 }
 
 /**

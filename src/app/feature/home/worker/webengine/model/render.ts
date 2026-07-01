@@ -1,7 +1,7 @@
 import {BrushPreview} from './brush';
 
 import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
-import {Grid} from '~gol/feature/home/model/grid';
+import {Grid, GridTopology} from '~gol/feature/home/model/grid';
 
 /**
  * Maximum number of tribe colors stored in the render lookup buffer.
@@ -11,7 +11,7 @@ export const MAX_TRIBES = 256;
 /**
  * Byte size of the render uniform buffer.
  */
-export const UNIFORM_SIZE = 80;
+export const UNIFORM_SIZE = 96;
 
 /**
  * Export frame overlay rendered over the grid.
@@ -76,6 +76,12 @@ export interface RenderUniformInput {
    * @type {Grid}
    */
   grid: Grid;
+  /**
+   * Grid edge topology.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
   /**
    * Number of active tribes.
    *

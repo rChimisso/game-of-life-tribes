@@ -1,6 +1,6 @@
 import {ParsedGoltState} from './golt-types';
 
-import {Grid} from '~gol/feature/home/model/grid';
+import {GridSettings} from '~gol/feature/home/model/grid';
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 import {Rule, Tribe} from '~gol/feature/home/model/rule';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
@@ -66,9 +66,9 @@ export type SnapshotWorkerEvent = MessageEvent<SnapshotWorkerRequest>;
  *
  * @interface SnapshotLoadedMessage
  * @typedef {SnapshotLoadedMessage}
- * @extends {Grid}
+ * @extends {GridSettings}
  */
-export interface SnapshotLoadedMessage extends Grid {
+export interface SnapshotLoadedMessage extends GridSettings {
   /**
    * Snapshot worker response type.
    *

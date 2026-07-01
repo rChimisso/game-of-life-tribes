@@ -25,6 +25,8 @@ function createGoltHeaderBytes(data: ParsedGoltState, targetFormat: GridFormat):
     generation: data.generation,
     cols: data.cols,
     rows: data.rows,
+    topology: data.topology,
+    boundaryTribe: data.boundaryTribe,
     gridFormat: gridFormatMetadata(targetFormat),
     tribes: data.tribes.map(t => ({id: t.id, color: t.color})),
     rules: data.rules.map(rule => toPersistedRule(rule))

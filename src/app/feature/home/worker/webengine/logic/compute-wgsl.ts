@@ -4,7 +4,7 @@ import {DispatchPlan2D} from '../model/dispatch-plan';
 import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeSelector, normalizeSelectorForSignature, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Emits remapped dispatch constants when the workgroups cannot be submitted directly.
@@ -45,6 +45,21 @@ function pushReadCellWgsl(lines: string[], storageVar: string, packedColsExpr: s
   lines.push(`  let wordIdx = y * ${packedColsExpr} + (x >> WORD_SHIFT);`);
   lines.push('  let shift = (x & CELL_INDEX_MASK) << CELL_SHIFT;');
   lines.push(`  return (${storageVar}[wordIdx] >> shift) & CELL_MASK;`);
+  lines.push('}');
+}
+
+/**
+ * Emits the WGSL helper for virtual bounded-grid off-grid reads.
+ *
+ * @param {string[]} lines WGSL output lines.
+ * @param {number} boundaryTribeId numeric boundary tribe id.
+ */
+function pushReadBoundedCellWgsl(lines: string[], boundaryTribeId: number): void {
+  lines.push('fn readBoundedCell(x: i32, y: i32) -> u32 {');
+  lines.push('  if (x < 0i || y < 0i || x >= i32(COLS) || y >= i32(ROWS)) {');
+  lines.push(`    return ${boundaryTribeId}u;`);
+  lines.push('  }');
+  lines.push('  return readCell(u32(x), u32(y));');
   lines.push('}');
 }
 
@@ -349,11 +364,37 @@ function pushCombineBecomeAssignment(
  *
  * @param {string[]} lines WGSL output lines.
  */
-function pushNeighborReads(lines: string[]): void {
+function pushNeighborVarDeclarations(lines: string[]): void {
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       if (!(dx === 0 && dy === 0)) {
-        lines.push(`    let ${neighborVarName(dx, dy)} = readCell(${wrapExpr('x', dx, 'COLS')}, ${wrapExpr('y', dy, 'ROWS')});`);
+        lines.push(`    var ${neighborVarName(dx, dy)}: u32;`);
+      }
+    }
+  }
+}
+
+/**
+ * Emits neighbor read assignments for the current cell.
+ *
+ * @param {string[]} lines WGSL output lines.
+ * @param {'toroidal' | 'boundedDirect' | 'boundedVirtual'} mode neighbor read mode.
+ * @param {string} indent line indentation.
+ */
+function pushNeighborReadAssignments(lines: string[], mode: 'toroidal' | 'boundedDirect' | 'boundedVirtual', indent: string): void {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!(dx === 0 && dy === 0)) {
+        const varName = neighborVarName(dx, dy);
+        let expression: string;
+        if (mode === 'toroidal') {
+          expression = `readCell(${wrapExpr('x', dx, 'COLS')}, ${wrapExpr('y', dy, 'ROWS')})`;
+        } else if (mode === 'boundedDirect') {
+          expression = `readCell(${directExpr('x', dx)}, ${directExpr('y', dy)})`;
+        } else {
+          expression = `readBoundedCell(${boundedExpr('x', dx)}, ${boundedExpr('y', dy)})`;
+        }
+        lines.push(`${indent}${varName} = ${expression};`);
       }
     }
   }
@@ -458,6 +499,40 @@ function wrapExpr(varName: string, delta: number, limit: string): string {
 }
 
 /**
+ * Builds a non-wrapping WGSL expression for one axis delta.
+ *
+ * @param {string} varName base variable name.
+ * @param {number} delta axis delta.
+ * @returns {string} direct WGSL expression.
+ */
+function directExpr(varName: string, delta: number): string {
+  let expression = varName;
+  if (delta === -1) {
+    expression = `${varName} - 1u`;
+  } else if (delta === 1) {
+    expression = `${varName} + 1u`;
+  }
+  return expression;
+}
+
+/**
+ * Builds a signed WGSL expression for bounded-grid neighbor lookup.
+ *
+ * @param {string} varName base variable name.
+ * @param {number} delta axis delta.
+ * @returns {string} signed WGSL expression.
+ */
+function boundedExpr(varName: string, delta: number): string {
+  let expression = `i32(${varName})`;
+  if (delta === -1) {
+    expression = `i32(${varName}) - 1i`;
+  } else if (delta === 1) {
+    expression = `i32(${varName}) + 1i`;
+  }
+  return expression;
+}
+
+/**
  * Resolves the numeric tribe ids for a tribe selector list.
  *
  * @param {string[]} tribeNames tribe selector names.
@@ -488,10 +563,10 @@ function resolveTribeTarget(tribeName: string, tribeIndex: ReadonlyMap<string, n
  *
  * @param {string} tribeName rule tribe name.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {'selector' | 'target'} context rule reference context.
+ * @param {'selector' | 'target' | 'boundary'} context rule reference context.
  * @returns {number} numeric tribe id, falling back to the dead tribe for unknown references.
  */
-function resolveRuleTribeIndex(tribeName: string, tribeIndex: ReadonlyMap<string, number>, context: 'selector' | 'target'): number {
+function resolveRuleTribeIndex(tribeName: string, tribeIndex: ReadonlyMap<string, number>, context: 'selector' | 'target' | 'boundary'): number {
   const resolved = tribeIndex.get(tribeName);
   const dead = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   if (resolved === undefined) {
@@ -937,6 +1012,8 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   const lines: string[] = [];
   const activeRules = ruleset.rules.filter(rule => !rule.muted);
   const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
+  const bounded = ruleset.topology === BOUNDED_GRID_TOPOLOGY;
+  const boundaryTribeId = resolveRuleTribeIndex(ruleset.boundaryTribe ?? DEAD_TRIBE_ID, tribeIndex, 'boundary');
   const countVarMap = buildCountVarMap(activeRules.map(rule => rule.clause));
   const eqVarMap = buildEqualityVarMap(activeRules.map(rule => rule.clause), countVarMap);
   lines.push('// Auto-generated simulation compute shader.');
@@ -953,6 +1030,10 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   pushGridFormatWgslConstants(lines, gridFormat);
   lines.push('');
   pushReadCellWgsl(lines, 'gridIn', 'PACKED_COLS');
+  if (bounded) {
+    lines.push('');
+    pushReadBoundedCellWgsl(lines, boundaryTribeId);
+  }
   lines.push('');
   lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
   pushNeighborCountDeclarations(lines, countVarMap, tribes, tribeIndex);
@@ -980,7 +1061,18 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   lines.push('    if (x >= COLS) { break; }');
   lines.push('');
   lines.push('    let selfTribe = readCell(x, y);');
-  pushNeighborReads(lines);
+  if (bounded) {
+    pushNeighborVarDeclarations(lines);
+    lines.push('    let interiorCell = x > 0u && y > 0u && x + 1u < COLS && y + 1u < ROWS;');
+    lines.push('    if (interiorCell) {');
+    pushNeighborReadAssignments(lines, 'boundedDirect', '      ');
+    lines.push('    } else {');
+    pushNeighborReadAssignments(lines, 'boundedVirtual', '      ');
+    lines.push('    }');
+  } else {
+    pushNeighborVarDeclarations(lines);
+    pushNeighborReadAssignments(lines, 'toroidal', '    ');
+  }
   lines.push('');
   lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & CELL_MASK) << (i << CELL_SHIFT));');
   lines.push('  }');

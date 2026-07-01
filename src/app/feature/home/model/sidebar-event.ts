@@ -6,7 +6,7 @@ import {Preset} from '../preset';
 import {Rule, Tribe} from './rule';
 import {TribeRenamePair} from './tribe-impact';
 
-import {Grid} from '~gol/feature/home/model/grid';
+import {GridSettings} from '~gol/feature/home/model/grid';
 
 /**
  * Sidebar action payload emitted to Home.
@@ -23,7 +23,7 @@ export type SidebarEvent =
   | {action: 'setPopulationExpanded'; value: boolean}
   | {action: 'setDiversityExpanded'; value: boolean}
   | {action: 'setInterfacesExpanded'; value: boolean}
-  | {action: 'setGridSize'; value: Grid}
+  | {action: 'setGridSize'; value: GridSettings}
   | {action: 'downloadSettingsChange'; value: DownloadRequestPayload}
   | {action: 'download'; value: DownloadRequestPayload}
   | {action: 'saveState'}

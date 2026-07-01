@@ -1,7 +1,8 @@
 import {BrushDispatchAxisSegment, BrushDispatchRect} from '../model/brush';
 
-import {Grid} from '~gol/feature/home/model/grid';
+import {Grid, GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {BOUNDED_GRID_TOPOLOGY} from '~gol/feature/home/model/rule';
 
 /**
  * Splits one brush axis into non-wrapping destination segments.
@@ -48,6 +49,30 @@ function createBrushAxisSegments(center: number, brushSize: number, limit: numbe
     });
   }
   return segments.filter(segment => segment.span > 0);
+}
+
+/**
+ * Clips one brush axis into a single in-grid destination segment.
+ *
+ * @param {number} center brush center on the target axis.
+ * @param {number} brushSize brush size in logical cells.
+ * @param {number} limit grid extent on the target axis.
+ * @returns {BrushDispatchAxisSegment[]} zero or one clipped segment.
+ */
+function createClippedBrushAxisSegments(center: number, brushSize: number, limit: number): BrushDispatchAxisSegment[] {
+  const rawStart = center - Math.floor((brushSize - 1) / 2);
+  const destinationStart = Math.max(0, rawStart);
+  const destinationEndExclusive = Math.min(limit, rawStart + brushSize);
+  const span = Math.max(0, destinationEndExclusive - destinationStart);
+  const segments: BrushDispatchAxisSegment[] = [];
+  if (span > 0) {
+    segments.push({
+      destinationStart,
+      localStart: destinationStart - rawStart,
+      span
+    });
+  }
+  return segments;
 }
 
 /**
@@ -221,11 +246,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
  * @param {number} centerY brush center y coordinate.
  * @param {number} brushSize brush size in logical cells.
  * @param {Grid} grid logical grid dimensions.
+ * @param {GridTopology} topology grid edge topology.
  * @returns {BrushDispatchRect[]} up to four non-overlapping rectangles.
  */
-export function createBrushDispatchRects(centerX: number, centerY: number, brushSize: number, grid: Grid): BrushDispatchRect[] {
-  const xSegments = createBrushAxisSegments(centerX, brushSize, grid.cols);
-  const ySegments = createBrushAxisSegments(centerY, brushSize, grid.rows);
+export function createBrushDispatchRects(centerX: number, centerY: number, brushSize: number, grid: Grid, topology: GridTopology): BrushDispatchRect[] {
+  const createSegments = topology === BOUNDED_GRID_TOPOLOGY ? createClippedBrushAxisSegments : createBrushAxisSegments;
+  const xSegments = createSegments(centerX, brushSize, grid.cols);
+  const ySegments = createSegments(centerY, brushSize, grid.rows);
   const rects: BrushDispatchRect[] = [];
   for (const ySegment of ySegments) {
     for (const xSegment of xSegments) {

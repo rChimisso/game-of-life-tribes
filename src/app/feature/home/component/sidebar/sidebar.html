@@ -25,7 +25,7 @@
     <hr class="divider" />
     <gol-home-section description="Set the grid size and monitor VRAM usage." title="Grid size" [collapsible]="false" [info]="vramTitleSize + ' / ' + vramQuotaFormatted">
       <gol-storage-bar [segments]="vramSegments" [title]="vramBarTooltip" [total]="vramBarTotal" />
-      <gol-grid-size-section [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" (applyGridSize)="onGridSizeApply($event)" />
+      <gol-grid-size-section [boundaryTribe]="ruleset.boundaryTribe" [downloading]="downloading" [gridCols]="gridCols" [gridRows]="gridRows" [maxBytes]="maxBytes" [running]="running" [simulationBitsPerCell]="simulationGridFormat.bitsPerCell" [topology]="ruleset.topology" [tribes]="tribes" (applyGridSize)="onGridSizeApply($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Adjust how tightly cells are packed in memory. Fewer bits reduce VRAM usage and help larger grids, while more bits allow more cell states and simpler shaders, which can benefit smaller grids." preferenceKey="golt-home-section-packing-expanded" title="Packing" [info]="simulationGridFormat.bitsPerCell + ' bit active'">

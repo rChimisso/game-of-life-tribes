@@ -26,7 +26,7 @@ const DOWNLOAD_CANCEL_CLEANUP_DONE_TYPE = 'cancel-cleanup-done';
  */
 function postDownloadRequest(worker: Worker, input: HomeDownloadWorkerInput): void {
   const gridBuf = input.snapshot.grid;
-  const snapshot = createSnapshotPayload(input.snapshot, input.tribes, input.rules);
+  const snapshot = createSnapshotPayload(input.snapshot, input.ruleset);
   const {recording} = input;
   const hasChunks = recording !== null && recording.manifest.chunks.length > 0;
   const transferables: ArrayBuffer[] = [];

@@ -1,4 +1,4 @@
-import {Grid} from '~gol/feature/home/model/grid';
+import {Grid, GridTopology} from '~gol/feature/home/model/grid';
 
 /**
  * Valid number for the count of a cell's neighbors.
@@ -64,6 +64,27 @@ export const DEAD_TRIBE_ID = 'dead';
  * @type {Tribe}
  */
 export const DEAD_TRIBE: Tribe<typeof DEAD_TRIBE_ID> = {id: DEAD_TRIBE_ID, color: '000000'};
+
+/**
+ * Toroidal grid topology.
+ *
+ * @type {"toroidal"}
+ */
+export const TOROIDAL_GRID_TOPOLOGY = 'toroidal';
+
+/**
+ * Bounded grid topology.
+ *
+ * @type {"bounded"}
+ */
+export const BOUNDED_GRID_TOPOLOGY = 'bounded';
+
+/**
+ * Valid grid topologies.
+ *
+ * @type {readonly string[]}
+ */
+export const GRID_TOPOLOGY_VALUES = [TOROIDAL_GRID_TOPOLOGY, BOUNDED_GRID_TOPOLOGY] as const;
 
 /**
  * Empty clause kind.
@@ -861,6 +882,18 @@ export interface NormalizedRule<T extends readonly Tribe[]> extends Rule<T> {
  * @extends {Grid}
  */
 export interface Ruleset<T extends readonly Tribe[] = Tribe[]> extends Grid {
+  /**
+   * Grid edge topology.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
+  /**
+   * Virtual boundary tribe used by bounded grids.
+   *
+   * @type {string}
+   */
+  boundaryTribe: string;
   /**
    * List of valid tribes.
    *

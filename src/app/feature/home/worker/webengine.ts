@@ -10,7 +10,7 @@ import {Grid} from '../model/grid';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings, MetricAvailability} from '../model/metrics';
 import {ChunkMeta, RecordingManifest} from '../model/recording';
-import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../model/rule';
+import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from '../model/rule';
 import {BrushPreviewMessage, CameraMessage, DrawMessage, ExportFrameOverlayMessage, InitMessage, LoadSnapshotMessage, ResizeMessage, SetLiveMetricsMessage, SetRecordingMessage, SetRulesetMessage, SetRunningMessage, SetSpeedMessage, StepBackMessage, StepForwardMessage, UpdateChunkCodecMessage, WorkerMessage} from '../model/worker-message';
 import {requestWorkerGpuDevice} from './gpu/gpu-device';
 import {GPU_LABELS} from './gpu/gpu-labels';
@@ -834,6 +834,7 @@ function writeUniforms(): void {
     offsetX,
     offsetY,
     grid: currentGridSize(),
+    topology: ruleset.topology,
     tribeCount: tribes.length,
     brushPreview,
     exportFrameOverlay
@@ -1015,7 +1016,7 @@ function createBrushPipeline(): void {
 function dispatchBrushOnEncoder(encoder: GPUCommandEncoder, brush: PendingBrush): void {
   const deadId = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const seed = brushSeedCounter++;
-  const rects = createBrushDispatchRects(brush.centerX, brush.centerY, brush.brushSize, currentGridSize());
+  const rects = createBrushDispatchRects(brush.centerX, brush.centerY, brush.brushSize, currentGridSize(), ruleset.topology);
   const bindGroups = pingPong ? brushBindGroupsB : brushBindGroupsA;
   for (const [index, rect] of rects.entries()) {
     const data = new ArrayBuffer(BRUSH_UNIFORM_SIZE);
@@ -2398,12 +2399,18 @@ function selectSimulationGridFormat(rs: Ruleset<readonly Tribe[]>, requested: Gr
  * @param {GridFormatMetadata} simulationGridFormat requested simulation grid format.
  */
 function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFormatMetadata): void {
-  ruleset = rs;
+  const topology = rs.topology === BOUNDED_GRID_TOPOLOGY ? BOUNDED_GRID_TOPOLOGY : TOROIDAL_GRID_TOPOLOGY;
+  const boundaryTribe = rs.tribes.some(tribe => tribe.id === rs.boundaryTribe) ? rs.boundaryTribe : DEAD_TRIBE_ID;
+  ruleset = {
+    ...rs,
+    topology,
+    boundaryTribe
+  };
   cols = rs.cols;
   rows = rs.rows;
   gridFormat = selectSimulationGridFormat(rs, simulationGridFormat);
   packedCols = packedColsForFormat(cols, gridFormat);
-  tribes = [...rs.tribes];
+  tribes = [...ruleset.tribes];
   manifest.gridFormat = currentGridFormatMetadata();
   tribeIndex.clear();
   tribes.forEach((t, i) => tribeIndex.set(t.id, i));

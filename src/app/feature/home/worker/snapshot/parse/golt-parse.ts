@@ -3,6 +3,24 @@ import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, RAW_DEFLATE_CODEC} from '../model/golt
 import {GoltHeader, ParsedGoltState, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
 
 import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '~gol/feature/home/logic/grid-format';
+import {DEAD_TRIBE_ID, GRID_TOPOLOGY_VALUES, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
+
+/**
+ * Normalizes snapshot topology metadata.
+ *
+ * @param {GoltHeader} header parsed snapshot header.
+ * @returns {{topology: 'toroidal' | 'bounded'; boundaryTribe: string}} normalized topology settings.
+ */
+function normalizeHeaderTopology(header: GoltHeader): {topology: 'toroidal' | 'bounded'; boundaryTribe: string} {
+  const topology = header.topology && GRID_TOPOLOGY_VALUES.includes(header.topology) ? header.topology : TOROIDAL_GRID_TOPOLOGY;
+  let boundaryTribe: string;
+  if (typeof header.boundaryTribe === 'string' && header.tribes?.some((tribe: Tribe) => tribe.id === header.boundaryTribe)) {
+    boundaryTribe = header.boundaryTribe;
+  } else {
+    boundaryTribe = DEAD_TRIBE_ID;
+  }
+  return {topology, boundaryTribe};
+}
 
 /**
  * Reads and validates the `.golt` header context.
@@ -55,9 +73,12 @@ async function parseGridPayload(buffer: ArrayBuffer, header: GoltHeader, headerE
       await inflateRaw(new Uint8Array(buffer, headerEnd), reportProgress);
     if (rawGrid && rawGrid.byteLength >= expectedGridBytes) {
       const gridBuffer = rawGrid.byteLength === expectedGridBytes ? rawGrid : rawGrid.slice(0, expectedGridBytes);
+      const topology = normalizeHeaderTopology(header);
       parsed = {
         cols: header.cols,
         rows: header.rows,
+        topology: topology.topology,
+        boundaryTribe: topology.boundaryTribe,
         generation: header.generation ?? 0,
         grid: new Uint32Array(gridBuffer),
         gridFormat: gridFormatMetadata(decodedGridFormat),

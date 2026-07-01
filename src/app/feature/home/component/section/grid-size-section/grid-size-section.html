@@ -1,3 +1,11 @@
+<div class="gol-cell-12 gol-grid-tiny" title="Grid topology">
+  <span class="input-label gol-cell-4">Topology</span>
+  <gol-select appearance="outline" class="gol-cell-8" [ngModel]="pendingTopology" [options]="topologyOptions" (ngModelChange)="onPendingTopologyChange($event)" />
+</div>
+<div class="gol-cell-12 gol-grid-tiny" title="Virtual boundary tribe for bounded grids">
+  <span class="input-label gol-cell-4">Boundary</span>
+  <gol-select appearance="outline" class="gol-cell-8" [disabled]="boundaryTribeDisabled" [ngModel]="pendingBoundaryTribe" [options]="boundaryTribeOptions" (ngModelChange)="onPendingBoundaryTribeChange($event)" />
+</div>
 <div class="gol-cell-12 gol-grid-tiny" title="Grid columns">
   <span class="input-label gol-cell-2">Cols</span>
   <gol-input class="gol-cell-5" name="columns" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingCols" (ngModelChange)="onPendingColsChange($event)" />

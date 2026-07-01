@@ -1,4 +1,4 @@
-import {Grid} from '~gol/feature/home/model/grid';
+import {Grid, GridSettings} from '~gol/feature/home/model/grid';
 import {GridFormatMetadata} from '~gol/feature/home/model/grid-format';
 import {Rule, Tribe} from '~gol/feature/home/model/rule';
 
@@ -28,9 +28,9 @@ export const SNAPSHOT_EXPORT_CANCELLED_ERROR_MESSAGE = 'Snapshot export cancelle
  *
  * @interface ParsedGoltState
  * @typedef {ParsedGoltState}
- * @extends {Grid}
+ * @extends {GridSettings}
  */
-export interface ParsedGoltState extends Grid {
+export interface ParsedGoltState extends GridSettings {
   /**
    * Generation number.
    *
@@ -77,6 +77,18 @@ export interface GoltHeader extends Grid {
    * @type {?number}
    */
   generation?: number;
+  /**
+   * Grid topology.
+   *
+   * @type {?GridSettings['topology']}
+   */
+  topology?: GridSettings['topology'];
+  /**
+   * Virtual boundary tribe used by bounded grids.
+   *
+   * @type {?string}
+   */
+  boundaryTribe?: string;
   /**
    * Grid format metadata.
    *

@@ -649,7 +649,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
       if (changes.ruleset || changes.simulationGridFormat) {
         this.workerClient.setRuleset(this.ruleset, this.simulationGridFormat);
         const prevRuleset = changes.ruleset?.previousValue;
-        if (!(prevRuleset && prevRuleset.rows === this.ruleset.rows && prevRuleset.cols === this.ruleset.cols)) {
+        if (!(prevRuleset && prevRuleset.rows === this.ruleset.rows && prevRuleset.cols === this.ruleset.cols && prevRuleset.topology === this.ruleset.topology)) {
           this.resetCamera();
         }
       }

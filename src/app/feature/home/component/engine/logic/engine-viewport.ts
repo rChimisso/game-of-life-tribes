@@ -1,7 +1,8 @@
 import {EnginePoint} from '../model/engine-input';
 
 import {ExportFrameOrigin, wrapExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
-import {Grid} from '~gol/feature/home/model/grid';
+import {GridSettings} from '~gol/feature/home/model/grid';
+import {BOUNDED_GRID_TOPOLOGY} from '~gol/feature/home/model/rule';
 import {CameraMessage} from '~gol/feature/home/model/worker-message';
 
 /**
@@ -63,9 +64,9 @@ export class EngineViewport {
    *
    * @public
    * @param {() => HTMLCanvasElement} getCanvas canvas getter.
-   * @param {() => Grid} getGrid grid getter.
+   * @param {() => GridSettings} getGrid grid getter.
    */
-  public constructor(private readonly getCanvas: () => HTMLCanvasElement, private readonly getGrid: () => Grid) {}
+  public constructor(private readonly getCanvas: () => HTMLCanvasElement, private readonly getGrid: () => GridSettings) {}
 
   /**
    * Resets the camera to the full-grid view.
@@ -77,6 +78,7 @@ export class EngineViewport {
     this.scale = this.minScale;
     this.offsetX = 0;
     this.offsetY = 0;
+    this.clampBoundedOffsets();
   }
 
   /**
@@ -87,6 +89,7 @@ export class EngineViewport {
   public refreshScaleBounds(): void {
     this.computeMinScale();
     this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale));
+    this.clampBoundedOffsets();
   }
 
   /**
@@ -106,6 +109,7 @@ export class EngineViewport {
     this.scale = Math.min(this.maxScale, Math.max(this.minScale, this.scale * factor));
     this.offsetX = worldX - cx / this.scale;
     this.offsetY = worldY - cy / this.scale;
+    this.clampBoundedOffsets();
   }
 
   /**
@@ -117,8 +121,14 @@ export class EngineViewport {
    */
   public panByClientDelta(dx: number, dy: number): void {
     const grid = this.getGrid();
-    this.offsetX = ((this.offsetX - dx / this.scale) % grid.cols + grid.cols) % grid.cols;
-    this.offsetY = ((this.offsetY - dy / this.scale) % grid.rows + grid.rows) % grid.rows;
+    this.offsetX -= dx / this.scale;
+    this.offsetY -= dy / this.scale;
+    if (grid.topology === BOUNDED_GRID_TOPOLOGY) {
+      this.clampBoundedOffsets();
+    } else {
+      this.offsetX = ((this.offsetX % grid.cols) + grid.cols) % grid.cols;
+      this.offsetY = ((this.offsetY % grid.rows) + grid.rows) % grid.rows;
+    }
   }
 
   /**
@@ -135,7 +145,17 @@ export class EngineViewport {
     const cssY = clientY - rect.top;
     const worldX = cssX / this.scale + this.offsetX;
     const worldY = cssY / this.scale + this.offsetY;
-    return {x: Math.floor(worldX), y: Math.floor(worldY)};
+    const grid = this.getGrid();
+    let cell: EnginePoint;
+    if (grid.topology === BOUNDED_GRID_TOPOLOGY) {
+      cell = {
+        x: Math.min(grid.cols - 1, Math.max(0, Math.floor(worldX))),
+        y: Math.min(grid.rows - 1, Math.max(0, Math.floor(worldY)))
+      };
+    } else {
+      cell = {x: Math.floor(worldX), y: Math.floor(worldY)};
+    }
+    return cell;
   }
 
   /**
@@ -165,7 +185,13 @@ export class EngineViewport {
     const grid = this.getGrid();
     const centerX = Math.floor((rect.width / 2) / this.scale + this.offsetX);
     const centerY = Math.floor((rect.height / 2) / this.scale + this.offsetY);
-    return wrapExportFrameOrigin({originX: centerX - Math.floor(grid.cols / 2), originY: centerY - Math.floor(grid.rows / 2)}, grid);
+    let origin: ExportFrameOrigin;
+    if (grid.topology === BOUNDED_GRID_TOPOLOGY) {
+      origin = {originX: 0, originY: 0};
+    } else {
+      origin = wrapExportFrameOrigin({originX: centerX - Math.floor(grid.cols / 2), originY: centerY - Math.floor(grid.rows / 2)}, grid);
+    }
+    return origin;
   }
 
   /**
@@ -178,5 +204,21 @@ export class EngineViewport {
     const grid = this.getGrid();
     this.minScale = Math.max(rect.width / grid.cols, rect.height / grid.rows);
     this.maxScale = Math.max(BASE_MAX_SCALE, this.minScale);
+  }
+
+  /**
+   * Clamps bounded-grid camera offsets to the visible grid extent.
+   *
+   * @private
+   */
+  private clampBoundedOffsets(): void {
+    const grid = this.getGrid();
+    if (grid.topology === BOUNDED_GRID_TOPOLOGY) {
+      const rect = this.getCanvas().getBoundingClientRect();
+      const visibleCols = rect.width / this.scale;
+      const visibleRows = rect.height / this.scale;
+      this.offsetX = Math.min(Math.max(0, grid.cols - visibleCols), Math.max(0, this.offsetX));
+      this.offsetY = Math.min(Math.max(0, grid.rows - visibleRows), Math.max(0, this.offsetY));
+    }
   }
 }

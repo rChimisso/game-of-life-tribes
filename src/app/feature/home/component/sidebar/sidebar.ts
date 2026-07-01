@@ -29,7 +29,7 @@ import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
-import {Grid} from '~gol/feature/home/model/grid';
+import {GridSettings} from '~gol/feature/home/model/grid';
 import {Button} from '~gol/shared/component/button/button';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
@@ -915,9 +915,9 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * Emits an applied grid size.
    *
    * @public
-   * @param {Grid} value grid size.
+   * @param {GridSettings} value grid settings.
    */
-  public onGridSizeApply(value: Grid): void {
+  public onGridSizeApply(value: GridSettings): void {
     this.emit({action: 'setGridSize', value});
   }
 

@@ -14,7 +14,7 @@ import {estimateDownloadWorkingSet} from './logic/download-estimate';
 import {prepareHomeDownload} from './logic/download-preparation';
 import {startHomeDownloadWorker} from './logic/download-worker-runner';
 import {fitsGridFormatInMaxBytes, gridFormatFromBits, gridFormatMetadata, isSupportedBitsPerCell, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from './logic/grid-format';
-import {normalizeDrawSectionPreferences, normalizeMetricsSectionPreferences, normalizeSpeedSectionPreferences} from './logic/home-preferences';
+import {normalizeDrawSectionPreferences, normalizeGridSectionPreferences, normalizeMetricsSectionPreferences, normalizeSpeedSectionPreferences} from './logic/home-preferences';
 import {openHomeSnack} from './logic/home-snackbar';
 import {normalizeLiveMetricSectionSettings} from './logic/metric-settings';
 import {clearTempOpfsDirectory} from './logic/opfs-temp';
@@ -28,7 +28,7 @@ import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePreferences} from './model/preferences';
-import {DEAD_TRIBE_ID, Ruleset, Tribe} from './model/rule';
+import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {Preset} from './preset';
@@ -86,7 +86,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   public ruleset: Ruleset = {
     ...CONWAY_PRESET.ruleset,
     cols: 512,
-    rows: 512
+    rows: 512,
+    topology: TOROIDAL_GRID_TOPOLOGY,
+    boundaryTribe: DEAD_TRIBE_ID
   };
 
   /**
@@ -999,6 +1001,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         populationExpanded: this.populationExpanded,
         diversityExpanded: this.diversityExpanded,
         interfacesExpanded: this.interfacesExpanded
+      },
+      grid: {
+        topology: this.ruleset.topology,
+        boundaryTribe: this.ruleset.boundaryTribe
       }
     };
   }
@@ -1022,6 +1028,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     this.populationExpanded = preferences.metrics.populationExpanded;
     this.diversityExpanded = preferences.metrics.diversityExpanded;
     this.interfacesExpanded = preferences.metrics.interfacesExpanded;
+    this.ruleset = {
+      ...this.ruleset,
+      topology: preferences.grid.topology,
+      boundaryTribe: this.normalizeBoundaryTribe(preferences.grid.boundaryTribe, this.ruleset.tribes)
+    };
     this.clampBrushSize();
     this.syncLiveMetrics();
   }
@@ -1038,7 +1049,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     return {
       draw: normalizeDrawSectionPreferences(stored.draw, defaults.draw),
       speed: normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
-      metrics: normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics)
+      metrics: normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics),
+      grid: normalizeGridSectionPreferences(stored.grid, defaults.grid)
     };
   }
 
@@ -1074,6 +1086,40 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   }
 
   /**
+   * Normalizes topology fields on a ruleset.
+   *
+   * @private
+   * @param {Ruleset} ruleset ruleset to normalize.
+   * @returns {Ruleset} ruleset with valid grid settings.
+   */
+  private normalizeRulesetGridSettings(ruleset: Ruleset): Ruleset {
+    const topology = ruleset.topology === BOUNDED_GRID_TOPOLOGY ? BOUNDED_GRID_TOPOLOGY : TOROIDAL_GRID_TOPOLOGY;
+    return {
+      ...ruleset,
+      topology,
+      boundaryTribe: this.normalizeBoundaryTribe(ruleset.boundaryTribe, ruleset.tribes)
+    };
+  }
+
+  /**
+   * Normalizes the virtual boundary tribe for the tribe list.
+   *
+   * @private
+   * @param {string} boundaryTribe candidate boundary tribe.
+   * @param {readonly Tribe[]} tribes active tribes.
+   * @returns {string} normalized boundary tribe.
+   */
+  private normalizeBoundaryTribe(boundaryTribe: string, tribes: readonly Tribe[]): string {
+    let normalized: string;
+    if (tribes.some(tribe => tribe.id === boundaryTribe)) {
+      normalized = boundaryTribe;
+    } else {
+      normalized = DEAD_TRIBE_ID;
+    }
+    return normalized;
+  }
+
+  /**
    * Applies a ruleset and selects a valid simulation grid format.
    *
    * @private
@@ -1084,16 +1130,18 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private applyCommittedRuleset(newRuleset: Ruleset, preferSmallestFormat = false): boolean {
     this.resetRecordingCompressionState();
     this.rebuilding = true;
+    const normalizedRuleset = this.normalizeRulesetGridSettings(newRuleset);
+    const gridSettingsChanged = normalizedRuleset.topology !== this.ruleset.topology || normalizedRuleset.boundaryTribe !== this.ruleset.boundaryTribe;
     this.simulationGridFormat = preferSmallestFormat ?
-      this.smallestSimulationGridFormatForRuleset(newRuleset) :
-      this.resolveSimulationGridFormat(this.simulationGridFormat, newRuleset);
-    this.ruleset = newRuleset;
-    if (!newRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-      this.drawTribes = [newRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
+      this.smallestSimulationGridFormatForRuleset(normalizedRuleset) :
+      this.resolveSimulationGridFormat(this.simulationGridFormat, normalizedRuleset);
+    this.ruleset = normalizedRuleset;
+    if (!normalizedRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
+      this.drawTribes = [normalizedRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
     }
-    this.drawTribeIndex = newRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
+    this.drawTribeIndex = normalizedRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
     this.latestMetrics = null;
-    return this.clampBrushSize();
+    return this.clampBrushSize() || gridSettingsChanged;
   }
 
   /**
@@ -1115,7 +1163,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       shouldSavePreferences = this.applyCommittedRuleset({
         ...preset.ruleset,
         cols: currentGrid.cols,
-        rows: currentGrid.rows
+        rows: currentGrid.rows,
+        topology: this.ruleset.topology,
+        boundaryTribe: this.ruleset.boundaryTribe
       }, true);
     } else {
       openHomeSnack(this.snackBar, `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`, 'error');
@@ -1726,8 +1776,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       opts,
       snapshot: snap,
       recording: rec,
-      tribes: this.tribes,
-      rules: this.ruleset.rules,
+      ruleset: this.ruleset,
       startedAt
     }, {
       setWorker: worker => {
@@ -1794,7 +1843,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const startedAt = performance.now();
     console.log('[GOLT] Clearing temporary OPFS files before snapshot save');
     await clearTempOpfsDirectory();
-    const saved = await runSnapshotSaveWorker(snap, this.tribes, this.ruleset.rules, (mode, percent, status) => {
+    const saved = await runSnapshotSaveWorker(snap, this.ruleset, (mode, percent, status) => {
       this.applySnapshotProgress(mode, percent, status);
     });
     await this.waitForMinimumVisibleTime(startedAt);
@@ -1831,6 +1880,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     const nextRuleset: Ruleset = {
       cols,
       rows,
+      topology: parsed.topology,
+      boundaryTribe: this.normalizeBoundaryTribe(parsed.boundaryTribe, parsed.tribes),
       tribes: parsed.tribes.map(t => ({id: t.id, color: t.color})),
       rules: structuredClone(parsed.rules)
     };
@@ -2007,10 +2058,13 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.ruleset = {
           ...this.ruleset,
           cols: event.value.cols,
-          rows: event.value.rows
+          rows: event.value.rows,
+          topology: event.value.topology,
+          boundaryTribe: this.normalizeBoundaryTribe(event.value.boundaryTribe, this.ruleset.tribes)
         };
         this.latestMetrics = null;
-        shouldSavePreferences = this.clampBrushSize();
+        shouldSavePreferences = true;
+        this.clampBrushSize();
         break;
       case 'setPacking':
         this.resetRecordingCompressionState();

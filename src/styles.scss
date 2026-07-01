@@ -495,6 +495,12 @@ mat-expansion-panel {
   color: #d0d0d0;
   font-size: 0.85rem;
   min-height: 32px;
+
+  .mdc-list-item__primary-text {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
 }
 
 .gol-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
@@ -518,6 +524,30 @@ mat-expansion-panel {
 
 .gol-select-panel .gol-option-hidden {
   display: none;
+}
+
+.gol-select-panel {
+  .gol-select-rich-option,
+  .gol-select-option-label {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .gol-select-rich-option {
+    > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .gol-select-option-label {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .gol-select-field .mat-mdc-text-field-wrapper {

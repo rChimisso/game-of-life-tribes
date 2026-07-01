@@ -23,4 +23,31 @@
   --mat-select-disabled-trigger-text-color: color-mix(in srgb, #d0d0d0 33%, transparent);
   --mat-select-enabled-arrow-color: #d0d0d0;
   --mat-select-focused-arrow-color: #ededed;
+
+  .gol-select-rich-value,
+  .gol-select-rich-option,
+  .gol-select-option-label {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .gol-select-rich-value,
+  .gol-select-rich-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .gol-select-option-label {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

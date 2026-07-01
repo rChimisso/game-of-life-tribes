@@ -10,6 +10,7 @@ import {BitsPerCell} from '~gol/feature/home/model/grid-format';
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {InputComponent} from '~gol/shared/component/input/input';
+import {SegmentedControl} from '~gol/shared/component/segmented-control/segmented-control';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 
@@ -26,6 +27,7 @@ import {SelectComponent} from '~gol/shared/component/select/select';
   imports: [
     FormsModule,
     InputComponent,
+    SegmentedControl,
     SelectComponent,
     FrameSizeLimits,
     ApplyRestoreButtons
@@ -199,7 +201,7 @@ export class GridSizeSection implements OnChanges {
    * @type {boolean}
    */
   public get hasUnappliedGridSize(): boolean {
-    return +this.pendingCols !== +this.gridCols || +this.pendingRows !== +this.gridRows || this.pendingTopology !== this.topology || this.pendingBoundaryTribe !== this.normalizedBoundaryTribe;
+    return +this.pendingCols !== +this.gridCols || +this.pendingRows !== +this.gridRows || this.pendingTopology !== this.topology || (this.pendingTopology === BOUNDED_GRID_TOPOLOGY && this.pendingBoundaryTribe !== this.normalizedBoundaryTribe);
   }
 
   /**

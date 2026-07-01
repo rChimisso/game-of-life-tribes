@@ -3,11 +3,13 @@
     <mat-label>{{ label }}</mat-label>
   }
   <mat-select [disabled]="disabled" [hideSingleSelectionIndicator]="hideSingleSelectionIndicator" [panelClass]="panelClass" [placeholder]="placeholder" [value]="value" (blur)="touch()" (closed)="touch()" (selectionChange)="onSelectionChange($event.value)">
-    @if (selectedOption?.swatchColor; as selectedSwatchColor) {
+    @if (selectedOption; as selected) {
       <mat-select-trigger>
         <span class="gol-select-rich-value">
-          <gol-tribe-swatch size="sm" [color]="selectedSwatchColor" [interactive]="false" [title]="selectedOption?.label ?? ''" />
-          <span>{{ selectedOption?.label }}</span>
+          @if (selected.swatchColor; as selectedSwatchColor) {
+            <gol-tribe-swatch size="sm" [color]="selectedSwatchColor" [interactive]="false" [title]="selected.label" />
+          }
+          <span>{{ selected.label }}</span>
         </span>
       </mat-select-trigger>
     }
@@ -19,7 +21,7 @@
             <span>{{ option.label }}</span>
           </span>
         } @else {
-          {{ option.label }}
+          <span class="gol-select-option-label">{{ option.label }}</span>
         }
       </mat-option>
     }

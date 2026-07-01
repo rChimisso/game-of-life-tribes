@@ -1,0 +1,8 @@
+<div class="segmented-control" role="radiogroup" [attr.aria-label]="label" [class.disabled]="disabled" [ngStyle]="controlStyle">
+  <span aria-hidden="true" class="segmented-thumb"></span>
+  @for (option of options; track option.value) {
+    <button class="segmented-option" role="radio" type="button" [attr.aria-checked]="isSelected(option)" [class.active]="isSelected(option)" [disabled]="disabled || option.disabled" [title]="option.label" (blur)="touch()" (click)="onOptionClick(option)">
+      <span>{{ option.label }}</span>
+    </button>
+  }
+</div>

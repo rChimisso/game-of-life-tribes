@@ -87,10 +87,10 @@ function pushLogicalInvocation2DWgsl(lines: string[], plan: DispatchPlan2D, xNam
 /**
  * Builds the mapping from unique count-set keys to WGSL variable names.
  *
- * @param {Clause<Tribe[]>[]} clauses active rule clauses.
+ * @param {Clause<readonly Tribe[]>[]} clauses active rule clauses.
  * @returns {Map<string, string>} count variable mapping.
  */
-function buildCountVarMap(clauses: Clause<Tribe[]>[]): Map<string, string> {
+function buildCountVarMap(clauses: Clause<readonly Tribe[]>[]): Map<string, string> {
   const countSets = collectCountSelectors(clauses);
   const countVarMap = new Map<string, string>();
   let countIdx = 0;
@@ -103,11 +103,11 @@ function buildCountVarMap(clauses: Clause<Tribe[]>[]): Map<string, string> {
 /**
  * Builds the mapping from equality-set keys to WGSL variable names.
  *
- * @param {Clause<Tribe[]>[]} clauses active rule clauses.
+ * @param {Clause<readonly Tribe[]>[]} clauses active rule clauses.
  * @param {Map<string, string>} countVarMap existing count variable mapping.
  * @returns {Map<string, string>} equality variable mapping.
  */
-function buildEqualityVarMap(clauses: Clause<Tribe[]>[], countVarMap: Map<string, string>): Map<string, string> {
+function buildEqualityVarMap(clauses: Clause<readonly Tribe[]>[], countVarMap: Map<string, string>): Map<string, string> {
   const equalitySets = collectEqualitySelectors(clauses);
   const eqVarMap = new Map<string, string>();
   let eqIdx = 0;
@@ -786,16 +786,16 @@ function deserializeSelectorKey(key: string): TribeSelector<Tribe[]> {
 /**
  * Traverses one or more clause trees and collects serialized selector keys.
  *
- * @param {Clause<Tribe[]>[]} clauses rule clauses.
- * @param {(clause: Clause<Tribe[]>, addSelector: (selector: TribeSelector<Tribe[]>) => void) => void} collectFromClause per-clause collection callback.
+ * @param {Clause<readonly Tribe[]>[]} clauses rule clauses.
+ * @param {(clause: Clause<readonly Tribe[]>, addSelector: (selector: TribeSelector<Tribe[]>) => void) => void} collectFromClause per-clause collection callback.
  * @returns {Set<string>} collected serialized selector keys.
  */
-function collectClauseSelectors(clauses: Clause<Tribe[]>[], collectFromClause: (clause: Clause<Tribe[]>, addSelector: (selector: TribeSelector<Tribe[]>) => void) => void): Set<string> {
+function collectClauseSelectors(clauses: Clause<readonly Tribe[]>[], collectFromClause: (clause: Clause<readonly Tribe[]>, addSelector: (selector: TribeSelector<Tribe[]>) => void) => void): Set<string> {
   const result = new Set<string>();
   const addSelector = (selector: TribeSelector<Tribe[]>): void => {
     result.add(selectorKey(selector));
   };
-  const visit = (clause: Clause<Tribe[]>): void => {
+  const visit = (clause: Clause<readonly Tribe[]>): void => {
     collectFromClause(clause, addSelector);
     switch (clause.kind) {
       case NOT_CLAUSE_KIND:
@@ -819,10 +819,10 @@ function collectClauseSelectors(clauses: Clause<Tribe[]>[], collectFromClause: (
 /**
  * Collects the unique count-selector keys required by the rule clauses.
  *
- * @param {Clause<Tribe[]>[]} clauses rule clauses.
+ * @param {Clause<readonly Tribe[]>[]} clauses rule clauses.
  * @returns {Set<string>} unique count-selector keys.
  */
-function collectCountSelectors(clauses: Clause<Tribe[]>[]): Set<string> {
+function collectCountSelectors(clauses: Clause<readonly Tribe[]>[]): Set<string> {
   return collectClauseSelectors(clauses, (clause, addSelector) => {
     switch (clause.kind) {
       case NONE_CLAUSE_KIND:
@@ -839,10 +839,10 @@ function collectCountSelectors(clauses: Clause<Tribe[]>[]): Set<string> {
 /**
  * Collects the unique equality-selector keys required by the rule clauses.
  *
- * @param {Clause<Tribe[]>[]} clauses rule clauses.
+ * @param {Clause<readonly Tribe[]>[]} clauses rule clauses.
  * @returns {Set<string>} unique equality-selector keys.
  */
-function collectEqualitySelectors(clauses: Clause<Tribe[]>[]): Set<string> {
+function collectEqualitySelectors(clauses: Clause<readonly Tribe[]>[]): Set<string> {
   return collectClauseSelectors(clauses, (clause, addSelector) => {
     if (clause.kind === COMPARISON_CLAUSE_KIND) {
       addSelector(normalizeCountExpression(clause.left, clause.tribe1).selector);
@@ -854,14 +854,14 @@ function collectEqualitySelectors(clauses: Clause<Tribe[]>[]): Set<string> {
 /**
  * Generates the WGSL boolean expression for one rule clause.
  *
- * @param {Clause<Tribe[]>} clause clause to encode.
+ * @param {Clause<readonly Tribe[]>} clause clause to encode.
  * @param {Map<string, string>} countVarMap count variable mapping.
  * @param {Map<string, string>} eqVarMap equality variable mapping.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} WGSL boolean expression.
  */
-function generateClauseExpr(clause: Clause<Tribe[]>, countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
+function generateClauseExpr(clause: Clause<readonly Tribe[]>, countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
   switch (clause.kind) {
     case EMPTY_CLAUSE_KIND:
       return 'false';
@@ -926,11 +926,11 @@ function generateClosedRangeExpr(varName: string, min: number, max: number): str
 /**
  * Generates the WGSL expression for a comparison clause.
  *
- * @param {Extract<Clause<Tribe[]>, { kind: typeof COMPARISON_CLAUSE_KIND }>} clause comparison clause.
+ * @param {Extract<Clause<readonly Tribe[]>, { kind: typeof COMPARISON_CLAUSE_KIND }>} clause comparison clause.
  * @param {Map<string, string>} eqVarMap equality variable mapping.
  * @returns {string} WGSL comparison expression.
  */
-function generateComparisonClauseExpr(clause: Extract<Clause<Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>, eqVarMap: Map<string, string>): string {
+function generateComparisonClauseExpr(clause: Extract<Clause<readonly Tribe[]>, {kind: typeof COMPARISON_CLAUSE_KIND}>, eqVarMap: Map<string, string>): string {
   const leftSelector = normalizeCountExpression(clause.left, clause.tribe1).selector;
   const rightSelector = normalizeCountExpression(clause.right, clause.tribe2).selector;
   const operator = COMPARISON_OPERATOR_WGSL[clause.operator] ?? '==';
@@ -941,14 +941,14 @@ function generateComparisonClauseExpr(clause: Extract<Clause<Tribe[]>, {kind: ty
 /**
  * Generates the WGSL expression for an xor-clause.
  *
- * @param {Clause<Tribe[]>[]} clauses xor child clauses.
+ * @param {Clause<readonly Tribe[]>[]} clauses xor child clauses.
  * @param {Map<string, string>} countVarMap count variable mapping.
  * @param {Map<string, string>} eqVarMap equality variable mapping.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} WGSL xor expression.
  */
-function generateXorClauseExpr(clauses: Clause<Tribe[]>[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
+function generateXorClauseExpr(clauses: Clause<readonly Tribe[]>[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
   return `(((${clauses.map(child => generateClauseExpr(child, countVarMap, eqVarMap, tribes, tribeIndex)).map(part => `select(0u, 1u, ${part})`).join(' + ')}) & 1u) == 1u)`;
 }
 
@@ -1054,6 +1054,9 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   lines.push('  if (px >= PACKED_COLS || y >= ROWS) { return; }');
   lines.push('');
   lines.push('  let baseX = px << WORD_SHIFT;');
+  if (bounded) {
+    lines.push('  let interiorPackedWord = y > 0u && y + 1u < ROWS && baseX > 0u && baseX + CELLS_PER_WORD < COLS;');
+  }
   lines.push('  var packed: u32 = 0u;');
   lines.push('');
   lines.push('  for (var i: u32 = 0u; i < CELLS_PER_WORD; i = i + 1u) {');
@@ -1063,11 +1066,15 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
   lines.push('    let selfTribe = readCell(x, y);');
   if (bounded) {
     pushNeighborVarDeclarations(lines);
-    lines.push('    let interiorCell = x > 0u && y > 0u && x + 1u < COLS && y + 1u < ROWS;');
-    lines.push('    if (interiorCell) {');
+    lines.push('    if (interiorPackedWord) {');
     pushNeighborReadAssignments(lines, 'boundedDirect', '      ');
     lines.push('    } else {');
-    pushNeighborReadAssignments(lines, 'boundedVirtual', '      ');
+    lines.push('      let interiorCell = x > 0u && y > 0u && x + 1u < COLS && y + 1u < ROWS;');
+    lines.push('      if (interiorCell) {');
+    pushNeighborReadAssignments(lines, 'boundedDirect', '        ');
+    lines.push('      } else {');
+    pushNeighborReadAssignments(lines, 'boundedVirtual', '        ');
+    lines.push('      }');
     lines.push('    }');
   } else {
     pushNeighborVarDeclarations(lines);

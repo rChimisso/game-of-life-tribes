@@ -1,7 +1,60 @@
 import {RenderUniformInput, UNIFORM_SIZE} from '../model/render';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 import {BOUNDED_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
+
+/**
+ * Returns the topology-specific signed cell-distance body.
+ *
+ * @param {GridTopology} topology active grid topology.
+ * @returns {string} WGSL function body.
+ */
+function signedGridDeltaBody(topology: GridTopology): string {
+  return topology === BOUNDED_GRID_TOPOLOGY ? '  return i32(cell) - center;' : '  return signedWrapDelta(cell, center, size);';
+}
+
+/**
+ * Returns the topology-specific signed world-distance body.
+ *
+ * @param {GridTopology} topology active grid topology.
+ * @returns {string} WGSL function body.
+ */
+function signedGridWorldDeltaBody(topology: GridTopology): string {
+  return topology === BOUNDED_GRID_TOPOLOGY ? '  return world - f32(center);' : '  return signedWrapWorldDelta(world, center, size);';
+}
+
+/**
+ * Returns topology-specific fragment coordinate mapping.
+ *
+ * @param {GridTopology} topology active grid topology.
+ * @returns {string} WGSL statements.
+ */
+function gridCoordinateAssignments(topology: GridTopology): string {
+  return topology === BOUNDED_GRID_TOPOLOGY ?
+    '  let ix = min(u.grid_size.x - 1u, u.offset_cell.x + u32(local.x));\n  let iy = min(u.grid_size.y - 1u, u.offset_cell.y + u32(local.y));' :
+    '  let ix = wrapAdd(u.offset_cell.x, u32(local.x), u.grid_size.x);\n  let iy = wrapAdd(u.offset_cell.y, u32(local.y), u.grid_size.y);';
+}
+
+/**
+ * Returns topology-specific visual export overlay rendering.
+ *
+ * @param {GridTopology} topology active grid topology.
+ * @returns {string} WGSL statements.
+ */
+function exportOverlayBlock(topology: GridTopology): string {
+  const cornerMask = topology === BOUNDED_GRID_TOPOLOGY ? 'exportBoundedCornerMarkerMask(local)' : 'exportOriginMarkerMask(local)';
+  const cornerOutlineMask = topology === BOUNDED_GRID_TOPOLOGY ? 'exportBoundedCornerMarkerOutlineMask(local)' : 'exportOriginMarkerOutlineMask(local)';
+  return `  if (u.export_visible == 1u) {
+    if (exportCenterMarkerMask(local) || ${cornerMask}) {
+      return vec4f(0.0, 0.0, 0.0, 1.0);
+    }
+
+    if (exportCenterMarkerOutlineMask(local) || ${cornerOutlineMask}) {
+      return vec4f(0.82, 0.84, 0.86, 1.0);
+    }
+  }`;
+}
 
 /**
  * Packs the current render uniforms into one GPU-ready buffer payload.
@@ -59,17 +112,22 @@ export function createTribeColorData(tribes: readonly Tribe[]): Uint32Array {
 }
 
 /**
- * Specializes the render shader for the active packed-grid layout.
+ * Specializes the render shader for the active packed-grid layout and topology.
  *
  * @param {string} source render WGSL template.
  * @param {GridFormat} gridFormat active packed grid format.
+ * @param {GridTopology} topology active grid topology.
  * @returns {string} specialized render WGSL source.
  */
-export function generateRenderWgsl(source: string, gridFormat: GridFormat): string {
+export function generateRenderWgsl(source: string, gridFormat: GridFormat, topology: GridTopology): string {
   return source
     .replace('__CELLS_PER_WORD__', `${gridFormat.cellsPerWord}u`)
     .replace('__WORD_SHIFT__', `${gridFormat.wordShift}u`)
     .replace('__CELL_SHIFT__', `${gridFormat.cellShift}u`)
     .replace('__CELL_INDEX_MASK__', `${gridFormat.cellIndexMask}u`)
-    .replace('__CELL_MASK__', `${gridFormat.cellMask}u`);
+    .replace('__CELL_MASK__', `${gridFormat.cellMask}u`)
+    .replace('__SIGNED_GRID_DELTA_BODY__', signedGridDeltaBody(topology))
+    .replace('__SIGNED_GRID_WORLD_DELTA_BODY__', signedGridWorldDeltaBody(topology))
+    .replace('__GRID_COORDINATE_ASSIGNMENTS__', gridCoordinateAssignments(topology))
+    .replace('__EXPORT_OVERLAY_BLOCK__', exportOverlayBlock(topology));
 }

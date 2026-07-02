@@ -1,6 +1,6 @@
 // Render shader: draws the grid as a full-screen quad.
 // Reads cell tribe IDs from a storage buffer, looks up colors from a uniform array.
-// Supports zoom, pan, and toroidal tiling.
+// Supports zoom, pan, toroidal tiling, and bounded-grid clipping.
 
 struct Uniforms {
   canvas_size: vec2f,    // Canvas width, height in pixels.
@@ -59,10 +59,7 @@ fn signedWrapDelta(cell: u32, center: i32, size: u32) -> i32 {
 }
 
 fn signedGridDelta(cell: u32, center: i32, size: u32) -> i32 {
-  if (u.topology == 1u) {
-    return i32(cell) - center;
-  }
-  return signedWrapDelta(cell, center, size);
+__SIGNED_GRID_DELTA_BODY__
 }
 
 fn previewInShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {
@@ -98,10 +95,7 @@ fn signedWrapWorldDelta(world: f32, center: i32, size: u32) -> f32 {
 }
 
 fn signedGridWorldDelta(world: f32, center: i32, size: u32) -> f32 {
-  if (u.topology == 1u) {
-    return world - f32(center);
-  }
-  return signedWrapWorldDelta(world, center, size);
+__SIGNED_GRID_WORLD_DELTA_BODY__
 }
 
 fn previewRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bool {
@@ -271,10 +265,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
   let px = in.uv * u.canvas_size;
   let local = px / u.scale + u.offset_frac;
 
-  let direct_ix = min(u.grid_size.x - 1u, u.offset_cell.x + u32(local.x));
-  let direct_iy = min(u.grid_size.y - 1u, u.offset_cell.y + u32(local.y));
-  let ix = select(wrapAdd(u.offset_cell.x, u32(local.x), u.grid_size.x), direct_ix, u.topology == 1u);
-  let iy = select(wrapAdd(u.offset_cell.y, u32(local.y), u.grid_size.y), direct_iy, u.topology == 1u);
+__GRID_COORDINATE_ASSIGNMENTS__
 
   // Read tribe ID from the active packed grid buffer.
   let packed_cols = (u.grid_size.x + CELLS_PER_WORD - 1u) >> WORD_SHIFT;
@@ -292,16 +283,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     return vec4f(0.82, 0.84, 0.86, 1.0);
   }
 
-  let exportCornerMask = select(exportOriginMarkerMask(local), exportBoundedCornerMarkerMask(local), u.topology == 1u);
-  let exportCornerOutlineMask = select(exportOriginMarkerOutlineMask(local), exportBoundedCornerMarkerOutlineMask(local), u.topology == 1u);
-
-  if (u.export_visible == 1u && (exportCenterMarkerMask(local) || exportCornerMask)) {
-    return vec4f(0.0, 0.0, 0.0, 1.0);
-  }
-
-  if (u.export_visible == 1u && (exportCenterMarkerOutlineMask(local) || exportCornerOutlineMask)) {
-    return vec4f(0.82, 0.84, 0.86, 1.0);
-  }
+__EXPORT_OVERLAY_BLOCK__
 
   return vec4f(r, g, b, 1.0);
 }

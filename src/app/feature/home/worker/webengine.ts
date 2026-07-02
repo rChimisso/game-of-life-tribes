@@ -906,9 +906,10 @@ function createTribeColorBuffer(): void {
  * Recreates the render pipeline for the current canvas format.
  */
 function createRenderPipeline(): void {
-  const module = device.createShaderModule({label: GPU_LABELS.renderShaderModule, code: generateRenderWgsl(renderWgsl, gridFormat)});
+  const renderTopology = ruleset.topology;
+  const module = device.createShaderModule({label: `${GPU_LABELS.renderShaderModule} (${renderTopology})`, code: generateRenderWgsl(renderWgsl, gridFormat, renderTopology)});
   renderPipeline = device.createRenderPipeline({
-    label: GPU_LABELS.renderPipeline,
+    label: `${GPU_LABELS.renderPipeline} (${renderTopology})`,
     layout: 'auto',
     vertex: {
       module,

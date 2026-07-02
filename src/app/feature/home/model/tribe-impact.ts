@@ -1,12 +1,12 @@
 /**
- * Tribe id rename to apply to committed rules.
+ * Tribe id rename to apply to committed references.
  *
  * @interface TribeRenamePair
  * @typedef {TribeRenamePair}
  */
 export interface TribeRenamePair {
   /**
-   * Original tribe id in committed rules.
+   * Original tribe id in committed references.
    *
    * @type {string}
    */
@@ -33,13 +33,13 @@ export interface TribeApplyImpact {
    */
   blocked: boolean;
   /**
-   * User-facing reason why applying tribes is blocked.
+   * User-facing reasons why applying tribes is blocked.
    *
-   * @type {(string | null)}
+   * @type {string[]}
    */
-  message: string | null;
+  messages: string[];
   /**
-   * Tribe id renames that should be propagated to rules.
+   * Tribe id renames that should be propagated to rules and boundary settings.
    *
    * @type {TribeRenamePair[]}
    */
@@ -50,4 +50,10 @@ export interface TribeApplyImpact {
    * @type {string[]}
    */
   blockingRemovedTribeIds: string[];
+  /**
+   * Removed tribe ids that are still used by the active bounded-grid boundary.
+   *
+   * @type {string[]}
+   */
+  blockingBoundaryTribeIds: string[];
 }

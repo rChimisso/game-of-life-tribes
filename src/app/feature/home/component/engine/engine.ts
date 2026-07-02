@@ -8,7 +8,7 @@ import {BrushFill, BrushShape} from '../../model/draw-mode';
 import {ExportFrameOrigin} from '../../model/export-frame-origin';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
-import {Ruleset, Tribe} from '../../model/rule';
+import {DEFAULT_RULESET, Ruleset, Tribe} from '../../model/rule';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -55,7 +55,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
    * @type {Ruleset<T>}
    */
   @Input()
-  public ruleset!: Ruleset<T>;
+  public ruleset: Ruleset<readonly Tribe[]> = DEFAULT_RULESET;
 
   /**
    * Current simulation grid format.

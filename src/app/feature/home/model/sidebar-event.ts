@@ -53,7 +53,7 @@ export interface UpdateTribesPayload {
    */
   tribes: Tribe[];
   /**
-   * Tribe rename mappings to apply to rules.
+   * Tribe rename mappings to apply to rules and boundary settings.
    *
    * @type {TribeRenamePair[]}
    */

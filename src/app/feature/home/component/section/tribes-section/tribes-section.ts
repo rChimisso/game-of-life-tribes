@@ -4,7 +4,8 @@ import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {analyzeTribeApplyImpact} from '~gol/feature/home/logic/tribe-impact';
-import {DEAD_TRIBE_ID, EditableTribe, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {GridTopology} from '~gol/feature/home/model/grid';
+import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, EditableTribe, Rule, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 import {UpdateTribesPayload} from '~gol/feature/home/model/sidebar-event';
 import {TribeApplyImpact} from '~gol/feature/home/model/tribe-impact';
 import {TribeSaveEvent} from '~gol/feature/home/model/tribe-save-event';
@@ -44,6 +45,24 @@ export class TribesSection implements OnChanges {
    */
   @Input({required: true})
   public committedRules: Rule<Tribe[]>[] = [];
+
+  /**
+   * Committed grid topology.
+   *
+   * @public
+   * @type {GridTopology}
+   */
+  @Input({required: true})
+  public topology: GridTopology = TOROIDAL_GRID_TOPOLOGY;
+
+  /**
+   * Committed bounded-grid boundary tribe.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input({required: true})
+  public boundaryTribe = DEAD_TRIBE_ID;
 
   /**
    * Whether the simulation is running.
@@ -174,7 +193,7 @@ export class TribesSection implements OnChanges {
    * @type {TribeApplyImpact}
    */
   public get tribeApplyImpact(): TribeApplyImpact {
-    return analyzeTribeApplyImpact(this.baselineTribes, this.editTribes, this.committedRules);
+    return analyzeTribeApplyImpact(this.baselineTribes, this.editTribes, this.committedRules, this.boundaryTribe, this.topology === BOUNDED_GRID_TOPOLOGY);
   }
 
   /**
@@ -188,13 +207,13 @@ export class TribesSection implements OnChanges {
   }
 
   /**
-   * Tribe apply error message.
+   * Tribe apply error messages.
    *
    * @public
-   * @type {(string | null)}
+   * @type {string[]}
    */
-  public get tribeApplyErrorMessage(): string | null {
-    return this.tribeApplyImpact.message;
+  public get tribeApplyErrorMessages(): string[] {
+    return this.tribeApplyImpact.messages;
   }
 
   /**

@@ -37,7 +37,7 @@
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Add, edit and remove tribes." preferenceKey="golt-home-section-tribes-expanded" title="Tribes">
-      <gol-tribes-section [committedRules]="ruleset.rules" [committedTribes]="ruleset.tribes" [downloading]="downloading" [running]="running" (applyTribes)="applyTribes($event)" />
+      <gol-tribes-section [boundaryTribe]="ruleset.boundaryTribe" [committedRules]="ruleset.rules" [committedTribes]="ruleset.tribes" [downloading]="downloading" [running]="running" [topology]="ruleset.topology" (applyTribes)="applyTribes($event)" />
     </gol-home-section>
     <hr class="divider" />
     <gol-home-section description="Define how the simulation behaves by adding, editing, and ordering rules. The first matching rule is applied; cells with no match become dead." preferenceKey="golt-home-section-rules-expanded" title="Rules">

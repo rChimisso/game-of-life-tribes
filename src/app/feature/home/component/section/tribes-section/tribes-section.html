@@ -8,8 +8,8 @@
     <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [existingTribes]="editTribes" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (save)="onSaveTribe($event)" />
   } @else {
     <gol-button icon="add" label="Add tribe" title="Add a new tribe" variant="stroked" (clicked)="startAddTribe()" />
-    @if (tribeApplyErrorMessage) {
-      <span class="error-message tribe-impact-error">{{ tribeApplyErrorMessage }}</span>
+    @for (message of tribeApplyErrorMessages; track message) {
+      <span class="error-message tribe-impact-error">{{ message }}</span>
     }
   }
 </div>

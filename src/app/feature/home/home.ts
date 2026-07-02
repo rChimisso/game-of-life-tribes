@@ -19,7 +19,7 @@ import {openHomeSnack} from './logic/home-snackbar';
 import {normalizeLiveMetricSectionSettings} from './logic/metric-settings';
 import {clearTempOpfsDirectory} from './logic/opfs-temp';
 import {runSnapshotLoadWorker, runSnapshotSaveWorker} from './logic/snapshot-worker-runner';
-import {applyRuleTribeRenames} from './logic/tribe-impact';
+import {applyBoundaryTribeRenames, applyRuleTribeRenames} from './logic/tribe-impact';
 import {DownloadRequestPayload} from './model/download';
 import {DOWNLOAD_CHUNK_MODE_THRESHOLD_BYTES} from './model/download-estimate';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushDensityByFill, BrushFill, BrushShape, DEFAULT_BRUSH_DENSITY_BY_FILL} from './model/draw-mode';
@@ -2098,6 +2098,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       case 'updateTribes':
         shouldSavePreferences = this.applyCommittedRuleset({
           ...this.ruleset,
+          boundaryTribe: applyBoundaryTribeRenames(this.ruleset.boundaryTribe, event.value.renamePairs),
           tribes: event.value.tribes,
           rules: applyRuleTribeRenames(this.ruleset.rules, event.value.renamePairs)
         });

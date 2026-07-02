@@ -1,5 +1,5 @@
 import {normalizeBecome, normalizeCountExpression, normalizeRule, normalizeSelector} from './rule-editor';
-import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
 
 /**
@@ -271,9 +271,11 @@ function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<stri
  * @param {readonly EditableTribe[]} committedTribes Baseline tribes currently applied.
  * @param {readonly EditableTribe[]} pendingTribes Pending tribe edits.
  * @param {readonly Rule<Tribe[]>[]} committedRules Rules that may reference committed tribes.
+ * @param {string} boundaryTribe Committed boundary tribe.
+ * @param {boolean} boundedTopologyActive Whether bounded topology is currently active.
  * @returns {TribeApplyImpact} Apply impact details for the pending tribe edits.
  */
-export function analyzeTribeApplyImpact(committedTribes: readonly EditableTribe[], pendingTribes: readonly EditableTribe[], committedRules: readonly Rule<Tribe[]>[]): TribeApplyImpact {
+export function analyzeTribeApplyImpact(committedTribes: readonly EditableTribe[], pendingTribes: readonly EditableTribe[], committedRules: readonly Rule<Tribe[]>[], boundaryTribe = DEAD_TRIBE_ID, boundedTopologyActive = false): TribeApplyImpact {
   const committedByKey = new Map(committedTribes.map(tribe => [tribe.key, tribe]));
   const pendingByKey = new Map(pendingTribes.map(tribe => [tribe.key, tribe]));
   const renamePairs: TribeRenamePair[] = [];
@@ -284,22 +286,36 @@ export function analyzeTribeApplyImpact(committedTribes: readonly EditableTribe[
     }
   }
   const referencedTribeIds = collectReferencedTribeIds(committedRules);
-  const blockingRemovedTribes = committedTribes.filter(tribe => !pendingByKey.has(tribe.key) && tribe.id !== 'dead').filter(tribe => referencedTribeIds.has(tribe.id));
-  if (blockingRemovedTribes.length === 0) {
-    return {
-      blocked: false,
-      message: null,
-      renamePairs,
-      blockingRemovedTribeIds: []
-    };
-  }
+  const blockingRemovedTribes = committedTribes.filter(tribe => !pendingByKey.has(tribe.key) && tribe.id !== DEAD_TRIBE_ID).filter(tribe => referencedTribeIds.has(tribe.id));
   const blockedIds = blockingRemovedTribes.map(tribe => tribe.id).sort((a, b) => a.localeCompare(b));
+  const boundaryBlockedIds = boundedTopologyActive && committedTribes.some(tribe => !pendingByKey.has(tribe.key) && tribe.id === boundaryTribe) ? [boundaryTribe] : [];
+  const messages: string[] = [];
+  if (boundaryBlockedIds.length > 0) {
+    messages.push(`Cannot apply tribes: ${boundaryBlockedIds[0]} is used as the grid boundary tribe.`);
+  }
+  if (blockedIds.length > 0) {
+    const ruleReferenceSubject = blockedIds.length > 1 ? `${blockedIds.join(', ')} are` : `${blockedIds[0]} is`;
+    messages.push(`Cannot apply tribes: ${ruleReferenceSubject} still used by committed rules.`);
+  }
   return {
-    blocked: true,
-    message: `Cannot apply tribes: ${blockedIds.join(', ')}${blockedIds.length > 1 ? 's are' : ' is'} still used by committed rules.`,
+    blocked: messages.length > 0,
+    messages,
     renamePairs,
-    blockingRemovedTribeIds: blockedIds
+    blockingRemovedTribeIds: blockedIds,
+    blockingBoundaryTribeIds: boundaryBlockedIds
   };
+}
+
+/**
+ * Rewrites one boundary tribe id using the provided rename pairs.
+ *
+ * @param {string} boundaryTribe Boundary tribe id to update.
+ * @param {readonly TribeRenamePair[]} renamePairs Rename pairs to apply.
+ * @returns {string} Updated boundary tribe id.
+ */
+export function applyBoundaryTribeRenames(boundaryTribe: string, renamePairs: readonly TribeRenamePair[]): string {
+  const renameMap = new Map(renamePairs.map(pair => [pair.fromId, pair.toId]));
+  return renameMap.get(boundaryTribe) ?? boundaryTribe;
 }
 
 /**

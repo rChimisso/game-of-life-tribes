@@ -909,6 +909,20 @@ export interface Ruleset<T extends readonly Tribe[] = Tribe[]> extends Grid {
 }
 
 /**
+ * Minimal ruleset used before bound app state reaches engine consumers.
+ *
+ * @type {Ruleset<readonly Tribe[]>}
+ */
+export const DEFAULT_RULESET: Ruleset<readonly Tribe[]> = {
+  cols: 512,
+  rows: 512,
+  topology: TOROIDAL_GRID_TOPOLOGY,
+  boundaryTribe: DEAD_TRIBE_ID,
+  tribes: [DEAD_TRIBE],
+  rules: []
+};
+
+/**
  * Empty clause.
  *
  * @type {EmptyClause}

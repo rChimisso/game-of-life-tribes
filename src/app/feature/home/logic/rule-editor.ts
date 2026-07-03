@@ -1,4 +1,4 @@
-import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MIN_RANDOM_SEED, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 
 /**
  * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
@@ -20,7 +20,7 @@ function normalizeRandomSeed(seed: number | undefined): number {
 function normalizeRuleProbability(probability: number | undefined): number {
   const numericProbability = typeof probability === 'number' && Number.isFinite(probability) ? probability : DEFAULT_RULE_PROBABILITY;
   const scaledProbability = Math.round(numericProbability * RULE_PROBABILITY_INPUT_SCALE) / RULE_PROBABILITY_INPUT_SCALE;
-  return Math.max(0, Math.min(MAX_RULE_PROBABILITY, scaledProbability));
+  return Math.max(MIN_RULE_PROBABILITY, Math.min(MAX_RULE_PROBABILITY, scaledProbability));
 }
 
 /**

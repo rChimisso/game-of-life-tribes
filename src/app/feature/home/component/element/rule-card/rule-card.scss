@@ -130,16 +130,26 @@
         }
 
         > .rule-probability-row {
-          display: grid;
-          grid-template-columns: auto 80px auto;
-          align-items: center;
-          gap: 6px;
           width: 100%;
           margin-bottom: 8px;
           padding-bottom: 8px;
           border-bottom: 1px solid #8f8f8f;
           color: #cfcfcf;
-          font-size: 0.82rem;
+          font-size: 0.8rem;
+
+          > span {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            text-wrap: nowrap;
+
+            &.error-message {
+              padding-left: 8px;
+            }
+
+            &:not(.error-message) {
+              text-align: center;
+            }
+          }
         }
       }
     }

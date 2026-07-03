@@ -10,7 +10,7 @@ import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {Become, DEFAULT_RULE_PROBABILITY, MAX_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {Become, DEFAULT_RULE_PROBABILITY, MAX_RULE_PROBABILITY_INPUT, MIN_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {Button} from '~gol/shared/component/button/button';
 import {InputComponent} from '~gol/shared/component/input/input';
@@ -150,13 +150,20 @@ export class RuleCard implements OnChanges {
   public readonly dragHandlePointerDown = new EventEmitter<void>();
 
   /**
-   * Maximum scaled probability input value.
+   * Pending scaled probability input value.
    *
    * @public
-   * @readonly
    * @type {number}
    */
-  public readonly maxProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
+  public pendingProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
+
+  /**
+   * Whether the user tried to exceed the probability max while already at the cap.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public showProbabilityMaxError = false;
 
   /**
    * Whether the clause editor is invalid.
@@ -182,10 +189,11 @@ export class RuleCard implements OnChanges {
    * @type {boolean}
    */
   public get isDirty(): boolean {
-    if (!this.baselineRule) {
-      return true;
+    let dirty = true;
+    if (this.baselineRule) {
+      dirty = !rulesEqual(this.rule, this.baselineRule) || this.pendingProbabilityInput !== this.baselineProbabilityInput();
     }
-    return !rulesEqual(this.rule, this.baselineRule);
+    return dirty;
   }
 
   /**
@@ -196,13 +204,33 @@ export class RuleCard implements OnChanges {
    * @type {boolean}
    */
   public get isInvalid(): boolean {
-    return this.clauseInvalid || this.becomeInvalid;
+    return this.clauseInvalid || this.becomeInvalid || !!this.probabilityError;
+  }
+
+  /**
+   * Probability validation message.
+   *
+   * @public
+   * @type {(string | null)}
+   */
+  public get probabilityError(): string | null {
+    let error: string | null = null;
+    if (this.pendingProbabilityInput < MIN_RULE_PROBABILITY_INPUT) {
+      error = `Min ${MIN_RULE_PROBABILITY_INPUT}`;
+    } else if (this.showProbabilityMaxError) {
+      error = `Max ${MAX_RULE_PROBABILITY_INPUT}`;
+    }
+    return error;
   }
 
   /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<RuleCard>): void {
+    if (changes.rule) {
+      this.pendingProbabilityInput = this.probabilityInput();
+      this.showProbabilityMaxError = false;
+    }
     if (changes.rule || changes.baselineRule) {
       this.emitRuleState();
     }
@@ -380,8 +408,20 @@ export class RuleCard implements OnChanges {
    */
   public onProbabilityChanged(value: string | number): void {
     if (!this.rule.muted) {
-      const scaledProbability = Math.max(0, Math.min(MAX_RULE_PROBABILITY_INPUT, Math.round(Number(value) || 0)));
-      this.updateRule(rule => (rule.probability = normalizeRuleProbability(scaledProbability / RULE_PROBABILITY_INPUT_SCALE)));
+      const parsedProbability = this.parseIntegerInput(value);
+      const wasAtProbabilityMax = this.pendingProbabilityInput >= MAX_RULE_PROBABILITY_INPUT;
+      if (parsedProbability > MAX_RULE_PROBABILITY_INPUT) {
+        this.pendingProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
+        this.showProbabilityMaxError = wasAtProbabilityMax;
+      } else {
+        this.pendingProbabilityInput = parsedProbability;
+        this.showProbabilityMaxError = false;
+      }
+      if (this.probabilityError) {
+        this.emitRuleState();
+      } else {
+        this.updateRule(rule => (rule.probability = normalizeRuleProbability(this.pendingProbabilityInput / RULE_PROBABILITY_INPUT_SCALE)));
+      }
     }
   }
 
@@ -440,6 +480,27 @@ export class RuleCard implements OnChanges {
     mutator(nextRule);
     this.rule = nextRule;
     this.emitRuleChange();
+  }
+
+  /**
+   * Returns the baseline probability as a scaled integer input.
+   *
+   * @private
+   * @returns {number} scaled baseline probability.
+   */
+  private baselineProbabilityInput(): number {
+    return Math.round(normalizeRuleProbability(this.baselineRule?.probability) * RULE_PROBABILITY_INPUT_SCALE);
+  }
+
+  /**
+   * Parses an integer input without applying field bounds.
+   *
+   * @private
+   * @param {string | number} value input value.
+   * @returns {number} parsed integer.
+   */
+  private parseIntegerInput(value: string | number): number {
+    return Math.round(Number(value) || 0);
   }
 
   /**

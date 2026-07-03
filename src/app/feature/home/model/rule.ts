@@ -98,7 +98,7 @@ export const DEFAULT_RANDOM_SEED = 42;
  *
  * @type {number}
  */
-export const MIN_RANDOM_SEED = 0;
+export const MIN_RANDOM_SEED = 1;
 
 /**
  * Maximum deterministic random seed accepted by rulesets.
@@ -115,6 +115,13 @@ export const MAX_RANDOM_SEED = 0xffffffff;
 export const DEFAULT_RULE_PROBABILITY = 100;
 
 /**
+ * Minimum rule application probability percentage.
+ *
+ * @type {number}
+ */
+export const MIN_RULE_PROBABILITY = 0;
+
+/**
  * Maximum rule application probability percentage.
  *
  * @type {number}
@@ -127,6 +134,13 @@ export const MAX_RULE_PROBABILITY = 100;
  * @type {number}
  */
 export const RULE_PROBABILITY_INPUT_SCALE = 1000;
+
+/**
+ * Minimum scaled probability input value.
+ *
+ * @type {number}
+ */
+export const MIN_RULE_PROBABILITY_INPUT = MIN_RULE_PROBABILITY * RULE_PROBABILITY_INPUT_SCALE;
 
 /**
  * Maximum scaled probability input value.

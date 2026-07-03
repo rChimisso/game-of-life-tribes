@@ -108,22 +108,12 @@ export class RulesSection implements OnChanges {
   public editRandomSeed = 42;
 
   /**
-   * Minimum accepted random seed value.
+   * Whether the user tried to exceed the random seed max while already at the cap.
    *
    * @public
-   * @readonly
-   * @type {number}
+   * @type {boolean}
    */
-  public readonly minRandomSeed = MIN_RANDOM_SEED;
-
-  /**
-   * Maximum accepted random seed value.
-   *
-   * @public
-   * @readonly
-   * @type {number}
-   */
-  public readonly maxRandomSeed = MAX_RANDOM_SEED;
+  public showRandomSeedMaxError = false;
 
   /**
    * Currently dragged rule index.
@@ -173,17 +163,39 @@ export class RulesSection implements OnChanges {
    * @type {boolean}
    */
   public get hasUnappliedRules(): boolean {
-    return !ruleListsEqual(this.editRules, this.committedRules) || normalizeRandomSeed(this.editRandomSeed) !== normalizeRandomSeed(this.randomSeed);
+    const ruleContentChanged = !ruleListsEqual(this.editRules, this.committedRules);
+    const ruleStateChanged = this.editRules.some((rule, index) => {
+      const state = this.getRuleState(rule, index);
+      return state.dirty || state.invalid;
+    });
+    const randomSeedChanged = this.editRandomSeed !== normalizeRandomSeed(this.randomSeed) || !!this.randomSeedError;
+    return ruleContentChanged || ruleStateChanged || randomSeedChanged;
   }
 
   /**
-   * Whether any editable rule is invalid.
+   * Whether any editable rule setting is invalid.
    *
    * @public
    * @type {boolean}
    */
   public get hasInvalidRules(): boolean {
-    return this.editRules.some((rule, index) => this.getRuleState(rule, index).invalid);
+    return !!this.randomSeedError || this.editRules.some((rule, index) => this.getRuleState(rule, index).invalid);
+  }
+
+  /**
+   * Random seed validation message.
+   *
+   * @public
+   * @type {(string | null)}
+   */
+  public get randomSeedError(): string | null {
+    let error: string | null = null;
+    if (this.editRandomSeed < MIN_RANDOM_SEED) {
+      error = `Min ${MIN_RANDOM_SEED}`;
+    } else if (this.showRandomSeedMaxError) {
+      error = `Max ${MAX_RANDOM_SEED}`;
+    }
+    return error;
   }
 
   /**
@@ -205,6 +217,7 @@ export class RulesSection implements OnChanges {
     }
     if (changes.randomSeed) {
       this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
+      this.showRandomSeedMaxError = false;
     }
   }
 
@@ -215,7 +228,15 @@ export class RulesSection implements OnChanges {
    * @param {string | number} value seed input value.
    */
   public onRandomSeedChange(value: string | number): void {
-    this.editRandomSeed = normalizeRandomSeed(Number(value));
+    const parsedSeed = this.parseIntegerInput(value);
+    const wasAtRandomSeedMax = this.editRandomSeed >= MAX_RANDOM_SEED;
+    if (parsedSeed > MAX_RANDOM_SEED) {
+      this.editRandomSeed = MAX_RANDOM_SEED;
+      this.showRandomSeedMaxError = wasAtRandomSeedMax;
+    } else {
+      this.editRandomSeed = parsedSeed;
+      this.showRandomSeedMaxError = false;
+    }
   }
 
   /**
@@ -397,6 +418,7 @@ export class RulesSection implements OnChanges {
     const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.editRules[this.expandedRuleIndex]?.key ?? null : null;
     const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.editRules);
     this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
+    this.showRandomSeedMaxError = false;
     this.editRules = this.committedRules.map(rule => {
       const signature = ruleSignature(rule);
       const keyBucket = previousRuleKeyBuckets.get(signature);
@@ -419,6 +441,7 @@ export class RulesSection implements OnChanges {
    */
   private syncRulesFromCommitted(): void {
     this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
+    this.showRandomSeedMaxError = false;
     this.editRules = this.committedRules.map(rule => this.toEditableRule(rule));
     this.ruleStatesByKey.clear();
     this.expandedRuleIndex = null;
@@ -438,6 +461,17 @@ export class RulesSection implements OnChanges {
     editableRule.key = preferredKey ?? this.createEditableRuleKey();
     editableRule.muted = !!editableRule.muted;
     return editableRule;
+  }
+
+  /**
+   * Parses an integer input without applying field bounds.
+   *
+   * @private
+   * @param {string | number} value input value.
+   * @returns {number} parsed integer.
+   */
+  private parseIntegerInput(value: string | number): number {
+    return Math.trunc(Number(value) || 0);
   }
 
   /**

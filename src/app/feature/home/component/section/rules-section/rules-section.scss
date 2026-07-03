@@ -5,15 +5,21 @@
     margin-bottom: 8px;
 
     .seed-field {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 96px;
-      align-items: center;
-      gap: 8px;
       color: #cfcfcf;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
 
       > span {
-        min-width: 0;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        text-wrap: nowrap;
+
+        &.error-message {
+          padding-left: 8px;
+        }
+
+        &:not(.error-message) {
+          text-align: center;
+        }
       }
     }
   }

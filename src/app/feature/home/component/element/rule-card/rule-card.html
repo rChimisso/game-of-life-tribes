@@ -20,10 +20,10 @@
 <div class="collapsible" title="" [class.muted]="rule.muted" [class.open]="expanded">
   <div class="collapsible-inner">
     <div class="rule-body">
-      <div class="rule-probability-row">
-        <span>Probability x1000</span>
-        <gol-input name="rule-probability-{{ ruleIndex }}" regex="^[0-9]*$" title="Probability from 0 to 100000, where 100000 means 100%" type="number" [disabled]="!!rule.muted" [ngModel]="probabilityInput()" (ngModelChange)="onProbabilityChanged($event)" />
-        <span>/ {{ maxProbabilityInput }}</span>
+      <div class="rule-probability-row gol-grid-tiny" title="Rule probability scaled by 1000">
+        <span class="gol-cell-4">Probability x1000</span>
+        <gol-input class="gol-cell-5" name="rule-probability-{{ ruleIndex }}" regex="^[0-9]*$" title="Probability x1000" type="number" [disabled]="!!rule.muted" [ngModel]="pendingProbabilityInput" (ngModelChange)="onProbabilityChanged($event)" />
+        <span class="gol-cell-3 error-message" [title]="probabilityError ?? ''">{{ probabilityError }}</span>
       </div>
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [disabled]="!!rule.muted" [path]="[]" [tribes]="tribes" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />
       <div class="rule-output-row">

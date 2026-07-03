@@ -65,6 +65,12 @@ export interface UpdateTribesPayload {
  */
 export interface UpdateRulesPayload {
   /**
+   * Deterministic random seed for probabilistic rules.
+   *
+   * @type {number}
+   */
+  randomSeed: number;
+  /**
    * Updated rule list.
    *
    * @type {Rule<Tribe[]>[]}

@@ -18,6 +18,7 @@ import {normalizeDrawSectionPreferences, normalizeGridSectionPreferences, normal
 import {openHomeSnack} from './logic/home-snackbar';
 import {normalizeLiveMetricSectionSettings} from './logic/metric-settings';
 import {clearTempOpfsDirectory} from './logic/opfs-temp';
+import {normalizeRandomSeed, normalizeRuleset} from './logic/rule-editor';
 import {runSnapshotLoadWorker, runSnapshotSaveWorker} from './logic/snapshot-worker-runner';
 import {applyBoundaryTribeRenames, applyRuleTribeRenames} from './logic/tribe-impact';
 import {DownloadRequestPayload} from './model/download';
@@ -28,7 +29,7 @@ import {GridFormatMetadata} from './model/grid-format';
 import {FIXED_SPEED_LOG_MESSAGE, MINIMUM_PROGRESS_VISIBLE_MS, PREPARING_SNAPSHOT_STATUS} from './model/home-runtime';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMetricsSettings} from './model/metrics';
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePreferences} from './model/preferences';
-import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
+import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {Preset} from './preset';
@@ -88,7 +89,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
     cols: 512,
     rows: 512,
     topology: TOROIDAL_GRID_TOPOLOGY,
-    boundaryTribe: DEAD_TRIBE_ID
+    boundaryTribe: DEAD_TRIBE_ID,
+    randomSeed: DEFAULT_RANDOM_SEED
   };
 
   /**
@@ -1095,7 +1097,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private normalizeRulesetGridSettings(ruleset: Ruleset): Ruleset {
     const topology = ruleset.topology === BOUNDED_GRID_TOPOLOGY ? BOUNDED_GRID_TOPOLOGY : TOROIDAL_GRID_TOPOLOGY;
     return {
-      ...ruleset,
+      ...normalizeRuleset(ruleset),
       topology,
       boundaryTribe: this.normalizeBoundaryTribe(ruleset.boundaryTribe, ruleset.tribes)
     };
@@ -1165,7 +1167,8 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         cols: currentGrid.cols,
         rows: currentGrid.rows,
         topology: this.ruleset.topology,
-        boundaryTribe: this.ruleset.boundaryTribe
+        boundaryTribe: this.ruleset.boundaryTribe,
+        randomSeed: normalizeRandomSeed(preset.ruleset.randomSeed)
       }, true);
     } else {
       openHomeSnack(this.snackBar, `${preset.name} preset requires at least ${requiredFormat.bitsPerCell}-bit packing, which is not supported by the current grid size. Reduce the grid size before applying it.`, 'error');
@@ -1882,6 +1885,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       rows,
       topology: parsed.topology,
       boundaryTribe: this.normalizeBoundaryTribe(parsed.boundaryTribe, parsed.tribes),
+      randomSeed: normalizeRandomSeed(parsed.randomSeed),
       tribes: parsed.tribes.map(t => ({id: t.id, color: t.color})),
       rules: structuredClone(parsed.rules)
     };
@@ -2106,6 +2110,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
       case 'updateRules':
         shouldSavePreferences = this.applyCommittedRuleset({
           ...this.ruleset,
+          randomSeed: event.value.randomSeed,
           rules: event.value.rules
         });
         break;

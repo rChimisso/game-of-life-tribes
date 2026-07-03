@@ -226,6 +226,9 @@ async function writeMetadata(zip: ZipWriter, request: CompressedChunkExportReque
   await writeJsonEntry(zip, 'metadata.json', {
     cols: request.recording.cols,
     rows: request.recording.rows,
+    topology: request.metadata.topology,
+    boundaryTribe: request.metadata.boundaryTribe,
+    randomSeed: request.metadata.randomSeed,
     gridFormat: request.recording.manifest.gridFormat,
     rules: request.metadata.rules,
     tribes: request.metadata.tribes

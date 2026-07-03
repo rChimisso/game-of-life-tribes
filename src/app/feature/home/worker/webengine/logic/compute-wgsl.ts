@@ -1,10 +1,37 @@
 import {COMPARISON_OPERATOR_WGSL} from '../model/comparison-operator-wgsl';
 import {DispatchPlan2D} from '../model/dispatch-plan';
 
-import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeSelector, normalizeSelectorForSignature, selectorSignature} from '~gol/feature/home/logic/rule-editor';
+import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeRandomSeed, normalizeRuleProbability, normalizeSelector, normalizeSelectorForSignature, probabilityThresholdU32, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+
+/**
+ * Active rule metadata used by shader generation.
+ *
+ * @interface ActiveRule
+ * @typedef {ActiveRule}
+ */
+interface ActiveRule {
+  /**
+   * Normalized rule.
+   *
+   * @type {Rule<readonly Tribe[]>}
+   */
+  rule: Rule<readonly Tribe[]>;
+  /**
+   * Stable priority index in the original ruleset.
+   *
+   * @type {number}
+   */
+  priorityIndex: number;
+  /**
+   * Normalized probability percentage.
+   *
+   * @type {number}
+   */
+  probability: number;
+}
 
 /**
  * Emits remapped dispatch constants when the workgroups cannot be submitted directly.
@@ -31,6 +58,32 @@ function pushGridFormatWgslConstants(lines: string[], gridFormat: GridFormat): v
   lines.push(`const CELL_SHIFT: u32 = ${gridFormat.cellShift}u;`);
   lines.push(`const CELL_INDEX_MASK: u32 = ${gridFormat.cellIndexMask}u;`);
   lines.push(`const CELL_MASK: u32 = ${gridFormat.cellMask}u;`);
+}
+
+/**
+ * Emits deterministic hash helpers for probabilistic rules.
+ *
+ * @param {string[]} lines WGSL output lines.
+ */
+function pushProbabilityWgsl(lines: string[]): void {
+  lines.push('struct SimulationParams {');
+  lines.push('  generation: u32,');
+  lines.push('  _pad0: u32,');
+  lines.push('  _pad1: u32,');
+  lines.push('  _pad2: u32,');
+  lines.push('};');
+  lines.push('@group(1) @binding(0) var<uniform> simulationParams: SimulationParams;');
+  lines.push('');
+  lines.push('fn probabilityHash(x: u32, y: u32, generation: u32, ruleIndex: u32, randomSeed: u32) -> u32 {');
+  lines.push('  var h = x * 0x9e3779b9u;');
+  lines.push('  h = h ^ (y * 0x85ebca6bu);');
+  lines.push('  h = h ^ (generation * 0xc2b2ae35u);');
+  lines.push('  h = h ^ (ruleIndex * 0x27d4eb2fu);');
+  lines.push('  h = h ^ randomSeed;');
+  lines.push('  h = (h ^ (h >> 16u)) * 0x7feb352du;');
+  lines.push('  h = (h ^ (h >> 15u)) * 0x846ca68bu;');
+  lines.push('  return h ^ (h >> 16u);');
+  lines.push('}');
 }
 
 /**
@@ -170,15 +223,65 @@ function pushEqualityCountDeclarations(lines: string[], countVarMap: Map<string,
  * @param {Map<string, string>} eqVarMap equality variable mapping.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ * @param {boolean} probabilistic whether the probabilistic rule path is active.
  */
-function pushRuleChain(lines: string[], activeRules: Rule<readonly Tribe[]>[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
+function pushRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, probabilistic: boolean): void {
+  if (probabilistic) {
+    pushProbabilisticRuleChain(lines, activeRules, countVarMap, eqVarMap, tribes, tribeIndex);
+  } else {
+    pushDeterministicRuleChain(lines, activeRules, countVarMap, eqVarMap, tribes, tribeIndex);
+  }
+}
+
+/**
+ * Emits the deterministic first-match-wins rule chain.
+ *
+ * @param {string[]} lines WGSL output lines.
+ * @param {ActiveRule[]} activeRules active unmuted rules.
+ * @param {Map<string, string>} countVarMap count variable mapping.
+ * @param {Map<string, string>} eqVarMap equality variable mapping.
+ * @param {readonly Tribe[]} tribes active tribe list.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ */
+function pushDeterministicRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
   for (let index = 0; index < activeRules.length; index++) {
-    const rule = activeRules[index]!;
+    const {rule} = activeRules[index]!;
     const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
     lines.push(index === 0 ? `  if (${condition}) {` : `  } else if (${condition}) {`);
     pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '    ');
   }
   if (activeRules.length > 0) {
+    lines.push('  }');
+  }
+  lines.push('');
+}
+
+/**
+ * Emits a rule chain that lets failed probability rolls pass through.
+ *
+ * @param {string[]} lines WGSL output lines.
+ * @param {ActiveRule[]} activeRules active unmuted rules.
+ * @param {Map<string, string>} countVarMap count variable mapping.
+ * @param {Map<string, string>} eqVarMap equality variable mapping.
+ * @param {readonly Tribe[]} tribes active tribe list.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ */
+function pushProbabilisticRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
+  lines.push('  var applied = false;');
+  for (let index = 0; index < activeRules.length; index++) {
+    const activeRule = activeRules[index]!;
+    const {rule, probability, priorityIndex} = activeRule;
+    const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
+    lines.push(`  if (!applied && ${condition}) {`);
+    if (probability === 100) {
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '    ');
+      lines.push('    applied = true;');
+    } else {
+      lines.push(`    if (probabilityHash(x, y, generation, ${priorityIndex}u, RANDOM_SEED) < ${probabilityThresholdU32(probability)}u) {`);
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '      ');
+      lines.push('      applied = true;');
+      lines.push('    }');
+    }
     lines.push('  }');
   }
   lines.push('');
@@ -1010,22 +1113,34 @@ export function plan2DDispatch(logicalWgX: number, logicalWgY: number, limit: nu
  */
 export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: readonly Tribe[], packedCols: number, grid: Grid, dispatchPlan: DispatchPlan2D, gridFormat: GridFormat, tribeIndex: ReadonlyMap<string, number>): string {
   const lines: string[] = [];
-  const activeRules = ruleset.rules.filter(rule => !rule.muted);
+  const activeRules = ruleset.rules.map((rule, priorityIndex) => ({
+    rule,
+    priorityIndex,
+    probability: normalizeRuleProbability(rule.probability)
+  })).filter(activeRule => !activeRule.rule.muted && activeRule.probability > 0);
+  const probabilistic = activeRules.some(activeRule => activeRule.probability > 0 && activeRule.probability < 100);
   const deadIdx = tribeIndex.get(DEAD_TRIBE_ID) ?? 0;
   const bounded = ruleset.topology === BOUNDED_GRID_TOPOLOGY;
   const boundaryTribeId = resolveRuleTribeIndex(ruleset.boundaryTribe ?? DEAD_TRIBE_ID, tribeIndex, 'boundary');
-  const countVarMap = buildCountVarMap(activeRules.map(rule => rule.clause));
-  const eqVarMap = buildEqualityVarMap(activeRules.map(rule => rule.clause), countVarMap);
+  const countVarMap = buildCountVarMap(activeRules.map(activeRule => activeRule.rule.clause));
+  const eqVarMap = buildEqualityVarMap(activeRules.map(activeRule => activeRule.rule.clause), countVarMap);
   lines.push('// Auto-generated simulation compute shader.');
   lines.push(`// Tribes: ${tribes.map(tribe => tribe.id).join(', ')}`);
   lines.push(`// Rules: ${ruleset.rules.length}`);
   lines.push('');
   lines.push('@group(0) @binding(0) var<storage, read> gridIn: array<u32>;');
   lines.push('@group(0) @binding(1) var<storage, read_write> gridOut: array<u32>;');
+  if (probabilistic) {
+    lines.push('');
+    pushProbabilityWgsl(lines);
+  }
   lines.push('');
   lines.push(`const COLS: u32 = ${grid.cols}u;`);
   lines.push(`const ROWS: u32 = ${grid.rows}u;`);
   lines.push(`const PACKED_COLS: u32 = ${packedCols}u;`);
+  if (probabilistic) {
+    lines.push(`const RANDOM_SEED: u32 = ${normalizeRandomSeed(ruleset.randomSeed)}u;`);
+  }
   pushDispatchPlanWgslConstants(lines, dispatchPlan);
   pushGridFormatWgslConstants(lines, gridFormat);
   lines.push('');
@@ -1035,12 +1150,16 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
     pushReadBoundedCellWgsl(lines, boundaryTribeId);
   }
   lines.push('');
-  lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
+  if (probabilistic) {
+    lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32, x: u32, y: u32, generation: u32) -> u32 {');
+  } else {
+    lines.push('fn applyRules(selfTribe: u32, nTL: u32, nTC: u32, nTR: u32, nCL: u32, nCR: u32, nBL: u32, nBC: u32, nBR: u32) -> u32 {');
+  }
   pushNeighborCountDeclarations(lines, countVarMap, tribes, tribeIndex);
   pushEqualityCountDeclarations(lines, countVarMap, eqVarMap, tribes, tribeIndex);
   lines.push(`  var result: u32 = ${deadIdx}u;`);
   lines.push('');
-  pushRuleChain(lines, activeRules, countVarMap, eqVarMap, tribes, tribeIndex);
+  pushRuleChain(lines, activeRules, countVarMap, eqVarMap, tribes, tribeIndex, probabilistic);
   lines.push('  return result;');
   lines.push('}');
   lines.push('');
@@ -1081,7 +1200,11 @@ export function generateComputeWgsl(ruleset: Ruleset<readonly Tribe[]>, tribes: 
     pushNeighborReadAssignments(lines, 'toroidal', '    ');
   }
   lines.push('');
-  lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & CELL_MASK) << (i << CELL_SHIFT));');
+  if (probabilistic) {
+    lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR, x, y, simulationParams.generation) & CELL_MASK) << (i << CELL_SHIFT));');
+  } else {
+    lines.push('    packed = packed | ((applyRules(selfTribe, nTL, nTC, nTR, nCL, nCR, nBL, nBC, nBR) & CELL_MASK) << (i << CELL_SHIFT));');
+  }
   lines.push('  }');
   lines.push('');
   lines.push('  gridOut[y * PACKED_COLS + px] = packed;');

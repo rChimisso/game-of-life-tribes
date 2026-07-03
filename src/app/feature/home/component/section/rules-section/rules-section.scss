@@ -1,6 +1,23 @@
 :host {
   display: block;
 
+  .rules-settings {
+    margin-bottom: 8px;
+
+    .seed-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 96px;
+      align-items: center;
+      gap: 8px;
+      color: #cfcfcf;
+      font-size: 0.82rem;
+
+      > span {
+        min-width: 0;
+      }
+    }
+  }
+
   .rules-list {
     display: flex;
     flex-direction: column;

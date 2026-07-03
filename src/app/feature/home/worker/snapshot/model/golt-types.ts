@@ -50,6 +50,12 @@ export interface ParsedGoltState extends GridSettings {
    */
   gridFormat: GridFormatMetadata;
   /**
+   * Deterministic random seed for probabilistic rules.
+   *
+   * @type {number}
+   */
+  randomSeed: number;
+  /**
    * Tribe information.
    *
    * @type {readonly Tribe[]}
@@ -89,6 +95,12 @@ export interface GoltHeader extends Grid {
    * @type {?string}
    */
   boundaryTribe?: string;
+  /**
+   * Deterministic random seed for probabilistic rules.
+   *
+   * @type {?number}
+   */
+  randomSeed?: number;
   /**
    * Grid format metadata.
    *

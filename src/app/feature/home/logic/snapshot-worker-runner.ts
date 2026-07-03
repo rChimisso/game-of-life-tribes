@@ -1,3 +1,4 @@
+import {normalizeRandomSeed} from './rule-editor';
 import {runWorker} from './worker-runner';
 import {SnapshotSaveOutput} from '../model/home-snapshot';
 import {Ruleset} from '../model/rule';
@@ -114,6 +115,7 @@ function handleSnapshotLoadMessage(message: SnapshotWorkerResponse, context: Wor
       rows: message.rows,
       topology: message.topology,
       boundaryTribe: message.boundaryTribe,
+      randomSeed: normalizeRandomSeed(message.randomSeed),
       generation: message.generation,
       grid: message.grid,
       gridFormat: message.gridFormat,
@@ -160,6 +162,7 @@ export function createSnapshotPayload(snap: SnapshotMessage, ruleset: Ruleset): 
     gridFormat: snap.gridFormat,
     topology: ruleset.topology,
     boundaryTribe: ruleset.boundaryTribe,
+    randomSeed: normalizeRandomSeed(ruleset.randomSeed),
     tribes: ruleset.tribes.map(t => ({id: t.id, color: t.color})),
     rules: ruleset.rules
   };

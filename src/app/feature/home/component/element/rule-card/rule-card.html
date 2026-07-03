@@ -10,6 +10,9 @@
   } @else {
     <span class="rule-become-label" [title]="'Becomes ' + outputBecomeLabel()">{{ outputBecomeLabel() }}</span>
   }
+  @if (showProbabilityBadge()) {
+    <span class="rule-probability-badge" [title]="'Applies ' + probabilityLabel() + '% of matching cells'">{{ probabilityLabel() }}%</span>
+  }
   <gol-button icon="content_copy" label="Duplicate rule" size="sm" title="Duplicate rule" variant="icon" (click)="onDuplicate($event)" />
   <gol-button size="sm" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [title]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />
   <gol-button icon="delete" label="Delete rule" size="sm" title="Delete rule" variant="icon" (click)="onRemove($event)" />
@@ -17,16 +20,15 @@
 <div class="collapsible" title="" [class.muted]="rule.muted" [class.open]="expanded">
   <div class="collapsible-inner">
     <div class="rule-body">
+      <div class="rule-probability-row">
+        <span>Probability x1000</span>
+        <gol-input name="rule-probability-{{ ruleIndex }}" regex="^[0-9]*$" title="Probability from 0 to 100000, where 100000 means 100%" type="number" [disabled]="!!rule.muted" [ngModel]="probabilityInput()" (ngModelChange)="onProbabilityChanged($event)" />
+        <span>/ {{ maxProbabilityInput }}</span>
+      </div>
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [disabled]="!!rule.muted" [path]="[]" [tribes]="tribes" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />
       <div class="rule-output-row">
         <gol-become-editor [baselineBecome]="baselineBecome()" [become]="outputBecome()" [disabled]="!!rule.muted" [tribes]="tribes" (becomeChange)="onBecomeChanged($event)" (becomeStateChange)="onBecomeStateChanged($event)" />
       </div>
-      @if (devMode) {
-        <details class="rule-debug">
-          <summary>Normalized rule</summary>
-          <pre>{{ normalizedRuleJson() }}</pre>
-        </details>
-      }
     </div>
   </div>
 </div>

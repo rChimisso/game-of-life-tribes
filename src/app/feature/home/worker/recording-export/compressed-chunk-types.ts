@@ -1,4 +1,5 @@
 import {DownloadFrameRange} from '../../model/download';
+import {GridSettings} from '../../model/grid';
 import {ChunkMeta, Recording} from '../../model/recording';
 
 import {Rule, Tribe} from '~gol/feature/home/model/rule';
@@ -30,7 +31,13 @@ export interface CompressedChunkExportOptions {
  * @interface CompressedChunkExportMetadata
  * @typedef {CompressedChunkExportMetadata}
  */
-export interface CompressedChunkExportMetadata {
+export interface CompressedChunkExportMetadata extends Pick<GridSettings, 'topology' | 'boundaryTribe'> {
+  /**
+   * Deterministic random seed for probabilistic rules.
+   *
+   * @type {number}
+   */
+  randomSeed: number;
   /**
    * Snapshot tribe color metadata.
    *

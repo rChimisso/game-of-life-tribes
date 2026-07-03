@@ -1,5 +1,6 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, isDevMode} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {FormsModule} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {BecomeEditor} from '../become-editor/become-editor';
@@ -8,10 +9,11 @@ import {BecomeChangeEvent, BecomeStateChangeEvent} from '../model/become-event';
 import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeBecome, rulesEqual, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
-import {Become, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
+import {Become, DEFAULT_RULE_PROBABILITY, MAX_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {Button} from '~gol/shared/component/button/button';
+import {InputComponent} from '~gol/shared/component/input/input';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
@@ -27,11 +29,13 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   standalone: true,
   imports: [
     DragDropModule,
+    FormsModule,
     BecomeEditor,
     RuleClause,
     Button,
     SummaryComponent,
     TribeSwatch,
+    InputComponent,
     MatIconModule
   ],
   templateUrl: './rule-card.html',
@@ -146,13 +150,13 @@ export class RuleCard implements OnChanges {
   public readonly dragHandlePointerDown = new EventEmitter<void>();
 
   /**
-   * Whether development-only inspection UI should be shown.
+   * Maximum scaled probability input value.
    *
    * @public
    * @readonly
-   * @type {boolean}
+   * @type {number}
    */
-  public readonly devMode = isDevMode();
+  public readonly maxProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
 
   /**
    * Whether the clause editor is invalid.
@@ -275,6 +279,51 @@ export class RuleCard implements OnChanges {
   }
 
   /**
+   * Returns the normalized probability percentage.
+   *
+   * @public
+   * @returns {number} probability percentage.
+   */
+  public probability(): number {
+    return normalizeRuleProbability(this.rule.probability);
+  }
+
+  /**
+   * Returns the probability as an integer scaled percentage.
+   *
+   * @public
+   * @returns {number} scaled probability input.
+   */
+  public probabilityInput(): number {
+    return Math.round(this.probability() * RULE_PROBABILITY_INPUT_SCALE);
+  }
+
+  /**
+   * Formats the probability percentage for compact display.
+   *
+   * @public
+   * @returns {string} formatted percentage.
+   */
+  public probabilityLabel(): string {
+    const scaledProbability = this.probabilityInput();
+    const wholeProbability = Math.trunc(scaledProbability / RULE_PROBABILITY_INPUT_SCALE);
+    const fractionalProbability = scaledProbability % RULE_PROBABILITY_INPUT_SCALE;
+    const decimalPlaces = RULE_PROBABILITY_INPUT_SCALE.toString().length - 1;
+    const fractionLabel = fractionalProbability.toString().padStart(decimalPlaces, '0').replace(/0+$/, '');
+    return fractionLabel.length > 0 ? `${wholeProbability}.${fractionLabel}` : `${wholeProbability}`;
+  }
+
+  /**
+   * Whether the probability header badge should be shown.
+   *
+   * @public
+   * @returns {boolean} true when the rule probability is not the default.
+   */
+  public showProbabilityBadge(): boolean {
+    return this.probability() !== DEFAULT_RULE_PROBABILITY;
+  }
+
+  /**
    * Applies outcome edits to the rule.
    *
    * @public
@@ -302,16 +351,6 @@ export class RuleCard implements OnChanges {
   }
 
   /**
-   * Returns the normalized rule JSON for advanced inspection.
-   *
-   * @public
-   * @returns {string} normalized rule JSON.
-   */
-  public normalizedRuleJson(): string {
-    return JSON.stringify(toPersistedRule(this.rule), null, 2);
-  }
-
-  /**
    * Applies clause edits to the rule.
    *
    * @public
@@ -331,6 +370,19 @@ export class RuleCard implements OnChanges {
   public onClauseStateChanged(event: ClauseStateChangeEvent): void {
     this.clauseInvalid = event.invalid;
     this.emitRuleState();
+  }
+
+  /**
+   * Applies probability edits to the rule.
+   *
+   * @public
+   * @param {string | number} value probability input value.
+   */
+  public onProbabilityChanged(value: string | number): void {
+    if (!this.rule.muted) {
+      const scaledProbability = Math.max(0, Math.min(MAX_RULE_PROBABILITY_INPUT, Math.round(Number(value) || 0)));
+      this.updateRule(rule => (rule.probability = normalizeRuleProbability(scaledProbability / RULE_PROBABILITY_INPUT_SCALE)));
+    }
   }
 
   /**

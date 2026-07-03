@@ -133,7 +133,13 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
           await writeCompressedChunkExport(zip, {
             recording,
             frameRange: opts.frameRange,
-            metadata: {tribes, rules}
+            metadata: {
+              topology: snapshot.topology,
+              boundaryTribe: snapshot.boundaryTribe,
+              randomSeed: snapshot.randomSeed,
+              tribes,
+              rules
+            }
           }, {
             shouldCancel: () => cancelRequested,
             onProgress: postProgress
@@ -299,6 +305,7 @@ async function writeSaveEntries(zip: ZipWriter, opts: DownloadRequestPayload, sn
       rows: snapshot.rows,
       topology: snapshot.topology,
       boundaryTribe: snapshot.boundaryTribe,
+      randomSeed: snapshot.randomSeed,
       grid: snapshot.grid,
       gridFormat: snapshot.gridFormat,
       tribes,
@@ -337,6 +344,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
       rows: recording.rows,
       topology: snapshot.topology,
       boundaryTribe: snapshot.boundaryTribe,
+      randomSeed: snapshot.randomSeed,
       grid: alignPackedBytesToWords(firstFrame.packed),
       gridFormat: firstRef.gridFormat,
       tribes,
@@ -354,6 +362,7 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
         rows: recording.rows,
         topology: snapshot.topology,
         boundaryTribe: snapshot.boundaryTribe,
+        randomSeed: snapshot.randomSeed,
         grid: alignPackedBytesToWords(lastFrame.packed),
         gridFormat: lastRef.gridFormat,
         tribes,

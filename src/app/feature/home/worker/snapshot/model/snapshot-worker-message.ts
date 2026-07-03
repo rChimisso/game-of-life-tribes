@@ -82,6 +82,12 @@ export interface SnapshotLoadedMessage extends GridSettings {
    */
   generation: number;
   /**
+   * Loaded deterministic random seed.
+   *
+   * @type {number}
+   */
+  randomSeed: number;
+  /**
    * Loaded packed grid data.
    *
    * @type {Uint32Array}

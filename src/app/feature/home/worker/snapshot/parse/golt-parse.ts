@@ -3,6 +3,7 @@ import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, RAW_DEFLATE_CODEC} from '../model/golt
 import {GoltHeader, ParsedGoltState, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
 
 import {gridByteSize, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell} from '~gol/feature/home/logic/grid-format';
+import {normalizeRandomSeed, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, GRID_TOPOLOGY_VALUES, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 
 /**
@@ -79,11 +80,12 @@ async function parseGridPayload(buffer: ArrayBuffer, header: GoltHeader, headerE
         rows: header.rows,
         topology: topology.topology,
         boundaryTribe: topology.boundaryTribe,
+        randomSeed: normalizeRandomSeed(header.randomSeed),
         generation: header.generation ?? 0,
         grid: new Uint32Array(gridBuffer),
         gridFormat: gridFormatMetadata(decodedGridFormat),
         tribes: header.tribes,
-        rules: header.rules
+        rules: header.rules.map(rule => toPersistedRule(rule))
       };
     }
   }

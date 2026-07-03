@@ -87,6 +87,55 @@ export const BOUNDED_GRID_TOPOLOGY = 'bounded';
 export const GRID_TOPOLOGY_VALUES = [TOROIDAL_GRID_TOPOLOGY, BOUNDED_GRID_TOPOLOGY] as const;
 
 /**
+ * Default deterministic random seed used by rulesets.
+ *
+ * @type {number}
+ */
+export const DEFAULT_RANDOM_SEED = 42;
+
+/**
+ * Minimum deterministic random seed accepted by rulesets.
+ *
+ * @type {number}
+ */
+export const MIN_RANDOM_SEED = 0;
+
+/**
+ * Maximum deterministic random seed accepted by rulesets.
+ *
+ * @type {number}
+ */
+export const MAX_RANDOM_SEED = 0xffffffff;
+
+/**
+ * Default rule application probability percentage.
+ *
+ * @type {number}
+ */
+export const DEFAULT_RULE_PROBABILITY = 100;
+
+/**
+ * Maximum rule application probability percentage.
+ *
+ * @type {number}
+ */
+export const MAX_RULE_PROBABILITY = 100;
+
+/**
+ * Scale used by integer probability inputs to represent three decimal places.
+ *
+ * @type {number}
+ */
+export const RULE_PROBABILITY_INPUT_SCALE = 1000;
+
+/**
+ * Maximum scaled probability input value.
+ *
+ * @type {number}
+ */
+export const MAX_RULE_PROBABILITY_INPUT = MAX_RULE_PROBABILITY * RULE_PROBABILITY_INPUT_SCALE;
+
+/**
  * Empty clause kind.
  *
  * @type {"empty"}
@@ -851,6 +900,12 @@ export interface Rule<T extends readonly Tribe[]> {
    */
   tribe?: TribeId<T>;
   /**
+   * Rule application probability percentage.
+   *
+   * @type {?number}
+   */
+  probability?: number;
+  /**
    * Whether this rule is temporarily disabled in the editor/runtime.
    *
    * @type {boolean}
@@ -895,6 +950,12 @@ export interface Ruleset<T extends readonly Tribe[] = Tribe[]> extends Grid {
    */
   boundaryTribe: string;
   /**
+   * Deterministic random seed used by probabilistic rules.
+   *
+   * @type {number}
+   */
+  randomSeed: number;
+  /**
    * List of valid tribes.
    *
    * @type {T}
@@ -918,6 +979,7 @@ export const DEFAULT_RULESET: Ruleset<readonly Tribe[]> = {
   rows: 512,
   topology: TOROIDAL_GRID_TOPOLOGY,
   boundaryTribe: DEAD_TRIBE_ID,
+  randomSeed: DEFAULT_RANDOM_SEED,
   tribes: [DEAD_TRIBE],
   rules: []
 };

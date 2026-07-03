@@ -1,15 +1,17 @@
 import {CdkDragDrop, DragDropModule, moveItemInArray} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {FormsModule} from '@angular/forms';
 
 import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeClauseForEditor, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
-import {DEAD_TRIBE_ID, EMPTY_CLAUSE, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
+import {DEAD_TRIBE_ID, EMPTY_CLAUSE, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
+import {InputComponent} from '~gol/shared/component/input/input';
 
 /**
  * Rules editor section.
@@ -23,9 +25,11 @@ import {Button} from '~gol/shared/component/button/button';
   standalone: true,
   imports: [
     DragDropModule,
+    FormsModule,
     Button,
     ApplyRestoreButtons,
-    RuleCard
+    RuleCard,
+    InputComponent
   ],
   templateUrl: './rules-section.html',
   styleUrl: './rules-section.scss',
@@ -40,6 +44,15 @@ export class RulesSection implements OnChanges {
    */
   @Input({required: true})
   public committedRules: Rule<Tribe[]>[] = [];
+
+  /**
+   * Committed deterministic random seed.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public randomSeed = 42;
 
   /**
    * Available tribes.
@@ -85,6 +98,32 @@ export class RulesSection implements OnChanges {
    * @type {Rule<Tribe[]>[]}
    */
   public editRules: Rule<Tribe[]>[] = [];
+
+  /**
+   * Editable deterministic random seed.
+   *
+   * @public
+   * @type {number}
+   */
+  public editRandomSeed = 42;
+
+  /**
+   * Minimum accepted random seed value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly minRandomSeed = MIN_RANDOM_SEED;
+
+  /**
+   * Maximum accepted random seed value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly maxRandomSeed = MAX_RANDOM_SEED;
 
   /**
    * Currently dragged rule index.
@@ -134,7 +173,7 @@ export class RulesSection implements OnChanges {
    * @type {boolean}
    */
   public get hasUnappliedRules(): boolean {
-    return !ruleListsEqual(this.editRules, this.committedRules);
+    return !ruleListsEqual(this.editRules, this.committedRules) || normalizeRandomSeed(this.editRandomSeed) !== normalizeRandomSeed(this.randomSeed);
   }
 
   /**
@@ -164,6 +203,19 @@ export class RulesSection implements OnChanges {
         this.syncRulesFromCommitted();
       }
     }
+    if (changes.randomSeed) {
+      this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
+    }
+  }
+
+  /**
+   * Applies seed edits to the editable ruleset state.
+   *
+   * @public
+   * @param {string | number} value seed input value.
+   */
+  public onRandomSeedChange(value: string | number): void {
+    this.editRandomSeed = normalizeRandomSeed(Number(value));
   }
 
   /**
@@ -330,6 +382,7 @@ export class RulesSection implements OnChanges {
   public onApplyRules(): void {
     if (!(this.hasInvalidRules || !this.hasUnappliedRules)) {
       this.applyRules.emit({
+        randomSeed: normalizeRandomSeed(this.editRandomSeed),
         rules: this.editRules.map(rule => toPersistedRule(rule))
       });
     }
@@ -343,6 +396,7 @@ export class RulesSection implements OnChanges {
   public onRestoreRules(): void {
     const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.editRules[this.expandedRuleIndex]?.key ?? null : null;
     const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.editRules);
+    this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
     this.editRules = this.committedRules.map(rule => {
       const signature = ruleSignature(rule);
       const keyBucket = previousRuleKeyBuckets.get(signature);
@@ -364,6 +418,7 @@ export class RulesSection implements OnChanges {
    * @private
    */
   private syncRulesFromCommitted(): void {
+    this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
     this.editRules = this.committedRules.map(rule => this.toEditableRule(rule));
     this.ruleStatesByKey.clear();
     this.expandedRuleIndex = null;

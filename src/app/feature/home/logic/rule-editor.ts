@@ -1,4 +1,37 @@
-import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MIN_RANDOM_SEED, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+
+/**
+ * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
+ *
+ * @param {number | undefined} seed seed value to normalize.
+ * @returns {number} normalized random seed.
+ */
+function normalizeRandomSeed(seed: number | undefined): number {
+  const numericSeed = typeof seed === 'number' && Number.isFinite(seed) ? seed : DEFAULT_RANDOM_SEED;
+  return Math.max(MIN_RANDOM_SEED, Math.min(MAX_RANDOM_SEED, Math.trunc(numericSeed)));
+}
+
+/**
+ * Normalizes a rule probability into a percentage using the configured input scale.
+ *
+ * @param {number | undefined} probability probability value to normalize.
+ * @returns {number} normalized probability percentage.
+ */
+function normalizeRuleProbability(probability: number | undefined): number {
+  const numericProbability = typeof probability === 'number' && Number.isFinite(probability) ? probability : DEFAULT_RULE_PROBABILITY;
+  const scaledProbability = Math.round(numericProbability * RULE_PROBABILITY_INPUT_SCALE) / RULE_PROBABILITY_INPUT_SCALE;
+  return Math.max(0, Math.min(MAX_RULE_PROBABILITY, scaledProbability));
+}
+
+/**
+ * Converts a probability percentage into a u32 shader threshold.
+ *
+ * @param {number | undefined} probability probability percentage.
+ * @returns {number} u32 threshold.
+ */
+function probabilityThresholdU32(probability: number | undefined): number {
+  return Math.floor((normalizeRuleProbability(probability) / MAX_RULE_PROBABILITY) * MAX_RANDOM_SEED);
+}
 
 /**
  * Normalizes one combination row input, including previous string-only rows.
@@ -272,7 +305,23 @@ export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Be
 export function normalizeRule<T extends readonly Tribe[]>(rule: Rule<T>): NormalizedRule<T> {
   const normalizedRule = structuredClone(rule) as NormalizedRule<T>;
   normalizedRule.become = normalizeBecomeExpression(normalizeBecome(rule));
+  normalizedRule.probability = normalizeRuleProbability(rule.probability);
   return normalizedRule;
+}
+
+/**
+ * Normalizes ruleset-level fields and contained rules.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {Ruleset<T>} ruleset ruleset to normalize.
+ * @returns {Ruleset<T>} normalized ruleset.
+ */
+export function normalizeRuleset<T extends readonly Tribe[]>(ruleset: Ruleset<T>): Ruleset<T> {
+  return {
+    ...ruleset,
+    randomSeed: normalizeRandomSeed(ruleset.randomSeed),
+    rules: ruleset.rules.map(rule => toPersistedRule(rule))
+  };
 }
 
 /**
@@ -288,6 +337,7 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
   delete persistedRule.key;
   delete persistedRule.tribe;
   persistedRule.muted = !!persistedRule.muted;
+  persistedRule.probability = normalizeRuleProbability(persistedRule.probability);
   return persistedRule;
 }
 
@@ -348,3 +398,5 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
 export function ruleListsEqual<T extends readonly Tribe[]>(editableRules: readonly Rule<T>[], baseRules: readonly Rule<T>[]): boolean {
   return editableRules.length === baseRules.length && editableRules.every((rule, index) => ruleSignature(rule) === ruleSignature(baseRules[index]!));
 }
+
+export {normalizeRandomSeed, normalizeRuleProbability, probabilityThresholdU32};

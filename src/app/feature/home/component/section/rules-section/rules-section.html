@@ -1,3 +1,9 @@
+<div class="rules-settings">
+  <div class="seed-field">
+    <span>Random seed ({{ minRandomSeed }}-{{ maxRandomSeed }})</span>
+    <gol-input name="random-seed" regex="^[0-9]*$" title="Random seed from 0 to 4294967295" type="number" [ngModel]="editRandomSeed" (ngModelChange)="onRandomSeedChange($event)" />
+  </div>
+</div>
 <div cdkDropList cdkDropListOrientation="vertical" class="rules-list" [cdkDropListData]="editRules" [class.dragging-list]="draggingRuleIndex !== null" (cdkDropListDropped)="onRuleDropped($event)">
   @for (rule of editRules; track rule.key; let i = $index) {
     <div cdkDrag cdkDragLockAxis="y" cdkDragPlaceholderClass="gol-rule-drag-placeholder" cdkDragPreviewClass="gol-rule-drag-preview" class="rule-list-item" [class.dragging-rule]="draggingRuleIndex === i" (cdkDragEnded)="onRuleDragEnded()" (cdkDragStarted)="onRuleDragStarted(i)">

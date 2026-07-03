@@ -5,6 +5,7 @@ import renderWgsl from './render.wgsl';
 import {clampBrushDensity} from '../logic/brush-density';
 import {chooseTightStorageGridFormat, fitsGridFormatInMaxBytes, gridByteSize, gridFormatFromBits, gridFormatFromMetadata, gridFormatMetadata, isSupportedBitsPerCell, packedColsForFormat, requiredGridFormatForStateCount, smallestFittingSimulationGridFormat, smallestValidSimulationGridFormat, validatePackingAgainstStateCount} from '../logic/grid-format';
 import {normalizeLiveMetricsSettings} from '../logic/metric-settings';
+import {normalizeRuleProbability, normalizeRuleset} from '../logic/rule-editor';
 import {postWorkerTransfer} from '../logic/worker-post';
 import {Grid} from '../model/grid';
 import {GridFormat, GridFormatMetadata, GRID_FORMAT_8} from '../model/grid-format';
@@ -179,6 +180,30 @@ let computeBindGroupAtoB: GPUBindGroup;
  * @type {GPUBindGroup}
  */
 let computeBindGroupBtoA: GPUBindGroup;
+/**
+ * Whether the active compute shader needs per-pass generation parameters.
+ *
+ * @type {boolean}
+ */
+let probabilisticComputeActive = false;
+/**
+ * Uniform buffer holding batched simulation parameters for probabilistic rules.
+ *
+ * @type {(GPUBuffer | null)}
+ */
+let simulationParameterBuffer: GPUBuffer | null = null;
+/**
+ * Bind groups exposing one parameter slot per encoded simulation pass.
+ *
+ * @type {GPUBindGroup[]}
+ */
+let simulationParameterBindGroups: GPUBindGroup[] = [];
+/**
+ * Byte stride between parameter slots.
+ *
+ * @type {number}
+ */
+let simulationParameterSlotStride = 0;
 
 /**
  * Whether the latest simulation output lives in buffer B.
@@ -267,6 +292,18 @@ const BRUSH_DISPATCH_RECT_CAPACITY = 4;
  * @type {number}
  */
 const BRUSH_UNIFORM_SIZE = 192;
+/**
+ * Number of per-generation parameter slots available inside one encoded batch.
+ *
+ * @type {number}
+ */
+const SIMULATION_PARAMETER_SLOT_COUNT = 1024;
+/**
+ * Size of one simulation parameter struct in bytes.
+ *
+ * @type {number}
+ */
+const SIMULATION_PARAMETER_STRUCT_SIZE = 16;
 /**
  * Per-rectangle brush uniform buffers.
  *
@@ -654,11 +691,22 @@ function destroyRecordingBuffers(): void {
 }
 
 /**
+ * Destroys probabilistic simulation parameter resources.
+ */
+function destroySimulationParameterResources(): void {
+  simulationParameterBuffer?.destroy();
+  simulationParameterBuffer = null;
+  simulationParameterBindGroups = [];
+  simulationParameterSlotStride = 0;
+}
+
+/**
  * Destroys buffers that are rebuilt when the simulation layout changes.
  */
 function destroyRebuildableBuffers(): void {
   gridBufferA?.destroy();
   gridBufferB?.destroy();
+  destroySimulationParameterResources();
   destroyInteractiveMetricsResources(metricsResources);
   metricsResources = null;
   brushUniformBuffers.forEach(buffer => buffer.destroy());
@@ -941,10 +989,54 @@ function createRenderBindGroups(): void {
 }
 
 /**
+ * Checks whether the current ruleset needs probabilistic generation parameters.
+ *
+ * @returns {boolean} true when an active rule has a probability from 1 to 99.
+ */
+function hasActiveProbabilisticRules(): boolean {
+  return ruleset.rules.some(rule => {
+    const probability = normalizeRuleProbability(rule.probability);
+    return !rule.muted && probability > 0 && probability < 100;
+  });
+}
+
+/**
+ * Creates the batched simulation parameter buffer and slot bind groups.
+ */
+function createSimulationParameterResources(): void {
+  simulationParameterSlotStride = Math.max(SIMULATION_PARAMETER_STRUCT_SIZE, device.limits.minUniformBufferOffsetAlignment);
+  simulationParameterBuffer = device.createBuffer({
+    label: GPU_LABELS.simulationParameterBuffer,
+    size: simulationParameterSlotStride * SIMULATION_PARAMETER_SLOT_COUNT,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+  simulationParameterBindGroups = [];
+  const layout = computePipeline.getBindGroupLayout(1);
+  for (let i = 0; i < SIMULATION_PARAMETER_SLOT_COUNT; i++) {
+    simulationParameterBindGroups.push(device.createBindGroup({
+      label: `${GPU_LABELS.simulationParameterBindGroup} ${i}`,
+      layout,
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: simulationParameterBuffer,
+            offset: i * simulationParameterSlotStride,
+            size: SIMULATION_PARAMETER_STRUCT_SIZE
+          }
+        }
+      ]
+    }));
+  }
+}
+
+/**
  * Recreates the simulation compute pipeline and its bind groups.
  */
 function createComputePipeline(): void {
+  destroySimulationParameterResources();
   simulationDispatchPlan = createSimulationDispatchPlan();
+  probabilisticComputeActive = hasActiveProbabilisticRules();
   const wgsl = generateComputeWgsl(ruleset, tribes, packedCols, currentGridSize(), simulationDispatchPlan, gridFormat, tribeIndex);
   const module = device.createShaderModule({label: GPU_LABELS.simulationShaderModule, code: wgsl});
   computePipeline = device.createComputePipeline({
@@ -953,13 +1045,22 @@ function createComputePipeline(): void {
     compute: {module, entryPoint: 'main'}
   });
   computeBindGroupAtoB = device.createBindGroup({
+    label: GPU_LABELS.simulationBindGroupAtoB,
     layout: computePipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: gridBufferA} }, {binding: 1, resource: {buffer: gridBufferB} }]
   });
   computeBindGroupBtoA = device.createBindGroup({
+    label: GPU_LABELS.simulationBindGroupBtoA,
     layout: computePipeline.getBindGroupLayout(0),
     entries: [{binding: 0, resource: {buffer: gridBufferB} }, {binding: 1, resource: {buffer: gridBufferA} }]
   });
+  if (probabilisticComputeActive) {
+    createSimulationParameterResources();
+    console.info('[GOLT worker] Probabilistic rule compute path enabled', {
+      randomSeed: ruleset.randomSeed,
+      parameterSlots: SIMULATION_PARAMETER_SLOT_COUNT
+    });
+  }
 }
 
 /**
@@ -1106,12 +1207,22 @@ function computeChunkCapacity(): void {
 }
 
 /**
+ * Returns fixed simulation resource overhead not included in the ping-pong grid buffers.
+ *
+ * @returns {number} fixed resource overhead in bytes.
+ */
+function fixedSimulationOverheadBytes(): number {
+  const parameterBytes = probabilisticComputeActive ? simulationParameterSlotStride * SIMULATION_PARAMETER_SLOT_COUNT : 0;
+  return UNIFORM_SIZE + TRIBE_COLOR_BUFFER_SIZE + BRUSH_UNIFORM_SIZE + HISTOGRAM_BUFFER_SIZE * 2 + BOUNDARY_BUFFER_SIZE * 2 + parameterBytes;
+}
+
+/**
  * Posts the current recording-limit state through the worker protocol.
  */
 function postRecordingLimits(): void {
   self.postMessage({
     type: 'limits',
-    ...buildRecordingLimitsPayload(currentMaxSimulationBytes(), frameByteSize, chunkFrameCapacity, UNIFORM_SIZE + TRIBE_COLOR_BUFFER_SIZE + BRUSH_UNIFORM_SIZE + HISTOGRAM_BUFFER_SIZE * 2 + BOUNDARY_BUFFER_SIZE * 2, currentGridFormatMetadata())
+    ...buildRecordingLimitsPayload(currentMaxSimulationBytes(), frameByteSize, chunkFrameCapacity, fixedSimulationOverheadBytes(), currentGridFormatMetadata())
   });
 }
 
@@ -1698,14 +1809,49 @@ function readMetricsAndPost(): void {
 }
 
 /**
+ * Writes per-pass generation parameters for a probabilistic simulation batch.
+ *
+ * @param {number} count generation count to prepare.
+ */
+function writeSimulationParameters(count: number): void {
+  if (probabilisticComputeActive && simulationParameterBuffer && count > 0) {
+    const slotCount = Math.min(count, SIMULATION_PARAMETER_SLOT_COUNT);
+    const strideU32 = simulationParameterSlotStride / Uint32Array.BYTES_PER_ELEMENT;
+    const data = new Uint32Array(slotCount * strideU32);
+    for (let i = 0; i < slotCount; i++) {
+      data[i * strideU32] = genCounter + i;
+    }
+    device.queue.writeBuffer(simulationParameterBuffer, 0, data);
+  }
+}
+
+/**
+ * Limits one encoded simulation batch to the available parameter slots.
+ *
+ * @param {number} requested requested generation count.
+ * @returns {number} encodable generation count.
+ */
+function simulationBatchStepLimit(requested: number): number {
+  let limit = requested;
+  if (probabilisticComputeActive) {
+    limit = Math.min(requested, SIMULATION_PARAMETER_SLOT_COUNT);
+  }
+  return limit;
+}
+
+/**
  * Encodes one simulation generation into the provided command encoder.
  *
  * @param {GPUCommandEncoder} encoder destination command encoder.
+ * @param {number} [parameterSlot=0] parameter slot for probabilistic rules.
  */
-function encodeSimulationStep(encoder: GPUCommandEncoder): void {
+function encodeSimulationStep(encoder: GPUCommandEncoder, parameterSlot = 0): void {
   const pass = encoder.beginComputePass({label: GPU_LABELS.simulationStepPass});
   pass.setPipeline(computePipeline);
   pass.setBindGroup(0, pingPong ? computeBindGroupBtoA : computeBindGroupAtoB);
+  if (probabilisticComputeActive) {
+    pass.setBindGroup(1, simulationParameterBindGroups[parameterSlot]);
+  }
   const plan = simulationDispatchPlan;
   pass.dispatchWorkgroups(plan.dispatchWgX, plan.dispatchWgY);
   pass.end();
@@ -1719,13 +1865,15 @@ function encodeSimulationStep(encoder: GPUCommandEncoder): void {
  * @param {number} count number of generations to encode.
  */
 function batchStep(count: number): void {
-  if (count > 0) {
+  const stepCountLimit = simulationBatchStepLimit(count);
+  if (stepCountLimit > 0) {
+    writeSimulationParameters(stepCountLimit);
     const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationBatchEncoder});
-    for (let i = 0; i < count; i++) {
-      encodeSimulationStep(encoder);
+    for (let i = 0; i < stepCountLimit; i++) {
+      encodeSimulationStep(encoder, i);
     }
     device.queue.submit([encoder.finish()]);
-    stepCount += count;
+    stepCount += stepCountLimit;
   }
 }
 
@@ -1744,6 +1892,7 @@ function postGeneration(): void {
  * Encodes and submits one simulation generation.
  */
 function stepSimulation(): void {
+  writeSimulationParameters(1);
   const encoder = device.createCommandEncoder({label: GPU_LABELS.simulationSingleStepEncoder});
   encodeSimulationStep(encoder);
   device.queue.submit([encoder.finish()]);
@@ -2149,14 +2298,16 @@ function handleRecordingBlocked(run: RunState, now: number, didStep: boolean): v
  * @returns {{steps: number; blocked: boolean}} submitted step count and backpressure state.
  */
 function submitRecordingStepCopyBatch(maxSteps: number, deadline: number): {steps: number; blocked: boolean} {
+  const maxEncodableSteps = simulationBatchStepLimit(maxSteps);
+  writeSimulationParameters(maxEncodableSteps);
   const encoder = device.createCommandEncoder({label: GPU_LABELS.recordingStepBatchEncoder});
   let steps = 0;
   let blocked = false;
-  let keepEncoding = maxSteps > 0;
+  let keepEncoding = maxEncodableSteps > 0;
   while (keepEncoding) {
-    if (steps < maxSteps && performance.now() < deadline) {
+    if (steps < maxEncodableSteps && performance.now() < deadline) {
       if (prepareRecordingStep() && canEncodeRecordingFrameCopy()) {
-        encodeSimulationStep(encoder);
+        encodeSimulationStep(encoder, steps);
         encodeRecordingFrameCopy(encoder, genCounter);
         steps++;
         if (chunkFrameIndex >= chunkFrameCapacity) {
@@ -2400,16 +2551,17 @@ function selectSimulationGridFormat(rs: Ruleset<readonly Tribe[]>, requested: Gr
  * @param {GridFormatMetadata} simulationGridFormat requested simulation grid format.
  */
 function initRuleset(rs: Ruleset<readonly Tribe[]>, simulationGridFormat: GridFormatMetadata): void {
-  const topology = rs.topology === BOUNDED_GRID_TOPOLOGY ? BOUNDED_GRID_TOPOLOGY : TOROIDAL_GRID_TOPOLOGY;
-  const boundaryTribe = rs.tribes.some(tribe => tribe.id === rs.boundaryTribe) ? rs.boundaryTribe : DEAD_TRIBE_ID;
+  const normalizedInput = normalizeRuleset(rs);
+  const topology = normalizedInput.topology === BOUNDED_GRID_TOPOLOGY ? BOUNDED_GRID_TOPOLOGY : TOROIDAL_GRID_TOPOLOGY;
+  const boundaryTribe = normalizedInput.tribes.some(tribe => tribe.id === normalizedInput.boundaryTribe) ? normalizedInput.boundaryTribe : DEAD_TRIBE_ID;
   ruleset = {
-    ...rs,
+    ...normalizedInput,
     topology,
     boundaryTribe
   };
-  cols = rs.cols;
-  rows = rs.rows;
-  gridFormat = selectSimulationGridFormat(rs, simulationGridFormat);
+  cols = normalizedInput.cols;
+  rows = normalizedInput.rows;
+  gridFormat = selectSimulationGridFormat(normalizedInput, simulationGridFormat);
   packedCols = packedColsForFormat(cols, gridFormat);
   tribes = [...ruleset.tribes];
   manifest.gridFormat = currentGridFormatMetadata();

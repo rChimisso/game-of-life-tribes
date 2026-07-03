@@ -10,7 +10,7 @@ import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {clausesEqual, normalizeCountExpression, normalizeSelector} from '~gol/feature/home/logic/rule-editor';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
@@ -236,7 +236,7 @@ export class RuleClause implements OnChanges {
           nextClause = {
             kind: COUNT_CLAUSE_KIND,
             selector: {
-              kind: 'tribes',
+              kind: TRIBES_SELECTOR_KIND,
               tribes: [DEAD_TRIBE_ID]
             },
             interval: [0, 8]
@@ -248,14 +248,14 @@ export class RuleClause implements OnChanges {
             left: {
               kind: 'count',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [DEAD_TRIBE_ID]
               }
             },
             right: {
               kind: 'count',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [DEAD_TRIBE_ID]
               }
             },
@@ -757,10 +757,10 @@ export class RuleClause implements OnChanges {
     const knownIds = new Set(this.tribes.map(tribe => tribe.id));
     let invalid = false;
     switch (selector.kind) {
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         invalid = selector.tribes.length === 0 || selector.tribes.some(id => !knownIds.has(id));
         break;
-      case 'tiedMajority':
+      case TIE_SELECTOR_KIND:
         invalid = true;
         break;
     }

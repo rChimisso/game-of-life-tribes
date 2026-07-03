@@ -7,7 +7,7 @@ import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeCountExpression, normalizeSelector} from '~gol/feature/home/logic/rule-editor';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Clause/rule summary component.
@@ -248,17 +248,17 @@ export class SummaryComponent implements OnChanges {
    */
   private appendSelectorSummaryParts(parts: SummaryPart[], selector: TribeSelector<Tribe[]>): void {
     switch (selector.kind) {
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         this.appendTribeSummaryParts(parts, selector.tribes);
         break;
-      case 'same':
+      case SAME_TRIBE_SELECTOR_KIND:
         this.appendSummaryText(parts, 'same');
         break;
-      case 'different':
+      case DIFFERENT_TRIBE_SELECTOR_KIND:
         this.appendSummaryText(parts, 'different');
         break;
-      case 'tiedMajority':
-        this.appendSummaryText(parts, 'tied majority of ');
+      case TIE_SELECTOR_KIND:
+        this.appendSummaryText(parts, 'tie of ');
         this.appendSelectorSummaryParts(parts, selector.source);
         break;
     }

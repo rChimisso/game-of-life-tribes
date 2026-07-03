@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, COMBINE_BECOME_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND} from '../model/rule';
 
 /**
  * Newborn living cell tribe ID for the Senescence preset.
@@ -84,7 +84,7 @@ export const SENESCENCE_PRESET: Preset = {
           clauses: [
             {kind: IS_CLAUSE_KIND, tribes: [DEAD_TRIBE_ID]},
             {
-              kind: COUNT_CLAUSE_KIND, selector: {kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [3, 3]
+              kind: COUNT_CLAUSE_KIND, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [3, 3]
             }
           ]
         },
@@ -95,7 +95,7 @@ export const SENESCENCE_PRESET: Preset = {
           clauses: [
             {kind: IS_CLAUSE_KIND, tribes: [DEAD_TRIBE_ID]},
             {
-              kind: COUNT_CLAUSE_KIND, selector: {kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [5, 5]
+              kind: COUNT_CLAUSE_KIND, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [5, 5]
             }
           ]},
         tribe: SENESCENCE_GLOW_TRIBE
@@ -105,19 +105,19 @@ export const SENESCENCE_PRESET: Preset = {
           clauses: [
             {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]},
             {
-              kind: COUNT_CLAUSE_KIND, selector: {kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [2, 5]
+              kind: COUNT_CLAUSE_KIND, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [2, 5]
             },
             {
-              kind: MAX_CLAUSE_KIND, value: 5, selector: {kind: 'tribes', tribes: [SENESCENCE_ASH_TRIBE]}
+              kind: MAX_CLAUSE_KIND, value: 5, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_ASH_TRIBE]}
             },
             {
-              kind: MAX_CLAUSE_KIND, value: 5, selector: {kind: 'tribes', tribes: [SENESCENCE_REMNANT_TRIBE]}
+              kind: MAX_CLAUSE_KIND, value: 5, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_REMNANT_TRIBE]}
             },
             {
               kind: MAX_CLAUSE_KIND,
               value: 6,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [
                   SENESCENCE_SPARK_TRIBE,
                   SENESCENCE_GLOW_TRIBE,
@@ -132,30 +132,30 @@ export const SENESCENCE_PRESET: Preset = {
             }
           ]},
         become: {
-          kind: 'majority',
-          selector: {kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]},
+          kind: MAJORITY_BECOME_KIND,
+          selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]},
           tie: {
-            kind: 'combine',
+            kind: COMBINE_BECOME_KIND,
             strategy: {
-              kind: 'lookup',
+              kind: LOOKUP_STRATEGY_KIND,
               entries: [
                 {
-                  inputs: [{kind: 'tribes', tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, {kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE]}],
+                  inputs: [{kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE]}],
                   output: SENESCENCE_TRAIL_TRIBE
                 },
                 {
-                  inputs: [{kind: 'tribes', tribes: [SENESCENCE_GLOW_TRIBE]}, {kind: 'tribes', tribes: [SENESCENCE_TRAIL_TRIBE]}],
+                  inputs: [{kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE]}, {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_TRAIL_TRIBE]}],
                   output: SENESCENCE_ECHO_TRIBE
                 },
                 {
-                  inputs: [{kind: 'tribes', tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, {kind: 'tribes', tribes: [SENESCENCE_TRAIL_TRIBE]}],
+                  inputs: [{kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_TRAIL_TRIBE]}],
                   output: SENESCENCE_DIM_TRIBE
                 }
               ],
-              default: {kind: 'fixed', tribe: SENESCENCE_TRAIL_TRIBE}
+              default: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_TRAIL_TRIBE}
             }
           },
-          fallback: {kind: 'fixed', tribe: SENESCENCE_TRAIL_TRIBE}
+          fallback: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_TRAIL_TRIBE}
         }
       },
       {
@@ -165,7 +165,7 @@ export const SENESCENCE_PRESET: Preset = {
             {
               kind: MIN_CLAUSE_KIND,
               value: 4,
-              selector: {kind: 'tribes',
+              selector: {kind: TRIBES_SELECTOR_KIND,
                 tribes: [
                   SENESCENCE_GLOW_TRIBE,
                   SENESCENCE_AFTERGLOW_TRIBE,
@@ -186,7 +186,7 @@ export const SENESCENCE_PRESET: Preset = {
             {
               kind: MIN_CLAUSE_KIND,
               value: 3,
-              selector: {kind: 'tribes',
+              selector: {kind: TRIBES_SELECTOR_KIND,
                 tribes: [
                   SENESCENCE_SPARK_TRIBE,
                   SENESCENCE_GLOW_TRIBE,
@@ -208,7 +208,7 @@ export const SENESCENCE_PRESET: Preset = {
             {
               kind: MIN_CLAUSE_KIND,
               value: 5,
-              selector: {kind: 'tribes',
+              selector: {kind: TRIBES_SELECTOR_KIND,
                 tribes: [
                   SENESCENCE_DIM_TRIBE,
                   SENESCENCE_ECHO_TRIBE,
@@ -229,14 +229,14 @@ export const SENESCENCE_PRESET: Preset = {
             {kind: OR_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: MIN_CLAUSE_KIND, value: 1, selector: {kind: 'tribes', tribes: [SENESCENCE_SPARK_TRIBE]}
+                  kind: MIN_CLAUSE_KIND, value: 1, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_SPARK_TRIBE]}
                 },
                 {
-                  kind: MIN_CLAUSE_KIND, value: 5, selector: {kind: 'tribes', tribes: [SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
+                  kind: MIN_CLAUSE_KIND, value: 5, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
                 }
               ]},
             {
-              kind: MIN_CLAUSE_KIND, value: 2, selector: {kind: 'tribes', tribes: [DEAD_TRIBE_ID, SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
+              kind: MIN_CLAUSE_KIND, value: 2, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [DEAD_TRIBE_ID, SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
             }
           ]},
         tribe: SENESCENCE_SPARK_TRIBE
@@ -248,7 +248,7 @@ export const SENESCENCE_PRESET: Preset = {
             {
               kind: MIN_CLAUSE_KIND,
               value: 6,
-              selector: {kind: 'tribes',
+              selector: {kind: TRIBES_SELECTOR_KIND,
                 tribes: [
                   SENESCENCE_GLOW_TRIBE,
                   SENESCENCE_AFTERGLOW_TRIBE,
@@ -269,14 +269,14 @@ export const SENESCENCE_PRESET: Preset = {
             {kind: OR_CLAUSE_KIND,
               clauses: [
                 {
-                  kind: MIN_CLAUSE_KIND, value: 1, selector: {kind: 'tribes', tribes: [SENESCENCE_SPARK_TRIBE]}
+                  kind: MIN_CLAUSE_KIND, value: 1, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_SPARK_TRIBE]}
                 },
                 {
-                  kind: MIN_CLAUSE_KIND, value: 5, selector: {kind: 'tribes', tribes: [SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
+                  kind: MIN_CLAUSE_KIND, value: 5, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
                 }
               ]},
             {
-              kind: MIN_CLAUSE_KIND, value: 4, selector: {kind: 'tribes', tribes: [DEAD_TRIBE_ID]}
+              kind: MIN_CLAUSE_KIND, value: 4, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [DEAD_TRIBE_ID]}
             }
           ]},
         tribe: SENESCENCE_SPARK_TRIBE

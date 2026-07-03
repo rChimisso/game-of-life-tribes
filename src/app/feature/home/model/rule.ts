@@ -234,6 +234,76 @@ export const OR_CLAUSE_KIND = 'or';
 export const XOR_CLAUSE_KIND = 'xor';
 
 /**
+ * Explicit tribes selector kind.
+ *
+ * @type {"tribes"}
+ */
+export const TRIBES_SELECTOR_KIND = 'tribes';
+
+/**
+ * Same tribe selector kind.
+ *
+ * @type {"same"}
+ */
+export const SAME_TRIBE_SELECTOR_KIND = 'same';
+
+/**
+ * Different tribe selector kind.
+ *
+ * @type {"different"}
+ */
+export const DIFFERENT_TRIBE_SELECTOR_KIND = 'different';
+
+/**
+ * Tie selector kind.
+ *
+ * @type {"tie"}
+ */
+export const TIE_SELECTOR_KIND = 'tie';
+
+/**
+ * Fixed outcome kind.
+ *
+ * @type {"fixed"}
+ */
+export const FIXED_BECOME_KIND = 'fixed';
+
+/**
+ * Same outcome kind.
+ *
+ * @type {"same"}
+ */
+export const SAME_BECOME_KIND = 'same';
+
+/**
+ * Majority outcome kind.
+ *
+ * @type {"majority"}
+ */
+export const MAJORITY_BECOME_KIND = 'majority';
+
+/**
+ * Minority outcome kind.
+ *
+ * @type {"minority"}
+ */
+export const MINORITY_BECOME_KIND = 'minority';
+
+/**
+ * Lookup combine strategy kind.
+ *
+ * @type {"lookup"}
+ */
+export const LOOKUP_STRATEGY_KIND = 'lookup';
+
+/**
+ * Combine outcome kind.
+ *
+ * @type {"combine"}
+ */
+export const COMBINE_BECOME_KIND = 'combine';
+
+/**
  * Interval for counting a cell's neighbors (both inclusive).
  *
  * @typedef {Interval}
@@ -257,9 +327,9 @@ export interface ExplicitTribesSelector<T extends readonly Tribe[]> {
   /**
    * Selector type.
    *
-   * @type {"tribes"}
+   * @type {typeof TRIBES_SELECTOR_KIND}
    */
-  kind: 'tribes';
+  kind: typeof TRIBES_SELECTOR_KIND;
   /**
    * Explicit tribes selected by this selector.
    *
@@ -278,9 +348,9 @@ export interface SameTribeSelector {
   /**
    * Selector type.
    *
-   * @type {"same"}
+   * @type {typeof SAME_TRIBE_SELECTOR_KIND}
    */
-  kind: 'same';
+  kind: typeof SAME_TRIBE_SELECTOR_KIND;
 }
 
 /**
@@ -293,26 +363,26 @@ export interface DifferentTribeSelector {
   /**
    * Selector type.
    *
-   * @type {"different"}
+   * @type {typeof DIFFERENT_TRIBE_SELECTOR_KIND}
    */
-  kind: 'different';
+  kind: typeof DIFFERENT_TRIBE_SELECTOR_KIND;
 }
 
 /**
- * Selector that targets tied majority candidates from another selector.
+ * Selector that targets tied ranked candidates from another selector.
  *
- * @interface TiedMajoritySelector<T extends readonly Tribe[]>
- * @typedef {TiedMajoritySelector<T extends readonly Tribe[]>}
+ * @interface TieSelector<T extends readonly Tribe[]>
+ * @typedef {TieSelector<T extends readonly Tribe[]>}
  */
-export interface TiedMajoritySelector<T extends readonly Tribe[]> {
+export interface TieSelector<T extends readonly Tribe[]> {
   /**
    * Selector type.
    *
-   * @type {"tiedMajority"}
+   * @type {typeof TIE_SELECTOR_KIND}
    */
-  kind: 'tiedMajority';
+  kind: typeof TIE_SELECTOR_KIND;
   /**
-   * Source selector used to find majority ties.
+   * Source selector used to find ranked ties.
    *
    * @type {TribeSelector<T>}
    */
@@ -324,7 +394,7 @@ export interface TiedMajoritySelector<T extends readonly Tribe[]> {
  *
  * @typedef {TribeSelector}
  */
-export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | TiedMajoritySelector<T>;
+export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | TieSelector<T>;
 
 /**
  * Fixed rule outcome equivalent to the legacy rule target.
@@ -336,9 +406,9 @@ export interface FixedBecome<T extends readonly Tribe[]> {
   /**
    * Outcome type.
    *
-   * @type {"fixed"}
+   * @type {typeof FIXED_BECOME_KIND}
    */
-  kind: 'fixed';
+  kind: typeof FIXED_BECOME_KIND;
   /**
    * Fixed output tribe.
    *
@@ -357,9 +427,9 @@ export interface SameBecome {
   /**
    * Outcome type.
    *
-   * @type {"same"}
+   * @type {typeof SAME_BECOME_KIND}
    */
-  kind: 'same';
+  kind: typeof SAME_BECOME_KIND;
 }
 
 /**
@@ -372,9 +442,9 @@ export interface MajorityBecome<T extends readonly Tribe[]> {
   /**
    * Outcome type.
    *
-   * @type {"majority"}
+   * @type {typeof MAJORITY_BECOME_KIND}
    */
-  kind: 'majority';
+  kind: typeof MAJORITY_BECOME_KIND;
   /**
    * Selector used to choose majority candidates.
    *
@@ -405,9 +475,9 @@ export interface MinorityBecome<T extends readonly Tribe[]> {
   /**
    * Outcome type.
    *
-   * @type {"minority"}
+   * @type {typeof MINORITY_BECOME_KIND}
    */
-  kind: 'minority';
+  kind: typeof MINORITY_BECOME_KIND;
   /**
    * Selector used to choose minority candidates.
    *
@@ -438,9 +508,9 @@ export interface LookupCombineStrategy<T extends readonly Tribe[]> {
   /**
    * Strategy type.
    *
-   * @type {"lookup"}
+   * @type {typeof LOOKUP_STRATEGY_KIND}
    */
-  kind: 'lookup';
+  kind: typeof LOOKUP_STRATEGY_KIND;
   /**
    * Lookup rows.
    *
@@ -493,9 +563,9 @@ export interface CombineBecome<T extends readonly Tribe[]> {
   /**
    * Outcome type.
    *
-   * @type {"combine"}
+   * @type {typeof COMBINE_BECOME_KIND}
    */
-  kind: 'combine';
+  kind: typeof COMBINE_BECOME_KIND;
   /**
    * Combination strategy.
    *

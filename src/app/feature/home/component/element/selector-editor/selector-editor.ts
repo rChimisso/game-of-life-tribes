@@ -5,7 +5,7 @@ import {SelectorChangeEvent, SelectorStateChangeEvent} from '../model/selector-e
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature} from '~gol/feature/home/logic/rule-editor';
-import {Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
@@ -77,7 +77,7 @@ export class SelectorEditor implements OnChanges {
    * @type {TribeSelectorKind[]}
    */
   @Input()
-  public allowedKinds: TribeSelectorKind[] = ['tribes', 'same', 'different'];
+  public allowedKinds: TribeSelectorKind[] = [TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND];
 
   /**
    * Emits selector edits with derived state.
@@ -122,7 +122,7 @@ export class SelectorEditor implements OnChanges {
    */
   public get selectedTribes(): string[] {
     let selected: string[] = [];
-    if (this.selector.kind === 'tribes') {
+    if (this.selector.kind === TRIBES_SELECTOR_KIND) {
       selected = [...this.selector.tribes];
     }
     return selected;
@@ -160,15 +160,15 @@ export class SelectorEditor implements OnChanges {
     const knownIds = new Set(this.tribes.map(tribe => tribe.id));
     let message: string | null = null;
     switch (this.selector.kind) {
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         if (this.selector.tribes.length === 0) {
           message = 'Choose at least one tribe.';
         } else if (this.selector.tribes.some(id => !knownIds.has(id))) {
           message = 'Choose only existing tribes.';
         }
         break;
-      case 'tiedMajority':
-        message = 'Tied majority selectors are only available in majority tie handling.';
+      case TIE_SELECTOR_KIND:
+        message = 'Tie selectors are only available in ranked tie handling.';
         break;
     }
     return message;
@@ -204,7 +204,7 @@ export class SelectorEditor implements OnChanges {
    * @param {string} tribeId tribe id to toggle.
    */
   public onToggleTribe(tribeId: string): void {
-    if (!this.disabled && this.selector.kind === 'tribes') {
+    if (!this.disabled && this.selector.kind === TRIBES_SELECTOR_KIND) {
       const selected = new Set(this.selector.tribes);
       if (selected.has(tribeId)) {
         selected.delete(tribeId);
@@ -241,10 +241,10 @@ export class SelectorEditor implements OnChanges {
    */
   public selectorKindLabel(kind: TribeSelectorKind): string {
     const labels: Record<TribeSelectorKind, string> = {
-      tribes: 'Specific tribes',
-      same: 'Same',
-      different: 'Different',
-      tiedMajority: 'Tied majority'
+      [TRIBES_SELECTOR_KIND]: 'Specific tribes',
+      [SAME_TRIBE_SELECTOR_KIND]: 'Same',
+      [DIFFERENT_TRIBE_SELECTOR_KIND]: 'Different',
+      [TIE_SELECTOR_KIND]: 'Tie'
     };
     return labels[kind];
   }
@@ -290,17 +290,17 @@ export class SelectorEditor implements OnChanges {
   private createSelector(kind: TribeSelectorKind): TribeSelector<Tribe[]> {
     let selector: TribeSelector<Tribe[]>;
     switch (kind) {
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         selector = {
           kind,
           tribes: [this.defaultTribeId()]
         };
         break;
-      case 'tiedMajority':
+      case TIE_SELECTOR_KIND:
         selector = {
           kind,
           source: {
-            kind: 'tribes',
+            kind: TRIBES_SELECTOR_KIND,
             tribes: [this.defaultTribeId()]
           }
         };

@@ -1,5 +1,5 @@
 import {directRule, Preset} from '.';
-import {DEAD_TRIBE, IS_CLAUSE_KIND, AND_CLAUSE_KIND, MIN_CLAUSE_KIND, DEAD_TRIBE_ID, NONE_CLAUSE_KIND, Rule, Tribe, NeighborCount} from '../model/rule';
+import {AND_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, Rule, SAME_BECOME_KIND, Tribe} from '../model/rule';
 
 /**
  * Light vegetation tribe ID.
@@ -179,7 +179,7 @@ export const WILDFIRE_PRESET: Preset = {
           tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE]
         },
         become: {
-          kind: 'same'
+          kind: SAME_BECOME_KIND
         }
       },
       {
@@ -202,17 +202,17 @@ export const WILDFIRE_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'majority',
+          kind: MAJORITY_BECOME_KIND,
           selector: {
-            kind: 'tribes',
+            kind: TRIBES_SELECTOR_KIND,
             tribes: [WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE]
           },
           tie: {
-            kind: 'fixed',
+            kind: FIXED_BECOME_KIND,
             tribe: WILDFIRE_MEDIUM_VEGETATION_TRIBE
           },
           fallback: {
-            kind: 'fixed',
+            kind: FIXED_BECOME_KIND,
             tribe: WILDFIRE_MEDIUM_VEGETATION_TRIBE
           }
         }

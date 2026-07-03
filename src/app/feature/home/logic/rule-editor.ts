@@ -1,4 +1,4 @@
-import {AND_CLAUSE_KIND, Become, Clause, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 
 /**
  * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
@@ -60,7 +60,7 @@ function normalizeCombinationInput<T extends readonly Tribe[]>(input: TribeSelec
 export function explicitTribesSelector<T extends readonly Tribe[]>(tribes: readonly TribeId<T>[] | undefined): TribeSelector<T> {
   const selectedTribes = tribes && tribes.length > 0 ? tribes : [DEAD_TRIBE_ID as TribeId<T>];
   return {
-    kind: 'tribes',
+    kind: TRIBES_SELECTOR_KIND,
     tribes: [...selectedTribes] as [TribeId<T>, ...TribeId<T>[]]
   };
 }
@@ -77,13 +77,13 @@ export function normalizeSelector<T extends readonly Tribe[]>(selector: TribeSel
   const normalized = selector ?? explicitTribesSelector(legacyTribes);
   let result: TribeSelector<T>;
   switch (normalized.kind) {
-    case 'tribes':
+    case TRIBES_SELECTOR_KIND:
       result = {
         ...normalized,
         tribes: [...normalized.tribes] as [TribeId<T>, ...TribeId<T>[]]
       };
       break;
-    case 'tiedMajority':
+    case TIE_SELECTOR_KIND:
       result = {
         ...normalized,
         source: normalizeSelector(normalized.source)
@@ -132,13 +132,13 @@ export function selectorSignature<T extends readonly Tribe[]>(selector: TribeSel
 export function normalizeSelectorForSignature<T extends readonly Tribe[]>(selector: TribeSelector<T>): TribeSelector<T> {
   let normalized: TribeSelector<T>;
   switch (selector.kind) {
-    case 'tribes':
+    case TRIBES_SELECTOR_KIND:
       normalized = {
         ...selector,
         tribes: [...new Set(selector.tribes)].sort() as [TribeId<T>, ...TribeId<T>[]]
       };
       break;
-    case 'tiedMajority':
+    case TIE_SELECTOR_KIND:
       normalized = {
         ...selector,
         source: normalizeSelectorForSignature(selector.source)
@@ -251,7 +251,7 @@ export function normalizeClauseForPersistence<T extends readonly Tribe[]>(clause
  */
 export function normalizeBecome<T extends readonly Tribe[]>(rule: Pick<Rule<T>, 'become' | 'tribe'>): Become<T> {
   return rule.become ?? {
-    kind: 'fixed',
+    kind: FIXED_BECOME_KIND,
     tribe: (rule.tribe ?? DEAD_TRIBE_ID) as TribeId<T>
   };
 }
@@ -266,8 +266,8 @@ export function normalizeBecome<T extends readonly Tribe[]>(rule: Pick<Rule<T>, 
 export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Become<T>): Become<T> {
   let normalized: Become<T>;
   switch (become.kind) {
-    case 'majority':
-    case 'minority':
+    case MAJORITY_BECOME_KIND:
+    case MINORITY_BECOME_KIND:
       normalized = {
         ...become,
         selector: normalizeSelector(become.selector),
@@ -275,9 +275,9 @@ export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Be
         fallback: become.fallback ? normalizeBecomeExpression(become.fallback) : undefined
       };
       break;
-    case 'combine':
+    case COMBINE_BECOME_KIND:
       normalized = {
-        kind: 'combine',
+        kind: COMBINE_BECOME_KIND,
         strategy: {
           ...become.strategy,
           entries: become.strategy.entries.map(entry => ({

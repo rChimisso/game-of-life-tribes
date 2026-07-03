@@ -8,7 +8,7 @@ import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature} from '~gol/feature/home/logic/rule-editor';
-import {Become, CombinationEntry, DEAD_TRIBE_ID, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
@@ -25,21 +25,21 @@ type BecomeMode = Become<Tribe[]>['kind'];
  *
  * @typedef {RankedBecome}
  */
-type RankedBecome = Extract<Become<Tribe[]>, {kind: 'majority' | 'minority'}>;
+type RankedBecome = Extract<Become<Tribe[]>, {kind: typeof MAJORITY_BECOME_KIND | typeof MINORITY_BECOME_KIND}>;
 
 /**
  * Combine outcome handled by the lookup table UI.
  *
  * @typedef {CombineBecome}
  */
-type CombineBecome = Extract<Become<Tribe[]>, {kind: 'combine'}>;
+type CombineBecome = Extract<Become<Tribe[]>, {kind: typeof COMBINE_BECOME_KIND}>;
 
 /**
  * Simplified nested outcome mode.
  *
  * @typedef {NestedBecomeMode}
  */
-type NestedBecomeMode = 'fixed' | 'same' | 'combine';
+type NestedBecomeMode = typeof FIXED_BECOME_KIND | typeof SAME_BECOME_KIND | typeof COMBINE_BECOME_KIND;
 
 /**
  * Editable combine target.
@@ -177,11 +177,11 @@ export class BecomeEditor implements OnChanges {
    * @type {SelectOption[]}
    */
   public readonly modeOptions: SelectOption[] = [
-    {value: 'fixed', label: FIXED_TRIBE_LABEL},
-    {value: 'same', label: 'Same'},
-    {value: 'majority', label: 'Majority'},
-    {value: 'minority', label: 'Minority'},
-    {value: 'combine', label: 'Combine'}
+    {value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL},
+    {value: SAME_BECOME_KIND, label: 'Same'},
+    {value: MAJORITY_BECOME_KIND, label: 'Majority'},
+    {value: MINORITY_BECOME_KIND, label: 'Minority'},
+    {value: COMBINE_BECOME_KIND, label: 'Combine'}
   ];
 
   /**
@@ -191,7 +191,7 @@ export class BecomeEditor implements OnChanges {
    * @readonly
    * @type {SelectOption[]}
    */
-  public readonly nestedOptions: SelectOption[] = [{value: 'fixed', label: FIXED_TRIBE_LABEL}, {value: 'same', label: 'Same'}, {value: 'combine', label: 'Combine'}];
+  public readonly nestedOptions: SelectOption[] = [{value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL}, {value: SAME_BECOME_KIND, label: 'Same'}, {value: COMBINE_BECOME_KIND, label: 'Combine'}];
 
   /**
    * Selectable tribes for fixed outcomes.
@@ -238,7 +238,7 @@ export class BecomeEditor implements OnChanges {
    * @type {string}
    */
   public get fixedTribe(): string {
-    return this.become.kind === 'fixed' ? this.become.tribe : this.defaultTribeId();
+    return this.become.kind === FIXED_BECOME_KIND ? this.become.tribe : this.defaultTribeId();
   }
 
   /**
@@ -282,7 +282,7 @@ export class BecomeEditor implements OnChanges {
   public onSetFixedTribe(value: SelectValue): void {
     if (!this.disabled && typeof value === 'string') {
       this.become = {
-        kind: 'fixed',
+        kind: FIXED_BECOME_KIND,
         tribe: value
       };
       this.emitBecomeChange();
@@ -349,7 +349,7 @@ export class BecomeEditor implements OnChanges {
       this.become = {
         ...this.become,
         [target]: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: value
         }
       };
@@ -371,7 +371,7 @@ export class BecomeEditor implements OnChanges {
         strategy: {
           ...combine.strategy,
           default: {
-            kind: 'fixed',
+            kind: FIXED_BECOME_KIND,
             tribe: value
           }
         }
@@ -535,16 +535,16 @@ export class BecomeEditor implements OnChanges {
     const selector = normalizeSelector(input);
     let value: string;
     switch (selector.kind) {
-      case 'same':
+      case SAME_TRIBE_SELECTOR_KIND:
         value = SAME_INPUT_VALUE;
         break;
-      case 'different':
+      case DIFFERENT_TRIBE_SELECTOR_KIND:
         value = DIFFERENT_INPUT_VALUE;
         break;
-      case 'tiedMajority':
+      case TIE_SELECTOR_KIND:
         value = RANK_INPUT_VALUE;
         break;
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         value = `${TRIBE_INPUT_PREFIX}${selector.tribes[0]}`;
         break;
     }
@@ -574,19 +574,19 @@ export class BecomeEditor implements OnChanges {
    * @returns {NestedBecomeMode} nested mode.
    */
   public nestedMode(become: Become<Tribe[]> | undefined): NestedBecomeMode {
-    let mode: NestedBecomeMode = 'fixed';
+    let mode: NestedBecomeMode = FIXED_BECOME_KIND;
     if (become) {
       switch (become.kind) {
-        case 'combine':
-          mode = 'combine';
+        case COMBINE_BECOME_KIND:
+          mode = COMBINE_BECOME_KIND;
           break;
-        case 'same':
-          mode = 'same';
+        case SAME_BECOME_KIND:
+          mode = SAME_BECOME_KIND;
           break;
-        case 'fixed':
-        case 'majority':
-        case 'minority':
-          mode = 'fixed';
+        case FIXED_BECOME_KIND:
+        case MAJORITY_BECOME_KIND:
+        case MINORITY_BECOME_KIND:
+          mode = FIXED_BECOME_KIND;
           break;
       }
     }
@@ -601,7 +601,7 @@ export class BecomeEditor implements OnChanges {
    * @returns {string} fixed tribe id.
    */
   public nestedFixedTribe(become: Become<Tribe[]> | undefined): string {
-    return become?.kind === 'fixed' ? become.tribe : DEAD_TRIBE_ID;
+    return become?.kind === FIXED_BECOME_KIND ? become.tribe : DEAD_TRIBE_ID;
   }
 
   /**
@@ -613,7 +613,7 @@ export class BecomeEditor implements OnChanges {
    */
   public lookupDefaultTribe(combine: CombineBecome): string {
     let tribe = DEAD_TRIBE_ID;
-    if (combine.strategy.default?.kind === 'fixed') {
+    if (combine.strategy.default?.kind === FIXED_BECOME_KIND) {
       tribe = combine.strategy.default.tribe;
     }
     return tribe;
@@ -627,7 +627,7 @@ export class BecomeEditor implements OnChanges {
    * @returns {boolean} whether it is fixed.
    */
   public showsNestedFixedTribe(become: Become<Tribe[]> | undefined): boolean {
-    return this.nestedMode(become) === 'fixed';
+    return this.nestedMode(become) === FIXED_BECOME_KIND;
   }
 
   /**
@@ -638,7 +638,7 @@ export class BecomeEditor implements OnChanges {
    * @returns {string} selector label.
    */
   public rankSelectorLabel(become: RankedBecome): string {
-    return become.kind === 'majority' ? 'Majority of' : 'Minority of';
+    return become.kind === MAJORITY_BECOME_KIND ? 'Majority of' : 'Minority of';
   }
 
   /**
@@ -649,7 +649,7 @@ export class BecomeEditor implements OnChanges {
    * @returns {become is RankedBecome} whether the outcome is ranked.
    */
   public isRankedBecome(become: Become<Tribe[]>): become is RankedBecome {
-    return become.kind === 'majority' || become.kind === 'minority';
+    return become.kind === MAJORITY_BECOME_KIND || become.kind === MINORITY_BECOME_KIND;
   }
 
   /**
@@ -695,27 +695,27 @@ export class BecomeEditor implements OnChanges {
     const defaultSelector = this.explicitSelector(defaultId);
     let become: Become<Tribe[]>;
     switch (mode) {
-      case 'same':
-        become = {kind: 'same'};
+      case SAME_BECOME_KIND:
+        become = {kind: SAME_BECOME_KIND};
         break;
-      case 'majority':
-      case 'minority':
+      case MAJORITY_BECOME_KIND:
+      case MINORITY_BECOME_KIND:
         become = {
           kind: mode,
           selector: defaultSelector,
-          tie: this.createNestedBecome('combine', defaultSelector),
+          tie: this.createNestedBecome(COMBINE_BECOME_KIND, defaultSelector),
           fallback: {
-            kind: 'fixed',
+            kind: FIXED_BECOME_KIND,
             tribe: DEAD_TRIBE_ID
           }
         };
         break;
-      case 'combine':
+      case COMBINE_BECOME_KIND:
         become = this.createCombineBecome();
         break;
-      case 'fixed':
+      case FIXED_BECOME_KIND:
         become = {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: defaultId
         };
         break;
@@ -734,15 +734,15 @@ export class BecomeEditor implements OnChanges {
   private createNestedBecome(mode: NestedBecomeMode, sourceSelector: TribeSelector<Tribe[]>): Become<Tribe[]> {
     let become: Become<Tribe[]>;
     switch (mode) {
-      case 'same':
-        become = {kind: 'same'};
+      case SAME_BECOME_KIND:
+        become = {kind: SAME_BECOME_KIND};
         break;
-      case 'combine':
+      case COMBINE_BECOME_KIND:
         become = this.createCombineBecome(sourceSelector);
         break;
-      case 'fixed':
+      case FIXED_BECOME_KIND:
         become = {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: DEAD_TRIBE_ID
         };
         break;
@@ -766,12 +766,12 @@ export class BecomeEditor implements OnChanges {
       });
     }
     return {
-      kind: 'combine',
+      kind: COMBINE_BECOME_KIND,
       strategy: {
-        kind: 'lookup',
+        kind: LOOKUP_STRATEGY_KIND,
         entries,
         default: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: DEAD_TRIBE_ID
         }
       }
@@ -787,7 +787,7 @@ export class BecomeEditor implements OnChanges {
    */
   private explicitSelector(tribeId: string): TribeSelector<Tribe[]> {
     return {
-      kind: 'tribes',
+      kind: TRIBES_SELECTOR_KIND,
       tribes: [tribeId]
     };
   }
@@ -801,7 +801,7 @@ export class BecomeEditor implements OnChanges {
    */
   private rankSelector(sourceSelector: TribeSelector<Tribe[]>): TribeSelector<Tribe[]> {
     return {
-      kind: 'tiedMajority',
+      kind: TIE_SELECTOR_KIND,
       source: normalizeSelector(sourceSelector)
     };
   }
@@ -817,9 +817,9 @@ export class BecomeEditor implements OnChanges {
   private createCombinationInput(value: string, target: CombineTarget): TribeSelector<Tribe[]> {
     let selector: TribeSelector<Tribe[]>;
     if (value === SAME_INPUT_VALUE) {
-      selector = {kind: 'same'};
+      selector = {kind: SAME_TRIBE_SELECTOR_KIND};
     } else if (value === DIFFERENT_INPUT_VALUE) {
-      selector = {kind: 'different'};
+      selector = {kind: DIFFERENT_TRIBE_SELECTOR_KIND};
     } else if (value === RANK_INPUT_VALUE && this.rankedContext(target)) {
       selector = this.rankSelector(this.rankedContext(target)!.selector);
     } else if (value.startsWith(TRIBE_INPUT_PREFIX)) {
@@ -882,7 +882,7 @@ export class BecomeEditor implements OnChanges {
     if (ranked) {
       options.push({
         value: RANK_INPUT_VALUE,
-        label: ranked.kind === 'majority' ? 'Majority' : 'Minority'
+        label: ranked.kind === MAJORITY_BECOME_KIND ? 'Majority' : 'Minority'
       });
     }
     return options;
@@ -911,7 +911,7 @@ export class BecomeEditor implements OnChanges {
    * @returns {SelectOption[]} tribe input options.
    */
   private combinationTribeOptions(ranked: RankedBecome | null): SelectOption[] {
-    const allowedIds = ranked?.selector.kind === 'tribes' ? new Set(ranked.selector.tribes) : null;
+    const allowedIds = ranked?.selector.kind === TRIBES_SELECTOR_KIND ? new Set(ranked.selector.tribes) : null;
     return this.tribes.filter(tribe => !allowedIds || allowedIds.has(tribe.id) || tribe.id === DEAD_TRIBE_ID).map(tribe => ({
       value: `${TRIBE_INPUT_PREFIX}${tribe.id}`,
       label: tribe.id,
@@ -945,12 +945,12 @@ export class BecomeEditor implements OnChanges {
    * @param {(combine: CombineBecome) => CombineBecome} mutator combine mutation.
    */
   private updateCombine(target: CombineTarget, mutator: (combine: CombineBecome) => CombineBecome): void {
-    if (target === 'root' && this.become.kind === 'combine') {
+    if (target === 'root' && this.become.kind === COMBINE_BECOME_KIND) {
       this.become = mutator(this.become);
       this.emitBecomeChange();
     } else if (target !== 'root' && this.isRankedBecome(this.become)) {
       const nested = target === 'tie' ? this.become.tie : this.become.fallback;
-      if (nested?.kind === 'combine') {
+      if (nested?.kind === COMBINE_BECOME_KIND) {
         this.become = {
           ...this.become,
           [target]: mutator(nested)
@@ -972,16 +972,16 @@ export class BecomeEditor implements OnChanges {
     const knownIds = new Set(this.tribes.map(tribe => tribe.id));
     let message: string | null = null;
     switch (become.kind) {
-      case 'fixed':
+      case FIXED_BECOME_KIND:
         if (!knownIds.has(become.tribe)) {
           message = 'Choose a valid fixed tribe.';
         }
         break;
-      case 'majority':
-      case 'minority':
+      case MAJORITY_BECOME_KIND:
+      case MINORITY_BECOME_KIND:
         message = this.validateSelector(become.selector) ?? (become.tie ? this.validateBecome(become.tie, become) : 'Choose a tie behavior.') ?? (become.fallback ? this.validateBecome(become.fallback, become) : 'Choose a fallback.');
         break;
-      case 'combine':
+      case COMBINE_BECOME_KIND:
         message = this.validateCombine(become, rankedContext);
         break;
     }
@@ -999,14 +999,14 @@ export class BecomeEditor implements OnChanges {
     const knownIds = new Set(this.tribes.map(tribe => tribe.id));
     let message: string | null = null;
     switch (selector.kind) {
-      case 'tribes':
+      case TRIBES_SELECTOR_KIND:
         if (selector.tribes.length === 0) {
           message = 'Choose at least one tribe.';
         } else if (selector.tribes.some(id => !knownIds.has(id))) {
           message = 'Choose only existing tribes.';
         }
         break;
-      case 'tiedMajority':
+      case TIE_SELECTOR_KIND:
         message = this.validateSelector(selector.source);
         break;
     }

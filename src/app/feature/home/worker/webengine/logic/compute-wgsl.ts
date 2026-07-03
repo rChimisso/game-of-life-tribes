@@ -4,7 +4,7 @@ import {DispatchPlan2D} from '../model/dispatch-plan';
 import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeRandomSeed, normalizeRuleProbability, normalizeSelector, normalizeSelectorForSignature, probabilityThresholdU32, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Active rule metadata used by shader generation.
@@ -288,12 +288,12 @@ function pushProbabilisticRuleChain(lines: string[], activeRules: ActiveRule[], 
 }
 
 /**
- * Majority tie context used by nested combine outcomes.
+ * Rank tie context used by nested combine outcomes.
  *
- * @interface MajorityTieContext
- * @typedef {MajorityTieContext}
+ * @interface RankTieContext
+ * @typedef {RankTieContext}
  */
-interface MajorityTieContext {
+interface RankTieContext {
   /**
    * Source selector.
    *
@@ -323,21 +323,21 @@ interface MajorityTieContext {
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {string} label label suffix for generated local variables.
  * @param {string} indent line indentation.
- * @param {MajorityTieContext | null} [tieContext=null] active majority tie context.
+ * @param {RankTieContext | null} [tieContext=null] active rank tie context.
  */
-function pushBecomeAssignment(lines: string[], become: Become<readonly Tribe[]>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, label: string, indent: string, tieContext: MajorityTieContext | null = null): void {
+function pushBecomeAssignment(lines: string[], become: Become<readonly Tribe[]>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, label: string, indent: string, tieContext: RankTieContext | null = null): void {
   switch (become.kind) {
-    case 'fixed':
+    case FIXED_BECOME_KIND:
       lines.push(`${indent}result = ${resolveTribeTarget(become.tribe, tribeIndex)}u;`);
       break;
-    case 'same':
+    case SAME_BECOME_KIND:
       lines.push(`${indent}result = selfTribe;`);
       break;
-    case 'majority':
-    case 'minority':
+    case MAJORITY_BECOME_KIND:
+    case MINORITY_BECOME_KIND:
       pushRankedBecomeAssignment(lines, become, tribes, tribeIndex, label, indent);
       break;
-    case 'combine':
+    case COMBINE_BECOME_KIND:
       pushCombineBecomeAssignment(lines, become, tribes, tribeIndex, label, indent, tieContext);
       break;
   }
@@ -347,19 +347,26 @@ function pushBecomeAssignment(lines: string[], become: Become<readonly Tribe[]>,
  * Emits WGSL for a ranked majority or minority outcome.
  *
  * @param {string[]} lines WGSL output lines.
- * @param {Extract<Become<readonly Tribe[]>, {kind: 'majority' | 'minority'}>} become ranked outcome.
+ * @param {Extract<Become<readonly Tribe[]>, {kind: typeof MAJORITY_BECOME_KIND | typeof MINORITY_BECOME_KIND}>} become ranked outcome.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {string} label label suffix for generated local variables.
  * @param {string} indent line indentation.
  */
-function pushRankedBecomeAssignment(lines: string[], become: Extract<Become<readonly Tribe[]>, {kind: 'majority' | 'minority'}>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, label: string, indent: string): void {
+function pushRankedBecomeAssignment(
+  lines: string[],
+  become: Extract<Become<readonly Tribe[]>, {kind: typeof MAJORITY_BECOME_KIND | typeof MINORITY_BECOME_KIND}>,
+  tribes: readonly Tribe[],
+  tribeIndex: ReadonlyMap<string, number>,
+  label: string,
+  indent: string
+): void {
   const selector = normalizeSelector(become.selector);
   const bestVar = `${label}_${become.kind}`;
   const bestCountVar = `${label}_${become.kind}_count`;
   const tieCountVar = `${label}_${become.kind}_ties`;
-  const initialBestCount = become.kind === 'majority' ? '0u' : '9u';
-  const betterExpr = become.kind === 'majority' ? `candidateCount > ${bestCountVar}` : `candidateCount < ${bestCountVar}`;
+  const initialBestCount = become.kind === MAJORITY_BECOME_KIND ? '0u' : '9u';
+  const betterExpr = become.kind === MAJORITY_BECOME_KIND ? `candidateCount > ${bestCountVar}` : `candidateCount < ${bestCountVar}`;
   lines.push(`${indent}var ${bestVar}: u32 = ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u;`);
   lines.push(`${indent}var ${bestCountVar}: u32 = ${initialBestCount};`);
   lines.push(`${indent}var ${tieCountVar}: u32 = 0u;`);
@@ -418,21 +425,21 @@ function pushFallbackBecomeAssignment(lines: string[], become: Become<readonly T
  * Emits WGSL for a combine outcome.
  *
  * @param {string[]} lines WGSL output lines.
- * @param {Extract<Become<readonly Tribe[]>, {kind: 'combine'}>} become combine outcome.
+ * @param {Extract<Become<readonly Tribe[]>, {kind: typeof COMBINE_BECOME_KIND}>} become combine outcome.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {string} label label suffix for generated local variables.
  * @param {string} indent line indentation.
- * @param {MajorityTieContext | null} tieContext active majority tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  */
 function pushCombineBecomeAssignment(
   lines: string[],
-  become: Extract<Become<readonly Tribe[]>, {kind: 'combine'}>,
+  become: Extract<Become<readonly Tribe[]>, {kind: typeof COMBINE_BECOME_KIND}>,
   tribes: readonly Tribe[],
   tribeIndex: ReadonlyMap<string, number>,
   label: string,
   indent: string,
-  tieContext: MajorityTieContext | null
+  tieContext: RankTieContext | null
 ): void {
   const maskVar = `${label}_input_mask`;
   lines.push(`${indent}var ${maskVar}: u32 = 0u;`);
@@ -515,16 +522,16 @@ function buildNeighborCountExpr(selector: TribeSelector<readonly Tribe[]>, tribe
   const normalized = normalizeSelectorForSignature(selector);
   let expression: string;
   switch (normalized.kind) {
-    case 'same':
+    case SAME_TRIBE_SELECTOR_KIND:
       expression = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == selfTribe`);
       break;
-    case 'different':
+    case DIFFERENT_TRIBE_SELECTOR_KIND:
       expression = buildNeighborPredicateCountExpr(neighbor => `${neighbor} != selfTribe`);
       break;
-    case 'tiedMajority':
+    case TIE_SELECTOR_KIND:
       expression = buildNeighborCountExpr(normalized.source, tribes, tribeIndex);
       break;
-    case 'tribes': {
+    case TRIBES_SELECTOR_KIND: {
       const ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       expression = ids.length === 0 ? '0u' : buildNeighborPredicateCountExpr(neighbor => ids.map(id => `${neighbor} == ${id}u`).join(' || '));
       break;
@@ -690,10 +697,10 @@ function selectorCandidateIds(selector: TribeSelector<readonly Tribe[]>, tribes:
   const normalized = normalizeSelectorForSignature(selector);
   let ids: number[];
   switch (normalized.kind) {
-    case 'tribes':
+    case TRIBES_SELECTOR_KIND:
       ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       break;
-    case 'tiedMajority':
+    case TIE_SELECTOR_KIND:
       ids = selectorCandidateIds(normalized.source, tribes, tribeIndex);
       break;
     default:
@@ -715,16 +722,16 @@ function selectorCandidateEligibilityExpr(selector: TribeSelector<readonly Tribe
   const normalized = normalizeSelectorForSignature(selector);
   let expression: string;
   switch (normalized.kind) {
-    case 'same':
+    case SAME_TRIBE_SELECTOR_KIND:
       expression = `selfTribe == ${candidateId}u`;
       break;
-    case 'different':
+    case DIFFERENT_TRIBE_SELECTOR_KIND:
       expression = `selfTribe != ${candidateId}u`;
       break;
-    case 'tiedMajority':
+    case TIE_SELECTOR_KIND:
       expression = selectorCandidateEligibilityExpr(normalized.source, candidateId, tribeIndex);
       break;
-    case 'tribes': {
+    case TRIBES_SELECTOR_KIND: {
       const explicit = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       expression = explicit.includes(candidateId) ? 'true' : 'false';
       break;
@@ -739,19 +746,19 @@ function selectorCandidateEligibilityExpr(selector: TribeSelector<readonly Tribe
  * @param {TribeSelector<readonly Tribe[]>} selector selector expression.
  * @param {number} candidateId runtime candidate id.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {MajorityTieContext | null} tieContext active majority tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL boolean expression.
  */
-function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): string {
+function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
   const normalized = normalizeSelectorForSignature(selector);
   let expression: string;
-  if (normalized.kind === 'tiedMajority' && tieContext) {
+  if (normalized.kind === TIE_SELECTOR_KIND && tieContext) {
     const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
     const eligibleExpr = selectorCandidateEligibilityExpr(tieContext.selector, candidateId, tribeIndex);
     expression = `(${tieContext.tieCountVar} > 1u && ${tieContext.bestCountVar} > 0u && ${eligibleExpr} && ${countExpr} == ${tieContext.bestCountVar})`;
   } else {
     const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
-    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === 'tiedMajority' ? normalized.source : normalized, candidateId, tribeIndex);
+    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === TIE_SELECTOR_KIND ? normalized.source : normalized, candidateId, tribeIndex);
     expression = `(${eligibleExpr} && ${countExpr} > 0u)`;
   }
   return expression;
@@ -762,10 +769,10 @@ function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, ca
  *
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {MajorityTieContext | null} tieContext active rank tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {number[]} candidate runtime IDs.
  */
-function combineCandidateIds(tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): number[] {
+function combineCandidateIds(tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): number[] {
   let ids: number[];
   if (tieContext) {
     ids = selectorCandidateIds(tieContext.selector, tribes, tribeIndex);
@@ -780,10 +787,10 @@ function combineCandidateIds(tribes: readonly Tribe[], tribeIndex: ReadonlyMap<s
  *
  * @param {number} candidateId runtime candidate id.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {MajorityTieContext | null} tieContext active rank tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL boolean expression.
  */
-function combineBaseParticipationExpr(candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): string {
+function combineBaseParticipationExpr(candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
   let expression: string;
   if (tieContext) {
     const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
@@ -802,10 +809,10 @@ function combineBaseParticipationExpr(candidateId: number, tribeIndex: ReadonlyM
  * @param {readonly TribeSelector<readonly Tribe[]>[]} inputs row input selectors.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {MajorityTieContext | null} tieContext active rank tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL mask expression.
  */
-function combineRowMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): string {
+function combineRowMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
   const parts: string[] = [];
   for (const input of inputs) {
     const selector = normalizeSelector(input);
@@ -830,7 +837,7 @@ function rowRequiresExplicitDead(entry: Readonly<{inputs: readonly TribeSelector
   const deadId = resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex);
   return entry.inputs.some(input => {
     const selector = normalizeSelector(input);
-    return selector.kind === 'tribes' && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
+    return selector.kind === TRIBES_SELECTOR_KIND && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
   });
 }
 
@@ -840,15 +847,15 @@ function rowRequiresExplicitDead(entry: Readonly<{inputs: readonly TribeSelector
  * @param {TribeSelector<readonly Tribe[]>} selector row input selector.
  * @param {number} candidateId runtime candidate id.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {MajorityTieContext | null} tieContext active rank tie context.
+ * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL boolean expression.
  */
-function combineRowSelectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): string {
+function combineRowSelectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
   const normalized = normalizeSelectorForSignature(selector);
   let expression: string;
   if (tieContext) {
     const baseExpr = combineBaseParticipationExpr(candidateId, tribeIndex, tieContext);
-    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === 'tiedMajority' ? normalized.source : normalized, candidateId, tribeIndex);
+    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === TIE_SELECTOR_KIND ? normalized.source : normalized, candidateId, tribeIndex);
     expression = `(${baseExpr} && ${eligibleExpr})`;
   } else {
     expression = selectorParticipationExpr(normalized, candidateId, tribeIndex, null);

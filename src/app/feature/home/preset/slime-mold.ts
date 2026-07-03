@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID} from '../model/rule';
+import {COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, SAME_BECOME_KIND} from '../model/rule';
 
 /**
  * Slime leading edge tribe ID.
@@ -91,7 +91,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'min',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FOOD_TRIBE]
               },
               value: 1
@@ -99,7 +99,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
               },
               interval: [1, 4]
@@ -107,7 +107,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_FRONT_TRIBE
         }
       },
@@ -122,7 +122,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'min',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FOOD_TRIBE]
               },
               value: 1
@@ -130,7 +130,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'min',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
               },
               value: 1
@@ -138,7 +138,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'max',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
               },
               value: 8
@@ -146,7 +146,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_BODY_TRIBE
         }
       },
@@ -161,7 +161,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'min',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FOOD_TRIBE]
               },
               value: 1
@@ -169,7 +169,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
               },
               interval: [1, 8]
@@ -177,7 +177,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_BODY_TRIBE
         }
       },
@@ -192,7 +192,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'exactly',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE]
               },
               value: 1
@@ -200,7 +200,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
               },
               interval: [1, 2]
@@ -208,7 +208,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: 'max',
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRESH_TRAIL_TRIBE, SLIME_MOLD_OLD_TRAIL_TRIBE]
               },
               value: 1
@@ -216,7 +216,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_FRONT_TRIBE
         }
       },
@@ -231,7 +231,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
               },
               interval: [1, 3]
@@ -239,7 +239,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
               },
               interval: [2, 4]
@@ -247,7 +247,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_BODY_TRIBE
         }
       },
@@ -262,7 +262,7 @@ export const SLIME_MOLD_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_FRONT_TRIBE, SLIME_MOLD_BODY_TRIBE]
               },
               interval: [2, 4]
@@ -270,7 +270,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'same'
+          kind: SAME_BECOME_KIND
         }
       },
       {
@@ -279,7 +279,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           tribes: [SLIME_MOLD_FRONT_TRIBE]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
         }
       },
@@ -289,7 +289,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           tribes: [SLIME_MOLD_BODY_TRIBE]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
         }
       },
@@ -307,7 +307,7 @@ export const SLIME_MOLD_PRESET: Preset = {
                 kind: 'min',
                 value: 2,
                 selector: {
-                  kind: 'tribes',
+                  kind: TRIBES_SELECTOR_KIND,
                   tribes: [SLIME_MOLD_BODY_TRIBE, SLIME_MOLD_FRONT_TRIBE]
                 }
               }
@@ -315,7 +315,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_OLD_TRAIL_TRIBE
         }
       },
@@ -325,7 +325,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           tribes: [SLIME_MOLD_OLD_TRAIL_TRIBE]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: DEAD_TRIBE_ID
         }
       },
@@ -341,14 +341,14 @@ export const SLIME_MOLD_PRESET: Preset = {
               kind: 'min',
               value: 4,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
               }
             }
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_SPENT_FOOD_TRIBE
         }
       },
@@ -358,7 +358,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           tribes: [SLIME_MOLD_FOOD_TRIBE]
         },
         become: {
-          kind: 'same'
+          kind: SAME_BECOME_KIND
         }
       },
       {
@@ -373,14 +373,14 @@ export const SLIME_MOLD_PRESET: Preset = {
               kind: 'min',
               value: 6,
               selector: {
-                kind: 'tribes',
+                kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
               }
             }
           ]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_BODY_TRIBE
         }
       },
@@ -390,7 +390,7 @@ export const SLIME_MOLD_PRESET: Preset = {
           tribes: [SLIME_MOLD_SPENT_FOOD_TRIBE]
         },
         become: {
-          kind: 'fixed',
+          kind: FIXED_BECOME_KIND,
           tribe: SLIME_MOLD_FRESH_TRAIL_TRIBE
         }
       }

@@ -10,7 +10,7 @@ import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {Become, DEFAULT_RULE_PROBABILITY, MAX_RULE_PROBABILITY_INPUT, MIN_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY_INPUT, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {Button} from '~gol/shared/component/button/button';
 import {InputComponent} from '~gol/shared/component/input/input';
@@ -264,7 +264,7 @@ export class RuleCard implements OnChanges {
    */
   public fixedOutputTribeId(): string | null {
     const become = this.outputBecome();
-    return become.kind === 'fixed' ? become.tribe : null;
+    return become.kind === FIXED_BECOME_KIND ? become.tribe : null;
   }
 
   /**
@@ -277,19 +277,19 @@ export class RuleCard implements OnChanges {
     const become = this.outputBecome();
     let label = 'Unsupported';
     switch (become.kind) {
-      case 'fixed':
+      case FIXED_BECOME_KIND:
         label = become.tribe;
         break;
-      case 'same':
+      case SAME_BECOME_KIND:
         label = 'Same';
         break;
-      case 'majority':
+      case MAJORITY_BECOME_KIND:
         label = 'Majority';
         break;
-      case 'minority':
+      case MINORITY_BECOME_KIND:
         label = 'Minority';
         break;
-      case 'combine':
+      case COMBINE_BECOME_KIND:
         label = 'Combine';
         break;
     }

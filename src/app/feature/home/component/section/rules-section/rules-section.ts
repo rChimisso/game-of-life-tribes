@@ -6,7 +6,7 @@ import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
-import {DEAD_TRIBE_ID, EMPTY_CLAUSE, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {DEAD_TRIBE_ID, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
@@ -261,7 +261,7 @@ export class RulesSection implements OnChanges {
       muted: false,
       clause: EMPTY_CLAUSE,
       become: {
-        kind: 'fixed',
+        kind: FIXED_BECOME_KIND,
         tribe: this.defaultTribeId()
       }
     };

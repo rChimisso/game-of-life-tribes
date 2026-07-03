@@ -45,13 +45,13 @@ export interface TribeApplyImpact {
    */
   renamePairs: TribeRenamePair[];
   /**
-   * Removed tribe ids that are still referenced by committed rules.
+   * Removed tribe IDs that are still referenced by committed rules.
    *
    * @type {string[]}
    */
   blockingRemovedTribeIds: string[];
   /**
-   * Removed tribe ids that are still used by the active bounded-grid boundary.
+   * Removed tribe IDs that are still used by the active bounded-grid boundary.
    *
    * @type {string[]}
    */

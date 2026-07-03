@@ -114,7 +114,7 @@ export class SelectorEditor implements OnChanges {
   }
 
   /**
-   * Selected tribe ids for the current selector kind.
+   * Selected tribe IDs for the current selector kind.
    *
    * @public
    * @readonly

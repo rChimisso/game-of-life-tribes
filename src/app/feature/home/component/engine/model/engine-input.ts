@@ -53,7 +53,7 @@ export interface EngineBrushSettings {
    */
   density: number;
   /**
-   * Tribe ids selected for drawing.
+   * Tribe IDs selected for drawing.
    *
    * @type {string[]}
    */

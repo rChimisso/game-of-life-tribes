@@ -618,7 +618,7 @@ export class RuleClause implements OnChanges {
   }
 
   /**
-   * Returns all selectable tribe ids.
+   * Returns all selectable tribe IDs.
    *
    * @private
    * @returns {string[]} selectable tribe IDs.

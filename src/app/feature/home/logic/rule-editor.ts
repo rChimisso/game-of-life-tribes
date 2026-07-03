@@ -54,7 +54,7 @@ function normalizeCombinationInput<T extends readonly Tribe[]>(input: TribeSelec
  * Creates a legacy explicit-tribe selector.
  *
  * @template {readonly Tribe[]} T
- * @param {readonly TribeId<T>[] | undefined} tribes selected tribe ids.
+ * @param {readonly TribeId<T>[] | undefined} tribes selected tribe IDs.
  * @returns {TribeSelector<T>} explicit selector.
  */
 export function explicitTribesSelector<T extends readonly Tribe[]>(tribes: readonly TribeId<T>[] | undefined): TribeSelector<T> {

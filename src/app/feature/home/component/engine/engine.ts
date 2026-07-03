@@ -103,7 +103,7 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public liveMetrics: LiveMetricsSettings = DEFAULT_LIVE_METRICS_SETTINGS;
 
   /**
-   * Tribe ids used by drawing.
+   * Tribe IDs used by drawing.
    *
    * @public
    * @type {string[]}

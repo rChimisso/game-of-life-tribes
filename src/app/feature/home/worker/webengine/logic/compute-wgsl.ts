@@ -636,11 +636,11 @@ function boundedExpr(varName: string, delta: number): string {
 }
 
 /**
- * Resolves the numeric tribe ids for a tribe selector list.
+ * Resolves the numeric tribe IDs for a tribe selector list.
  *
  * @param {string[]} tribeNames tribe selector names.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @returns {number[]} numeric tribe ids.
+ * @returns {number[]} numeric tribe IDs.
  */
 function resolveTribeIds(tribeNames: string[], tribeIndex: ReadonlyMap<string, number>): number[] {
   const ids: number[] = [];
@@ -679,12 +679,12 @@ function resolveRuleTribeIndex(tribeName: string, tribeIndex: ReadonlyMap<string
 }
 
 /**
- * Returns candidate runtime ids considered by a selector.
+ * Returns candidate runtime IDs considered by a selector.
  *
  * @param {TribeSelector<readonly Tribe[]>} selector selector expression.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @returns {number[]} candidate runtime ids.
+ * @returns {number[]} candidate runtime IDs.
  */
 function selectorCandidateIds(selector: TribeSelector<readonly Tribe[]>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): number[] {
   const normalized = normalizeSelectorForSignature(selector);
@@ -758,12 +758,12 @@ function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, ca
 }
 
 /**
- * Returns candidate runtime ids considered by a combine outcome.
+ * Returns candidate runtime IDs considered by a combine outcome.
  *
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @param {MajorityTieContext | null} tieContext active rank tie context.
- * @returns {number[]} candidate runtime ids.
+ * @returns {number[]} candidate runtime IDs.
  */
 function combineCandidateIds(tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: MajorityTieContext | null): number[] {
   let ids: number[];

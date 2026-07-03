@@ -84,7 +84,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   public tribes: readonly Tribe[] = [];
 
   /**
-   * Tribe ids currently selected for drawing.
+   * Tribe IDs currently selected for drawing.
    *
    * @public
    * @type {string[]}
@@ -1215,7 +1215,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    *
    * @private
    * @param {string} id selected tribe id.
-   * @returns {string[]} next selected tribe ids.
+   * @returns {string[]} next selected tribe IDs.
    */
   private toggleTribeSelection(id: string): string[] {
     let selection: string[];

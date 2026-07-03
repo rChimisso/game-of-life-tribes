@@ -183,7 +183,7 @@ export interface DrawMessage {
    */
   density: number;
   /**
-   * Selected tribe ids for painting.
+   * Selected tribe IDs for painting.
    *
    * @type {string[]}
    */

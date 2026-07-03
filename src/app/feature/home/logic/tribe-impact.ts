@@ -6,7 +6,7 @@ import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
  * Collects every tribe id referenced by the provided rules and clauses.
  *
  * @param {readonly Rule<Tribe[]>[]} rules Rules to scan for tribe references.
- * @returns {Set<string>} Referenced tribe ids.
+ * @returns {Set<string>} Referenced tribe IDs.
  */
 function collectReferencedTribeIds(rules: readonly Rule<Tribe[]>[]): Set<string> {
   const ids = new Set<string>();
@@ -60,7 +60,7 @@ function visitClauseTribeIdLists(clause: Clause<Tribe[]>, visit: (ids: [string, 
  * Adds every tribe id referenced by a clause tree into a set.
  *
  * @param {Clause<Tribe[]>} clause Clause tree to scan.
- * @param {Set<string>} ids Output set receiving referenced ids.
+ * @param {Set<string>} ids Output set receiving referenced IDs.
  */
 function collectClauseTribeIds(clause: Clause<Tribe[]>, ids: Set<string>): void {
   visitClauseTribeIdLists(clause, tribeIds => {
@@ -75,7 +75,7 @@ function collectClauseTribeIds(clause: Clause<Tribe[]>, ids: Set<string>): void 
  * Adds every tribe id referenced by clause selectors into a set.
  *
  * @param {Clause<Tribe[]>} clause Clause tree to scan.
- * @param {Set<string>} ids Output set receiving referenced ids.
+ * @param {Set<string>} ids Output set receiving referenced IDs.
  */
 function collectClauseSelectorTribeIds(clause: Clause<Tribe[]>, ids: Set<string>): void {
   switch (clause.kind) {
@@ -107,7 +107,7 @@ function collectClauseSelectorTribeIds(clause: Clause<Tribe[]>, ids: Set<string>
  * Adds every tribe id referenced by a selector expression into a set.
  *
  * @param {TribeSelector<Tribe[]>} selector Selector expression to scan.
- * @param {Set<string>} ids Output set receiving referenced ids.
+ * @param {Set<string>} ids Output set receiving referenced IDs.
  */
 function collectSelectorTribeIds(selector: TribeSelector<Tribe[]>, ids: Set<string>): void {
   switch (selector.kind) {
@@ -126,7 +126,7 @@ function collectSelectorTribeIds(selector: TribeSelector<Tribe[]>, ids: Set<stri
  * Adds every tribe id referenced by a become expression into a set.
  *
  * @param {Become<Tribe[]>} become Outcome expression to scan.
- * @param {Set<string>} ids Output set receiving referenced ids.
+ * @param {Set<string>} ids Output set receiving referenced IDs.
  */
 function collectBecomeTribeIds(become: Become<Tribe[]>, ids: Set<string>): void {
   switch (become.kind) {
@@ -161,7 +161,7 @@ function collectBecomeTribeIds(become: Become<Tribe[]>, ids: Set<string>): void 
  * Applies tribe id renames to every tribe id list within a clause tree.
  *
  * @param {Clause<Tribe[]>} clause Clause tree to mutate.
- * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed IDs to pending IDs.
  */
 function renameClauseTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
   visitClauseTribeIdLists(clause, tribeIds => {
@@ -177,7 +177,7 @@ function renameClauseTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<stri
  * Applies tribe id renames to clause selectors.
  *
  * @param {Clause<Tribe[]>} clause Clause tree to mutate.
- * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed IDs to pending IDs.
  */
 function renameClauseSelectorTribes(clause: Clause<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
   switch (clause.kind) {
@@ -215,7 +215,7 @@ function renameClauseSelectorTribes(clause: Clause<Tribe[]>, renameMap: Readonly
  * Applies tribe id renames to a selector expression.
  *
  * @param {TribeSelector<Tribe[]>} selector Selector expression to mutate.
- * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed IDs to pending IDs.
  */
 function renameSelectorTribes(selector: TribeSelector<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
   switch (selector.kind) {
@@ -232,7 +232,7 @@ function renameSelectorTribes(selector: TribeSelector<Tribe[]>, renameMap: Reado
  * Applies tribe id renames to a become expression.
  *
  * @param {Become<Tribe[]>} become Outcome expression to mutate.
- * @param {ReadonlyMap<string, string>} renameMap Mapping from committed ids to pending ids.
+ * @param {ReadonlyMap<string, string>} renameMap Mapping from committed IDs to pending IDs.
  */
 function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
   switch (become.kind) {
@@ -319,11 +319,11 @@ export function applyBoundaryTribeRenames(boundaryTribe: string, renamePairs: re
 }
 
 /**
- * Clones rules and rewrites tribe ids using the provided rename pairs.
+ * Clones rules and rewrites tribe IDs using the provided rename pairs.
  *
  * @param {readonly Rule<Tribe[]>[]} rules Rules to clone and update.
  * @param {readonly TribeRenamePair[]} renamePairs Rename pairs to apply.
- * @returns {Rule<Tribe[]>[]} Cloned rules with updated tribe ids.
+ * @returns {Rule<Tribe[]>[]} Cloned rules with updated tribe IDs.
  */
 export function applyRuleTribeRenames(rules: readonly Rule<Tribe[]>[], renamePairs: readonly TribeRenamePair[]): Rule<Tribe[]>[] {
   if (renamePairs.length === 0) {

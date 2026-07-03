@@ -126,7 +126,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   public recording = false;
 
   /**
-   * Tribe ids currently selected for drawing.
+   * Tribe IDs currently selected for drawing.
    *
    * @public
    * @type {string[]}

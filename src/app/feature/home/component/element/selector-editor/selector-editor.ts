@@ -4,7 +4,7 @@ import {FormsModule} from '@angular/forms';
 import {SelectorChangeEvent, SelectorStateChangeEvent} from '../model/selector-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeSelector, selectorSignature} from '~gol/feature/home/logic/rule-editor';
+import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
@@ -205,17 +205,9 @@ export class SelectorEditor implements OnChanges {
    */
   public onToggleTribe(tribeId: string): void {
     if (!this.disabled && this.selector.kind === TRIBES_SELECTOR_KIND) {
-      const selected = new Set(this.selector.tribes);
-      if (selected.has(tribeId)) {
-        selected.delete(tribeId);
-      } else {
-        selected.add(tribeId);
-      }
-      const nextIds = [...selected];
-      const fallbackId = this.defaultTribeId();
       this.selector = {
         ...this.selector,
-        tribes: (nextIds.length > 0 ? nextIds : [fallbackId]) as [string, ...string[]]
+        tribes: toggleExplicitTribeSelection(this.selector.tribes, tribeId, this.defaultTribeId())
       };
       this.emitSelectorChange();
     }

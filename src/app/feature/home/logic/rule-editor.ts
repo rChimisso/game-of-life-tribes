@@ -66,6 +66,26 @@ export function explicitTribesSelector<T extends readonly Tribe[]>(tribes: reado
 }
 
 /**
+ * Toggles one tribe in an explicit tribe selection.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {readonly TribeId<T>[]} tribes current selected tribe IDs.
+ * @param {TribeId<T>} tribeId tribe ID to toggle.
+ * @param {TribeId<T>} fallbackTribeId tribe ID used when the toggle would clear the selection.
+ * @returns {[TribeId<T>, ...TribeId<T>[]]} next selected tribe IDs.
+ */
+export function toggleExplicitTribeSelection<T extends readonly Tribe[]>(tribes: readonly TribeId<T>[], tribeId: TribeId<T>, fallbackTribeId: TribeId<T>): [TribeId<T>, ...TribeId<T>[]] {
+  const selected = new Set(tribes);
+  if (selected.has(tribeId)) {
+    selected.delete(tribeId);
+  } else {
+    selected.add(tribeId);
+  }
+  const nextTribes = [...selected];
+  return (nextTribes.length > 0 ? nextTribes : [fallbackTribeId]) as [TribeId<T>, ...TribeId<T>[]];
+}
+
+/**
  * Normalizes a selector expression.
  *
  * @template {readonly Tribe[]} T

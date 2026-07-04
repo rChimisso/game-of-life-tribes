@@ -52,6 +52,20 @@ export interface SidebarPreferences {
 }
 
 /**
+ * Minimum desktop sidebar width in CSS pixels.
+ *
+ * @type {number}
+ */
+export const MIN_SIDEBAR_WIDTH = 320;
+
+/**
+ * Maximum desktop sidebar width in CSS pixels.
+ *
+ * @type {number}
+ */
+export const MAX_SIDEBAR_WIDTH = 600;
+
+/**
  * Home section preferences.
  *
  * @interface HomeSectionPreferences
@@ -269,5 +283,5 @@ export const DEFAULT_HOME_PREFERENCES: HomePreferences = {
  * @type {SidebarPreferences}
  */
 export const DEFAULT_SIDEBAR_PREFERENCES: SidebarPreferences = {
-  sidebarWidth: 300
+  sidebarWidth: MIN_SIDEBAR_WIDTH
 };

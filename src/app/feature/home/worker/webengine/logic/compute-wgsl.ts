@@ -937,10 +937,22 @@ function collectCountSelectors(clauses: Clause<readonly Tribe[]>[]): Set<string>
     switch (clause.kind) {
       case NONE_CLAUSE_KIND:
       case EXACTLY_CLAUSE_KIND:
-      case MIN_CLAUSE_KIND:
-      case MAX_CLAUSE_KIND:
-      case COUNT_CLAUSE_KIND:
         addSelector(normalizeSelector(clause.selector, clause.tribes));
+        break;
+      case MIN_CLAUSE_KIND:
+        if (!isFullNeighborRange(clause.value, 8)) {
+          addSelector(normalizeSelector(clause.selector, clause.tribes));
+        }
+        break;
+      case MAX_CLAUSE_KIND:
+        if (!isFullNeighborRange(0, clause.value)) {
+          addSelector(normalizeSelector(clause.selector, clause.tribes));
+        }
+        break;
+      case COUNT_CLAUSE_KIND:
+        if (!isFullNeighborRange(clause.interval[0], clause.interval[1])) {
+          addSelector(normalizeSelector(clause.selector, clause.tribes));
+        }
         break;
     }
   });
@@ -978,15 +990,15 @@ function generateClauseExpr(clause: Clause<readonly Tribe[]>, countVarMap: Map<s
     case IS_CLAUSE_KIND:
       return generateIsClauseExpr(clause.tribes as string[], tribes, tribeIndex);
     case COUNT_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(clause.selector, clause.tribes), countVarMap), clause.interval[0], clause.interval[1]);
+      return generateSelectorRangeClauseExpr(clause.selector, clause.tribes, countVarMap, clause.interval[0], clause.interval[1]);
     case NONE_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(clause.selector, clause.tribes), countVarMap), 0, 0);
+      return generateSelectorRangeClauseExpr(clause.selector, clause.tribes, countVarMap, 0, 0);
     case EXACTLY_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(clause.selector, clause.tribes), countVarMap), clause.value, clause.value);
+      return generateSelectorRangeClauseExpr(clause.selector, clause.tribes, countVarMap, clause.value, clause.value);
     case MIN_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(clause.selector, clause.tribes), countVarMap), clause.value, 8);
+      return generateSelectorRangeClauseExpr(clause.selector, clause.tribes, countVarMap, clause.value, 8);
     case MAX_CLAUSE_KIND:
-      return generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(clause.selector, clause.tribes), countVarMap), 0, clause.value);
+      return generateSelectorRangeClauseExpr(clause.selector, clause.tribes, countVarMap, 0, clause.value);
     case COMPARISON_CLAUSE_KIND:
       return generateComparisonClauseExpr(clause, eqVarMap);
     case NOT_CLAUSE_KIND:
@@ -1022,15 +1034,51 @@ function generateIsClauseExpr(tribeNames: string[], tribes: readonly Tribe[], tr
 }
 
 /**
- * Generates a closed-range WGSL expression for one precomputed variable.
+ * Generates the WGSL boolean expression for one selector range clause.
+ *
+ * @param {TribeSelector<readonly Tribe[]> | undefined} selector counted selector.
+ * @param {readonly string[] | undefined} legacyTribes legacy selector tribe list.
+ * @param {Map<string, string>} countVarMap count variable mapping.
+ * @param {number} min inclusive minimum.
+ * @param {number} max inclusive maximum.
+ * @returns {string} WGSL boolean expression.
+ */
+function generateSelectorRangeClauseExpr(selector: TribeSelector<readonly Tribe[]> | undefined, legacyTribes: readonly string[] | undefined, countVarMap: Map<string, string>, min: number, max: number): string {
+  let expression: string;
+  if (isFullNeighborRange(min, max)) {
+    expression = 'true';
+  } else {
+    expression = generateClosedRangeExpr(resolveSelectorVarName(normalizeSelector(selector, legacyTribes), countVarMap), min, max);
+  }
+  return expression;
+}
+
+/**
+ * Indicates whether a range includes every possible Moore-neighborhood count.
+ *
+ * @param {number} min inclusive minimum.
+ * @param {number} max inclusive maximum.
+ * @returns {boolean} true when every count from zero through eight is included.
+ */
+function isFullNeighborRange(min: number, max: number): boolean {
+  return min <= 0 && max >= 8;
+}
+
+/**
+ * Generates an optimized non-full closed-range WGSL expression for one precomputed variable.
  *
  * @param {string} varName precomputed WGSL variable name.
  * @param {number} min inclusive minimum.
  * @param {number} max inclusive maximum.
- * @returns {string} WGSL range expression.
+ * @returns {string} optimized WGSL range expression.
  */
 function generateClosedRangeExpr(varName: string, min: number, max: number): string {
-  return `(${varName} >= ${min}u && ${varName} <= ${max}u)`;
+  switch (true) {
+    case min === max: return `${varName} == ${min}u`;
+    case min <= 0: return `${varName} <= ${max}u`;
+    case max >= 8: return `${varName} >= ${min}u`;
+    default: return `(${varName} >= ${min}u && ${varName} <= ${max}u)`;
+  }
 }
 
 /**

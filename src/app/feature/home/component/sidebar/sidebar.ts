@@ -8,7 +8,7 @@ import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayI
 import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
-import {DEFAULT_SIDEBAR_PREFERENCES, SidebarPreferences} from '../../model/preferences';
+import {DEFAULT_SIDEBAR_PREFERENCES, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH, SidebarPreferences} from '../../model/preferences';
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
@@ -521,7 +521,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @public
    * @type {number}
    */
-  public sidebarWidth = 300;
+  public sidebarWidth = MIN_SIDEBAR_WIDTH;
 
   /**
    * Mobile bottom sheet translate value.
@@ -1106,7 +1106,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
       className: 'resizing',
       stopPropagation: true,
       onMove: e => {
-        this.sidebarWidth = Math.max(300, Math.min(600, startWidth + e.clientX - startX));
+        this.sidebarWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, startWidth + e.clientX - startX));
         this.cdr.detectChanges();
       },
       onEnd: () => {
@@ -1149,7 +1149,7 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    */
   protected override normalizePreferences(stored: Partial<SidebarPreferences>, defaults: SidebarPreferences): SidebarPreferences {
     return {
-      sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= 300 && stored.sidebarWidth <= 600 ? stored.sidebarWidth : defaults.sidebarWidth
+      sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= MIN_SIDEBAR_WIDTH && stored.sidebarWidth <= MAX_SIDEBAR_WIDTH ? stored.sidebarWidth : defaults.sidebarWidth
     };
   }
 

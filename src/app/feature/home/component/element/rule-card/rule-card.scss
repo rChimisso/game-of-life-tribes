@@ -77,11 +77,14 @@
     > .rule-arrow {
       color: #888;
       flex: 0 0 auto;
+      margin-left: -8px;
       line-height: 1;
     }
 
     > gol-tribe-swatch {
       margin-right: 8px;
+      transform: translateY(1px);
+      margin-left: -4px;
     }
 
     > .rule-become-label {
@@ -98,9 +101,10 @@
       border: 1px solid #55708e;
       border-radius: 4px;
       padding: 2px 4px;
-      font-size: 0.72rem;
+      font-size: 0.65rem;
       line-height: 1;
       white-space: nowrap;
+      transform: translateY(1px);
     }
   }
 

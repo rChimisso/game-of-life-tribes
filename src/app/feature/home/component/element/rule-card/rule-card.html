@@ -6,7 +6,7 @@
   <gol-summary class="rule-summary" [clause]="rule.clause" [tribeColors]="tribes" />
   <span class="rule-arrow" [title]="'Becomes ' + outputBecomeLabel()">&rarr;</span>
   @if (fixedOutputTribeId(); as tribeId) {
-    <gol-tribe-swatch size="sm" [color]="outputTribeColor()" [interactive]="false" [title]="'Becomes ' + tribeId" />
+    <gol-tribe-swatch size="xs" [color]="outputTribeColor()" [interactive]="false" [title]="'Becomes ' + tribeId" />
   } @else {
     <span class="rule-become-label" [title]="'Becomes ' + outputBecomeLabel()">{{ outputBecomeLabel() }}</span>
   }

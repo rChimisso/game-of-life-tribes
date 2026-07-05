@@ -2,7 +2,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Event
 import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
 import {AbstractInputComponent} from '../abstract-input';
-import {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView, reconcileNumberView} from './logic/number-input';
+import {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView} from './logic/number-input';
 import {NumberInputConstraints} from './model/number-input';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -163,7 +163,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
       this.lastAcceptedViewValue = this.viewValue;
     }
     if (changes.min || changes.decimalDigits || changes.maxIntegerDigits) {
-      this.reconcileStructuralView();
+      this.refreshViewFromModel();
     }
     if (changes.min || changes.max || changes.decimalDigits || changes.minIntegerDigits || changes.maxIntegerDigits || changes.decimalSeparator) {
       this.onValidatorChange();
@@ -325,16 +325,18 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
   }
 
   /**
-   * Reconciles the view when dynamic structural constraints change.
+   * Refreshes the displayed value from the current model without emitting.
    *
    * @private
    */
-  private reconcileStructuralView(): void {
-    const currentResult = normalizeNumberEdit(this.viewValue, this.constraints());
-    if (!currentResult.accepted) {
-      const result = reconcileNumberView(this.value, this.constraints());
-      this.acceptViewValue(result.viewValue, result.modelValue, this.input?.nativeElement ?? null, result.viewValue.length);
+  private refreshViewFromModel(): void {
+    this.viewValue = formatNumberView(this.value, this.decimalSeparator);
+    this.lastAcceptedViewValue = this.viewValue;
+    if (this.input) {
+      this.input.nativeElement.value = this.viewValue;
+      this.input.nativeElement.setSelectionRange(this.viewValue.length, this.viewValue.length);
     }
+    this.numberInputChangeDetectorRef.markForCheck();
   }
 
   /**

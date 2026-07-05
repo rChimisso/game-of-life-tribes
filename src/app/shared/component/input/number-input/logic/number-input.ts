@@ -81,31 +81,11 @@ function formatNumberView(value: number | null, separator: '.' | ','): string {
   let viewValue = '';
   if (value !== null && Number.isFinite(value)) {
     const normalizedValue = Object.is(value, -0) ? 0 : value;
-    viewValue = String(normalizedValue).replace('.', separator);
+    const sign = normalizedValue < 0 ? '-' : '';
+    const {integerPart, decimalPart} = decimalParts(normalizedValue);
+    viewValue = decimalPart ? `${sign}${integerPart}${separator}${decimalPart}` : `${sign}${integerPart}`;
   }
   return viewValue;
-}
-
-/**
- * Formats a model value under the current structural constraints.
- *
- * @param {(number | null)} value model value.
- * @param {NumberInputConstraints} constraints numeric constraints.
- * @returns {NumberInputEditResult} edit result.
- */
-function reconcileNumberView(value: number | null, constraints: NumberInputConstraints): NumberInputEditResult {
-  let reconciledValue = value;
-  if (value !== null && Number.isFinite(value) && constraints.decimalDigits >= 0) {
-    const scale = 10 ** constraints.decimalDigits;
-    reconciledValue = Math.round(value * scale) / scale;
-  }
-  const viewValue = formatNumberView(reconciledValue, constraints.decimalSeparator);
-  const result = normalizeNumberEdit(viewValue, constraints);
-  return {
-    accepted: result.accepted,
-    viewValue: result.accepted ? result.viewValue : viewValue,
-    modelValue: result.accepted ? result.modelValue : reconciledValue
-  };
 }
 
 /**
@@ -287,4 +267,4 @@ function parseViewNumber(viewValue: string, separator: '.' | ','): number | null
   return value;
 }
 
-export {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView, reconcileNumberView};
+export {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView};

@@ -847,16 +847,13 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   }
 
   /**
-   * Emits a speed change from a form value.
+   * Emits a speed change.
    *
    * @public
-   * @param {string} value speed form value.
+   * @param {number} value speed value.
    */
-  public onSpeedChange(value: string): void {
-    const n = +value;
-    if (n > 0) {
-      this.emit({action: 'setSpeed', value: n});
-    }
+  public onSpeedChange(value: number): void {
+    this.emit({action: 'setSpeed', value});
   }
 
   /**
@@ -932,16 +929,13 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   }
 
   /**
-   * Emits a clamped brush size change from a form value.
+   * Emits a brush size change.
    *
    * @public
-   * @param {string} value brush size form value.
+   * @param {number} value brush size value.
    */
-  public onBrushSizeChange(value: string): void {
-    const n = Math.min(Math.max(1, +value || 1), this.brushMaxSize);
-    if (n > 0) {
-      this.emit({action: 'setBrushSize', value: n});
-    }
+  public onBrushSizeChange(value: number): void {
+    this.emit({action: 'setBrushSize', value});
   }
 
   /**
@@ -968,13 +962,10 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * Emits a brush density change.
    *
    * @public
-   * @param {string} value brush density form value.
+   * @param {number} value brush density value.
    */
-  public onBrushDensityChange(value: string): void {
-    const n = Math.min(Math.max(1, +value || 1), 100);
-    if (n > 0) {
-      this.emit({action: 'setBrushDensity', value: n});
-    }
+  public onBrushDensityChange(value: number): void {
+    this.emit({action: 'setBrushDensity', value});
   }
 
   /**

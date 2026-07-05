@@ -53,6 +53,24 @@ export class ApplyRestoreButtons {
   public rightIcon = 'undo';
 
   /**
+   * Left native button type.
+   *
+   * @public
+   * @type {'button' | 'submit' | 'reset'}
+   */
+  @Input()
+  public leftType: 'button' | 'submit' | 'reset' = 'submit';
+
+  /**
+   * Right native button type.
+   *
+   * @public
+   * @type {'button' | 'submit' | 'reset'}
+   */
+  @Input()
+  public rightType: 'button' | 'submit' | 'reset' = 'reset';
+
+  /**
    * Whether the left button is disabled.
    *
    * @public

@@ -1,14 +1,16 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {AbstractControl, FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 
 import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 
+import {BaselineState} from '~gol/core/model/baseline-state';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {analyzeTribeApplyImpact} from '~gol/feature/home/logic/tribe-impact';
 import {GridTopology} from '~gol/feature/home/model/grid';
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, EditableTribe, Rule, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 import {UpdateTribesPayload} from '~gol/feature/home/model/sidebar-event';
+import {TribeFormControls, TribesFormControls, TribeFormValue} from '~gol/feature/home/model/tribe-form';
 import {TribeApplyImpact} from '~gol/feature/home/model/tribe-impact';
-import {TribeSaveEvent} from '~gol/feature/home/model/tribe-save-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
 
@@ -22,7 +24,12 @@ import {Button} from '~gol/shared/component/button/button';
 @Component({
   selector: 'gol-tribes-section',
   standalone: true,
-  imports: [Button, ApplyRestoreButtons, TribeEntry],
+  imports: [
+    ReactiveFormsModule,
+    Button,
+    ApplyRestoreButtons,
+    TribeEntry
+  ],
   templateUrl: './tribes-section.html',
   styleUrl: './tribes-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -99,7 +106,7 @@ export class TribesSection implements OnChanges {
    * @readonly
    * @type {readonly string[]}
    */
-  public readonly basicColors = [
+  public readonly basicColors: readonly string[] = [
     '000088',
     '0000ff',
     '008800',
@@ -129,20 +136,41 @@ export class TribesSection implements OnChanges {
   ];
 
   /**
-   * Editable tribes.
+   * Tribe collection form.
    *
    * @public
-   * @type {EditableTribe[]}
+   * @readonly
+   * @type {FormGroup<TribesFormControls>}
    */
-  public editTribes: EditableTribe[] = [];
+  public readonly form = new FormGroup<TribesFormControls>({
+    tribes: new FormArray<FormGroup<TribeFormControls>>([])
+  });
+
+  /**
+   * Stable row keys aligned with the tribe FormArray.
+   *
+   * @public
+   * @type {string[]}
+   */
+  public rowKeys: string[] = [];
+
+  /**
+   * Keys currently open for row editing.
+   *
+   * @private
+   * @readonly
+   * @type {Set<string>}
+   */
+  private readonly editingKeys = new Set<string>();
 
   /**
    * Baseline editable tribes.
    *
    * @private
-   * @type {EditableTribe[]}
+   * @readonly
+   * @type {BaselineState<EditableTribe[]>}
    */
-  private baselineTribes: EditableTribe[] = [];
+  private readonly baselineTribes = new BaselineState<EditableTribe[]>([]);
 
   /**
    * Next editable tribe key counter.
@@ -153,6 +181,15 @@ export class TribesSection implements OnChanges {
   private nextEditableTribeKey = 0;
 
   /**
+   * Add tribe form.
+   *
+   * @public
+   * @readonly
+   * @type {FormGroup<TribeFormControls>}
+   */
+  public readonly addForm = this.createTribeForm({id: '', color: ''}, 'add');
+
+  /**
    * Whether the add tribe editor is visible.
    *
    * @public
@@ -161,45 +198,54 @@ export class TribesSection implements OnChanges {
   public showTribeAdder = false;
 
   /**
-   * New tribe id.
+   * Tribe rows form array.
    *
    * @public
-   * @type {string}
+   * @readonly
+   * @type {FormArray<FormGroup<TribeFormControls>>}
    */
-  public newTribeId = '';
+  public get tribes(): FormArray<FormGroup<TribeFormControls>> {
+    return this.form.controls.tribes as FormArray<FormGroup<TribeFormControls>>;
+  }
 
   /**
-   * New tribe color.
+   * Editable tribes represented by the current form.
    *
    * @public
-   * @type {string}
+   * @readonly
+   * @type {EditableTribe[]}
    */
-  public newTribeColor = '';
+  public get editTribes(): EditableTribe[] {
+    return this.currentEditableTribes();
+  }
 
   /**
    * Whether pending tribes differ from the baseline.
    *
    * @public
+   * @readonly
    * @type {boolean}
    */
   public get hasUnappliedTribes(): boolean {
-    return !this.tribesEqual(this.editTribes, this.baselineTribes);
+    return this.baselineTribes.hasChanges(this.currentEditableTribes(), (baseline, current) => this.tribesEqual(current, baseline));
   }
 
   /**
    * Impact of applying pending tribe changes.
    *
    * @public
+   * @readonly
    * @type {TribeApplyImpact}
    */
   public get tribeApplyImpact(): TribeApplyImpact {
-    return analyzeTribeApplyImpact(this.baselineTribes, this.editTribes, this.committedRules, this.boundaryTribe, this.topology === BOUNDED_GRID_TOPOLOGY);
+    return analyzeTribeApplyImpact(this.baselineTribes.value(), this.currentEditableTribes(), this.committedRules, this.boundaryTribe, this.topology === BOUNDED_GRID_TOPOLOGY);
   }
 
   /**
    * Whether applying pending tribe changes is blocked.
    *
    * @public
+   * @readonly
    * @type {boolean}
    */
   public get tribeApplyBlocked(): boolean {
@@ -210,10 +256,39 @@ export class TribesSection implements OnChanges {
    * Tribe apply error messages.
    *
    * @public
+   * @readonly
    * @type {string[]}
    */
   public get tribeApplyErrorMessages(): string[] {
     return this.tribeApplyImpact.messages;
+  }
+
+  /**
+   * Whether Apply is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get applyDisabled(): boolean {
+    return this.running ||
+      this.downloading ||
+      !this.hasUnappliedTribes ||
+      this.tribes.length <= 1 ||
+      this.tribeApplyBlocked ||
+      this.form.invalid ||
+      this.editingKeys.size > 0;
+  }
+
+  /**
+   * Whether Restore is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get restoreDisabled(): boolean {
+    return this.downloading || !this.hasUnappliedTribes;
   }
 
   /**
@@ -233,8 +308,10 @@ export class TribesSection implements OnChanges {
    */
   public startAddTribe(): void {
     this.showTribeAdder = true;
-    this.newTribeId = '';
-    this.newTribeColor = this.randomColor();
+    this.addForm.setValue({id: '', color: this.randomColor()}, {emitEvent: true});
+    this.addForm.markAsPristine();
+    this.addForm.markAsUntouched();
+    this.updateAllIdValidity();
   }
 
   /**
@@ -244,56 +321,59 @@ export class TribesSection implements OnChanges {
    */
   public cancelAddTribe(): void {
     this.showTribeAdder = false;
-    this.newTribeId = '';
-    this.newTribeColor = '';
+    this.addForm.setValue({id: '', color: ''}, {emitEvent: false});
+    this.addForm.markAsPristine();
+    this.addForm.markAsUntouched();
+    this.updateAllIdValidity();
   }
 
   /**
-   * Handles saved tribe changes.
+   * Adds the current add-form tribe.
    *
    * @public
-   * @param {TribeSaveEvent} event
    */
-  public onSaveTribe(event: TribeSaveEvent): void {
-    if (event.kind === 'add') {
-      this.editTribes.push({
-        id: event.tribe.id,
-        color: event.tribe.color,
-        key: this.createEditableTribeKey()
-      });
+  public onAddTribe(): void {
+    if (this.addForm.valid) {
+      const key = this.createEditableTribeKey();
+      this.tribes.push(this.createTribeForm(this.addForm.getRawValue(), key));
+      this.rowKeys.push(key);
       this.cancelAddTribe();
-      return;
+      this.updateAllIdValidity();
     }
-
-    const index = this.findEditTribeIndexByKey(event.key);
-    if (index < 0) {
-      return;
-    }
-
-    this.editTribes[index] = {
-      ...this.editTribes[index]!,
-      id: event.tribe.id,
-      color: event.tribe.color
-    };
   }
 
   /**
    * Removes an editable tribe.
    *
    * @public
-   * @param {string} key
+   * @param {string} key key to remove.
    */
   public onRemoveTribe(key: string): void {
-    const index = this.findEditTribeIndexByKey(key);
-    if (index < 0) {
-      return;
+    const index = this.findRowIndexByKey(key);
+    if (index >= 0) {
+      const id = this.tribes.at(index).controls.id.value;
+      if (id !== DEAD_TRIBE_ID) {
+        this.tribes.removeAt(index);
+        this.rowKeys.splice(index, 1);
+        this.editingKeys.delete(key);
+        this.updateAllIdValidity();
+      }
     }
+  }
 
-    const {id} = this.editTribes[index]!;
-    if (id === DEAD_TRIBE_ID) {
-      return;
+  /**
+   * Tracks editing state for one row.
+   *
+   * @public
+   * @param {string} key row key.
+   * @param {boolean} editing whether row editing is open.
+   */
+  public onRowEditingChange(key: string, editing: boolean): void {
+    if (editing) {
+      this.editingKeys.add(key);
+    } else {
+      this.editingKeys.delete(key);
     }
-    this.editTribes.splice(index, 1);
   }
 
   /**
@@ -302,13 +382,12 @@ export class TribesSection implements OnChanges {
    * @public
    */
   public onApplyTribes(): void {
-    if (this.tribeApplyBlocked || !this.hasUnappliedTribes) {
-      return;
+    if (!this.applyDisabled) {
+      this.applyTribes.emit({
+        tribes: this.currentEditableTribes().map(tribe => this.toTribe(tribe)),
+        renamePairs: this.tribeApplyImpact.renamePairs
+      });
     }
-    this.applyTribes.emit({
-      tribes: this.editTribes.map(tribe => this.toTribe(tribe)),
-      renamePairs: this.tribeApplyImpact.renamePairs
-    });
   }
 
   /**
@@ -317,18 +396,30 @@ export class TribesSection implements OnChanges {
    * @public
    */
   public onRestoreTribes(): void {
-    this.editTribes = this.baselineTribes.map(tribe => ({...tribe}));
+    this.rebuildFormFromEditableTribes(this.baselineTribes.clone());
     this.cancelAddTribe();
+    this.editingKeys.clear();
   }
 
   /**
    * Creates a random hex color.
    *
    * @public
-   * @returns {string}
+   * @returns {string} RGB hex color.
    */
   public randomColor(): string {
     return Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+  }
+
+  /**
+   * Gets one row key.
+   *
+   * @public
+   * @param {number} index row index.
+   * @returns {string} row key.
+   */
+  public rowKey(index: number): string {
+    return this.rowKeys[index] ?? `${index}`;
   }
 
   /**
@@ -337,16 +428,64 @@ export class TribesSection implements OnChanges {
    * @private
    */
   private syncTribesFromCommitted(): void {
-    this.editTribes = this.committedTribes.map(tribe => this.toEditableTribe(tribe));
-    this.baselineTribes = this.editTribes.map(tribe => ({...tribe}));
+    const editableTribes = this.committedTribes.map(tribe => this.toEditableTribe(tribe));
+    this.baselineTribes.set(editableTribes);
+    this.rebuildFormFromEditableTribes(editableTribes);
+    this.editingKeys.clear();
+  }
+
+  /**
+   * Rebuilds the FormArray from editable tribes.
+   *
+   * @private
+   * @param {readonly EditableTribe[]} tribes editable tribes.
+   */
+  private rebuildFormFromEditableTribes(tribes: readonly EditableTribe[]): void {
+    this.tribes.clear();
+    this.rowKeys = [];
+    for (const tribe of tribes) {
+      this.tribes.push(this.createTribeForm(tribe, tribe.key));
+      this.rowKeys.push(tribe.key);
+    }
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.updateAllIdValidity();
+  }
+
+  /**
+   * Creates a tribe row form.
+   *
+   * @private
+   * @param {TribeFormValue} tribe tribe form value.
+   * @param {string} key stable key.
+   * @returns {FormGroup<TribeFormControls>} row form.
+   */
+  private createTribeForm(tribe: TribeFormValue, key: string): FormGroup<TribeFormControls> {
+    const form = new FormGroup<TribeFormControls>({
+      id: new FormControl(tribe.id, {
+        nonNullable: true,
+        validators: [
+          Validators.required,
+          this.idFormatValidator(),
+          this.reservedIdValidator(key),
+          this.uniqueIdValidator(key)
+        ]
+      }),
+      color: new FormControl(tribe.color, {
+        nonNullable: true,
+        validators: [Validators.required, this.hexColorValidator()]
+      })
+    });
+    form.controls.id.valueChanges.subscribe(() => this.updateAllIdValidity(form.controls.id));
+    return form;
   }
 
   /**
    * Converts a committed tribe to an editable tribe.
    *
    * @private
-   * @param {Tribe} tribe
-   * @returns {EditableTribe}
+   * @param {Tribe} tribe tribe to convert.
+   * @returns {EditableTribe} editable tribe.
    */
   private toEditableTribe(tribe: Tribe): EditableTribe {
     return {
@@ -359,29 +498,43 @@ export class TribesSection implements OnChanges {
    * Converts an editable tribe to a committed tribe.
    *
    * @private
-   * @param {EditableTribe} tribe
-   * @returns {Tribe}
+   * @param {EditableTribe} tribe tribe to convert.
+   * @returns {Tribe} committed tribe.
    */
   private toTribe(tribe: EditableTribe): Tribe {
     return {id: tribe.id, color: tribe.color};
   }
 
   /**
+   * Gets the current editable tribe values.
+   *
+   * @private
+   * @returns {EditableTribe[]} editable tribes.
+   */
+  private currentEditableTribes(): EditableTribe[] {
+    return this.tribes.controls.map((form, index) => ({
+      id: form.controls.id.value,
+      color: form.controls.color.value,
+      key: this.rowKey(index)
+    }));
+  }
+
+  /**
    * Finds an editable tribe by key.
    *
    * @private
-   * @param {string} key
-   * @returns {number}
+   * @param {string} key key to find.
+   * @returns {number} row index.
    */
-  private findEditTribeIndexByKey(key: string): number {
-    return this.editTribes.findIndex(tribe => tribe.key === key);
+  private findRowIndexByKey(key: string): number {
+    return this.rowKeys.findIndex(rowKey => rowKey === key);
   }
 
   /**
    * Creates an editable tribe key.
    *
    * @private
-   * @returns {string}
+   * @returns {string} editable tribe key.
    */
   private createEditableTribeKey(): string {
     const key = `editable-tribe-${this.nextEditableTribeKey}`;
@@ -393,18 +546,109 @@ export class TribesSection implements OnChanges {
    * Checks whether editable tribes match the baseline.
    *
    * @private
-   * @param {readonly EditableTribe[]} editableTribes
-   * @param {readonly EditableTribe[]} baseTribes
-   * @returns {boolean}
+   * @param {readonly EditableTribe[]} editableTribes editable tribes.
+   * @param {readonly EditableTribe[]} baseTribes baseline tribes.
+   * @returns {boolean} whether tribes are equal.
    */
   private tribesEqual(editableTribes: readonly EditableTribe[], baseTribes: readonly EditableTribe[]): boolean {
-    if (editableTribes.length !== baseTribes.length) {
-      return false;
+    let equal = editableTribes.length === baseTribes.length;
+    if (equal) {
+      equal = editableTribes.every((tribe, index) => {
+        const base = baseTribes[index];
+        return base ? tribe.id === base.id && tribe.color === base.color : false;
+      });
     }
+    return equal;
+  }
 
-    return editableTribes.every((tribe, index) => {
-      const base = baseTribes[index];
-      return base ? tribe.id === base.id && tribe.color === base.color : false;
-    });
+  /**
+   * Builds a tribe id format validator.
+   *
+   * @private
+   * @returns {ValidatorFn} validator.
+   */
+  private idFormatValidator(): ValidatorFn {
+    return (control: AbstractControl<string>): ValidationErrors | null => {
+      let errors: ValidationErrors | null = null;
+      if (!/^[A-Za-z0-9]*$/.test(control.value ?? '')) {
+        errors = {allowedPattern: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Builds a reserved id validator.
+   *
+   * @private
+   * @param {string} key row key.
+   * @returns {ValidatorFn} validator.
+   */
+  private reservedIdValidator(key: string): ValidatorFn {
+    return (control: AbstractControl<string>): ValidationErrors | null => {
+      let errors: ValidationErrors | null = null;
+      if (key !== 'add' && control.value === DEAD_TRIBE_ID && this.findRowIndexByKey(key) >= 0) {
+        const baseline = this.baselineTribes.value()[this.findRowIndexByKey(key)];
+        if (baseline?.id !== DEAD_TRIBE_ID) {
+          errors = {reservedTribeId: true};
+        }
+      } else if (key === 'add' && control.value === DEAD_TRIBE_ID) {
+        errors = {reservedTribeId: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Builds a unique id validator.
+   *
+   * @private
+   * @param {string} key row key.
+   * @returns {ValidatorFn} validator.
+   */
+  private uniqueIdValidator(key: string): ValidatorFn {
+    return (control: AbstractControl<string>): ValidationErrors | null => {
+      const value = control.value ?? '';
+      const matches = this.currentEditableTribes().filter(tribe => tribe.id === value && tribe.key !== key);
+      let errors: ValidationErrors | null = null;
+      if (value && matches.length > 0) {
+        errors = {duplicateTribeId: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Builds a hex color validator.
+   *
+   * @private
+   * @returns {ValidatorFn} validator.
+   */
+  private hexColorValidator(): ValidatorFn {
+    return (control: AbstractControl<string>): ValidationErrors | null => {
+      const value = control.value ?? '';
+      let errors: ValidationErrors | null = null;
+      if (!/^[0-9a-fA-F]{6}$/.test(value)) {
+        errors = {hexColor: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Updates all id controls after one id changes.
+   *
+   * @private
+   * @param {AbstractControl} [source] source control.
+   */
+  private updateAllIdValidity(source?: AbstractControl): void {
+    for (const row of this.tribes.controls) {
+      if (row.controls.id !== source) {
+        row.controls.id.updateValueAndValidity({emitEvent: false});
+      }
+    }
+    if (this.addForm.controls.id !== source) {
+      this.addForm.controls.id.updateValueAndValidity({emitEvent: false});
+    }
   }
 }

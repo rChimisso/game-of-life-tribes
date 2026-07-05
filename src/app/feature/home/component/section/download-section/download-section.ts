@@ -1,15 +1,16 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
-
-import {DownloadFrameRangeForm} from '../../element/download-frame-range-form/download-frame-range-form';
-import {DownloadMp4SettingsForm} from '../../element/download-mp4-settings-form/download-mp4-settings-form';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
-import {DownloadFrameRangeFormValue, DownloadMp4SettingsFormValue, DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
+import {DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
+import {DownloadFormControls, DownloadFormValue} from '~gol/feature/home/model/download-form';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
+import {LabelValue} from '~gol/shared/component/label-value/label-value';
 import {ProgressStatus} from '~gol/shared/component/progress-status/progress-status';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
@@ -27,13 +28,13 @@ import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
   selector: 'gol-download-section',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     StorageBar,
     CheckboxComponent,
+    NumberInputComponent,
+    LabelValue,
     SubsectionComponent,
     ApplyRestoreButtons,
-    DownloadFrameRangeForm,
-    DownloadMp4SettingsForm,
     ProgressStatus
   ],
   templateUrl: './download-section.html',
@@ -198,59 +199,30 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   public readonly cancelDownload = new EventEmitter<void>();
 
   /**
-   * Download frame range form data.
+   * Download form.
    *
    * @public
-   * @type {DownloadFrameRangeFormValue}
+   * @readonly
+   * @type {FormGroup<DownloadFormControls>}
    */
-  public downloadFrameRangeFormData: DownloadFrameRangeFormValue = {
-    allFrames: true,
-    startFrame: 1,
-    endFrame: 1
-  };
-
-  /**
-   * Current valid download frame range form value.
-   *
-   * @public
-   * @type {DownloadFrameRangeFormValue}
-   */
-  public downloadFrameRangeValue: DownloadFrameRangeFormValue = {...this.downloadFrameRangeFormData};
-
-  /**
-   * Whether the frame range form is currently valid.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public downloadFrameRangeValid = true;
-
-  /**
-   * Download MP4 settings form data.
-   *
-   * @public
-   * @type {DownloadMp4SettingsFormValue}
-   */
-  public downloadMp4SettingsFormData: DownloadMp4SettingsFormValue = {
-    mp4Fps: 12,
-    mp4BitrateMbps: 2
-  };
-
-  /**
-   * Current valid download MP4 settings form value.
-   *
-   * @public
-   * @type {DownloadMp4SettingsFormValue}
-   */
-  public downloadMp4SettingsValue: DownloadMp4SettingsFormValue = {...this.downloadMp4SettingsFormData};
-
-  /**
-   * Whether the MP4 settings form is currently valid.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public downloadMp4SettingsValid = true;
+  public readonly form = new FormGroup<DownloadFormControls>({
+    outputs: new FormGroup({
+      saves: new FormControl(true, {nonNullable: true}),
+      metrics: new FormControl(true, {nonNullable: true}),
+      png: new FormControl(false, {nonNullable: true}),
+      mp4: new FormControl(false, {nonNullable: true})
+    }),
+    selection: new FormGroup({
+      allFrames: new FormControl(true, {nonNullable: true}),
+      startFrame: new FormControl<number | null>(1, {validators: [Validators.required]}),
+      endFrame: new FormControl<number | null>(1, {validators: [Validators.required]})
+    }, {validators: [this.frameOrderValidator()]}),
+    mp4Settings: new FormGroup({
+      fps: new FormControl<number | null>(12, {validators: [Validators.required]}),
+      bitrateMbps: new FormControl<number | null>(2, {validators: [Validators.required]})
+    }),
+    forceChunkDownload: new FormControl(false, {nonNullable: true})
+  }, {validators: [this.outputSelectionValidator()]});
 
   /**
    * User-facing high-memory chunk export warning.
@@ -259,6 +231,47 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {string}
    */
   public chunkModeWarning = '';
+
+  /**
+   * Selection subsection expansion state.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public selectionExpanded = true;
+
+  /**
+   * MP4 settings subsection expansion state.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public mp4SettingsExpanded = false;
+
+  /**
+   * User-selected chunk download preference before threshold forcing.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private preferredForceChunkDownload = false;
+
+  /**
+   * Whether form subscriptions are initialized.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private formSubscriptionsInitialized = false;
+
+  /**
+   * Destroy ref for subscriptions.
+   *
+   * @private
+   * @readonly
+   * @type {DestroyRef}
+   */
+  private readonly destroyRef = inject(DestroyRef);
 
   /**
    * Default preferences.
@@ -279,15 +292,6 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     mp4SettingsExpanded: false,
     selectionExpanded: true
   };
-
-  /**
-   * Current preferences.
-   *
-   * @private
-   * @readonly
-   * @type {DownloadSectionPreferences}
-   */
-  public readonly currentPreferences: DownloadSectionPreferences = {...this.defaultPreferences};
 
   /**
    * Whether a download is active.
@@ -330,8 +334,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get downloadButtonDisabled(): boolean {
-    return !this.downloadFrameRangeValid ||
-      !this.hasRecordedFrames ||
+    return !this.hasRecordedFrames ||
       this.chunksSaving ||
       this.loadingState ||
       this.downloadCancelling ||
@@ -339,8 +342,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.savingState ||
       this.stepping ||
       this.running ||
-      (this.currentPreferences.mp4 && !this.downloadMp4SettingsValid) ||
-      !(this.effectiveForceChunkDownload || this.currentPreferences.metrics || this.currentPreferences.saves || this.currentPreferences.mp4 || this.currentPreferences.png);
+      this.form.invalid;
   }
 
   /**
@@ -351,7 +353,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @type {boolean}
    */
   public get effectiveForceChunkDownload(): boolean {
-    return this.currentPreferences.forceChunkDownload || this.downloadEstimateExceedsChunkThreshold;
+    return this.form.controls.forceChunkDownload.value || this.downloadEstimateExceedsChunkThreshold;
   }
 
   /**
@@ -374,6 +376,74 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public get cancelButtonDisabled(): boolean {
     return !this.downloading || this.downloadCancelling;
+  }
+
+  /**
+   * Start frame validation message.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get startFrameError(): string {
+    return this.frameError(this.form.controls.selection.controls.startFrame);
+  }
+
+  /**
+   * End frame validation message.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get endFrameError(): string {
+    let message = this.frameError(this.form.controls.selection.controls.endFrame);
+    if (!message && this.form.controls.selection.hasError('frameOrder') && this.form.controls.selection.controls.endFrame.enabled) {
+      message = 'Before start';
+    }
+    return message;
+  }
+
+  /**
+   * MP4 FPS validation message.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get fpsError(): string {
+    return this.numberError(this.form.controls.mp4Settings.controls.fps, 240);
+  }
+
+  /**
+   * MP4 bitrate validation message.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get bitrateError(): string {
+    return this.numberError(this.form.controls.mp4Settings.controls.bitrateMbps, 60);
+  }
+
+  /**
+   * Number of selected frames.
+   *
+   * @public
+   * @readonly
+   * @type {string}
+   */
+  public get selectedFrameCount(): string {
+    const {allFrames, endFrame, startFrame} = this.form.controls.selection.getRawValue();
+    let count = 0;
+    if (this.hasRecordedFrames && (this.form.controls.selection.valid || this.form.controls.selection.disabled)) {
+      if (allFrames) {
+        count = this.totalRecordedFrames;
+      } else {
+        count = (endFrame ?? 0) - (startFrame ?? 0) + 1;
+      }
+    }
+    return `${Math.max(0, count)}/${this.totalRecordedFrames}`;
   }
 
   /**
@@ -492,6 +562,12 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     if (changes.downloadEstimateExceedsChunkThreshold && this.downloadEstimateExceedsChunkThreshold) {
       this.chunkModeWarning = 'Estimated download memory is above 2 GiB. This download will export compressed recording chunks instead of the selected outputs.';
     }
+    if (changes.downloadEstimateExceedsChunkThreshold) {
+      this.syncEffectiveForceChunkDownload();
+    }
+    if (changes.downloadProgress || changes.savingState || changes.loadingState || changes.stepping || changes.downloadEstimateExceedsChunkThreshold || changes.totalRecordedFrames) {
+      this.syncFormDisabledState();
+    }
     this.emitSettingsChange();
   }
 
@@ -500,16 +576,8 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
-    this.emitSettingsChange();
-  }
-
-  /**
-   * Persists settings after a local setting change.
-   *
-   * @public
-   */
-  public onSettingChange(): void {
-    this.savePreferences();
+    this.initFormSubscriptions();
+    this.syncFormDisabledState();
     this.emitSettingsChange();
   }
 
@@ -522,9 +590,9 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   public onSubsectionExpandedChange(section: 'selection' | 'mp4', expanded: boolean): void {
     if (section === 'selection') {
-      this.currentPreferences.selectionExpanded = expanded;
+      this.selectionExpanded = expanded;
     } else {
-      this.currentPreferences.mp4SettingsExpanded = expanded;
+      this.mp4SettingsExpanded = expanded;
     }
     this.savePreferences();
   }
@@ -535,61 +603,9 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @public
    */
   public onDownload(): void {
-    this.download.emit(this.createDownloadRequestPayload());
-  }
-
-  /**
-   * Handles valid frame range form submissions.
-   *
-   * @public
-   * @param {DownloadFrameRangeFormValue} value
-   */
-  public onDownloadFrameRangeFormChange(value: DownloadFrameRangeFormValue): void {
-    const {allFrames} = value;
-    this.downloadFrameRangeValue = {...value};
-    if (allFrames !== this.currentPreferences.allFrames) {
-      this.currentPreferences.allFrames = allFrames;
-      this.savePreferences();
+    if (!this.downloadButtonDisabled) {
+      this.download.emit(this.createDownloadRequestPayload());
     }
-    this.emitSettingsChange();
-  }
-
-  /**
-   * Handles frame range form validity changes.
-   *
-   * @public
-   * @param {boolean} valid
-   */
-  public onDownloadFrameRangeValidityChange(valid: boolean): void {
-    this.downloadFrameRangeValid = valid;
-    this.emitSettingsChange();
-  }
-
-  /**
-   * Handles valid MP4 settings form submissions.
-   *
-   * @public
-   * @param {DownloadMp4SettingsFormValue} value
-   */
-  public onDownloadMp4SettingsFormChange(value: DownloadMp4SettingsFormValue): void {
-    this.downloadMp4SettingsValue = {...value};
-    if (value.mp4Fps !== this.currentPreferences.mp4Fps || value.mp4BitrateMbps !== this.currentPreferences.mp4BitrateMbps) {
-      this.currentPreferences.mp4Fps = value.mp4Fps;
-      this.currentPreferences.mp4BitrateMbps = value.mp4BitrateMbps;
-      this.savePreferences();
-    }
-    this.emitSettingsChange();
-  }
-
-  /**
-   * Handles MP4 settings form validity changes.
-   *
-   * @public
-   * @param {boolean} valid
-   */
-  public onDownloadMp4SettingsValidityChange(valid: boolean): void {
-    this.downloadMp4SettingsValid = valid;
-    this.emitSettingsChange();
   }
 
   /**
@@ -608,23 +624,46 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @inheritdoc
    */
   protected override collectPreferences(): DownloadSectionPreferences {
-    return {...this.currentPreferences};
+    const raw = this.form.getRawValue();
+    return {
+      metrics: raw.outputs.metrics,
+      saves: raw.outputs.saves,
+      mp4: raw.outputs.mp4,
+      png: raw.outputs.png,
+      allFrames: raw.selection.allFrames,
+      forceChunkDownload: this.preferredForceChunkDownload,
+      mp4Fps: this.normalizedMp4Fps(raw.mp4Settings.fps),
+      mp4BitrateMbps: this.normalizedMp4BitrateMbps(raw.mp4Settings.bitrateMbps),
+      mp4SettingsExpanded: this.mp4SettingsExpanded,
+      selectionExpanded: this.selectionExpanded
+    };
   }
 
   /**
    * @inheritdoc
    */
   protected override applyPreferences(preferences: DownloadSectionPreferences): void {
-    Object.assign(this.currentPreferences, this.defaultPreferences, preferences);
-    this.forceDownloadFrameRangeValue({
-      allFrames: this.currentPreferences.allFrames,
-      startFrame: 1,
-      endFrame: Math.max(1, this.totalRecordedFrames)
-    });
-    this.forceDownloadMp4SettingsValue({
-      mp4Fps: this.currentPreferences.mp4Fps,
-      mp4BitrateMbps: this.currentPreferences.mp4BitrateMbps
-    });
+    this.selectionExpanded = preferences.selectionExpanded;
+    this.mp4SettingsExpanded = preferences.mp4SettingsExpanded;
+    this.preferredForceChunkDownload = preferences.forceChunkDownload;
+    this.form.patchValue({
+      outputs: {
+        saves: preferences.saves,
+        metrics: preferences.metrics,
+        png: preferences.png,
+        mp4: preferences.mp4
+      },
+      selection: {
+        allFrames: preferences.allFrames,
+        startFrame: 1,
+        endFrame: Math.max(1, this.totalRecordedFrames)
+      },
+      mp4Settings: {
+        fps: preferences.mp4Fps,
+        bitrateMbps: preferences.mp4BitrateMbps
+      },
+      forceChunkDownload: this.downloadEstimateExceedsChunkThreshold ? true : preferences.forceChunkDownload
+    }, {emitEvent: false});
   }
 
   /**
@@ -650,49 +689,79 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
-   * Creates the current download request payload.
+   * Initializes reactive form subscriptions.
    *
    * @private
-   * @returns {DownloadRequestPayload} current payload.
    */
-  private createDownloadRequestPayload(): DownloadRequestPayload {
-    const frameRange = this.currentPreferences.allFrames ?
-      null :
-      {
-        startFrame: +this.downloadFrameRangeValue.startFrame,
-        endFrame: +this.downloadFrameRangeValue.endFrame
-      };
-    return {
-      metrics: this.currentPreferences.metrics,
-      mp4: this.currentPreferences.mp4,
-      png: this.currentPreferences.png,
-      saves: this.currentPreferences.saves,
-      fps: +this.downloadMp4SettingsValue.mp4Fps,
-      bitrate: +this.downloadMp4SettingsValue.mp4BitrateMbps * 1_000_000,
-      frameRange,
-      forceChunkDownload: this.effectiveForceChunkDownload
-    };
+  private initFormSubscriptions(): void {
+    if (!this.formSubscriptionsInitialized) {
+      this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onFormValueChange());
+      this.form.controls.selection.controls.allFrames.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.syncFormDisabledState());
+      this.form.controls.outputs.controls.mp4.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.syncFormDisabledState());
+      this.formSubscriptionsInitialized = true;
+    }
   }
 
   /**
-   * Emits current settings for parent-side estimate updates.
+   * Handles any local form value change.
    *
    * @private
    */
-  private emitSettingsChange(): void {
-    this.settingsChange.emit(this.createDownloadRequestPayload());
+  private onFormValueChange(): void {
+    if (!this.downloadEstimateExceedsChunkThreshold) {
+      this.preferredForceChunkDownload = this.form.controls.forceChunkDownload.value;
+    }
+    this.form.updateValueAndValidity({emitEvent: false});
+    if (this.form.valid) {
+      this.savePreferences();
+      this.emitSettingsChange();
+    }
   }
 
   /**
-   * Forcefully syncs the frame range state passed to the child form.
+   * Syncs forced chunk export with the form while preserving user preference.
    *
    * @private
-   * @param {DownloadFrameRangeFormValue} value
    */
-  private forceDownloadFrameRangeValue(value: DownloadFrameRangeFormValue): void {
-    this.downloadFrameRangeValue = {...value};
-    this.downloadFrameRangeFormData = {...value};
-    this.downloadFrameRangeValid = true;
+  private syncEffectiveForceChunkDownload(): void {
+    if (this.downloadEstimateExceedsChunkThreshold) {
+      this.form.controls.forceChunkDownload.setValue(true, {emitEvent: false});
+    } else {
+      this.form.controls.forceChunkDownload.setValue(this.preferredForceChunkDownload, {emitEvent: false});
+    }
+    this.form.updateValueAndValidity({emitEvent: false});
+  }
+
+  /**
+   * Syncs enabled/disabled state for controls with external gates and dependent settings.
+   *
+   * @private
+   */
+  private syncFormDisabledState(): void {
+    const selectionControlsDisabled = this.downloadControlsDisabled || !this.hasRecordedFrames;
+    const mp4ControlsDisabled = this.downloadControlsDisabled || !this.form.controls.outputs.controls.mp4.value;
+    this.setControlDisabled(this.form.controls.outputs, this.downloadControlsDisabled);
+    this.setControlDisabled(this.form.controls.selection.controls.allFrames, selectionControlsDisabled);
+    this.setControlDisabled(this.form.controls.selection.controls.startFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
+    this.setControlDisabled(this.form.controls.selection.controls.endFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
+    this.setControlDisabled(this.form.controls.mp4Settings, mp4ControlsDisabled);
+    this.setControlDisabled(this.form.controls.forceChunkDownload, this.forceChunkDownloadDisabled);
+    this.form.updateValueAndValidity({emitEvent: false});
+  }
+
+  /**
+   * Sets one control disabled state without emitting value changes.
+   *
+   * @private
+   * @param {AbstractControl} control control to update.
+   * @param {boolean} disabled whether the control should be disabled.
+   */
+  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
+    if (disabled && control.enabled) {
+      control.disable({emitEvent: false});
+    } else if (!disabled && control.disabled) {
+      control.enable({emitEvent: false});
+    }
   }
 
   /**
@@ -701,24 +770,148 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @private
    */
   private syncFrameRangeWithTotalFrames(): void {
-    if (this.currentPreferences.allFrames) {
-      this.forceDownloadFrameRangeValue({
-        allFrames: true,
+    if (this.form.controls.selection.controls.allFrames.value) {
+      this.form.controls.selection.patchValue({
         startFrame: 1,
         endFrame: Math.max(1, this.totalRecordedFrames)
-      });
+      }, {emitEvent: false});
+    }
+    this.form.controls.selection.updateValueAndValidity({emitEvent: false});
+  }
+
+  /**
+   * Creates the current download request payload.
+   *
+   * @private
+   * @returns {DownloadRequestPayload} current payload.
+   */
+  private createDownloadRequestPayload(): DownloadRequestPayload {
+    const raw = this.form.getRawValue();
+    const frameRange = raw.selection.allFrames ?
+      null :
+      {
+        startFrame: raw.selection.startFrame ?? 1,
+        endFrame: raw.selection.endFrame ?? 1
+      };
+    return {
+      metrics: raw.outputs.metrics,
+      mp4: raw.outputs.mp4,
+      png: raw.outputs.png,
+      saves: raw.outputs.saves,
+      fps: this.normalizedMp4Fps(raw.mp4Settings.fps),
+      bitrate: this.normalizedMp4BitrateMbps(raw.mp4Settings.bitrateMbps) * 1_000_000,
+      frameRange,
+      forceChunkDownload: this.effectiveForceChunkDownload
+    };
+  }
+
+  /**
+   * Normalizes an MP4 FPS form value.
+   *
+   * @private
+   * @param {(number | null)} value form value.
+   * @returns {number} normalized FPS.
+   */
+  private normalizedMp4Fps(value: number | null): number {
+    const valid = typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 240;
+    return valid ? value : this.defaultPreferences.mp4Fps;
+  }
+
+  /**
+   * Normalizes an MP4 bitrate form value.
+   *
+   * @private
+   * @param {(number | null)} value form value.
+   * @returns {number} normalized bitrate in megabits per second.
+   */
+  private normalizedMp4BitrateMbps(value: number | null): number {
+    const valid = typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 60;
+    return valid ? value : this.defaultPreferences.mp4BitrateMbps;
+  }
+
+  /**
+   * Emits current settings for parent-side estimate updates.
+   *
+   * @private
+   */
+  private emitSettingsChange(): void {
+    if (this.form.valid) {
+      this.settingsChange.emit(this.createDownloadRequestPayload());
     }
   }
 
   /**
-   * Forcefully syncs the MP4 settings state passed to the child form.
+   * Builds an output-selection validator.
    *
    * @private
-   * @param {DownloadMp4SettingsFormValue} value
+   * @returns {ValidatorFn} validator.
    */
-  private forceDownloadMp4SettingsValue(value: DownloadMp4SettingsFormValue): void {
-    this.downloadMp4SettingsValue = {...value};
-    this.downloadMp4SettingsFormData = {...value};
-    this.downloadMp4SettingsValid = true;
+  private outputSelectionValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = control.getRawValue() as DownloadFormValue;
+      let errors: ValidationErrors | null = null;
+      if (!(value.forceChunkDownload || value.outputs.saves || value.outputs.metrics || value.outputs.png || value.outputs.mp4)) {
+        errors = {outputRequired: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Builds a start/end ordering validator.
+   *
+   * @private
+   * @returns {ValidatorFn} validator.
+   */
+  private frameOrderValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = control.getRawValue() as DownloadFormValue['selection'];
+      let errors: ValidationErrors | null = null;
+      if (!value.allFrames && value.startFrame !== null && value.endFrame !== null && value.startFrame > value.endFrame) {
+        errors = {frameOrder: true};
+      }
+      return errors;
+    };
+  }
+
+  /**
+   * Gets a frame control validation message.
+   *
+   * @private
+   * @param {FormControl<number | null>} control control to read.
+   * @returns {string} validation message.
+   */
+  private frameError(control: FormControl<number | null>): string {
+    let message = '';
+    if (control.enabled && control.hasError('required')) {
+      message = 'Required';
+    } else if (control.enabled && control.hasError('min')) {
+      message = 'Min 1';
+    } else if (control.enabled && control.hasError('max')) {
+      message = `Max ${this.totalRecordedFrames.toLocaleString()}`;
+    }
+    return message;
+  }
+
+  /**
+   * Gets a numeric control validation message.
+   *
+   * @private
+   * @param {FormControl<number | null>} control control to read.
+   * @param {number} max maximum configured value.
+   * @returns {string} validation message.
+   */
+  private numberError(control: FormControl<number | null>, max: number): string {
+    let message = '';
+    if (control.enabled && control.hasError('required')) {
+      message = 'Required';
+    } else if (control.enabled && control.hasError('min')) {
+      message = 'Min 1';
+    } else if (control.enabled && control.hasError('max')) {
+      message = `Max ${max}`;
+    } else if (control.enabled && control.hasError('decimalDigits')) {
+      message = 'Integer';
+    }
+    return message;
   }
 }

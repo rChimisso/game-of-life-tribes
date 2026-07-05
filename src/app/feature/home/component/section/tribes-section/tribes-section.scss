@@ -1,15 +1,17 @@
 :host {
   display: block;
 
-  .tribe-list {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 18px;
-    gap: 8px;
-  }
+  form {
+    .tribe-list {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 18px;
+      gap: 8px;
+    }
 
-  .tribe-impact-error {
-    display: block;
-    margin-top: 6px;
+    .tribe-impact-error {
+      display: block;
+      margin-top: 6px;
+    }
   }
 }

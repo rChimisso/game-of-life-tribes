@@ -22,7 +22,7 @@
     <div class="rule-body">
       <div class="rule-probability-row gol-grid-tiny" title="Rule probability scaled by 1000">
         <span class="gol-cell-4">Probability x1000</span>
-        <gol-input class="gol-cell-5" name="rule-probability-{{ ruleIndex }}" regex="^[0-9]*$" title="Probability x1000" type="number" [disabled]="!!rule.muted" [ngModel]="pendingProbabilityInput" (ngModelChange)="onProbabilityChanged($event)" />
+        <gol-number-input class="gol-cell-5" name="rule-probability-{{ ruleIndex }}" title="Probability x1000" [decimalDigits]="0" [disabled]="!!rule.muted" [max]="maxRuleProbabilityInput" [min]="minRuleProbabilityInput" [ngModel]="pendingProbabilityInput" (ngModelChange)="onProbabilityChanged($event)" />
         <span class="gol-cell-3 error-message" [title]="probabilityError ?? ''">{{ probabilityError }}</span>
       </div>
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [disabled]="!!rule.muted" [path]="[]" [tribes]="tribes" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />

@@ -1,9 +1,12 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 
 import {MetricRow} from '../../element/metric-row/metric-row';
 
+import {TypedChanges} from '~gol/core/model/typed-change';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '~gol/feature/home/model/metrics';
+import {MetricsFormControls} from '~gol/feature/home/model/metrics-form';
 import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 import {MetricMessage} from '~gol/feature/home/model/worker-message';
 import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
@@ -14,12 +17,14 @@ import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-
  *
  * @class MetricsSection
  * @typedef {MetricsSection}
+ * @implements {OnChanges}
+ * @implements {OnInit}
  */
 @Component({
   selector: 'gol-metrics-section',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     SubsectionComponent,
     ToggleButtonComponent,
     MetricRow
@@ -28,7 +33,7 @@ import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-
   styleUrl: './metrics-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MetricsSection {
+export class MetricsSection implements OnChanges, OnInit {
   /**
    * Latest metric payload from the worker.
    *
@@ -133,6 +138,28 @@ export class MetricsSection {
   public interfacesExpanded = true;
 
   /**
+   * Live metrics settings form.
+   *
+   * @public
+   * @readonly
+   * @type {FormGroup<MetricsFormControls>}
+   */
+  public readonly form = new FormGroup<MetricsFormControls>({
+    population: new FormControl(true, {nonNullable: true}),
+    diversity: new FormControl(true, {nonNullable: true}),
+    interfaces: new FormControl(false, {nonNullable: true})
+  });
+
+  /**
+   * Destroy ref for subscriptions.
+   *
+   * @private
+   * @readonly
+   * @type {DestroyRef}
+   */
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
    * Tribes shown in the population subsection.
    *
    * @public
@@ -144,6 +171,26 @@ export class MetricsSection {
   }
 
   /**
+   * @inheritdoc
+   */
+  public ngOnChanges(changes: TypedChanges<MetricsSection>): void {
+    if (changes.liveMetricSettings) {
+      this.form.patchValue(this.liveMetricSettings, {emitEvent: false});
+    }
+    if (changes.liveMetricsEnabled) {
+      this.syncControlDisabledState();
+    }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public ngOnInit(): void {
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.settingsChange.emit(this.form.getRawValue()));
+    this.syncControlDisabledState();
+  }
+
+  /**
    * Whether a section is enabled by user settings.
    *
    * @public
@@ -151,22 +198,7 @@ export class MetricsSection {
    * @returns {boolean}
    */
   public sectionEnabled(section: LiveMetricSection): boolean {
-    return this.liveMetricSettings[section];
-  }
-
-  /**
-   * Set one section and emit the full settings object.
-   *
-   * @public
-   * @param {LiveMetricSection} section
-   * @param {boolean} enabled
-   */
-  public setSection(section: LiveMetricSection, enabled: boolean): void {
-    this.liveMetricSettings = {
-      ...this.liveMetricSettings,
-      [section]: enabled
-    };
-    this.settingsChange.emit(this.liveMetricSettings);
+    return this.form.getRawValue()[section];
   }
 
   /**
@@ -188,7 +220,7 @@ export class MetricsSection {
    * @returns {MetricAvailabilityStatus}
    */
   public sectionStatus(section: LiveMetricSection): MetricAvailabilityStatus {
-    return !this.liveMetricsEnabled || !this.liveMetricSettings[section] ? 'disabled' : this.metrics?.metricsAvailability?.[section] ?? 'ok';
+    return !this.liveMetricsEnabled || !this.sectionEnabled(section) ? 'disabled' : this.metrics?.metricsAvailability?.[section] ?? 'ok';
   }
 
   /**
@@ -227,6 +259,30 @@ export class MetricsSection {
         this.interfacesExpanded = expanded;
         this.interfacesExpandedChange.emit(expanded);
         break;
+    }
+  }
+
+  /**
+   * Syncs controls with global live metrics state.
+   *
+   * @private
+   */
+  private syncControlDisabledState(): void {
+    this.setControlDisabled(this.form, !this.liveMetricsEnabled);
+  }
+
+  /**
+   * Sets one control disabled state without emitting value changes.
+   *
+   * @private
+   * @param {AbstractControl} control control to update.
+   * @param {boolean} disabled whether the control should be disabled.
+   */
+  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
+    if (disabled && control.enabled) {
+      control.disable({emitEvent: false});
+    } else if (!disabled && control.disabled) {
+      control.enable({emitEvent: false});
     }
   }
 }

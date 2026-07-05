@@ -62,6 +62,15 @@ export class Button {
   public size: 'base' | 'sm' = 'base';
 
   /**
+   * Native button type.
+   *
+   * @public
+   * @type {'button' | 'submit' | 'reset'}
+   */
+  @Input()
+  public type: 'button' | 'submit' | 'reset' = 'button';
+
+  /**
    * Whether it's disabled.
    *
    * @public

@@ -1,28 +1,32 @@
-@if (tribe) {
-  <div class="tribe-edit-row">
-    <gol-tribe-swatch class="tribe-color-swatch" size="base" [color]="headerColor" [interactive]="false" [title]="headerName" />
-    <span class="tribe-id">{{ headerName }}</span>
-    <gol-button size="sm" variant="icon" [disabled]="editing && (!canConfirmEdit || !hasPendingChanges)" [icon]="editing ? 'check' : 'edit'" [title]="editing ? 'Apply tribe changes' : 'Edit tribe'" (clicked)="editing ? onSave() : openEditor()" />
-    <gol-button icon="close" size="sm" title="Discard tribe changes" variant="icon" [disabled]="!editing" (clicked)="cancelEdit()" />
-    <gol-button icon="delete" size="sm" title="Remove tribe" variant="icon" (clicked)="onRemove()" />
-  </div>
+@if (form) {
+  @if (!adder) {
+    <div class="tribe-edit-row">
+      <gol-tribe-swatch class="tribe-color-swatch" size="base" [color]="headerColor" [interactive]="false" [title]="headerName" />
+      <span class="tribe-id">{{ headerName }}</span>
+      <gol-button size="sm" variant="icon" [disabled]="editing && !canConfirmEdit" [icon]="editing ? 'check' : 'edit'" [title]="editing ? 'Apply tribe changes' : 'Edit tribe'" (clicked)="editing ? confirm() : openEditor()" />
+      <gol-button icon="close" size="sm" title="Discard tribe changes" variant="icon" [disabled]="!editing" (clicked)="cancelEdit()" />
+      <gol-button icon="delete" size="sm" title="Remove tribe" variant="icon" (clicked)="onRemove()" />
+    </div>
+  }
+  @if (activeForm; as editForm) {
+    <div class="tribe-editor" [attr.aria-hidden]="!showEditor" [class.open]="showEditor" [formGroup]="editForm">
+      <div class="tribe-editor-inner">
+        <gol-text-input allowedPattern="^[0-9a-zA-Z]*$" formControlName="id" name="tribeName" placeholder="Name (A-z, 0-9)" />
+        <div class="color-palette">
+          @for (c of basicColors; track c) {
+            <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [title]="'#' + c" (clicked)="setColor(c)" />
+          }
+          <button class="color-swatch random-swatch" type="button" (click)="setColor(randomColor())">&#127922;</button>
+        </div>
+        <div class="hex-row">
+          <span class="hex-hash">#</span>
+          <gol-text-input allowedPattern="^[0-9a-fA-F]{0,6}$" class="hex-input" formControlName="color" name="tribeHex" />
+          <input class="native-picker" type="color" [value]="nativeColor(editForm.controls.color.value)" (input)="onNativeColorInput($event)" />
+        </div>
+        @if (adder) {
+          <gol-button-pair leftIcon="add" leftLabel="Add" leftType="button" rightIcon="close" rightLabel="Cancel" [leftDisabled]="!canConfirmAdd" [rightType]="'button'" (leftClick)="confirm()" (rightClick)="cancelAdd.emit()" />
+        }
+      </div>
+    </div>
+  }
 }
-<div class="tribe-editor" [attr.aria-hidden]="!showEditor" [class.open]="showEditor">
-  <div class="tribe-editor-inner">
-    <gol-input name="tribeName" placeholder="Name (A-z, 0-9)" regex="^[0-9a-zA-Z]*$" [ngModel]="currentName" (ngModelChange)="onCurrentNameChange($event)" />
-    <div class="color-palette">
-      @for (c of basicColors; track c) {
-        <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [title]="'#' + c" (clicked)="onCurrentColorChange(c)" />
-      }
-      <button class="color-swatch random-swatch" type="button" (click)="onCurrentColorChange(randomColor())">🎲</button>
-    </div>
-    <div class="hex-row">
-      <span class="hex-hash">#</span>
-      <gol-input class="hex-input" name="tribeHex" regex="^[0-9a-fA-F]{0,6}$" [ngModel]="currentColor" (ngModelChange)="onCurrentColorChange($event)" />
-      <input class="native-picker" type="color" [value]="nativeColor(currentColor)" (input)="onCurrentColorChange($event.target.value)" />
-    </div>
-    @if (isAdder) {
-      <gol-button-pair leftIcon="add" leftLabel="Add" rightIcon="close" rightLabel="Cancel" [leftDisabled]="!canConfirmAdd" (leftClick)="onSave()" (rightClick)="cancelAdd.emit()" />
-    }
-  </div>
-</div>

@@ -1,10 +1,13 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {TypedChanges} from '~gol/core/model/typed-change';
+import {PlaybackFormControls} from '~gol/feature/home/model/playback-form';
 import {PlaybackSectionPreferences} from '~gol/feature/home/model/preferences';
 import {Button} from '~gol/shared/component/button/button';
-import {InputComponent} from '~gol/shared/component/input/input';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {LabelValue} from '~gol/shared/component/label-value/label-value';
 
 /**
@@ -12,21 +15,24 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
  *
  * @class PlaybackSection
  * @typedef {PlaybackSection}
+ * @extends {PersistedPreferencesComponent<PlaybackSectionPreferences>}
+ * @implements {OnChanges}
+ * @implements {OnInit}
  */
 @Component({
   selector: 'gol-playback-section',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     Button,
-    InputComponent,
+    NumberInputComponent,
     LabelValue
   ],
   templateUrl: './playback-section.html',
   styleUrl: './playback-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSectionPreferences> {
+export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSectionPreferences> implements OnChanges, OnInit {
   /**
    * Whether the simulation is running.
    *
@@ -160,12 +166,40 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   };
 
   /**
-   * Number of generations to step.
+   * Playback form.
    *
    * @public
-   * @type {number}
+   * @readonly
+   * @type {FormGroup<PlaybackFormControls>}
    */
-  public skipAmount = this.defaultPreferences.skipAmount;
+  public readonly form = new FormGroup<PlaybackFormControls>({
+    skipAmount: new FormControl<number | null>(this.defaultPreferences.skipAmount, {validators: [Validators.required]})
+  });
+
+  /**
+   * Destroy ref for subscriptions.
+   *
+   * @private
+   * @readonly
+   * @type {DestroyRef}
+   */
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Valid skip amount.
+   *
+   * @private
+   * @readonly
+   * @type {(number | null)}
+   */
+  private get validSkipAmount(): number | null {
+    const control = this.form.controls.skipAmount;
+    let value: number | null = null;
+    if (control.valid && control.value !== null) {
+      value = control.value;
+    }
+    return value;
+  }
 
   /**
    * Whether the run button is disabled.
@@ -214,7 +248,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {boolean}
    */
   public get stepBackDisabled(): boolean {
-    return this.running || this.livePlaybackDisabled || this.stepBackBaseDisabled;
+    return this.running || this.livePlaybackDisabled || this.stepBackBaseDisabled || this.form.controls.skipAmount.invalid;
   }
 
   /**
@@ -224,7 +258,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {boolean}
    */
   public get stepForwardDisabled(): boolean {
-    return this.running || this.livePlaybackDisabled;
+    return this.running || this.livePlaybackDisabled || this.form.controls.skipAmount.invalid;
   }
 
   /**
@@ -234,13 +268,16 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {string}
    */
   public get stepBackTooltip(): string {
-    if (this.stepBackDisabled) {
-      return 'Busy or no recording available';
+    let tooltip = 'Busy or no recording available';
+    const skipAmount = this.validSkipAmount;
+    if (!this.stepBackDisabled && skipAmount !== null) {
+      if (skipAmount > this.generationCounter) {
+        tooltip = 'Go back to generation #0';
+      } else {
+        tooltip = `Go back to generation #${this.generationCounter - skipAmount}`;
+      }
     }
-    if (+this.skipAmount > this.generationCounter) {
-      return 'Go back to generation #0';
-    }
-    return `Go back to generation #${this.generationCounter - this.skipAmount}`;
+    return tooltip;
   }
 
   /**
@@ -250,10 +287,12 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @type {string}
    */
   public get stepForwardTooltip(): string {
-    if (this.stepForwardDisabled) {
-      return 'Busy';
+    let tooltip = 'Busy';
+    const skipAmount = this.validSkipAmount;
+    if (!this.stepForwardDisabled && skipAmount !== null) {
+      tooltip = `Skip to generation #${skipAmount + this.generationCounter}`;
     }
-    return `Skip to generation #${+this.skipAmount + this.generationCounter}`;
+    return tooltip;
   }
 
   /**
@@ -264,18 +303,24 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    */
   public constructor() {
     super('golt-playback-section-prefs');
-    this.restorePreferences();
   }
 
   /**
-   * Handles skip amount changes.
-   *
-   * @public
-   * @param {number} value
+   * @inheritdoc
    */
-  public onSkipAmountChange(value: number): void {
-    this.skipAmount = Math.max(1, Math.floor(+value || 1));
-    this.savePreferences();
+  public ngOnChanges(changes: TypedChanges<PlaybackSection>): void {
+    if (changes.engineBlocked || changes.downloading || changes.stepping || changes.backpressure || changes.rebuilding) {
+      this.syncControlDisabledState();
+    }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public ngOnInit(): void {
+    this.restorePreferences();
+    this.form.controls.skipAmount.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSkipAmountChange());
+    this.syncControlDisabledState();
   }
 
   /**
@@ -284,7 +329,10 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @public
    */
   public onStepBack(): void {
-    this.stepBack.emit(+this.skipAmount);
+    const skipAmount = this.validSkipAmount;
+    if (skipAmount !== null) {
+      this.stepBack.emit(skipAmount);
+    }
   }
 
   /**
@@ -293,7 +341,10 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @public
    */
   public onStepForward(): void {
-    this.stepForward.emit(+this.skipAmount);
+    const skipAmount = this.validSkipAmount;
+    if (skipAmount !== null) {
+      this.stepForward.emit(skipAmount);
+    }
   }
 
   /**
@@ -304,7 +355,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    */
   protected override collectPreferences(): PlaybackSectionPreferences {
     return {
-      skipAmount: +this.skipAmount
+      skipAmount: this.validSkipAmount ?? this.defaultPreferences.skipAmount
     };
   }
 
@@ -315,7 +366,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @param {PlaybackSectionPreferences} preferences
    */
   protected override applyPreferences(preferences: PlaybackSectionPreferences): void {
-    this.skipAmount = Math.max(1, Math.floor(+preferences.skipAmount || 1));
+    this.form.controls.skipAmount.setValue(preferences.skipAmount, {emitEvent: false});
   }
 
   /**
@@ -328,7 +379,42 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    */
   protected override normalizePreferences(stored: Partial<PlaybackSectionPreferences>, defaults: PlaybackSectionPreferences): PlaybackSectionPreferences {
     return {
-      skipAmount: typeof stored.skipAmount === 'number' && stored.skipAmount >= 1 ? stored.skipAmount : defaults.skipAmount
+      skipAmount: typeof stored.skipAmount === 'number' && Number.isInteger(stored.skipAmount) && stored.skipAmount >= 1 ? stored.skipAmount : defaults.skipAmount
     };
+  }
+
+  /**
+   * Persists valid skip amount changes.
+   *
+   * @private
+   */
+  private onSkipAmountChange(): void {
+    if (this.form.controls.skipAmount.valid) {
+      this.savePreferences();
+    }
+  }
+
+  /**
+   * Synchronizes control disabled state.
+   *
+   * @private
+   */
+  private syncControlDisabledState(): void {
+    this.setControlDisabled(this.form.controls.skipAmount, this.livePlaybackDisabled);
+  }
+
+  /**
+   * Sets one control disabled state without emitting value changes.
+   *
+   * @private
+   * @param {AbstractControl} control control to update.
+   * @param {boolean} disabled whether the control should be disabled.
+   */
+  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
+    if (disabled && control.enabled) {
+      control.disable({emitEvent: false});
+    } else if (!disabled && control.disabled) {
+      control.enable({emitEvent: false});
+    }
   }
 }

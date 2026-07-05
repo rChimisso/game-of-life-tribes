@@ -1,21 +1,49 @@
 <gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
-<div class="download-checks" title="">
-  <gol-checkbox label="Saves" size="sm" tooltip="Include first and last snapshots in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.saves" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Metrics" size="sm" tooltip="Include simulation metrics in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.metrics" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.png" (ngModelChange)="onSettingChange()" />
-  <gol-checkbox label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" [disabled]="downloadControlsDisabled" [(ngModel)]="currentPreferences.mp4" (ngModelChange)="onSettingChange()" />
-</div>
-<gol-subsection title="Selection range" [expanded]="currentPreferences.selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
-  <gol-download-frame-range-form [disabled]="downloadControlsDisabled" [formData]="downloadFrameRangeFormData" [hasRecordedFrames]="hasRecordedFrames" [totalFrames]="totalRecordedFrames" (onSubmit)="onDownloadFrameRangeFormChange($event)" (validityChange)="onDownloadFrameRangeValidityChange($event)" />
-</gol-subsection>
-<gol-subsection title="MP4 Settings" [expanded]="currentPreferences.mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
-  <gol-download-mp4-settings-form [disabled]="downloadControlsDisabled" [formData]="downloadMp4SettingsFormData" (onSubmit)="onDownloadMp4SettingsFormChange($event)" (validityChange)="onDownloadMp4SettingsValidityChange($event)" />
-</gol-subsection>
-<div class="chunk-mode" title="">
-  <gol-checkbox label="Force chunk download" size="sm" tooltip="Export compressed recording chunks instead of selected outputs" [disabled]="forceChunkDownloadDisabled" [ngModel]="effectiveForceChunkDownload" (ngModelChange)="currentPreferences.forceChunkDownload = $event; onSettingChange()" />
-  <div class="warning-message collapsible-message" [class.empty]="!downloadEstimateExceedsChunkThreshold" (transitionend)="onChunkModeMessageTransitionEnd($event)">
-    <span class="message-content">{{ chunkModeWarning }}</span>
+<form [formGroup]="form" (ngSubmit)="onDownload()">
+  <div class="download-checks" formGroupName="outputs" title="">
+    <gol-checkbox formControlName="saves" label="Saves" size="sm" tooltip="Include first and last snapshots in the download" />
+    <gol-checkbox formControlName="metrics" label="Metrics" size="sm" tooltip="Include simulation metrics in the download" />
+    <gol-checkbox formControlName="png" label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" />
+    <gol-checkbox formControlName="mp4" label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" />
   </div>
-</div>
-<gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
-<gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="cancelButtonDisabled" (leftClick)="onDownload()" (rightClick)="cancelDownload.emit()" />
+  <gol-subsection title="Selection range" [expanded]="selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
+    <div class="gol-grid-tiny" formGroupName="selection">
+      <gol-label-value class="gol-cell-12 selected-frames" label="Selected frames" title="Selected frames out of total recorded frames" [value]="selectedFrameCount" />
+      <div class="gol-cell-12 gol-grid-tiny">
+        <gol-checkbox class="gol-cell-3" formControlName="allFrames" label="All" size="sm" tooltip="Select all recorded frames" />
+        <gol-number-input class="gol-cell-4" formControlName="startFrame" name="startFrame" title="Start frame" [decimalDigits]="0" [max]="totalRecordedFrames" [min]="1" />
+        <span class="gol-cell-1 range-dash">-</span>
+        <gol-number-input class="gol-cell-4" formControlName="endFrame" name="endFrame" title="End frame" [decimalDigits]="0" [max]="totalRecordedFrames" [min]="1" />
+      </div>
+      <div class="gol-cell-12 gol-grid-tiny">
+        <div class="gol-cell-3"></div>
+        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!startFrameError">{{ startFrameError }}</span>
+        <div class="gol-cell-1"></div>
+        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!endFrameError">{{ endFrameError }}</span>
+      </div>
+    </div>
+  </gol-subsection>
+  <gol-subsection title="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
+    <div class="gol-grid-tiny" formGroupName="mp4Settings">
+      <div class="gol-cell-12 gol-grid-tiny mp4-settings-row">
+        <gol-number-input class="gol-cell-3" formControlName="fps" name="fps" title="MP4 FPS" [decimalDigits]="0" [max]="240" [min]="1" />
+        <span class="gol-cell-3 mp4-setting-text" title="MP4 FPS">FPS</span>
+        <gol-number-input class="gol-cell-4" formControlName="bitrateMbps" name="bitrate" title="MP4 Bitrate" [decimalDigits]="0" [max]="60" [min]="1" />
+        <span class="gol-cell-2 mp4-setting-text" title="MP4 Bitrate">Mbps</span>
+      </div>
+      <div class="gol-cell-12 gol-grid-tiny">
+        <span class="gol-cell-3 error-message compact-message" title="" [class.empty]="!fpsError">{{ fpsError }}</span>
+        <div class="gol-cell-3"></div>
+        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!bitrateError">{{ bitrateError }}</span>
+      </div>
+    </div>
+  </gol-subsection>
+  <div class="chunk-mode" title="">
+    <gol-checkbox formControlName="forceChunkDownload" label="Force chunk download" size="sm" tooltip="Export compressed recording chunks instead of selected outputs" />
+    <div class="warning-message collapsible-message" [class.empty]="!downloadEstimateExceedsChunkThreshold" (transitionend)="onChunkModeMessageTransitionEnd($event)">
+      <span class="message-content">{{ chunkModeWarning }}</span>
+    </div>
+  </div>
+  <gol-progress-status mode="determinate" [active]="downloading" [percent]="downloadProgress" [status]="downloadProgressStatus" />
+  <gol-button-pair leftIcon="download" leftLabel="Download" rightIcon="close" rightLabel="Cancel" [leftDisabled]="downloadButtonDisabled" [rightDisabled]="cancelButtonDisabled" [rightType]="'button'" (rightClick)="cancelDownload.emit()" />
+</form>

@@ -1,43 +1,45 @@
-<gol-subsection title="Population" [expanded]="populationExpanded" (expandedChange)="onSubsectionExpandedChange('population', $event)">
-  <div class="section-toggle-row" title="Enable or disable the live population metrics.">
-    <span class="section-toggle-label">Toggle these metrics</span>
-    <gol-toggle-button size="sm" title="Enable or disable the live population metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('population')" [ngModel]="sectionEnabled('population')" (ngModelChange)="setSection('population', $event)" />
-  </div>
-  <div class="metrics-grid">
-    <gol-metric-row label="Alive" title="How many cells are alive." [disabledText]="metricDisabledText('population')" [value]="metrics?.aliveCells" />
-    <gol-metric-row label="Dead" title="How many cells are dead." [disabledText]="metricDisabledText('population')" [value]="metrics?.deadCells" />
-    <gol-metric-row digits="1.0-2" format="percent" label="Occupancy" title="The fraction of grid cells that are alive." [disabledText]="metricDisabledText('population')" [value]="metrics?.occupancy" />
-  </div>
-  @if (populationTribes.length > 0) {
-    <h4 class="subsection-title">Tribes</h4>
-    <div class="metrics-grid">
-      @for (tribe of populationTribes; track tribe.id) {
-        <gol-metric-row [disabledText]="metricDisabledText('population')" [label]="tribe.id" [title]="'How many cells belong to the ' + tribe.id + ' tribe.'" [value]="metrics?.population?.[tribe.id]" />
-      }
+<div class="metrics-form" [formGroup]="form">
+  <gol-subsection title="Population" [expanded]="populationExpanded" (expandedChange)="onSubsectionExpandedChange('population', $event)">
+    <div class="section-toggle-row" title="Enable or disable the live population metrics.">
+      <span class="section-toggle-label">Toggle these metrics</span>
+      <gol-toggle-button formControlName="population" size="sm" title="Enable or disable the live population metrics." [label]="sectionToggleLabel('population')" />
     </div>
-  }
-</gol-subsection>
+    <div class="metrics-grid">
+      <gol-metric-row label="Alive" title="How many cells are alive." [disabledText]="metricDisabledText('population')" [value]="metrics?.aliveCells" />
+      <gol-metric-row label="Dead" title="How many cells are dead." [disabledText]="metricDisabledText('population')" [value]="metrics?.deadCells" />
+      <gol-metric-row digits="1.0-2" format="percent" label="Occupancy" title="The fraction of grid cells that are alive." [disabledText]="metricDisabledText('population')" [value]="metrics?.occupancy" />
+    </div>
+    @if (populationTribes.length > 0) {
+      <h4 class="subsection-title">Tribes</h4>
+      <div class="metrics-grid">
+        @for (tribe of populationTribes; track tribe.id) {
+          <gol-metric-row [disabledText]="metricDisabledText('population')" [label]="tribe.id" [title]="'How many cells belong to the ' + tribe.id + ' tribe.'" [value]="metrics?.population?.[tribe.id]" />
+        }
+      </div>
+    }
+  </gol-subsection>
 
-<gol-subsection title="Diversity" [expanded]="diversityExpanded" (expandedChange)="onSubsectionExpandedChange('diversity', $event)">
-  <div class="section-toggle-row" title="Enable or disable the live diversity metrics.">
-    <span class="section-toggle-label">Toggle these metrics</span>
-    <gol-toggle-button size="sm" title="Enable or disable the live diversity metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('diversity')" [ngModel]="sectionEnabled('diversity')" (ngModelChange)="setSection('diversity', $event)" />
-  </div>
-  <div class="metrics-grid">
-    <gol-metric-row digits="1.0-4" format="decimal" label="Shannon entropy" title="How evenly alive cells are distributed across tribes; higher values mean more diverse tribe populations." [disabledText]="metricDisabledText('diversity')" [value]="metrics?.shannonEntropy" />
-    <gol-metric-row digits="1.0-4" format="decimal" label="Simpson index" title="The probability that two randomly selected alive cells belong to different tribes." [disabledText]="metricDisabledText('diversity')" [value]="metrics?.simpsonIndex" />
-  </div>
-</gol-subsection>
+  <gol-subsection title="Diversity" [expanded]="diversityExpanded" (expandedChange)="onSubsectionExpandedChange('diversity', $event)">
+    <div class="section-toggle-row" title="Enable or disable the live diversity metrics.">
+      <span class="section-toggle-label">Toggle these metrics</span>
+      <gol-toggle-button formControlName="diversity" size="sm" title="Enable or disable the live diversity metrics." [label]="sectionToggleLabel('diversity')" />
+    </div>
+    <div class="metrics-grid">
+      <gol-metric-row digits="1.0-4" format="decimal" label="Shannon entropy" title="How evenly alive cells are distributed across tribes; higher values mean more diverse tribe populations." [disabledText]="metricDisabledText('diversity')" [value]="metrics?.shannonEntropy" />
+      <gol-metric-row digits="1.0-4" format="decimal" label="Simpson index" title="The probability that two randomly selected alive cells belong to different tribes." [disabledText]="metricDisabledText('diversity')" [value]="metrics?.simpsonIndex" />
+    </div>
+  </gol-subsection>
 
-<gol-subsection title="Interfaces" [expanded]="interfacesExpanded" (expandedChange)="onSubsectionExpandedChange('interfaces', $event)">
-  <div class="section-toggle-row" title="Enable or disable the live interface metrics.">
-    <span class="section-toggle-label">Toggle these metrics</span>
-    <gol-toggle-button size="sm" title="Enable or disable the live interface metrics." [disabled]="!liveMetricsEnabled" [label]="sectionToggleLabel('interfaces')" [ngModel]="sectionEnabled('interfaces')" (ngModelChange)="setSection('interfaces', $event)" />
-  </div>
-  <div class="metrics-grid">
-    <gol-metric-row label="Same-state edges" title="How many neighbor edges connect cells with the same state." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.sameStateContactEdges" />
-    <gol-metric-row label="Cross-state edges" title="How many neighbor edges connect cells with different states." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.crossStateContactEdges" />
-    <gol-metric-row digits="1.0-2" format="percent" label="Same-state fraction" title="The fraction of neighbor edges that connect cells with the same state." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.sameStateContactFraction" />
-    <gol-metric-row digits="1.0-2" format="percent" label="Cross-state fraction" title="The fraction of neighbor edges that connect cells with different states." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.crossStateContactFraction" />
-  </div>
-</gol-subsection>
+  <gol-subsection title="Interfaces" [expanded]="interfacesExpanded" (expandedChange)="onSubsectionExpandedChange('interfaces', $event)">
+    <div class="section-toggle-row" title="Enable or disable the live interface metrics.">
+      <span class="section-toggle-label">Toggle these metrics</span>
+      <gol-toggle-button formControlName="interfaces" size="sm" title="Enable or disable the live interface metrics." [label]="sectionToggleLabel('interfaces')" />
+    </div>
+    <div class="metrics-grid">
+      <gol-metric-row label="Same-state edges" title="How many neighbor edges connect cells with the same state." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.sameStateContactEdges" />
+      <gol-metric-row label="Cross-state edges" title="How many neighbor edges connect cells with different states." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.crossStateContactEdges" />
+      <gol-metric-row digits="1.0-2" format="percent" label="Same-state fraction" title="The fraction of neighbor edges that connect cells with the same state." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.sameStateContactFraction" />
+      <gol-metric-row digits="1.0-2" format="percent" label="Cross-state fraction" title="The fraction of neighbor edges that connect cells with different states." [disabledText]="metricDisabledText('interfaces')" [value]="metrics?.interfaces?.crossStateContactFraction" />
+    </div>
+  </gol-subsection>
+</div>

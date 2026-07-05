@@ -8,27 +8,27 @@
     <mat-icon>close</mat-icon>
   </button>
 </div>
-<div class="gol-grid-small">
+<div class="gol-grid-small" [formGroup]="form">
   <div class="gol-cell-12 gol-grid-tiny" title="Brush size">
     <span class="input-label gol-cell-2">Size</span>
-    <gol-input class="gol-cell-4" name="brushSize" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingBrushSize" (ngModelChange)="onBrushSizeChange($event)" />
+    <gol-number-input class="gol-cell-4" formControlName="brushSize" name="brushSize" [decimalDigits]="0" [max]="normalizedBrushMaxSize" [min]="1" />
     <span class="gol-cell-6 error-message">{{ brushSizeError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
     <span class="input-label gol-cell-2">Shape</span>
-    <gol-exclusive-button-group class="gol-cell-10" [options]="brushShapeOptions" [selectedValue]="brushShape" (selectedChange)="onBrushShapeChange($event)" />
+    <gol-exclusive-button-group class="gol-cell-10" formControlName="brushShape" [options]="brushShapeOptions" />
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush fill mode">
     <span class="input-label gol-cell-2">Mode</span>
-    <gol-exclusive-button-group class="gol-cell-10" [options]="brushFillOptions" [selectedValue]="brushFill" (selectedChange)="onBrushFillChange($event)" />
+    <gol-exclusive-button-group class="gol-cell-10" formControlName="brushFill" [options]="brushFillOptions" />
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Brush density">
     <span class="input-label gol-cell-2">Density</span>
-    <gol-input class="gol-cell-4" name="brushDensity" regex="^[1-9][0-9]*$" type="number" [ngModel]="pendingBrushDensity" (ngModelChange)="onBrushDensityChange($event)" />
+    <gol-number-input class="gol-cell-4" formControlName="brushDensity" name="brushDensity" [decimalDigits]="0" [max]="100" [min]="1" />
     <span class="gol-cell-6 error-message">{{ brushDensityError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny mobile-only">
     <span class="input-label gol-cell-2">Touch</span>
-    <gol-exclusive-button-group class="gol-cell-10" [options]="touchModeOptions" [selectedValue]="touchMode" (selectedChange)="touchModeChange.emit($event)" />
+    <gol-exclusive-button-group class="gol-cell-10" formControlName="touchMode" [options]="touchModeOptions" />
   </div>
 </div>

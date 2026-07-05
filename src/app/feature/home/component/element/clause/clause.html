@@ -77,7 +77,7 @@
           @for (child of clause.clauses; track $index; let ci = $index) {
             <ng-container [ngTemplateOutlet]="clauseTpl" [ngTemplateOutletContext]="{ $implicit: child, depth: depth + 1, path: childPath(path, ci) }" />
           }
-          <button mat-icon-button title="Add new clause" [disabled]="disabled" (click)="emitAddChild(path)">
+          <button mat-icon-button title="Add new clause" type="button" [disabled]="disabled" (click)="emitAddChild(path)">
             <mat-icon>add</mat-icon>
           </button>
         </div>

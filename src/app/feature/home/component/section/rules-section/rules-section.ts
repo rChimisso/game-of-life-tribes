@@ -11,7 +11,7 @@ import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rul
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
-import {InputComponent} from '~gol/shared/component/input/input';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 
 /**
  * Rules editor section.
@@ -29,7 +29,7 @@ import {InputComponent} from '~gol/shared/component/input/input';
     Button,
     ApplyRestoreButtons,
     RuleCard,
-    InputComponent
+    NumberInputComponent
   ],
   templateUrl: './rules-section.html',
   styleUrl: './rules-section.scss',
@@ -114,6 +114,24 @@ export class RulesSection implements OnChanges {
    * @type {boolean}
    */
   public showRandomSeedMaxError = false;
+
+  /**
+   * Minimum random seed value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly minRandomSeed = MIN_RANDOM_SEED;
+
+  /**
+   * Maximum random seed value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly maxRandomSeed = MAX_RANDOM_SEED;
 
   /**
    * Currently dragged rule index.
@@ -227,7 +245,7 @@ export class RulesSection implements OnChanges {
    * @public
    * @param {string | number} value seed input value.
    */
-  public onRandomSeedChange(value: string | number): void {
+  public onRandomSeedChange(value: number | null): void {
     const parsedSeed = this.parseIntegerInput(value);
     const wasAtRandomSeedMax = this.editRandomSeed >= MAX_RANDOM_SEED;
     if (parsedSeed > MAX_RANDOM_SEED) {
@@ -467,10 +485,10 @@ export class RulesSection implements OnChanges {
    * Parses an integer input without applying field bounds.
    *
    * @private
-   * @param {string | number} value input value.
+   * @param {(number | null)} value input value.
    * @returns {number} parsed integer.
    */
-  private parseIntegerInput(value: string | number): number {
+  private parseIntegerInput(value: number | null): number {
     return Math.trunc(Number(value) || 0);
   }
 

@@ -3,17 +3,23 @@
   flex-direction: column;
   gap: 6px;
 
-  .input-label {
-    font-size: 0.8rem;
-    color: #888;
-    text-align: center;
-  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 
-  .topology-row {
-    margin-bottom: 8px;
-  }
+    .input-label {
+      font-size: 0.8rem;
+      color: #888;
+      text-align: center;
+    }
 
-  .error-message {
-    padding-left: 8px;
+    .topology-row {
+      margin-bottom: 8px;
+    }
+
+    .error-message {
+      padding-left: 8px;
+    }
   }
 }

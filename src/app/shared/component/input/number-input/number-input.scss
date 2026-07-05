@@ -1,0 +1,5 @@
+@use "../input-base" as input;
+
+:host {
+  @include input.input-host;
+}

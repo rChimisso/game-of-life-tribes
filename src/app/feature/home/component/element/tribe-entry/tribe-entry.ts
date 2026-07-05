@@ -1,12 +1,11 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn} from '@angular/forms';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {DEAD_TRIBE_ID, EditableTribe, Tribe} from '~gol/feature/home/model/rule';
-import {TribeSaveEvent} from '~gol/feature/home/model/tribe-save-event';
+import {TribeFormControls, TribeFormValue} from '~gol/feature/home/model/tribe-form';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
-import {InputComponent} from '~gol/shared/component/input/input';
+import {TextInputComponent} from '~gol/shared/component/input/text-input/text-input';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
 /**
@@ -20,8 +19,8 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   selector: 'gol-tribe-entry',
   standalone: true,
   imports: [
-    FormsModule,
-    InputComponent,
+    ReactiveFormsModule,
+    TextInputComponent,
     Button,
     ApplyRestoreButtons,
     TribeSwatch
@@ -32,13 +31,13 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 })
 export class TribeEntry implements OnChanges {
   /**
-   * Existing tribe.
+   * Tribe row form.
    *
    * @public
-   * @type {Tribe | null}
+   * @type {(FormGroup<TribeFormControls> | null)}
    */
   @Input()
-  public tribe: Tribe | null = null;
+  public form: FormGroup<TribeFormControls> | null = null;
 
   /**
    * Stable key of the current tribe.
@@ -50,40 +49,22 @@ export class TribeEntry implements OnChanges {
   public tribeKey = '';
 
   /**
-   * Currently existing tribes.
+   * Whether this entry is the add-tribe row.
    *
    * @public
-   * @type {readonly EditableTribe[]}
+   * @type {boolean}
    */
   @Input()
-  public existingTribes: readonly EditableTribe[] = [];
+  public adder = false;
 
   /**
    * Colors available for easy selection.
    *
    * @public
-   * @type {string[]}
+   * @type {readonly string[]}
    */
   @Input()
-  public basicColors: string[] = [];
-
-  /**
-   * Name for a new tribe.
-   *
-   * @public
-   * @type {string}
-   */
-  @Input()
-  public addName = '';
-
-  /**
-   * Color for a new tribe.
-   *
-   * @public
-   * @type {string}
-   */
-  @Input()
-  public addColor = '';
+  public basicColors: readonly string[] = [];
 
   /**
    * Emits the tribe key to remove.
@@ -96,34 +77,14 @@ export class TribeEntry implements OnChanges {
   public readonly remove = new EventEmitter<string>();
 
   /**
-   * Emits confirmed add/edit tribe changes.
+   * Emits add confirmation.
    *
    * @public
    * @readonly
-   * @type {EventEmitter<TribeSaveEvent>}
+   * @type {EventEmitter<void>}
    */
   @Output()
-  public readonly save = new EventEmitter<TribeSaveEvent>();
-
-  /**
-   * Emits changes to the add-tribe name draft.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<string>}
-   */
-  @Output()
-  public readonly addNameChange = new EventEmitter<string>();
-
-  /**
-   * Emits changes to the add-tribe color draft.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<string>}
-   */
-  @Output()
-  public readonly addColorChange = new EventEmitter<string>();
+  public readonly add = new EventEmitter<void>();
 
   /**
    * Emits add-editor cancellation requests.
@@ -136,20 +97,14 @@ export class TribeEntry implements OnChanges {
   public readonly cancelAdd = new EventEmitter<void>();
 
   /**
-   * Draft tribe name while editing.
+   * Emits editing state changes.
    *
    * @public
-   * @type {string}
+   * @readonly
+   * @type {EventEmitter<boolean>}
    */
-  public draftName = '';
-
-  /**
-   * Draft tribe color while editing.
-   *
-   * @public
-   * @type {string}
-   */
-  public draftColor = '';
+  @Output()
+  public readonly editingChange = new EventEmitter<boolean>();
 
   /**
    * Whether the edit panel is open.
@@ -160,15 +115,24 @@ export class TribeEntry implements OnChanges {
   public editing = false;
 
   /**
-   * Whether this entry is the add-tribe row.
+   * Local form used for unconfirmed row edits.
    *
    * @public
    * @readonly
-   * @type {boolean}
+   * @type {FormGroup<TribeFormControls>}
    */
-  public get isAdder(): boolean {
-    return !this.tribe;
-  }
+  public readonly editorForm = new FormGroup<TribeFormControls>({
+    id: new FormControl('', {nonNullable: true, validators: [this.rowControlValidator('id')]}),
+    color: new FormControl('', {nonNullable: true, validators: [this.rowControlValidator('color')]})
+  });
+
+  /**
+   * Row baseline used by edit cancellation.
+   *
+   * @private
+   * @type {(TribeFormValue | null)}
+   */
+  private rowEditBaseline: TribeFormValue | null = null;
 
   /**
    * Whether the editor panel should be visible.
@@ -178,7 +142,18 @@ export class TribeEntry implements OnChanges {
    * @type {boolean}
    */
   public get showEditor(): boolean {
-    return this.isAdder || this.editing;
+    return this.adder || this.editing;
+  }
+
+  /**
+   * Form used by the currently visible editor.
+   *
+   * @public
+   * @readonly
+   * @type {(FormGroup<TribeFormControls> | null)}
+   */
+  public get activeForm(): FormGroup<TribeFormControls> | null {
+    return this.adder ? this.form : this.editorForm;
   }
 
   /**
@@ -189,7 +164,7 @@ export class TribeEntry implements OnChanges {
    * @type {string}
    */
   public get headerName(): string {
-    return this.tribe?.id ?? '';
+    return this.form?.controls.id.value ?? '';
   }
 
   /**
@@ -200,51 +175,30 @@ export class TribeEntry implements OnChanges {
    * @type {string}
    */
   public get headerColor(): string {
-    return this.tribe?.color ?? '';
+    return this.form?.controls.color.value ?? '';
   }
 
   /**
-   * Current tribe name shown in inputs.
-   *
-   * @public
-   * @readonly
-   * @type {string}
-   */
-  public get currentName(): string {
-    return this.isAdder ? this.addName : this.draftName;
-  }
-
-  /**
-   * Current tribe color shown in inputs.
-   *
-   * @public
-   * @readonly
-   * @type {string}
-   */
-  public get currentColor(): string {
-    return this.isAdder ? this.addColor : this.draftColor;
-  }
-
-  /**
-   * Whether the edit draft differs from the current tribe.
+   * Whether the current edit draft differs from the row edit baseline.
    *
    * @public
    * @readonly
    * @type {boolean}
    */
   public get hasPendingChanges(): boolean {
-    return !(!this.tribe || (this.draftName === this.tribe.id && this.draftColor === this.tribe.color));
+    const current = this.editorForm.getRawValue();
+    return !!(current && this.rowEditBaseline && (current.id !== this.rowEditBaseline.id || current.color !== this.rowEditBaseline.color));
   }
 
   /**
-   * Whether the current edit draft can be saved.
+   * Whether the current row edit can be confirmed.
    *
    * @public
    * @readonly
    * @type {boolean}
    */
   public get canConfirmEdit(): boolean {
-    return !!(this.tribe && this.validateTribeDraft(this.draftName, this.draftColor, this.tribeKey));
+    return !!(this.form && this.editorForm.valid && this.hasPendingChanges);
   }
 
   /**
@@ -255,18 +209,15 @@ export class TribeEntry implements OnChanges {
    * @type {boolean}
    */
   public get canConfirmAdd(): boolean {
-    return !!this.validateTribeDraft(this.addName, this.addColor);
+    return !!(this.form && this.form.valid);
   }
 
   /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<TribeEntry>): void {
-    if (changes.tribe) {
-      this.resetDraft();
-      if (!changes.tribe.firstChange) {
-        this.editing = false;
-      }
+    if ((changes.form || changes.adder) && !this.adder) {
+      this.syncEditorFromRow();
     }
   }
 
@@ -276,9 +227,12 @@ export class TribeEntry implements OnChanges {
    * @public
    */
   public openEditor(): void {
-    if (!this.isAdder) {
-      this.resetDraft();
+    if (!this.adder && this.form) {
+      this.rowEditBaseline = this.form.getRawValue();
+      this.syncEditorFromRow();
+      this.editorForm.updateValueAndValidity({emitEvent: false});
       this.editing = true;
+      this.editingChange.emit(true);
     }
   }
 
@@ -288,98 +242,31 @@ export class TribeEntry implements OnChanges {
    * @public
    */
   public cancelEdit(): void {
-    this.resetDraft();
+    if (this.rowEditBaseline) {
+      this.editorForm.setValue(this.rowEditBaseline, {emitEvent: false});
+    }
     this.editing = false;
+    this.rowEditBaseline = null;
+    this.editingChange.emit(false);
   }
 
   /**
-   * Handles name input changes for add/edit modes.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onCurrentNameChange(value: string | number): void {
-    if (this.isAdder) {
-      this.onAddNameChange(value);
-    } else {
-      this.onNameChange(value);
-    }
-  }
-
-  /**
-   * Handles color input changes for add/edit modes.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onCurrentColorChange(value: string | number): void {
-    if (this.isAdder) {
-      this.onAddColorChange(value);
-    } else {
-      this.onColorChange(value);
-    }
-  }
-
-  /**
-   * Updates the edit name draft.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onNameChange(value: string | number): void {
-    this.draftName = this.normalizeId(String(value));
-  }
-
-  /**
-   * Updates the edit color draft.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onColorChange(value: string | number): void {
-    this.draftColor = this.normalizeHex(String(value));
-  }
-
-  /**
-   * Emits add-name draft changes.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onAddNameChange(value: string | number): void {
-    this.addNameChange.emit(String(value));
-  }
-
-  /**
-   * Emits add-color draft changes.
-   *
-   * @public
-   * @param {string | number} value
-   */
-  public onAddColorChange(value: string | number): void {
-    this.addColorChange.emit(this.normalizeHex(String(value)));
-  }
-
-  /**
-   * Saves the current add/edit draft when valid.
+   * Confirms the current add/edit draft when valid.
    *
    * @public
    */
-  public onSave(): void {
-    if (this.isAdder) {
-      const addValidated = this.validateTribeDraft(this.addName, this.addColor);
-      if (addValidated) {
-        this.save.emit({kind: 'add', tribe: addValidated});
+  public confirm(): void {
+    if (this.adder) {
+      if (this.canConfirmAdd) {
+        this.add.emit();
       }
     } else {
-      const editValidated = this.validateTribeDraft(this.draftName, this.draftColor, this.tribeKey);
-      if (this.tribe && this.tribeKey && editValidated && this.hasPendingChanges) {
-        this.save.emit({
-          kind: 'edit',
-          key: this.tribeKey,
-          tribe: editValidated
-        });
+      this.editorForm.updateValueAndValidity({emitEvent: false});
+      if (this.canConfirmEdit) {
+        this.form?.setValue(this.editorForm.getRawValue());
         this.editing = false;
+        this.rowEditBaseline = null;
+        this.editingChange.emit(false);
       }
     }
   }
@@ -406,11 +293,36 @@ export class TribeEntry implements OnChanges {
   }
 
   /**
+   * Sets the edited color.
+   *
+   * @public
+   * @param {string} color color value.
+   */
+  public setColor(color: string): void {
+    if (this.activeForm) {
+      this.activeForm.controls.color.setValue(this.normalizeHex(color));
+    }
+  }
+
+  /**
+   * Handles native color picker input.
+   *
+   * @public
+   * @param {Event} event input event.
+   */
+  public onNativeColorInput(event: Event): void {
+    const {target} = event;
+    if (target instanceof HTMLInputElement) {
+      this.setColor(target.value);
+    }
+  }
+
+  /**
    * Converts a hex string to native picker format.
    *
    * @public
-   * @param {string} color
-   * @returns {string}
+   * @param {string} color color value.
+   * @returns {string} native picker color.
    */
   public nativeColor(color: string): string {
     return `#${this.normalizeHex(color).padEnd(6, '0')}`;
@@ -420,65 +332,46 @@ export class TribeEntry implements OnChanges {
    * Whether a palette color is currently selected.
    *
    * @public
-   * @param {string} color
-   * @returns {boolean}
+   * @param {string} color color to check.
+   * @returns {boolean} whether the color is selected.
    */
   public isColorSelected(color: string): boolean {
-    return this.currentColor.toLowerCase() === color.toLowerCase();
+    return (this.activeForm?.controls.color.value ?? '').toLowerCase() === color.toLowerCase();
+  }
+
+  /**
+   * Synchronizes the local editor form from the row form.
+   *
+   * @private
+   */
+  private syncEditorFromRow(): void {
+    if (this.form) {
+      this.editorForm.setValue(this.form.getRawValue(), {emitEvent: false});
+      this.editorForm.markAsPristine();
+      this.editorForm.markAsUntouched();
+      this.editorForm.updateValueAndValidity({emitEvent: false});
+    }
+  }
+
+  /**
+   * Mirrors row control validation on the local editor form.
+   *
+   * @private
+   * @param {'id' | 'color'} controlName control name.
+   * @returns {ValidatorFn} validator.
+   */
+  private rowControlValidator(controlName: 'id' | 'color'): ValidatorFn {
+    return (control): ValidationErrors | null => this.form?.controls[controlName].validator?.(control) ?? null;
   }
 
   /**
    * Normalizes a hex color string.
    *
    * @private
-   * @param {string} value
-   * @returns {string}
+   * @param {string} value value to normalize.
+   * @returns {string} normalized value.
    */
   private normalizeHex(value: string): string {
-    return value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
-  }
-
-  /**
-   * Normalizes a tribe id string.
-   *
-   * @private
-   * @param {string} value
-   * @returns {string}
-   */
-  private normalizeId(value: string): string {
-    return value.replace(/[^A-Za-z0-9]/g, '');
-  }
-
-  /**
-   * Validates and normalizes a tribe draft.
-   *
-   * @private
-   * @param {string} name
-   * @param {string} color
-   * @param {string | null} [excludeKey=null]
-   * @returns {(Tribe | null)}
-   */
-  private validateTribeDraft(name: string, color: string, excludeKey: string | null = null): Tribe | null {
-    const cleanId = this.normalizeId(name);
-    const cleanColor = this.normalizeHex(color);
-    if (!cleanId || cleanId === DEAD_TRIBE_ID || cleanColor.length !== 6 || this.existingTribes.some(entry => entry.id === cleanId && entry.key !== excludeKey)) {
-      return null;
-    }
-    return {id: cleanId, color: cleanColor};
-  }
-
-  /**
-   * Resets edit drafts from the current tribe.
-   *
-   * @private
-   */
-  private resetDraft(): void {
-    if (this.tribe) {
-      this.draftName = this.tribe.id;
-      this.draftColor = this.tribe.color;
-    } else {
-      this.draftName = '';
-      this.draftColor = '';
-    }
+    return value.replace(/^#/, '').replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
   }
 }

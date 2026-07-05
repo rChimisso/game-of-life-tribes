@@ -1,4 +1,4 @@
-<button class="toggle-btn floating" mat-icon-button [class.hidden]="!collapsed" (click)="toggle()">
+<button class="toggle-btn floating" mat-icon-button type="button" [class.hidden]="!collapsed" (click)="toggle()">
   <mat-icon>menu</mat-icon>
 </button>
 <div class="sidebar-panel" [class.layout-transition-disabled]="suppressClosedTransition" [class.open]="!collapsed" [style.--sheet-translate]="sheetTranslate" [style.width.px]="sidebarWidth">

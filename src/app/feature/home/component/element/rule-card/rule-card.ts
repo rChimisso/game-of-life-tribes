@@ -13,7 +13,7 @@ import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/featur
 import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY_INPUT, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
 import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
 import {Button} from '~gol/shared/component/button/button';
-import {InputComponent} from '~gol/shared/component/input/input';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
@@ -35,7 +35,7 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
     Button,
     SummaryComponent,
     TribeSwatch,
-    InputComponent,
+    NumberInputComponent,
     MatIconModule
   ],
   templateUrl: './rule-card.html',
@@ -164,6 +164,24 @@ export class RuleCard implements OnChanges {
    * @type {boolean}
    */
   public showProbabilityMaxError = false;
+
+  /**
+   * Minimum probability input value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly minRuleProbabilityInput = MIN_RULE_PROBABILITY_INPUT;
+
+  /**
+   * Maximum probability input value.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly maxRuleProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
 
   /**
    * Whether the clause editor is invalid.
@@ -406,7 +424,7 @@ export class RuleCard implements OnChanges {
    * @public
    * @param {string | number} value probability input value.
    */
-  public onProbabilityChanged(value: string | number): void {
+  public onProbabilityChanged(value: number | null): void {
     if (!this.rule.muted) {
       const parsedProbability = this.parseIntegerInput(value);
       const wasAtProbabilityMax = this.pendingProbabilityInput >= MAX_RULE_PROBABILITY_INPUT;
@@ -496,10 +514,10 @@ export class RuleCard implements OnChanges {
    * Parses an integer input without applying field bounds.
    *
    * @private
-   * @param {string | number} value input value.
+   * @param {(number | null)} value input value.
    * @returns {number} parsed integer.
    */
-  private parseIntegerInput(value: string | number): number {
+  private parseIntegerInput(value: number | null): number {
     return Math.round(Number(value) || 0);
   }
 

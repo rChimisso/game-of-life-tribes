@@ -1,14 +1,15 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {clampBrushDensity} from '~gol/feature/home/logic/brush-density';
+import {DrawFormControls} from '~gol/feature/home/model/draw-form';
 import {BrushFill, BrushShape, MAX_BRUSH_DENSITY, MIN_BRUSH_DENSITY, TouchMode} from '~gol/feature/home/model/draw-mode';
 import {Tribe} from '~gol/feature/home/model/rule';
 import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
-import {InputComponent} from '~gol/shared/component/input/input';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
 
 /**
@@ -16,14 +17,16 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
  *
  * @class DrawSection
  * @typedef {DrawSection}
+ * @implements {OnChanges}
+ * @implements {OnInit}
  */
 @Component({
   selector: 'gol-draw-section',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     MatIconModule,
-    InputComponent,
+    NumberInputComponent,
     TribeSwatch,
     ExclusiveButtonGroup
   ],
@@ -31,7 +34,7 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   styleUrl: './draw-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DrawSection implements OnChanges {
+export class DrawSection implements OnChanges, OnInit {
   /**
    * Available tribes.
    *
@@ -138,10 +141,10 @@ export class DrawSection implements OnChanges {
    *
    * @public
    * @readonly
-   * @type {EventEmitter<string>}
+   * @type {EventEmitter<number>}
    */
   @Output()
-  public readonly brushSizeChange = new EventEmitter<string>();
+  public readonly brushSizeChange = new EventEmitter<number>();
 
   /**
    * Emitter for brush shape changes.
@@ -168,10 +171,10 @@ export class DrawSection implements OnChanges {
    *
    * @public
    * @readonly
-   * @type {EventEmitter<string>}
+   * @type {EventEmitter<number>}
    */
   @Output()
-  public readonly brushDensityChange = new EventEmitter<string>();
+  public readonly brushDensityChange = new EventEmitter<number>();
 
   /**
    * Emitter for touch mode changes.
@@ -182,6 +185,21 @@ export class DrawSection implements OnChanges {
    */
   @Output()
   public readonly touchModeChange = new EventEmitter<TouchMode>();
+
+  /**
+   * Draw form.
+   *
+   * @public
+   * @readonly
+   * @type {FormGroup<DrawFormControls>}
+   */
+  public readonly form = new FormGroup<DrawFormControls>({
+    brushSize: new FormControl<number | null>(1, {validators: [Validators.required]}),
+    brushShape: new FormControl<BrushShape>('square', {nonNullable: true}),
+    brushFill: new FormControl<BrushFill>('full', {nonNullable: true}),
+    brushDensity: new FormControl<number | null>(MAX_BRUSH_DENSITY, {validators: [Validators.required]}),
+    touchMode: new FormControl<TouchMode>('draw', {nonNullable: true})
+  });
 
   /**
    * Brush shape button options.
@@ -270,46 +288,13 @@ export class DrawSection implements OnChanges {
   ];
 
   /**
-   * Pending brush size shown in the input.
+   * Destroy ref for subscriptions.
    *
-   * @public
-   * @type {number}
+   * @private
+   * @readonly
+   * @type {DestroyRef}
    */
-  public pendingBrushSize = 1;
-
-  /**
-   * Pending brush density shown in the input.
-   *
-   * @public
-   * @type {number}
-   */
-  public pendingBrushDensity = MAX_BRUSH_DENSITY;
-
-  /**
-   * Whether the user tried to exceed the max while already at the cap.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public showBrushSizeMaxError = false;
-
-  /**
-   * Whether the user tried to exceed the max density while already at the cap.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public showBrushDensityMaxError = false;
-
-  /**
-   * Current touch mode.
-   *
-   * @public
-   * @type {TouchMode}
-   */
-  public get touchMode(): TouchMode {
-    return this.panMode ? 'pan' : 'draw';
-  }
+  private readonly destroyRef = inject(DestroyRef);
 
   /**
    * Brush size validation message.
@@ -318,13 +303,7 @@ export class DrawSection implements OnChanges {
    * @type {(string | null)}
    */
   public get brushSizeError(): string | null {
-    if (this.pendingBrushSize < 1) {
-      return 'Min 1';
-    }
-    if (this.showBrushSizeMaxError) {
-      return `Max ${this.normalizedBrushMaxSize}`;
-    }
-    return null;
+    return this.rangeError(this.form.controls.brushSize, 1, this.normalizedBrushMaxSize);
   }
 
   /**
@@ -334,13 +313,7 @@ export class DrawSection implements OnChanges {
    * @type {(string | null)}
    */
   public get brushDensityError(): string | null {
-    if (this.pendingBrushDensity < MIN_BRUSH_DENSITY) {
-      return `Min ${MIN_BRUSH_DENSITY}`;
-    }
-    if (this.showBrushDensityMaxError) {
-      return `Max ${MAX_BRUSH_DENSITY}`;
-    }
-    return null;
+    return this.rangeError(this.form.controls.brushDensity, MIN_BRUSH_DENSITY, MAX_BRUSH_DENSITY);
   }
 
   /**
@@ -357,114 +330,75 @@ export class DrawSection implements OnChanges {
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<DrawSection>): void {
-    if (changes.brushSize || changes.brushMaxSize) {
-      this.pendingBrushSize = this.clampBrushSize(this.brushSize);
-      this.showBrushSizeMaxError = false;
+    if (changes.brushSize || changes.brushShape || changes.brushFill || changes.brushDensity || changes.panMode) {
+      this.form.patchValue({
+        brushSize: this.brushSize,
+        brushShape: this.brushShape,
+        brushFill: this.brushFill,
+        brushDensity: this.brushDensity,
+        touchMode: this.panMode ? 'pan' : 'draw'
+      }, {emitEvent: false});
     }
-    if (changes.brushDensity || changes.brushFill) {
-      this.pendingBrushDensity = clampBrushDensity(this.brushDensity);
-      this.showBrushDensityMaxError = false;
+    if (changes.brushMaxSize) {
+      this.form.controls.brushSize.updateValueAndValidity({emitEvent: false});
     }
   }
 
   /**
-   * Handles brush size changes.
-   *
-   * @public
-   * @param {string} value
+   * @inheritdoc
    */
-  public onBrushSizeChange(value: string): void {
-    const parsedBrushSize = this.parseBrushSize(value);
-    const wasAtBrushMax = this.pendingBrushSize >= this.normalizedBrushMaxSize;
-    if (parsedBrushSize > this.normalizedBrushMaxSize) {
-      this.pendingBrushSize = this.normalizedBrushMaxSize;
-      this.showBrushSizeMaxError = wasAtBrushMax;
-    } else {
-      this.pendingBrushSize = parsedBrushSize;
-      this.showBrushSizeMaxError = false;
-    }
-    if (!this.brushSizeError) {
-      this.brushSize = this.pendingBrushSize;
-      this.brushSizeChange.emit(String(this.brushSize));
-    }
+  public ngOnInit(): void {
+    this.form.controls.brushSize.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onBrushSizeChange());
+    this.form.controls.brushShape.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushShapeChange.emit(value));
+    this.form.controls.brushFill.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushFillChange.emit(value));
+    this.form.controls.brushDensity.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onBrushDensityChange());
+    this.form.controls.touchMode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.touchModeChange.emit(value));
   }
 
   /**
-   * Handles brush density changes.
-   *
-   * @public
-   * @param {(string | number)} value density form value.
-   */
-  public onBrushDensityChange(value: string | number): void {
-    const parsedBrushDensity = this.parseBrushDensity(value);
-    const wasAtBrushDensityMax = this.pendingBrushDensity >= MAX_BRUSH_DENSITY;
-    if (parsedBrushDensity > MAX_BRUSH_DENSITY) {
-      this.pendingBrushDensity = MAX_BRUSH_DENSITY;
-      this.showBrushDensityMaxError = wasAtBrushDensityMax;
-    } else {
-      this.pendingBrushDensity = parsedBrushDensity;
-      this.showBrushDensityMaxError = false;
-    }
-    if (!this.brushDensityError) {
-      this.brushDensity = this.pendingBrushDensity;
-      this.brushDensityChange.emit(String(this.brushDensity));
-    }
-  }
-
-  /**
-   * Handles brush shape changes.
-   *
-   * @public
-   * @param {BrushShape} shape
-   */
-  public onBrushShapeChange(shape: BrushShape): void {
-    this.brushShape = shape;
-    this.brushShapeChange.emit(shape);
-  }
-
-  /**
-   * Handles brush fill changes.
-   *
-   * @public
-   * @param {BrushFill} fill
-   */
-  public onBrushFillChange(fill: BrushFill): void {
-    this.brushFill = fill;
-    this.brushFillChange.emit(fill);
-  }
-
-  /**
-   * Clamps the brush size.
+   * Emits valid brush size changes.
    *
    * @private
-   * @param {number} size
-   * @returns {number}
    */
-  private clampBrushSize(size: number): number {
-    return Math.min(Math.max(1, Math.floor(+size || 1)), this.normalizedBrushMaxSize);
+  private onBrushSizeChange(): void {
+    const control = this.form.controls.brushSize;
+    if (control.valid && control.value !== null) {
+      this.brushSizeChange.emit(control.value);
+    }
   }
 
   /**
-   * Parses a brush size input.
+   * Emits valid brush density changes.
    *
    * @private
-   * @param {(string | number)} value
-   * @returns {number}
    */
-  private parseBrushSize(value: string | number): number {
-    const size = Math.floor(+value || 0);
-    return Math.max(0, size);
+  private onBrushDensityChange(): void {
+    const control = this.form.controls.brushDensity;
+    if (control.valid && control.value !== null) {
+      this.brushDensityChange.emit(control.value);
+    }
   }
 
   /**
-   * Parses a brush density input.
+   * Gets a range validation message.
    *
    * @private
-   * @param {(string | number)} value
-   * @returns {number}
+   * @param {FormControl<number | null>} control control to read.
+   * @param {number} min minimum value.
+   * @param {number} max maximum value.
+   * @returns {(string | null)} validation message.
    */
-  private parseBrushDensity(value: string | number): number {
-    const density = Math.floor(+value || 0);
-    return Math.max(0, density);
+  private rangeError(control: FormControl<number | null>, min: number, max: number): string | null {
+    let message: string | null = null;
+    if (control.hasError('required')) {
+      message = 'Required';
+    } else if (control.hasError('min')) {
+      message = `Min ${min}`;
+    } else if (control.hasError('max')) {
+      message = `Max ${max}`;
+    } else if (control.hasError('decimalDigits')) {
+      message = 'Integer';
+    }
+    return message;
   }
 }

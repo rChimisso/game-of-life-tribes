@@ -1,7 +1,7 @@
 <div class="rules-settings">
   <div class="seed-field gol-grid-tiny" title="Random seed for rule probability rolls">
     <span class="gol-cell-4">Random seed</span>
-    <gol-input class="gol-cell-5" name="random-seed" regex="^[0-9]*$" title="Random seed" type="number" [ngModel]="editRandomSeed" (ngModelChange)="onRandomSeedChange($event)" />
+    <gol-number-input class="gol-cell-5" name="random-seed" title="Random seed" [decimalDigits]="0" [max]="maxRandomSeed" [min]="minRandomSeed" [ngModel]="editRandomSeed" (ngModelChange)="onRandomSeedChange($event)" />
     <span class="gol-cell-3 error-message" [title]="randomSeedError ?? ''">{{ randomSeedError }}</span>
   </div>
 </div>

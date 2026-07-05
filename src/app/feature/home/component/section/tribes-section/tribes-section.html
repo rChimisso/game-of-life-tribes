@@ -1,16 +1,18 @@
-<div class="tribe-list">
-  @for (tribe of editTribes; track tribe.key) {
-    @if (tribe.id !== "dead") {
-      <gol-tribe-entry [basicColors]="basicColors" [existingTribes]="editTribes" [title]="'Tribe ' + tribe.id" [tribe]="tribe" [tribeKey]="tribe.key" (remove)="onRemoveTribe($event)" (save)="onSaveTribe($event)" />
+<form [formGroup]="form" (ngSubmit)="onApplyTribes()">
+  <div class="tribe-list" formArrayName="tribes">
+    @for (tribeForm of tribes.controls; track rowKey($index); let index = $index) {
+      @if (tribeForm.controls.id.value !== "dead") {
+        <gol-tribe-entry [basicColors]="basicColors" [form]="tribeForm" [title]="'Tribe ' + tribeForm.controls.id.value" [tribeKey]="rowKey(index)" (editingChange)="onRowEditingChange(rowKey(index), $event)" (remove)="onRemoveTribe($event)" />
+      }
     }
-  }
-  @if (showTribeAdder) {
-    <gol-tribe-entry [addColor]="newTribeColor" [addName]="newTribeId" [basicColors]="basicColors" [existingTribes]="editTribes" [title]="newTribeId ? 'Tribe ' + newTribeId : 'New tribe'" (addColorChange)="newTribeColor = $event" (addNameChange)="newTribeId = $event" (cancelAdd)="cancelAddTribe()" (save)="onSaveTribe($event)" />
-  } @else {
-    <gol-button icon="add" label="Add tribe" title="Add a new tribe" variant="stroked" (clicked)="startAddTribe()" />
-    @for (message of tribeApplyErrorMessages; track message) {
-      <span class="error-message tribe-impact-error">{{ message }}</span>
+    @if (showTribeAdder) {
+      <gol-tribe-entry [adder]="true" [basicColors]="basicColors" [form]="addForm" [title]="addForm.controls.id.value ? 'Tribe ' + addForm.controls.id.value : 'New tribe'" (add)="onAddTribe()" (cancelAdd)="cancelAddTribe()" />
+    } @else {
+      <gol-button icon="add" label="Add tribe" title="Add a new tribe" type="button" variant="stroked" (clicked)="startAddTribe()" />
+      @for (message of tribeApplyErrorMessages; track message) {
+        <span class="error-message tribe-impact-error">{{ message }}</span>
+      }
     }
-  }
-</div>
-<gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedTribes || editTribes.length <= 1 || tribeApplyBlocked" [rightDisabled]="downloading || !hasUnappliedTribes" (leftClick)="onApplyTribes()" (rightClick)="onRestoreTribes()" />
+  </div>
+  <gol-button-pair [leftDisabled]="applyDisabled" [rightDisabled]="restoreDisabled" [rightType]="'button'" (rightClick)="onRestoreTribes()" />
+</form>

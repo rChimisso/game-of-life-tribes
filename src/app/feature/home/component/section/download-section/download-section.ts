@@ -294,6 +294,14 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   };
 
   /**
+   * Last valid persistent preference values.
+   *
+   * @private
+   * @type {DownloadSectionPreferences}
+   */
+  private lastSavedPreferences: DownloadSectionPreferences = {...this.defaultPreferences};
+
+  /**
    * Whether a download is active.
    *
    * @public
@@ -594,7 +602,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     } else {
       this.mp4SettingsExpanded = expanded;
     }
-    this.savePreferences();
+    this.persistValidPreferences();
   }
 
   /**
@@ -625,6 +633,8 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   protected override collectPreferences(): DownloadSectionPreferences {
     const raw = this.form.getRawValue();
+    const mp4Fps = this.isValidMp4Fps(raw.mp4Settings.fps) ? raw.mp4Settings.fps : this.lastSavedPreferences.mp4Fps;
+    const mp4BitrateMbps = this.isValidMp4BitrateMbps(raw.mp4Settings.bitrateMbps) ? raw.mp4Settings.bitrateMbps : this.lastSavedPreferences.mp4BitrateMbps;
     return {
       metrics: raw.outputs.metrics,
       saves: raw.outputs.saves,
@@ -632,8 +642,8 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       png: raw.outputs.png,
       allFrames: raw.selection.allFrames,
       forceChunkDownload: this.preferredForceChunkDownload,
-      mp4Fps: this.normalizedMp4Fps(raw.mp4Settings.fps),
-      mp4BitrateMbps: this.normalizedMp4BitrateMbps(raw.mp4Settings.bitrateMbps),
+      mp4Fps,
+      mp4BitrateMbps,
       mp4SettingsExpanded: this.mp4SettingsExpanded,
       selectionExpanded: this.selectionExpanded
     };
@@ -646,6 +656,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
     this.selectionExpanded = preferences.selectionExpanded;
     this.mp4SettingsExpanded = preferences.mp4SettingsExpanded;
     this.preferredForceChunkDownload = preferences.forceChunkDownload;
+    this.lastSavedPreferences = {...preferences};
     this.form.patchValue({
       outputs: {
         saves: preferences.saves,
@@ -712,10 +723,18 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       this.preferredForceChunkDownload = this.form.controls.forceChunkDownload.value;
     }
     this.form.updateValueAndValidity({emitEvent: false});
-    if (this.form.valid) {
-      this.savePreferences();
-      this.emitSettingsChange();
-    }
+    this.persistValidPreferences();
+    this.emitSettingsChange();
+  }
+
+  /**
+   * Persists currently valid persistent fields.
+   *
+   * @private
+   */
+  private persistValidPreferences(): void {
+    this.lastSavedPreferences = this.collectPreferences();
+    this.savePreferences();
   }
 
   /**
@@ -813,8 +832,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @returns {number} normalized FPS.
    */
   private normalizedMp4Fps(value: number | null): number {
-    const valid = typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 240;
-    return valid ? value : this.defaultPreferences.mp4Fps;
+    return this.isValidMp4Fps(value) ? value : this.defaultPreferences.mp4Fps;
   }
 
   /**
@@ -825,8 +843,29 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    * @returns {number} normalized bitrate in megabits per second.
    */
   private normalizedMp4BitrateMbps(value: number | null): number {
-    const valid = typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 60;
-    return valid ? value : this.defaultPreferences.mp4BitrateMbps;
+    return this.isValidMp4BitrateMbps(value) ? value : this.defaultPreferences.mp4BitrateMbps;
+  }
+
+  /**
+   * Whether an MP4 FPS value can be persisted or emitted.
+   *
+   * @private
+   * @param {(number | null)} value form value.
+   * @returns {boolean} whether the value is valid.
+   */
+  private isValidMp4Fps(value: number | null): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 240;
+  }
+
+  /**
+   * Whether an MP4 bitrate value can be persisted or emitted.
+   *
+   * @private
+   * @param {(number | null)} value form value.
+   * @returns {boolean} whether the value is valid.
+   */
+  private isValidMp4BitrateMbps(value: number | null): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 60;
   }
 
   /**

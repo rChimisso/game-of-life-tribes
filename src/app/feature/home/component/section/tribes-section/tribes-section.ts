@@ -155,6 +155,14 @@ export class TribesSection implements OnChanges {
   public rowKeys: string[] = [];
 
   /**
+   * Version used to refresh open row draft validators.
+   *
+   * @public
+   * @type {number}
+   */
+  public tribeDraftValidationVersion = 0;
+
+  /**
    * Keys currently open for row editing.
    *
    * @private
@@ -339,6 +347,7 @@ export class TribesSection implements OnChanges {
       this.rowKeys.push(key);
       this.cancelAddTribe();
       this.updateAllIdValidity();
+      this.refreshOpenDraftValidity();
     }
   }
 
@@ -357,6 +366,7 @@ export class TribesSection implements OnChanges {
         this.rowKeys.splice(index, 1);
         this.editingKeys.delete(key);
         this.updateAllIdValidity();
+        this.refreshOpenDraftValidity();
       }
     }
   }
@@ -476,7 +486,12 @@ export class TribesSection implements OnChanges {
         validators: [Validators.required, this.hexColorValidator()]
       })
     });
-    form.controls.id.valueChanges.subscribe(() => this.updateAllIdValidity(form.controls.id));
+    form.controls.id.valueChanges.subscribe(() => {
+      this.updateAllIdValidity(form.controls.id);
+      if (key !== 'add') {
+        this.refreshOpenDraftValidity();
+      }
+    });
     return form;
   }
 
@@ -650,5 +665,14 @@ export class TribesSection implements OnChanges {
     if (this.addForm.controls.id !== source) {
       this.addForm.controls.id.updateValueAndValidity({emitEvent: false});
     }
+  }
+
+  /**
+   * Signals open local draft forms to re-run row ID validators.
+   *
+   * @private
+   */
+  private refreshOpenDraftValidity(): void {
+    this.tribeDraftValidationVersion++;
   }
 }

@@ -67,6 +67,15 @@ export class TribeEntry implements OnChanges {
   public basicColors: readonly string[] = [];
 
   /**
+   * Parent collection validation version.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input()
+  public validationVersion = 0;
+
+  /**
    * Emits the tribe key to remove.
    *
    * @public
@@ -219,6 +228,9 @@ export class TribeEntry implements OnChanges {
     if ((changes.form || changes.adder) && !this.adder) {
       this.syncEditorFromRow();
     }
+    if (changes.validationVersion && !this.adder) {
+      this.revalidateDraftId();
+    }
   }
 
   /**
@@ -261,7 +273,7 @@ export class TribeEntry implements OnChanges {
         this.add.emit();
       }
     } else {
-      this.editorForm.updateValueAndValidity({emitEvent: false});
+      this.revalidateDraftId();
       if (this.canConfirmEdit) {
         this.form?.setValue(this.editorForm.getRawValue());
         this.editing = false;
@@ -351,6 +363,16 @@ export class TribeEntry implements OnChanges {
       this.editorForm.markAsUntouched();
       this.editorForm.updateValueAndValidity({emitEvent: false});
     }
+  }
+
+  /**
+   * Revalidates the local draft ID against current parent rows.
+   *
+   * @private
+   */
+  private revalidateDraftId(): void {
+    this.editorForm.controls.id.updateValueAndValidity({emitEvent: false});
+    this.editorForm.updateValueAndValidity({emitEvent: false});
   }
 
   /**

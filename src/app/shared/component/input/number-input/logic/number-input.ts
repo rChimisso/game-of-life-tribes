@@ -87,6 +87,28 @@ function formatNumberView(value: number | null, separator: '.' | ','): string {
 }
 
 /**
+ * Formats a model value under the current structural constraints.
+ *
+ * @param {(number | null)} value model value.
+ * @param {NumberInputConstraints} constraints numeric constraints.
+ * @returns {NumberInputEditResult} edit result.
+ */
+function reconcileNumberView(value: number | null, constraints: NumberInputConstraints): NumberInputEditResult {
+  let reconciledValue = value;
+  if (value !== null && Number.isFinite(value) && constraints.decimalDigits >= 0) {
+    const scale = 10 ** constraints.decimalDigits;
+    reconciledValue = Math.round(value * scale) / scale;
+  }
+  const viewValue = formatNumberView(reconciledValue, constraints.decimalSeparator);
+  const result = normalizeNumberEdit(viewValue, constraints);
+  return {
+    accepted: result.accepted,
+    viewValue: result.accepted ? result.viewValue : viewValue,
+    modelValue: result.accepted ? result.modelValue : reconciledValue
+  };
+}
+
+/**
  * Normalizes a numeric view on blur.
  *
  * @param {string} viewValue current view value.
@@ -121,14 +143,47 @@ function numberValidationMetadata(value: number | null): NumberInputValidation {
   let integerDigits = 0;
   let decimalDigits = 0;
   if (value !== null && Number.isFinite(value)) {
-    const absoluteValueLabel = Math.abs(value).toString();
-    const [integerPart = '', decimalPart = ''] = absoluteValueLabel.split('.');
+    const {integerPart, decimalPart} = decimalParts(value);
     integerDigits = integerPart.length;
     decimalDigits = decimalPart.length;
   }
   return {
     integerDigits,
     decimalDigits
+  };
+}
+
+/**
+ * Converts a finite number into plain decimal parts for digit counting.
+ *
+ * @param {number} value finite numeric value.
+ * @returns {{integerPart: string; decimalPart: string}} decimal parts.
+ */
+function decimalParts(value: number): {integerPart: string; decimalPart: string} {
+  const absoluteLabel = Math.abs(value).toString();
+  const match = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(absoluteLabel);
+  let integerPart = '0';
+  let decimalPart = '';
+  if (match) {
+    const coefficientInteger = match[1] ?? '0';
+    const coefficientDecimal = match[2] ?? '';
+    const exponent = Number(match[3] ?? 0);
+    const digits = `${coefficientInteger}${coefficientDecimal}`;
+    const decimalIndex = coefficientInteger.length + exponent;
+    if (decimalIndex <= 0) {
+      integerPart = '0';
+      decimalPart = `${'0'.repeat(Math.abs(decimalIndex))}${digits}`.replace(/0+$/, '');
+    } else if (decimalIndex >= digits.length) {
+      integerPart = `${digits}${'0'.repeat(decimalIndex - digits.length)}`.replace(/^0+(?=\d)/, '');
+      decimalPart = '';
+    } else {
+      integerPart = digits.slice(0, decimalIndex).replace(/^0+(?=\d)/, '');
+      decimalPart = digits.slice(decimalIndex).replace(/0+$/, '');
+    }
+  }
+  return {
+    integerPart: integerPart === '' ? '0' : integerPart,
+    decimalPart
   };
 }
 
@@ -232,4 +287,4 @@ function parseViewNumber(viewValue: string, separator: '.' | ','): number | null
   return value;
 }
 
-export {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView};
+export {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView, reconcileNumberView};

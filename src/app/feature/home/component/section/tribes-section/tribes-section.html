@@ -2,7 +2,7 @@
   <div class="tribe-list" formArrayName="tribes">
     @for (tribeForm of tribes.controls; track rowKey($index); let index = $index) {
       @if (tribeForm.controls.id.value !== "dead") {
-        <gol-tribe-entry [basicColors]="basicColors" [form]="tribeForm" [title]="'Tribe ' + tribeForm.controls.id.value" [tribeKey]="rowKey(index)" (editingChange)="onRowEditingChange(rowKey(index), $event)" (remove)="onRemoveTribe($event)" />
+        <gol-tribe-entry [basicColors]="basicColors" [form]="tribeForm" [title]="'Tribe ' + tribeForm.controls.id.value" [tribeKey]="rowKey(index)" [validationVersion]="tribeDraftValidationVersion" (editingChange)="onRowEditingChange(rowKey(index), $event)" (remove)="onRemoveTribe($event)" />
       }
     }
     @if (showTribeAdder) {

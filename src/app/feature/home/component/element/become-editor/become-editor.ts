@@ -5,8 +5,9 @@ import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VA
 import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeSelector, selectorSignature} from '~gol/feature/home/logic/rule-editor';
-import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {combinationInputValue, combinationTribeIds, DIFFERENT_INPUT_VALUE, isRankedBecome, RANK_INPUT_VALUE, RankedBecome, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
+import {normalizeSelector} from '~gol/feature/home/logic/rule-editor';
+import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
@@ -17,13 +18,6 @@ import {SelectComponent} from '~gol/shared/component/select/select';
  * @typedef {BecomeMode}
  */
 type BecomeMode = Become<Tribe[]>['kind'];
-
-/**
- * Ranked outcome handled by the same UI.
- *
- * @typedef {RankedBecome}
- */
-type RankedBecome = Extract<Become<Tribe[]>, {kind: typeof MAJORITY_BECOME_KIND | typeof MINORITY_BECOME_KIND}>;
 
 /**
  * Combine outcome handled by the lookup table UI.
@@ -52,41 +46,6 @@ type CombineTarget = 'root' | 'tie' | 'fallback';
  * @type {"Fixed tribe"}
  */
 const FIXED_TRIBE_LABEL = 'Fixed tribe';
-
-/**
- * Maximum number of selector inputs in one combination row.
- *
- * @type {8}
- */
-const MAX_COMBINATION_INPUTS = 8;
-
-/**
- * Select value prefix for concrete tribe inputs.
- *
- * @type {"tribe:"}
- */
-const TRIBE_INPUT_PREFIX = 'tribe:';
-
-/**
- * Select value for the current-cell tribe input.
- *
- * @type {"selector:same"}
- */
-const SAME_INPUT_VALUE = 'selector:same';
-
-/**
- * Select value for tribes different from the current-cell tribe.
- *
- * @type {"selector:different"}
- */
-const DIFFERENT_INPUT_VALUE = 'selector:different';
-
-/**
- * Select value for the active ranked candidates.
- *
- * @type {"selector:rank"}
- */
-const RANK_INPUT_VALUE = 'selector:rank';
 
 /**
  * Editor for rule outcome expressions.
@@ -606,23 +565,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @returns {string} select value.
    */
   public combinationInputValue(input: TribeSelector<Tribe[]>): string {
-    const selector = normalizeSelector(input);
-    let value: string;
-    switch (selector.kind) {
-      case SAME_TRIBE_SELECTOR_KIND:
-        value = SAME_INPUT_VALUE;
-        break;
-      case DIFFERENT_TRIBE_SELECTOR_KIND:
-        value = DIFFERENT_INPUT_VALUE;
-        break;
-      case TIE_SELECTOR_KIND:
-        value = RANK_INPUT_VALUE;
-        break;
-      case TRIBES_SELECTOR_KIND:
-        value = `${TRIBE_INPUT_PREFIX}${selector.tribes[0]}`;
-        break;
-    }
-    return value;
+    return combinationInputValue(input);
   }
 
   /**
@@ -723,7 +666,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @returns {become is RankedBecome} whether the outcome is ranked.
    */
   public isRankedBecome(become: Become<Tribe[]>): become is RankedBecome {
-    return become.kind === MAJORITY_BECOME_KIND || become.kind === MINORITY_BECOME_KIND;
+    return isRankedBecome(become);
   }
 
   /**
@@ -929,7 +872,11 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @returns {SelectOption[]} input options.
    */
   private allCombinationInputOptions(ranked: RankedBecome | null): SelectOption[] {
-    const options = this.combinationTribeOptions(ranked);
+    const options: SelectOption[] = combinationTribeIds(this.tribes, ranked).map(tribeId => ({
+      value: `${TRIBE_INPUT_PREFIX}${tribeId}`,
+      label: tribeId,
+      swatchColor: this.tribes.find(tribe => tribe.id === tribeId)?.color
+    }));
     options.push(
       {value: SAME_INPUT_VALUE, label: 'Same'},
       {value: DIFFERENT_INPUT_VALUE, label: 'Different'}
@@ -956,22 +903,6 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
       ranked = this.become;
     }
     return ranked;
-  }
-
-  /**
-   * Returns tribe options for a combination input.
-   *
-   * @private
-   * @param {(RankedBecome | null)} ranked ranked context.
-   * @returns {SelectOption[]} tribe input options.
-   */
-  private combinationTribeOptions(ranked: RankedBecome | null): SelectOption[] {
-    const allowedIds = ranked?.selector.kind === TRIBES_SELECTOR_KIND ? new Set(ranked.selector.tribes) : null;
-    return this.tribes.filter(tribe => !allowedIds || allowedIds.has(tribe.id) || tribe.id === DEAD_TRIBE_ID).map(tribe => ({
-      value: `${TRIBE_INPUT_PREFIX}${tribe.id}`,
-      label: tribe.id,
-      swatchColor: tribe.color
-    }));
   }
 
   /**
@@ -1024,108 +955,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @returns {(string | null)} validation message.
    */
   private validateBecome(become: Become<Tribe[]>, rankedContext: RankedBecome | null = null): string | null {
-    const knownIds = new Set(this.tribes.map(tribe => tribe.id));
-    let message: string | null = null;
-    switch (become.kind) {
-      case FIXED_BECOME_KIND:
-        if (!knownIds.has(become.tribe)) {
-          message = 'Choose a valid fixed tribe.';
-        }
-        break;
-      case MAJORITY_BECOME_KIND:
-      case MINORITY_BECOME_KIND:
-        message = this.validateSelector(become.selector) ?? (become.tie ? this.validateBecome(become.tie, become) : 'Choose a tie behavior.') ?? (become.fallback ? this.validateBecome(become.fallback, become) : 'Choose a fallback.');
-        break;
-      case COMBINE_BECOME_KIND:
-        message = this.validateCombine(become, rankedContext);
-        break;
-    }
-    return message;
-  }
-
-  /**
-   * Validates a selector expression.
-   *
-   * @private
-   * @param {TribeSelector<Tribe[]>} selector selector expression.
-   * @returns {(string | null)} validation message.
-   */
-  private validateSelector(selector: TribeSelector<Tribe[]>): string | null {
-    const knownIds = new Set(this.tribes.map(tribe => tribe.id));
-    let message: string | null = null;
-    switch (selector.kind) {
-      case TRIBES_SELECTOR_KIND:
-        if (selector.tribes.length === 0) {
-          message = 'Choose at least one tribe.';
-        } else if (selector.tribes.some(id => !knownIds.has(id))) {
-          message = 'Choose only existing tribes.';
-        }
-        break;
-      case TIE_SELECTOR_KIND:
-        message = this.validateSelector(selector.source);
-        break;
-    }
-    return message;
-  }
-
-  /**
-   * Validates a combine outcome.
-   *
-   * @private
-   * @param {CombineBecome} become combine outcome.
-   * @param {(RankedBecome | null)} rankedContext ranked context.
-   * @returns {(string | null)} validation message.
-   */
-  private validateCombine(become: CombineBecome, rankedContext: RankedBecome | null): string | null {
-    let message: string | null = null;
-    const seenRows = new Set<string>();
-    for (const entry of become.strategy.entries) {
-      const rowMessage = this.validateCombinationEntry(entry, seenRows, rankedContext);
-      if (!message && rowMessage) {
-        message = rowMessage;
-      }
-    }
-    if (!message && !become.strategy.default) {
-      message = 'Choose a combination default.';
-    }
-    if (!message && become.strategy.default) {
-      message = this.validateBecome(become.strategy.default);
-    }
-    return message;
-  }
-
-  /**
-   * Validates one combination row.
-   *
-   * @private
-   * @param {CombinationEntry<Tribe[]>} entry combination row.
-   * @param {Set<string>} seenRows normalized row keys.
-   * @param {(RankedBecome | null)} rankedContext ranked context.
-   * @returns {(string | null)} validation message.
-   */
-  private validateCombinationEntry(entry: CombinationEntry<Tribe[]>, seenRows: Set<string>, rankedContext: RankedBecome | null): string | null {
-    const knownIds = new Set(this.tribes.map(tribe => tribe.id));
-    const allowedValues = new Set(this.allCombinationInputOptions(rankedContext).map(option => option.value));
-    let message: string | null = null;
-    if (entry.inputs.length === 0) {
-      message = 'Combination rows need at least one input.';
-    } else if (entry.inputs.length > MAX_COMBINATION_INPUTS) {
-      message = 'Combination rows can use at most eight inputs.';
-    } else if (new Set(entry.inputs.map(input => this.combinationInputValue(input))).size !== entry.inputs.length) {
-      message = 'Combination rows cannot repeat the same input.';
-    } else if (entry.inputs.some(selector => this.validateSelector(selector) !== null) || !knownIds.has(entry.output)) {
-      message = 'Combination rows can only reference existing tribes.';
-    } else if (entry.inputs.some(selector => !allowedValues.has(this.combinationInputValue(selector)))) {
-      message = 'Combination rows can only use inputs available in this context.';
-    } else {
-      const rowKey = entry.inputs.map(selector => selectorSignature(selector)).sort().join('|');
-      if (seenRows.has(rowKey)) {
-        message = 'Combination table has duplicate input rows.';
-      } else {
-        seenRows.add(rowKey);
-      }
-    }
-    return message;
+    return validateBecomeSemantics(become, this.tribes, 'become', rankedContext)[0]?.message ?? null;
   }
 
   /**

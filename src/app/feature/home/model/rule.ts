@@ -304,6 +304,13 @@ export const LOOKUP_STRATEGY_KIND = 'lookup';
 export const COMBINE_BECOME_KIND = 'combine';
 
 /**
+ * Maximum number of selector inputs in one combination row.
+ *
+ * @type {8}
+ */
+export const MAX_COMBINATION_INPUTS = 8;
+
+/**
  * Interval for counting a cell's neighbors (both inclusive).
  *
  * @typedef {Interval}

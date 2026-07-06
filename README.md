@@ -146,7 +146,7 @@ A detailed benchmark write-up is available in the wiki:
 - [Results](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Results)
 - [Conclusions](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Conclusions)
 
-The normalized source data is stored in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv). The runs use the **Conway** preset on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
+The normalized source data is stored in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv). The runs use the **Conway** preset with **Toroidal** topology on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
 
 Main takeaways:
 

@@ -1828,6 +1828,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         console.warn('[GOLT] Invalid snapshot file selected');
         openHomeSnack(this.snackBar, 'Invalid snapshot file.', 'error');
       }
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : 'Snapshot load failed. Try again.';
+      console.error('[GOLT] Snapshot load failed:', error);
+      openHomeSnack(this.snackBar, message, 'error');
     } finally {
       this.loadingState = false;
       this.resetSnapshotProgress();

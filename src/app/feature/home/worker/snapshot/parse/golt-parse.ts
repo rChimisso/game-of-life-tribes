@@ -1,3 +1,4 @@
+import {sanitizeGoltHeader} from './golt-header-sanitizer';
 import {hasGoltMagic} from '../logic/golt-format';
 import {GOLT_PREAMBLE_SIZE, GOLT_VERSION, RAW_DEFLATE_CODEC} from '../model/golt-format';
 import {GoltHeader, ParsedGoltState, SNAPSHOT_STREAMING_THRESHOLD_BYTES, SnapshotProgressReporter} from '../model/golt-types';
@@ -37,8 +38,9 @@ function readHeaderContext(buffer: ArrayBuffer): {header: GoltHeader; headerEnd:
     const headerEnd = GOLT_PREAMBLE_SIZE + headerLength;
     const validPreamble = hasGoltMagic(view) && view.getUint32(4, true) === GOLT_VERSION && headerEnd <= buffer.byteLength;
     if (validPreamble) {
+      const parsedJson: unknown = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, GOLT_PREAMBLE_SIZE, headerLength)));
       context = {
-        header: JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, GOLT_PREAMBLE_SIZE, headerLength))),
+        header: sanitizeGoltHeader(parsedJson),
         headerEnd
       };
     }

@@ -1,16 +1,15 @@
 import {NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormControl, ReactiveFormsModule, Validators} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
+import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
-import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
-import {SelectorChangeEvent} from '../model/selector-event';
 import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {clausesEqual, normalizeCountExpression, normalizeSelector, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {normalizeCountExpression, normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
+import {hasInvalidClauseStructure} from '~gol/feature/home/logic/rule-validation';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
@@ -48,6 +47,13 @@ interface CountSelectorClause {
 type ClauseNumberField = 'interval-0' | 'interval-1' | 'value' | 'margin';
 
 /**
+ * Clause selector target.
+ *
+ * @typedef {ClauseSelectorTarget}
+ */
+type ClauseSelectorTarget = 'count' | 'left' | 'right';
+
+/**
  * Active clause numeric field descriptor.
  *
  * @interface ClauseNumberDescriptor
@@ -75,11 +81,40 @@ interface ClauseNumberDescriptor {
 }
 
 /**
+ * Active clause selector descriptor.
+ *
+ * @interface ClauseSelectorDescriptor
+ * @typedef {ClauseSelectorDescriptor}
+ */
+interface ClauseSelectorDescriptor {
+  /**
+   * Clause path.
+   *
+   * @type {number[]}
+   */
+  path: number[];
+  /**
+   * Selector target.
+   *
+   * @type {ClauseSelectorTarget}
+   */
+  target: ClauseSelectorTarget;
+  /**
+   * Current selector value.
+   *
+   * @type {TribeSelector<Tribe[]>}
+   */
+  value: TribeSelector<Tribe[]>;
+}
+
+/**
  * Rule clause editor.
  *
  * @class RuleClause
  * @typedef {RuleClause}
  * @implements {OnChanges}
+ * @implements {ControlValueAccessor}
+ * @implements {Validator}
  */
 @Component({
   selector: 'gol-rule-clause',
@@ -99,17 +134,29 @@ interface ClauseNumberDescriptor {
   templateUrl: './clause.html',
   styleUrl: './clause.scss',
   preserveWhitespaces: false,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => RuleClause),
+      multi: true
+    },
+    {
+      provide: NG_VALIDATORS,
+      useExisting: forwardRef(() => RuleClause),
+      multi: true
+    }
+  ]
 })
-export class RuleClause implements OnChanges {
+export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   /**
    * Editable clause.
    *
    * @public
    * @type {!Clause<Tribe[]>}
    */
-  @Input({required: true})
-  public clause!: Clause<Tribe[]>;
+  @Input()
+  public clause: Clause<Tribe[]> = EMPTY_CLAUSE;
 
   /**
    * Baseline clause used for dirty-state checks.
@@ -157,26 +204,6 @@ export class RuleClause implements OnChanges {
   public disabled = false;
 
   /**
-   * Emits clause edits with derived state.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<ClauseChangeEvent>}
-   */
-  @Output()
-  public readonly clauseChange = new EventEmitter<ClauseChangeEvent>();
-
-  /**
-   * Emits dirty and invalid state changes.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<ClauseStateChangeEvent>}
-   */
-  @Output()
-  public readonly clauseStateChange = new EventEmitter<ClauseStateChangeEvent>();
-
-  /**
    * Collapsed logical group keys.
    *
    * @public
@@ -192,6 +219,15 @@ export class RuleClause implements OnChanges {
    * @type {Map<string, FormControl<number | null>>}
    */
   private readonly numberControls = new Map<string, FormControl<number | null>>();
+
+  /**
+   * Local selector controls keyed by clause path and target.
+   *
+   * @private
+   * @readonly
+   * @type {Map<string, FormControl<TribeSelector<Tribe[]>>>}
+   */
+  private readonly selectorControls = new Map<string, FormControl<TribeSelector<Tribe[]>>>();
 
   /**
    * Selectable clause kinds.
@@ -242,10 +278,56 @@ export class RuleClause implements OnChanges {
   public ngOnChanges(changes: TypedChanges<RuleClause>): void {
     if (changes.clause) {
       this.syncNumberControlsFromClause();
+      this.syncSelectorControlsFromClause();
     }
-    if (changes.clause || changes.baselineClause) {
-      this.emitClauseState();
+    if (changes.clause || changes.baselineClause || changes.tribes) {
+      this.onValidatorChange();
     }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public writeValue(value: Clause<Tribe[]> | null): void {
+    this.clause = value ? structuredClone(value) : EMPTY_CLAUSE;
+    this.syncNumberControlsFromClause();
+    this.syncSelectorControlsFromClause();
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnChange(fn: (value: Clause<Tribe[]>) => void): void {
+    this.onChange = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
+    this.syncActiveControlsDisabled();
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public validate(_: AbstractControl<Clause<Tribe[]> | null>): ValidationErrors | null {
+    return this.isInvalid() ? {clause: true} : null;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnValidatorChange(fn: () => void): void {
+    this.onValidatorChange = fn;
   }
 
   /**
@@ -429,10 +511,11 @@ export class RuleClause implements OnChanges {
    *
    * @public
    * @param {number[]} path path to the clause to update.
-   * @param {'count' | 'left' | 'right'} target selector target.
-   * @param {SelectorChangeEvent} event selector change event.
+   * @param {ClauseSelectorTarget} target selector target.
+   * @param {string} key control key.
+   * @param {TribeSelector<Tribe[]>} selector selector expression.
    */
-  public onSelectorChanged(path: number[], target: 'count' | 'left' | 'right', event: SelectorChangeEvent): void {
+  public onSelectorChanged(path: number[], target: ClauseSelectorTarget, key: string, selector: TribeSelector<Tribe[]>): void {
     if (!this.disabled) {
       this.updateClause(clauseRoot => {
         const clause = this.getClauseAtPath(clauseRoot, path);
@@ -443,7 +526,7 @@ export class RuleClause implements OnChanges {
           case MIN_CLAUSE_KIND:
           case MAX_CLAUSE_KIND:
             if (target === 'count') {
-              clause.selector = event.selector;
+              clause.selector = selector;
               delete clause.tribes;
             }
             break;
@@ -451,13 +534,13 @@ export class RuleClause implements OnChanges {
             if (target === 'left') {
               clause.left = {
                 kind: 'count',
-                selector: event.selector
+                selector
               };
               delete clause.tribe1;
             } else if (target === 'right') {
               clause.right = {
                 kind: 'count',
-                selector: event.selector
+                selector
               };
               delete clause.tribe2;
             }
@@ -465,7 +548,33 @@ export class RuleClause implements OnChanges {
         }
         return clauseRoot;
       });
+    } else {
+      this.selectorControls.get(key)?.updateValueAndValidity({emitEvent: false});
     }
+  }
+
+  /**
+   * Gets a reactive selector control for one clause selector.
+   *
+   * @public
+   * @param {number[]} path path to the clause to update.
+   * @param {ClauseSelectorTarget} target selector target.
+   * @param {TribeSelector<Tribe[]>} value current value.
+   * @returns {FormControl<TribeSelector<Tribe[]>>} selector control.
+   */
+  public clauseSelectorControl(path: number[], target: ClauseSelectorTarget, value: TribeSelector<Tribe[]>): FormControl<TribeSelector<Tribe[]>> {
+    const key = this.selectorControlKey(path, target);
+    let control = this.selectorControls.get(key);
+    if (!control) {
+      control = new FormControl<TribeSelector<Tribe[]>>(value, {nonNullable: true});
+      control.valueChanges.subscribe(nextValue => this.onSelectorChanged(path, target, key, nextValue));
+      this.selectorControls.set(key, control);
+    }
+    this.syncControlDisabled(control);
+    if (!this.selectorsEqual(control.value, value)) {
+      control.setValue(value, {emitEvent: false});
+    }
+    return control;
   }
 
   /**
@@ -485,7 +594,7 @@ export class RuleClause implements OnChanges {
       control.valueChanges.subscribe(nextValue => this.onClauseNumberChanged(path, field, key, nextValue));
       this.numberControls.set(key, control);
     }
-    this.syncNumberControlDisabled(control);
+    this.syncControlDisabled(control);
     if (!control.dirty && control.value !== value) {
       control.setValue(value, {emitEvent: false});
     }
@@ -701,21 +810,35 @@ export class RuleClause implements OnChanges {
         return clauseRoot;
       });
     } else {
-      this.emitClauseState();
+      this.onValidatorChange();
     }
   }
 
   /**
-   * Synchronizes a numeric control disabled state.
+   * Synchronizes a child control disabled state.
    *
    * @private
-   * @param {FormControl<number | null>} control numeric control.
+   * @param {AbstractControl} control child control.
    */
-  private syncNumberControlDisabled(control: FormControl<number | null>): void {
+  private syncControlDisabled(control: AbstractControl): void {
     if (this.disabled && control.enabled) {
       control.disable({emitEvent: false});
     } else if (!this.disabled && control.disabled) {
       control.enable({emitEvent: false});
+    }
+  }
+
+  /**
+   * Synchronizes all active child controls disabled state.
+   *
+   * @private
+   */
+  private syncActiveControlsDisabled(): void {
+    for (const control of this.numberControls.values()) {
+      this.syncControlDisabled(control);
+    }
+    for (const control of this.selectorControls.values()) {
+      this.syncControlDisabled(control);
     }
   }
 
@@ -773,36 +896,11 @@ export class RuleClause implements OnChanges {
    * @private
    */
   private emitClauseChange(): void {
-    const dirty = this.isDirty();
-    const invalid = this.isInvalid();
-    this.clauseChange.emit({
-      clause: this.clause,
-      dirty,
-      invalid
-    });
-    this.clauseStateChange.emit({dirty, invalid});
-  }
-
-  /**
-   * Emits the current clause state.
-   *
-   * @private
-   */
-  private emitClauseState(): void {
-    this.clauseStateChange.emit({dirty: this.isDirty(), invalid: this.isInvalid()});
-  }
-
-  /**
-   * Whether the clause differs from its baseline.
-   *
-   * @private
-   * @returns {boolean} `true` if the clause differs from its baseline, `false` otherwise.
-   */
-  private isDirty(): boolean {
-    if (this.baselineClause) {
-      return !clausesEqual(this.clause, this.baselineClause);
-    }
-    return true;
+    this.syncNumberControlsFromClause();
+    this.syncSelectorControlsFromClause();
+    this.onChange(this.clause);
+    this.onValidatorChange();
+    this.onTouched();
   }
 
   /**
@@ -824,7 +922,7 @@ export class RuleClause implements OnChanges {
    * @returns {boolean} `true` if the clause tree is invalid.
    */
   private isClauseTreeInvalid(clause: Clause<Tribe[]>, path: number[]): boolean {
-    return this.containsEmptyClause(clause) || this.containsInvalidSelector(clause) || this.containsInvalidNumberControlForClause(clause, path);
+    return hasInvalidClauseStructure(clause, this.tribes) || this.containsInvalidSelectorControlForClause(clause, path) || this.containsInvalidNumberControlForClause(clause, path);
   }
 
   /**
@@ -840,6 +938,18 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Whether a clause tree contains invalid active selector controls.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {number[]} path current clause path.
+   * @returns {boolean} `true` if any active selector in the clause tree is invalid.
+   */
+  private containsInvalidSelectorControlForClause(clause: Clause<Tribe[]>, path: number[]): boolean {
+    return this.activeSelectorDescriptors(clause, path).some(descriptor => this.selectorControls.get(this.selectorControlKey(descriptor.path, descriptor.target))?.invalid);
+  }
+
+  /**
    * Synchronizes active numeric controls from the clause model.
    *
    * @private
@@ -848,6 +958,22 @@ export class RuleClause implements OnChanges {
     for (const descriptor of this.activeNumberDescriptors(this.clause, [])) {
       const control = this.numberControls.get(this.numberControlKey(descriptor.path, descriptor.field));
       if (control && control.value !== descriptor.value) {
+        control.setValue(descriptor.value, {emitEvent: false});
+        control.markAsPristine();
+        control.markAsUntouched();
+      }
+    }
+  }
+
+  /**
+   * Synchronizes active selector controls from the clause model.
+   *
+   * @private
+   */
+  private syncSelectorControlsFromClause(): void {
+    for (const descriptor of this.activeSelectorDescriptors(this.clause, [])) {
+      const control = this.selectorControls.get(this.selectorControlKey(descriptor.path, descriptor.target));
+      if (control && !this.selectorsEqual(control.value, descriptor.value)) {
         control.setValue(descriptor.value, {emitEvent: false});
         control.markAsPristine();
         control.markAsUntouched();
@@ -913,6 +1039,56 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Gets active selector descriptors for a clause tree.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {number[]} path current clause path.
+   * @returns {ClauseSelectorDescriptor[]} active selector descriptors.
+   */
+  private activeSelectorDescriptors(clause: Clause<Tribe[]>, path: number[]): ClauseSelectorDescriptor[] {
+    let descriptors: ClauseSelectorDescriptor[] = [];
+    switch (clause.kind) {
+      case COUNT_CLAUSE_KIND:
+      case NONE_CLAUSE_KIND:
+      case EXACTLY_CLAUSE_KIND:
+      case MIN_CLAUSE_KIND:
+      case MAX_CLAUSE_KIND:
+        descriptors = [
+          {
+            path,
+            target: 'count',
+            value: normalizeSelector(clause.selector, clause.tribes)
+          }
+        ];
+        break;
+      case COMPARISON_CLAUSE_KIND:
+        descriptors = [
+          {
+            path,
+            target: 'left',
+            value: normalizeCountExpression(clause.left, clause.tribe1).selector
+          },
+          {
+            path,
+            target: 'right',
+            value: normalizeCountExpression(clause.right, clause.tribe2).selector
+          }
+        ];
+        break;
+      case NOT_CLAUSE_KIND:
+        descriptors = this.activeSelectorDescriptors(clause.clause, path.concat(0));
+        break;
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND:
+        descriptors = clause.clauses.flatMap((child, index) => this.activeSelectorDescriptors(child, path.concat(index)));
+        break;
+    }
+    return descriptors;
+  }
+
+  /**
    * Builds a stable key for a numeric clause control.
    *
    * @private
@@ -925,78 +1101,27 @@ export class RuleClause implements OnChanges {
   }
 
   /**
-   * Whether a clause tree contains an empty clause.
+   * Builds a stable key for a selector clause control.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause to inspect.
-   * @returns {boolean} `true` if the clause tree contains an empty clause, `false` otherwise.
+   * @param {number[]} path clause path.
+   * @param {ClauseSelectorTarget} target selector target.
+   * @returns {string} selector control key.
    */
-  private containsEmptyClause(clause: Clause<Tribe[]>): boolean {
-    switch (clause.kind) {
-      case EMPTY_CLAUSE_KIND:
-        return true;
-      case NOT_CLAUSE_KIND:
-        return this.containsEmptyClause(clause.clause);
-      case AND_CLAUSE_KIND:
-      case OR_CLAUSE_KIND:
-      case XOR_CLAUSE_KIND:
-        return clause.clauses.some(child => this.containsEmptyClause(child));
-      default:
-        return false;
-    }
+  private selectorControlKey(path: number[], target: ClauseSelectorTarget): string {
+    return `${path.join('.')}:${target}`;
   }
 
   /**
-   * Whether a clause tree contains an invalid selector.
+   * Checks selector semantic equality.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause to inspect.
-   * @returns {boolean} `true` if the clause tree contains an invalid selector, `false` otherwise.
+   * @param {TribeSelector<Tribe[]>} left left selector.
+   * @param {TribeSelector<Tribe[]>} right right selector.
+   * @returns {boolean} `true` if the selectors are equivalent.
    */
-  private containsInvalidSelector(clause: Clause<Tribe[]>): boolean {
-    let invalid = false;
-    switch (clause.kind) {
-      case COUNT_CLAUSE_KIND:
-      case NONE_CLAUSE_KIND:
-      case EXACTLY_CLAUSE_KIND:
-      case MIN_CLAUSE_KIND:
-      case MAX_CLAUSE_KIND:
-        invalid = this.isSelectorInvalid(normalizeSelector(clause.selector, clause.tribes));
-        break;
-      case COMPARISON_CLAUSE_KIND:
-        invalid = this.isSelectorInvalid(normalizeCountExpression(clause.left, clause.tribe1).selector) || this.isSelectorInvalid(normalizeCountExpression(clause.right, clause.tribe2).selector);
-        break;
-      case NOT_CLAUSE_KIND:
-        invalid = this.containsInvalidSelector(clause.clause);
-        break;
-      case AND_CLAUSE_KIND:
-      case OR_CLAUSE_KIND:
-      case XOR_CLAUSE_KIND:
-        invalid = clause.clauses.some(child => this.containsInvalidSelector(child));
-        break;
-    }
-    return invalid;
-  }
-
-  /**
-   * Whether a selector is invalid for this editor.
-   *
-   * @private
-   * @param {TribeSelector<Tribe[]>} selector selector to inspect.
-   * @returns {boolean} `true` if invalid.
-   */
-  private isSelectorInvalid(selector: TribeSelector<Tribe[]>): boolean {
-    const knownIds = new Set(this.tribes.map(tribe => tribe.id));
-    let invalid = false;
-    switch (selector.kind) {
-      case TRIBES_SELECTOR_KIND:
-        invalid = selector.tribes.length === 0 || selector.tribes.some(id => !knownIds.has(id));
-        break;
-      case TIE_SELECTOR_KIND:
-        invalid = true;
-        break;
-    }
-    return invalid;
+  private selectorsEqual(left: TribeSelector<Tribe[]>, right: TribeSelector<Tribe[]>): boolean {
+    return selectorSignature(left) === selectorSignature(right);
   }
 
   /**
@@ -1041,4 +1166,28 @@ export class RuleClause implements OnChanges {
     }
     return root;
   }
+
+  /**
+   * Validator change callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onValidatorChange: () => void = () => undefined;
+
+  /**
+   * CVA change callback.
+   *
+   * @private
+   * @type {(value: Clause<Tribe[]>) => void}
+   */
+  private onChange: (value: Clause<Tribe[]>) => void = () => undefined;
+
+  /**
+   * CVA touched callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onTouched: () => void = () => undefined;
 }

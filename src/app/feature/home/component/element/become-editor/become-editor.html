@@ -10,7 +10,7 @@
     }
     @if (isRankedBecome(become)) {
       <span class="field-label inline-label">{{ rankSelectorLabel(become) }}</span>
-      <gol-selector-editor title="Choose which neighbor tribes are ranked" [disabled]="disabled" [selector]="become.selector" [tribes]="tribes" (selectorChange)="onSetRankSelector($event)" />
+      <gol-selector-editor title="Choose which neighbor tribes are ranked" [formControl]="rankSelectorControl" [tribes]="tribes" />
     }
   </div>
   @switch (become.kind) {

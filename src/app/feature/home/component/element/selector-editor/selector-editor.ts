@@ -1,6 +1,5 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-
-import {SelectorChangeEvent, SelectorStateChangeEvent} from '../model/selector-event';
+import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
+import {AbstractControl, ControlValueAccessor, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
@@ -22,6 +21,8 @@ export type TribeSelectorKind = TribeSelector<Tribe[]>['kind'];
  * @class SelectorEditor
  * @typedef {SelectorEditor}
  * @implements {OnChanges}
+ * @implements {ControlValueAccessor}
+ * @implements {Validator}
  */
 @Component({
   selector: 'gol-selector-editor',
@@ -30,17 +31,32 @@ export type TribeSelectorKind = TribeSelector<Tribe[]>['kind'];
   templateUrl: './selector-editor.html',
   styleUrl: './selector-editor.scss',
   preserveWhitespaces: false,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => SelectorEditor),
+      multi: true
+    },
+    {
+      provide: NG_VALIDATORS,
+      useExisting: forwardRef(() => SelectorEditor),
+      multi: true
+    }
+  ]
 })
-export class SelectorEditor implements OnChanges {
+export class SelectorEditor implements OnChanges, ControlValueAccessor, Validator {
   /**
    * Editable selector.
    *
    * @public
    * @type {!TribeSelector<Tribe[]>}
    */
-  @Input({required: true})
-  public selector!: TribeSelector<Tribe[]>;
+  @Input()
+  public selector: TribeSelector<Tribe[]> = {
+      kind: TRIBES_SELECTOR_KIND,
+      tribes: ['']
+    };
 
   /**
    * Baseline selector used for dirty-state checks.
@@ -77,26 +93,6 @@ export class SelectorEditor implements OnChanges {
    */
   @Input()
   public allowedKinds: TribeSelectorKind[] = [TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND];
-
-  /**
-   * Emits selector edits with derived state.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<SelectorChangeEvent>}
-   */
-  @Output()
-  public readonly selectorChange = new EventEmitter<SelectorChangeEvent>();
-
-  /**
-   * Emits dirty and invalid state changes.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<SelectorStateChangeEvent>}
-   */
-  @Output()
-  public readonly selectorStateChange = new EventEmitter<SelectorStateChangeEvent>();
 
   /**
    * Human-readable selector mode options.
@@ -179,8 +175,50 @@ export class SelectorEditor implements OnChanges {
   public ngOnChanges(changes: TypedChanges<SelectorEditor>): void {
     if (changes.selector || changes.baselineSelector || changes.tribes || changes.allowedKinds) {
       this.selector = normalizeSelector(this.selector);
-      this.emitSelectorState();
+      this.onValidatorChange();
     }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public writeValue(value: TribeSelector<Tribe[]> | null): void {
+    this.selector = normalizeSelector(value ?? this.createSelector(this.allowedKinds[0] ?? TRIBES_SELECTOR_KIND));
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnChange(fn: (value: TribeSelector<Tribe[]>) => void): void {
+    this.onChange = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public validate(_: AbstractControl<TribeSelector<Tribe[]> | null>): ValidationErrors | null {
+    return this.isInvalid ? {selector: true} : null;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnValidatorChange(fn: () => void): void {
+    this.onValidatorChange = fn;
   }
 
   /**
@@ -246,29 +284,9 @@ export class SelectorEditor implements OnChanges {
    * @private
    */
   private emitSelectorChange(): void {
-    const dirty = this.isDirty;
-    const invalid = this.isInvalid;
-    this.selectorChange.emit({
-      selector: this.selector,
-      dirty,
-      invalid
-    });
-    this.selectorStateChange.emit({
-      dirty,
-      invalid
-    });
-  }
-
-  /**
-   * Emits the current selector state.
-   *
-   * @private
-   */
-  private emitSelectorState(): void {
-    this.selectorStateChange.emit({
-      dirty: this.isDirty,
-      invalid: this.isInvalid
-    });
+    this.onChange(this.selector);
+    this.onValidatorChange();
+    this.onTouched();
   }
 
   /**
@@ -312,4 +330,28 @@ export class SelectorEditor implements OnChanges {
   private defaultTribeId(): string {
     return this.tribes[0]?.id ?? '';
   }
+
+  /**
+   * Validator change callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onValidatorChange: () => void = () => undefined;
+
+  /**
+   * CVA change callback.
+   *
+   * @private
+   * @type {(value: TribeSelector<Tribe[]>) => void}
+   */
+  private onChange: (value: TribeSelector<Tribe[]>) => void = () => undefined;
+
+  /**
+   * CVA touched callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onTouched: () => void = () => undefined;
 }

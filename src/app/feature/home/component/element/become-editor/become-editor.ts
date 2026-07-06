@@ -1,8 +1,7 @@
 import {NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
+import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator} from '@angular/forms';
 
-import {BecomeChangeEvent, BecomeStateChangeEvent} from '../model/become-event';
-import {SelectorChangeEvent} from '../model/selector-event';
 import {SelectorEditor} from '../selector-editor/selector-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -95,11 +94,14 @@ const RANK_INPUT_VALUE = 'selector:rank';
  * @class BecomeEditor
  * @typedef {BecomeEditor}
  * @implements {OnChanges}
+ * @implements {ControlValueAccessor}
+ * @implements {Validator}
  */
 @Component({
   selector: 'gol-become-editor',
   standalone: true,
   imports: [
+    ReactiveFormsModule,
     NgTemplateOutlet,
     Button,
     SelectorEditor,
@@ -108,17 +110,32 @@ const RANK_INPUT_VALUE = 'selector:rank';
   templateUrl: './become-editor.html',
   styleUrl: './become-editor.scss',
   preserveWhitespaces: false,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => BecomeEditor),
+      multi: true
+    },
+    {
+      provide: NG_VALIDATORS,
+      useExisting: forwardRef(() => BecomeEditor),
+      multi: true
+    }
+  ]
 })
-export class BecomeEditor implements OnChanges {
+export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator {
   /**
    * Editable outcome expression.
    *
    * @public
    * @type {!Become<Tribe[]>}
    */
-  @Input({required: true})
-  public become!: Become<Tribe[]>;
+  @Input()
+  public become: Become<Tribe[]> = {
+      kind: FIXED_BECOME_KIND,
+      tribe: DEAD_TRIBE_ID
+    };
 
   /**
    * Baseline outcome used for dirty-state checks.
@@ -148,24 +165,16 @@ export class BecomeEditor implements OnChanges {
   public disabled = false;
 
   /**
-   * Emits outcome edits with derived state.
+   * Ranked selector control.
    *
    * @public
    * @readonly
-   * @type {EventEmitter<BecomeChangeEvent>}
+   * @type {FormControl<TribeSelector<Tribe[]>>}
    */
-  @Output()
-  public readonly becomeChange = new EventEmitter<BecomeChangeEvent>();
-
-  /**
-   * Emits dirty and invalid state changes.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<BecomeStateChangeEvent>}
-   */
-  @Output()
-  public readonly becomeStateChange = new EventEmitter<BecomeStateChangeEvent>();
+  public readonly rankSelectorControl = new FormControl<TribeSelector<Tribe[]>>({
+    kind: TRIBES_SELECTOR_KIND,
+    tribes: [DEAD_TRIBE_ID]
+  }, {nonNullable: true});
 
   /**
    * Outcome mode options.
@@ -240,12 +249,67 @@ export class BecomeEditor implements OnChanges {
   }
 
   /**
+   * Creates the outcome editor.
+   *
+   * @public
+   * @constructor
+   */
+  public constructor() {
+    this.rankSelectorControl.valueChanges.subscribe(selector => this.onSetRankSelector(selector));
+  }
+
+  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<BecomeEditor>): void {
     if (changes.become || changes.baselineBecome || changes.tribes) {
-      this.emitBecomeState();
+      this.syncRankSelectorControl();
+      this.onValidatorChange();
     }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public writeValue(value: Become<Tribe[]> | null): void {
+    this.become = value ? structuredClone(value) : this.createBecome(FIXED_BECOME_KIND);
+    this.syncRankSelectorControl();
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnChange(fn: (value: Become<Tribe[]>) => void): void {
+    this.onChange = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public setDisabledState(isDisabled: boolean): void {
+    this.disabled = isDisabled;
+    this.syncRankSelectorControl();
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public validate(_: AbstractControl<Become<Tribe[]> | null>): ValidationErrors | null {
+    return this.isInvalid ? {become: true} : null;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnValidatorChange(fn: () => void): void {
+    this.onValidatorChange = fn;
   }
 
   /**
@@ -291,13 +355,13 @@ export class BecomeEditor implements OnChanges {
    * Updates the ranked source selector.
    *
    * @public
-   * @param {SelectorChangeEvent} event selector change event.
+   * @param {TribeSelector<Tribe[]>} selector selector expression.
    */
-  public onSetRankSelector(event: SelectorChangeEvent): void {
+  public onSetRankSelector(selector: TribeSelector<Tribe[]>): void {
     if (!this.disabled && this.isRankedBecome(this.become)) {
       this.become = {
         ...this.become,
-        selector: event.selector
+        selector
       };
       this.emitBecomeChange();
     }
@@ -656,29 +720,10 @@ export class BecomeEditor implements OnChanges {
    * @private
    */
   private emitBecomeChange(): void {
-    const dirty = this.isDirty;
-    const invalid = this.isInvalid;
-    this.becomeChange.emit({
-      become: this.become,
-      dirty,
-      invalid
-    });
-    this.becomeStateChange.emit({
-      dirty,
-      invalid
-    });
-  }
-
-  /**
-   * Emits the current outcome state.
-   *
-   * @private
-   */
-  private emitBecomeState(): void {
-    this.becomeStateChange.emit({
-      dirty: this.isDirty,
-      invalid: this.isInvalid
-    });
+    this.syncRankSelectorControl();
+    this.onChange(this.become);
+    this.onValidatorChange();
+    this.onTouched();
   }
 
   /**
@@ -1091,4 +1136,44 @@ export class BecomeEditor implements OnChanges {
     const option = this.tribeSelectOptions.find(candidate => typeof candidate.value === 'string');
     return typeof option?.value === 'string' ? option.value : this.defaultTribeId();
   }
+
+  /**
+   * Synchronizes the ranked selector control.
+   *
+   * @private
+   */
+  private syncRankSelectorControl(): void {
+    if (this.isRankedBecome(this.become) && this.rankSelectorControl.value !== this.become.selector) {
+      this.rankSelectorControl.setValue(this.become.selector, {emitEvent: false});
+    }
+    if (this.disabled && this.rankSelectorControl.enabled) {
+      this.rankSelectorControl.disable({emitEvent: false});
+    } else if (!this.disabled && this.rankSelectorControl.disabled) {
+      this.rankSelectorControl.enable({emitEvent: false});
+    }
+  }
+
+  /**
+   * Validator change callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onValidatorChange: () => void = () => undefined;
+
+  /**
+   * CVA change callback.
+   *
+   * @private
+   * @type {(value: Become<Tribe[]>) => void}
+   */
+  private onChange: (value: Become<Tribe[]>) => void = () => undefined;
+
+  /**
+   * CVA touched callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onTouched: () => void = () => undefined;
 }

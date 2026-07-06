@@ -1,17 +1,17 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, HostBinding, inject, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {AbstractControl, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
+import {AbstractControl, FormControl, FormGroup, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
-import {BecomeChangeEvent, BecomeStateChangeEvent} from '../model/become-event';
-import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
+import {hasInvalidClauseStructure} from '~gol/feature/home/logic/rule-validation';
+import {Become, Clause, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
+import {RuleCardFormControls} from '~gol/feature/home/model/rule-card-form';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
@@ -149,13 +149,21 @@ export class RuleCard implements OnChanges, Validator {
   };
 
   /**
-   * Probability input control.
+   * Rule editor form.
    *
    * @public
    * @readonly
-   * @type {FormControl<number | null>}
+   * @type {FormGroup<RuleCardFormControls>}
    */
-  public readonly probabilityControl = new FormControl<number | null>(MAX_RULE_PROBABILITY, {validators: [Validators.required]});
+  public readonly form = new FormGroup<RuleCardFormControls>({
+    muted: new FormControl(false, {nonNullable: true}),
+    probability: new FormControl<number | null>(MAX_RULE_PROBABILITY, {validators: [Validators.required]}),
+    clause: new FormControl<Clause<Tribe[]>>(EMPTY_CLAUSE, {nonNullable: true, validators: [control => this.validateClauseControl(control)]}),
+    become: new FormControl<Become<Tribe[]>>({
+      kind: FIXED_BECOME_KIND,
+      tribe: ''
+    }, {nonNullable: true})
+  });
 
   /**
    * Minimum probability input value.
@@ -185,22 +193,6 @@ export class RuleCard implements OnChanges, Validator {
   public readonly maxRuleProbabilityIntegerDigits = MAX_RULE_PROBABILITY.toString().length;
 
   /**
-   * Whether the clause editor is invalid.
-   *
-   * @private
-   * @type {boolean}
-   */
-  private clauseInvalid = false;
-
-  /**
-   * Whether the outcome editor is invalid.
-   *
-   * @private
-   * @type {boolean}
-   */
-  private becomeInvalid = false;
-
-  /**
    * Destroy ref.
    *
    * @private
@@ -217,6 +209,14 @@ export class RuleCard implements OnChanges, Validator {
    * @type {ChangeDetectorRef}
    */
   private readonly ruleCardChangeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
+   * Whether the parent form disabled this editor.
+   *
+   * @private
+   * @type {boolean}
+   */
+  private externallyDisabled = false;
 
   /**
    * Whether the rule card should render invalid styling.
@@ -253,7 +253,18 @@ export class RuleCard implements OnChanges, Validator {
    * @type {boolean}
    */
   public get isInvalid(): boolean {
-    return this.clauseInvalid || this.becomeInvalid || this.probabilityControl.invalid;
+    return this.form.invalid;
+  }
+
+  /**
+   * Probability input control.
+   *
+   * @public
+   * @readonly
+   * @type {FormControl<number | null>}
+   */
+  public get probabilityControl(): FormControl<number | null> {
+    return this.form.controls.probability;
   }
 
   /**
@@ -284,13 +295,18 @@ export class RuleCard implements OnChanges, Validator {
    * @constructor
    */
   public constructor() {
-    this.probabilityControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.onProbabilityChanged(value));
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onRuleFormChanged());
+    this.form.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onRuleFormStatusChanged());
   }
 
   /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<RuleCard>): void {
+    if (changes.tribes) {
+      this.form.controls.clause.updateValueAndValidity({emitEvent: false});
+      this.form.controls.become.updateValueAndValidity({emitEvent: false});
+    }
     if (changes.baselineRule) {
       this.emitRuleState();
     }
@@ -301,8 +317,14 @@ export class RuleCard implements OnChanges, Validator {
    */
   public writeValue(value: Rule<Tribe[]> | null): void {
     this.rule = value ? structuredClone(value) : this.rule;
-    this.probabilityControl.setValue(this.probability(), {emitEvent: false});
-    this.syncProbabilityControlDisabled();
+    this.form.setValue({
+      muted: !!this.rule.muted,
+      probability: this.probability(),
+      clause: structuredClone(this.rule.clause),
+      become: normalizeBecome(this.rule)
+    }, {emitEvent: false});
+    this.syncRuleFormDisabled();
+    this.form.updateValueAndValidity({emitEvent: false});
     this.ruleCardChangeDetectorRef.markForCheck();
   }
 
@@ -324,7 +346,15 @@ export class RuleCard implements OnChanges, Validator {
    * @inheritdoc
    */
   public validate(_: AbstractControl<Rule<Tribe[]> | null>): ValidationErrors | null {
-    return this.isInvalid ? {rule: true} : null;
+    return this.form.invalid ? {rule: true} : null;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public setDisabledState(isDisabled: boolean): void {
+    this.externallyDisabled = isDisabled;
+    this.syncRuleFormDisabled();
   }
 
   /**
@@ -435,71 +465,6 @@ export class RuleCard implements OnChanges, Validator {
   }
 
   /**
-   * Applies outcome edits to the rule.
-   *
-   * @public
-   * @param {BecomeChangeEvent} event outcome change event.
-   */
-  public onBecomeChanged(event: BecomeChangeEvent): void {
-    if (!this.rule.muted) {
-      this.becomeInvalid = event.invalid;
-      this.updateRule(rule => {
-        rule.become = event.become;
-        delete rule.tribe;
-      });
-    }
-  }
-
-  /**
-   * Updates derived outcome state.
-   *
-   * @public
-   * @param {BecomeStateChangeEvent} event outcome state event.
-   */
-  public onBecomeStateChanged(event: BecomeStateChangeEvent): void {
-    this.becomeInvalid = event.invalid;
-    this.emitRuleState();
-  }
-
-  /**
-   * Applies clause edits to the rule.
-   *
-   * @public
-   * @param {ClauseChangeEvent} event clause change event.
-   */
-  public onClauseChanged(event: ClauseChangeEvent): void {
-    this.clauseInvalid = event.invalid;
-    this.updateRule(rule => (rule.clause = event.clause));
-  }
-
-  /**
-   * Updates derived clause state.
-   *
-   * @public
-   * @param {ClauseStateChangeEvent} event clause state event.
-   */
-  public onClauseStateChanged(event: ClauseStateChangeEvent): void {
-    this.clauseInvalid = event.invalid;
-    this.emitRuleState();
-  }
-
-  /**
-   * Applies probability edits to the rule.
-   *
-   * @public
-   * @param {string | number} value probability input value.
-   */
-  public onProbabilityChanged(value: number | null): void {
-    if (!this.rule.muted) {
-      if (this.probabilityError) {
-        this.emitRuleState();
-      } else if (value !== null) {
-        this.updateRule(rule => (rule.probability = normalizeRuleProbability(value)));
-      }
-    }
-  }
-
-  /**
    * Emits a remove request for the rule.
    *
    * @public
@@ -529,7 +494,7 @@ export class RuleCard implements OnChanges, Validator {
    */
   public onToggleMute(event: Event): void {
     event.stopPropagation();
-    this.updateRule(rule => (rule.muted = !rule.muted));
+    this.form.controls.muted.setValue(!this.form.controls.muted.value);
   }
 
   /**
@@ -553,20 +518,6 @@ export class RuleCard implements OnChanges, Validator {
   }
 
   /**
-   * Applies a rule mutation and emits updates.
-   *
-   * @private
-   * @param {(rule: Rule<Tribe[]>) => void} mutator mutation to apply.
-   */
-  private updateRule(mutator: (rule: Rule<Tribe[]>) => void): void {
-    const nextRule = structuredClone(this.rule);
-    mutator(nextRule);
-    this.rule = nextRule;
-    this.syncProbabilityControlDisabled();
-    this.emitRuleChange();
-  }
-
-  /**
    * Returns the normalized baseline probability.
    *
    * @private
@@ -574,6 +525,67 @@ export class RuleCard implements OnChanges, Validator {
    */
   private baselineProbability(): number {
     return normalizeRuleProbability(this.baselineRule?.probability);
+  }
+
+  /**
+   * Handles rule form value changes.
+   *
+   * @private
+   */
+  private onRuleFormChanged(): void {
+    const nextRule = this.ruleFromForm();
+    const changed = !rulesEqual(nextRule, this.rule);
+    this.rule = nextRule;
+    this.syncRuleFormDisabled();
+    if (changed) {
+      this.emitRuleChange();
+    } else {
+      this.emitRuleState();
+    }
+    this.ruleCardChangeDetectorRef.markForCheck();
+  }
+
+  /**
+   * Handles rule form status changes.
+   *
+   * @private
+   */
+  private onRuleFormStatusChanged(): void {
+    this.onValidatorChange();
+    this.ruleCardChangeDetectorRef.markForCheck();
+  }
+
+  /**
+   * Builds a rule value from the local form.
+   *
+   * @private
+   * @returns {Rule<Tribe[]>} rule value.
+   */
+  private ruleFromForm(): Rule<Tribe[]> {
+    const value = this.form.getRawValue();
+    const rule: Rule<Tribe[]> = {
+      key: this.rule.key,
+      muted: value.muted,
+      clause: structuredClone(value.clause),
+      become: structuredClone(value.become)
+    };
+    if (value.probability !== null) {
+      rule.probability = normalizeRuleProbability(value.probability);
+    } else if (this.rule.probability !== undefined) {
+      rule.probability = this.rule.probability;
+    }
+    return rule;
+  }
+
+  /**
+   * Validates the local clause control.
+   *
+   * @private
+   * @param {AbstractControl<Clause<Tribe[]> | null>} control clause control.
+   * @returns {(ValidationErrors | null)} validation result.
+   */
+  private validateClauseControl(control: AbstractControl<Clause<Tribe[]> | null>): ValidationErrors | null {
+    return control.value && hasInvalidClauseStructure(control.value, this.tribes) ? {clause: true} : null;
   }
 
   /**
@@ -596,15 +608,25 @@ export class RuleCard implements OnChanges, Validator {
   }
 
   /**
-   * Synchronizes probability control disabled state from the rule.
+   * Synchronizes form disabled state from parent and muted state.
    *
    * @private
    */
-  private syncProbabilityControlDisabled(): void {
-    if (this.rule.muted && this.probabilityControl.enabled) {
-      this.probabilityControl.disable({emitEvent: false});
-    } else if (!this.rule.muted && this.probabilityControl.disabled) {
-      this.probabilityControl.enable({emitEvent: false});
+  private syncRuleFormDisabled(): void {
+    const editableControls = [this.form.controls.probability, this.form.controls.clause, this.form.controls.become];
+    if (this.externallyDisabled) {
+      this.form.disable({emitEvent: false});
+    } else {
+      this.form.controls.muted.enable({emitEvent: false});
+      if (this.form.controls.muted.value) {
+        for (const control of editableControls) {
+          control.disable({emitEvent: false});
+        }
+      } else {
+        for (const control of editableControls) {
+          control.enable({emitEvent: false});
+        }
+      }
     }
   }
 

@@ -1,39 +1,6 @@
 import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 
 /**
- * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
- *
- * @param {number | undefined} seed seed value to normalize.
- * @returns {number} normalized random seed.
- */
-function normalizeRandomSeed(seed: number | undefined): number {
-  const numericSeed = typeof seed === 'number' && Number.isFinite(seed) ? seed : DEFAULT_RANDOM_SEED;
-  return Math.max(MIN_RANDOM_SEED, Math.min(MAX_RANDOM_SEED, Math.trunc(numericSeed)));
-}
-
-/**
- * Normalizes a rule probability into a percentage using the configured input scale.
- *
- * @param {number | undefined} probability probability value to normalize.
- * @returns {number} normalized probability percentage.
- */
-function normalizeRuleProbability(probability: number | undefined): number {
-  const numericProbability = typeof probability === 'number' && Number.isFinite(probability) ? probability : DEFAULT_RULE_PROBABILITY;
-  const scaledProbability = Math.round(numericProbability * RULE_PROBABILITY_INPUT_SCALE) / RULE_PROBABILITY_INPUT_SCALE;
-  return Math.max(MIN_RULE_PROBABILITY, Math.min(MAX_RULE_PROBABILITY, scaledProbability));
-}
-
-/**
- * Converts a probability percentage into a u32 shader threshold.
- *
- * @param {number | undefined} probability probability percentage.
- * @returns {number} u32 threshold.
- */
-function probabilityThresholdU32(probability: number | undefined): number {
-  return Math.floor((normalizeRuleProbability(probability) / MAX_RULE_PROBABILITY) * MAX_RANDOM_SEED);
-}
-
-/**
  * Normalizes one combination row input, including previous string-only rows.
  *
  * @template {readonly Tribe[]} T
@@ -48,6 +15,58 @@ function normalizeCombinationInput<T extends readonly Tribe[]>(input: TribeSelec
     selector = normalizeSelector(input);
   }
   return selector;
+}
+
+/**
+ * Serializes a value with deterministic object key order.
+ *
+ * @param {unknown} value value to serialize.
+ * @returns {string} stable JSON representation.
+ */
+function stableStringify(value: unknown): string {
+  let serialized: string;
+  if (Array.isArray(value)) {
+    serialized = `[${value.map(item => stableStringify(item)).join(',')}]`;
+  } else if (value && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined).sort(([left], [right]) => left.localeCompare(right));
+    serialized = `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(',')}}`;
+  } else {
+    serialized = JSON.stringify(value);
+  }
+  return serialized;
+}
+
+/**
+ * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
+ *
+ * @param {number | undefined} seed seed value to normalize.
+ * @returns {number} normalized random seed.
+ */
+export function normalizeRandomSeed(seed: number | undefined): number {
+  const numericSeed = typeof seed === 'number' && Number.isFinite(seed) ? seed : DEFAULT_RANDOM_SEED;
+  return Math.max(MIN_RANDOM_SEED, Math.min(MAX_RANDOM_SEED, Math.trunc(numericSeed)));
+}
+
+/**
+ * Normalizes a rule probability into a percentage using the configured input scale.
+ *
+ * @param {number | undefined} probability probability value to normalize.
+ * @returns {number} normalized probability percentage.
+ */
+export function normalizeRuleProbability(probability: number | undefined): number {
+  const numericProbability = typeof probability === 'number' && Number.isFinite(probability) ? probability : DEFAULT_RULE_PROBABILITY;
+  const scaledProbability = Math.round(numericProbability * RULE_PROBABILITY_INPUT_SCALE) / RULE_PROBABILITY_INPUT_SCALE;
+  return Math.max(MIN_RULE_PROBABILITY, Math.min(MAX_RULE_PROBABILITY, scaledProbability));
+}
+
+/**
+ * Converts a probability percentage into a u32 shader threshold.
+ *
+ * @param {number | undefined} probability probability percentage.
+ * @returns {number} u32 threshold.
+ */
+export function probabilityThresholdU32(probability: number | undefined): number {
+  return Math.floor((normalizeRuleProbability(probability) / MAX_RULE_PROBABILITY) * MAX_RANDOM_SEED);
 }
 
 /**
@@ -139,7 +158,7 @@ export function normalizeCountExpression<T extends readonly Tribe[]>(expression:
  * @returns {string} selector signature.
  */
 export function selectorSignature<T extends readonly Tribe[]>(selector: TribeSelector<T>): string {
-  return JSON.stringify(normalizeSelectorForSignature(selector));
+  return stableStringify(normalizeSelectorForSignature(selector));
 }
 
 /**
@@ -369,7 +388,7 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
  * @returns {string} serialized normalized clause.
  */
 export function clauseSignature<T extends readonly Tribe[]>(clause: Clause<T>): string {
-  return JSON.stringify(normalizeClauseForEditor(clause));
+  return stableStringify(normalizeClauseForEditor(clause));
 }
 
 /**
@@ -380,7 +399,7 @@ export function clauseSignature<T extends readonly Tribe[]>(clause: Clause<T>): 
  * @returns {string} serialized persisted rule.
  */
 export function ruleSignature<T extends readonly Tribe[]>(rule: Rule<T>): string {
-  return JSON.stringify(toPersistedRule(rule));
+  return stableStringify(toPersistedRule(rule));
 }
 
 /**
@@ -418,5 +437,3 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
 export function ruleListsEqual<T extends readonly Tribe[]>(editableRules: readonly Rule<T>[], baseRules: readonly Rule<T>[]): boolean {
   return editableRules.length === baseRules.length && editableRules.every((rule, index) => ruleSignature(rule) === ruleSignature(baseRules[index]!));
 }
-
-export {normalizeRandomSeed, normalizeRuleProbability, probabilityThresholdU32};

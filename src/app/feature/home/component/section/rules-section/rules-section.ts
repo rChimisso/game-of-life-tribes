@@ -505,8 +505,8 @@ export class RulesSection implements OnChanges {
         return this.toEditableRule(rule, preferredKey);
       })
     };
-    this.baselineRules.set(nextValue);
     this.rebuildForm(nextValue);
+    this.resetBaselineFromCurrent();
     this.expandedRuleIndex = null;
   }
 
@@ -525,8 +525,8 @@ export class RulesSection implements OnChanges {
         return this.toEditableRule(rule, preferredKey);
       })
     };
-    this.baselineRules.set(nextValue);
     this.form.controls.randomSeed.setValue(nextValue.randomSeed, {emitEvent: false});
+    this.resetBaselineFromCurrent();
   }
 
   /**
@@ -545,6 +545,15 @@ export class RulesSection implements OnChanges {
     this.form.markAsUntouched();
     this.form.updateValueAndValidity({emitEvent: false});
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Resets the Apply/Restore baseline from the current form value.
+   *
+   * @private
+   */
+  private resetBaselineFromCurrent(): void {
+    this.baselineRules.set(this.currentValue());
   }
 
   /**

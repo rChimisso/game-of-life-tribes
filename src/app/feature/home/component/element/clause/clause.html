@@ -26,7 +26,7 @@
         </div>
       }
       @case ("count") {
-        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
+        <gol-selector-editor [formControl]="clauseSelectorControl(path, 'count', countSelector(clause))" [tribes]="tribes" />
         <div class="clause-interval">
           <gol-number-input variant="clause" [class.invalid-field]="isClauseNumberFieldInvalid(path, 'interval-0')" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'interval-0', clause.interval[0])" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
           <span>-</span>
@@ -35,27 +35,27 @@
         </div>
       }
       @case ("none") {
-        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
+        <gol-selector-editor [formControl]="clauseSelectorControl(path, 'count', countSelector(clause))" [tribes]="tribes" />
         <div class="clause-interval">
           <span class="interval-label">neighbors = 0</span>
         </div>
       }
       @case ("exactly") {
-        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
+        <gol-selector-editor [formControl]="clauseSelectorControl(path, 'count', countSelector(clause))" [tribes]="tribes" />
         <div class="clause-interval">
           <span class="interval-label">neighbors =</span>
           <gol-number-input variant="clause" [class.invalid-field]="isClauseNumberFieldInvalid(path, 'value')" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         </div>
       }
       @case ("min") {
-        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
+        <gol-selector-editor [formControl]="clauseSelectorControl(path, 'count', countSelector(clause))" [tribes]="tribes" />
         <div class="clause-interval">
           <span class="interval-label">neighbors &ge;</span>
           <gol-number-input variant="clause" [class.invalid-field]="isClauseNumberFieldInvalid(path, 'value')" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         </div>
       }
       @case ("max") {
-        <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
+        <gol-selector-editor [formControl]="clauseSelectorControl(path, 'count', countSelector(clause))" [tribes]="tribes" />
         <div class="clause-interval">
           <span class="interval-label">neighbors &le;</span>
           <gol-number-input variant="clause" [class.invalid-field]="isClauseNumberFieldInvalid(path, 'value')" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
@@ -63,9 +63,9 @@
       }
       @case ("comparison") {
         <div class="clause-eq">
-          <gol-selector-editor [disabled]="disabled" [selector]="comparisonLeftSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'left', $event)" />
+          <gol-selector-editor [formControl]="clauseSelectorControl(path, 'left', comparisonLeftSelector(clause))" [tribes]="tribes" />
           <gol-select [disabled]="disabled" [options]="comparisonOperatorOptions" [value]="clause.operator || '='" (valueChange)="onOperatorSelected(path, $event)" />
-          <gol-selector-editor [disabled]="disabled" [selector]="comparisonRightSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'right', $event)" />
+          <gol-selector-editor [formControl]="clauseSelectorControl(path, 'right', comparisonRightSelector(clause))" [tribes]="tribes" />
           <span class="interval-label">+</span>
           <gol-number-input variant="clause" [class.invalid-field]="isClauseNumberFieldInvalid(path, 'margin')" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'margin', clause.margin ?? 0)" [max]="8" [maxIntegerDigits]="1" [min]="-8" [minIntegerDigits]="1" />
         </div>

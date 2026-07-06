@@ -321,7 +321,7 @@ export class RuleCard implements OnChanges, Validator {
       muted: !!this.rule.muted,
       probability: this.rule.probability === undefined ? this.probability() : this.rule.probability,
       clause: structuredClone(this.rule.clause),
-      become: normalizeBecome(this.rule)
+      become: normalizeBecome(this.rule.become)
     }, {emitEvent: false});
     this.syncRuleFormDisabled();
     this.form.updateValueAndValidity({emitEvent: false});
@@ -371,7 +371,7 @@ export class RuleCard implements OnChanges, Validator {
    * @returns {Become<Tribe[]>} normalized output expression.
    */
   public outputBecome(): Become<Tribe[]> {
-    return normalizeBecome(this.rule);
+    return normalizeBecome(this.rule.become);
   }
 
   /**
@@ -381,7 +381,7 @@ export class RuleCard implements OnChanges, Validator {
    * @returns {(Become<Tribe[]> | null)} normalized baseline output expression.
    */
   public baselineBecome(): Become<Tribe[]> | null {
-    return this.baselineRule ? normalizeBecome(this.baselineRule) : null;
+    return this.baselineRule ? normalizeBecome(this.baselineRule.become) : null;
   }
 
   /**

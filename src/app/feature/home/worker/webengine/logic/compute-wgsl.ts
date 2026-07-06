@@ -248,7 +248,7 @@ function pushDeterministicRuleChain(lines: string[], activeRules: ActiveRule[], 
     const {rule} = activeRules[index]!;
     const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
     lines.push(index === 0 ? `  if (${condition}) {` : `  } else if (${condition}) {`);
-    pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '    ');
+    pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '    ');
   }
   if (activeRules.length > 0) {
     lines.push('  }');
@@ -274,11 +274,11 @@ function pushProbabilisticRuleChain(lines: string[], activeRules: ActiveRule[], 
     const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
     lines.push(`  if (!applied && ${condition}) {`);
     if (probability === 100) {
-      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '    ');
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '    ');
       lines.push('    applied = true;');
     } else {
       lines.push(`    if (probabilityHash(x, y, generation, ${priorityIndex}u, RANDOM_SEED) < ${probabilityThresholdU32(probability)}u) {`);
-      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule)), tribes, tribeIndex, `rule_${index}`, '      ');
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '      ');
       lines.push('      applied = true;');
       lines.push('    }');
     }

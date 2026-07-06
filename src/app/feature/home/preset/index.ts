@@ -8,7 +8,7 @@ import {REPLICATOR_PRESET} from './replicator';
 import {SENESCENCE_PRESET} from './senescence';
 import {SLIME_MOLD_PRESET} from './slime-mold';
 import {WILDFIRE_PRESET} from './wildfire';
-import {IS_CLAUSE_KIND, Rule, Ruleset, Tribe} from '../model/rule';
+import {FIXED_BECOME_KIND, IS_CLAUSE_KIND, Rule, Ruleset, Tribe} from '../model/rule';
 
 /**
  * Named application preset.
@@ -51,7 +51,10 @@ export function directRule<T extends readonly Tribe[]>(fromTribe: string, toTrib
       kind: IS_CLAUSE_KIND,
       tribes: [fromTribe]
     },
-    tribe: toTribe
+    become: {
+      kind: FIXED_BECOME_KIND,
+      tribe: toTribe
+    }
   };
 }
 

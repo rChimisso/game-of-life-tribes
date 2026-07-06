@@ -88,7 +88,10 @@ export const SENESCENCE_PRESET: Preset = {
             }
           ]
         },
-        tribe: SENESCENCE_GLOW_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_GLOW_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -98,7 +101,10 @@ export const SENESCENCE_PRESET: Preset = {
               kind: COUNT_CLAUSE_KIND, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [SENESCENCE_GLOW_TRIBE, SENESCENCE_AFTERGLOW_TRIBE, SENESCENCE_TRAIL_TRIBE]}, interval: [5, 5]
             }
           ]},
-        tribe: SENESCENCE_GLOW_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_GLOW_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -177,7 +183,10 @@ export const SENESCENCE_PRESET: Preset = {
                 ]}
             }
           ]},
-        tribe: SENESCENCE_ASH_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_ASH_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -199,7 +208,10 @@ export const SENESCENCE_PRESET: Preset = {
                 ]}
             }
           ]},
-        tribe: SENESCENCE_ASH_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_ASH_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -220,7 +232,10 @@ export const SENESCENCE_PRESET: Preset = {
                 ]}
             }
           ]},
-        tribe: SENESCENCE_REMNANT_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_REMNANT_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -239,7 +254,10 @@ export const SENESCENCE_PRESET: Preset = {
               kind: MIN_CLAUSE_KIND, value: 2, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [DEAD_TRIBE_ID, SENESCENCE_ASH_TRIBE, SENESCENCE_REMNANT_TRIBE]}
             }
           ]},
-        tribe: SENESCENCE_SPARK_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_SPARK_TRIBE
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -260,7 +278,10 @@ export const SENESCENCE_PRESET: Preset = {
                 ]}
             }
           ]},
-        tribe: DEAD_TRIBE_ID
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: DEAD_TRIBE_ID
+        }
       },
       {
         clause: {kind: AND_CLAUSE_KIND,
@@ -279,28 +300,31 @@ export const SENESCENCE_PRESET: Preset = {
               kind: MIN_CLAUSE_KIND, value: 4, selector: {kind: TRIBES_SELECTOR_KIND, tribes: [DEAD_TRIBE_ID]}
             }
           ]},
-        tribe: SENESCENCE_SPARK_TRIBE
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: SENESCENCE_SPARK_TRIBE
+        }
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_SPARK_TRIBE]}, tribe: SENESCENCE_GLOW_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_SPARK_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_GLOW_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_GLOW_TRIBE]}, tribe: SENESCENCE_AFTERGLOW_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_GLOW_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_AFTERGLOW_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, tribe: SENESCENCE_TRAIL_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_AFTERGLOW_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_TRAIL_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_TRAIL_TRIBE]}, tribe: SENESCENCE_ECHO_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_TRAIL_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_ECHO_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_ECHO_TRIBE]}, tribe: SENESCENCE_DIM_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_ECHO_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_DIM_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_ASH_TRIBE]}, tribe: SENESCENCE_ASH_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_ASH_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_ASH_TRIBE}
       },
       {
-        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_REMNANT_TRIBE]}, tribe: SENESCENCE_REMNANT_TRIBE
+        clause: {kind: IS_CLAUSE_KIND, tribes: [SENESCENCE_REMNANT_TRIBE]}, become: {kind: FIXED_BECOME_KIND, tribe: SENESCENCE_REMNANT_TRIBE}
       }
     ]
   }

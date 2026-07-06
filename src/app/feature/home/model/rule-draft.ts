@@ -247,12 +247,6 @@ export interface RuleDraft {
    */
   become?: Become<Tribe[]>;
   /**
-   * Legacy fixed outcome target.
-   *
-   * @type {?string}
-   */
-  tribe?: string;
-  /**
    * Probability draft.
    *
    * @type {?NumericDraft}

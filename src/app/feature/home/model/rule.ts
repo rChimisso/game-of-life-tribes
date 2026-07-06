@@ -404,7 +404,7 @@ export interface TieSelector<T extends readonly Tribe[]> {
 export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | TieSelector<T>;
 
 /**
- * Fixed rule outcome equivalent to the legacy rule target.
+ * Fixed rule outcome.
  *
  * @interface FixedBecome<T extends readonly Tribe[]>
  * @typedef {FixedBecome<T extends readonly Tribe[]>}
@@ -717,7 +717,7 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
 }
 
 /**
- * Alias clause: no matching neighbors from selected tribes.
+ * Clause requiring no matching neighbors from a selector.
  *
  * @interface NoneClause<T extends readonly Tribe[]>
  * @typedef {NoneClause<T extends readonly Tribe[]>}
@@ -739,7 +739,7 @@ export interface NoneClause<T extends readonly Tribe[]> {
 }
 
 /**
- * Alias clause: exactly N neighbors from selected tribes.
+ * Clause requiring exactly N neighbors from a selector.
  *
  * @interface ExactlyClause<T extends readonly Tribe[]>
  * @typedef {ExactlyClause<T extends readonly Tribe[]>}
@@ -767,7 +767,7 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
 }
 
 /**
- * Alias clause: at least N neighbors from selected tribes.
+ * Clause requiring at least N neighbors from a selector.
  *
  * @interface MinClause<T extends readonly Tribe[]>
  * @typedef {MinClause<T extends readonly Tribe[]>}
@@ -795,7 +795,7 @@ export interface MinClause<T extends readonly Tribe[]> {
 }
 
 /**
- * Alias clause: at most N neighbors from selected tribes.
+ * Clause requiring at most N neighbors from a selector.
  *
  * @interface MaxClause<T extends readonly Tribe[]>
  * @typedef {MaxClause<T extends readonly Tribe[]>}
@@ -942,12 +942,6 @@ export interface Rule<T extends readonly Tribe[]> {
    * @type {?Become<T>}
    */
   become?: Become<T>;
-  /**
-   * Legacy fixed tribe target.
-   *
-   * @type {?TribeId<T>}
-   */
-  tribe?: TribeId<T>;
   /**
    * Rule application probability percentage.
    *

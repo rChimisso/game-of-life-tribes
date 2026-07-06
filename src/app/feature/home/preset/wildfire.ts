@@ -126,7 +126,10 @@ function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: N
           }
         ]
       },
-      tribe: WILDFIRE_BLAZE_TRIBE
+      become: {
+        kind: FIXED_BECOME_KIND,
+        tribe: WILDFIRE_BLAZE_TRIBE
+      }
     },
     {
       clause: {
@@ -143,7 +146,10 @@ function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: N
           }
         ]
       },
-      tribe: WILDFIRE_FIRE_TRIBE
+      become: {
+        kind: FIXED_BECOME_KIND,
+        tribe: WILDFIRE_FIRE_TRIBE
+      }
     },
     {
       clause: {
@@ -160,7 +166,10 @@ function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: N
           }
         ]
       },
-      tribe: WILDFIRE_EMBER_TRIBE
+      become: {
+        kind: FIXED_BECOME_KIND,
+        tribe: WILDFIRE_EMBER_TRIBE
+      }
     }
   ];
 }

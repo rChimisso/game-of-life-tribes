@@ -11,7 +11,7 @@ import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
 function collectReferencedTribeIds(rules: readonly Rule<Tribe[]>[]): Set<string> {
   const ids = new Set<string>();
   for (const rule of rules) {
-    collectBecomeTribeIds(normalizeBecome(rule), ids);
+    collectBecomeTribeIds(normalizeBecome(rule.become), ids);
     collectClauseTribeIds(rule.clause, ids);
   }
   return ids;
@@ -315,7 +315,6 @@ export function applyRuleTribeRenames(rules: readonly Rule<Tribe[]>[], renamePai
   const renamedRules = rules.map(rule => normalizeRule(rule));
   for (const rule of renamedRules) {
     renameBecomeTribes(rule.become, renameMap);
-    delete rule.tribe;
     renameClauseTribes(rule.clause, renameMap);
   }
   return renamedRules;

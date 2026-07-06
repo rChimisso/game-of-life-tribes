@@ -2,23 +2,6 @@ import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_
 import {ClauseDraft, RuleDraft} from '../model/rule-draft';
 
 /**
- * Normalizes one combination row input, including previous string-only rows.
- *
- * @template {readonly Tribe[]} T
- * @param {TribeSelector<T> | TribeId<T>} input row input.
- * @returns {TribeSelector<T>} normalized selector.
- */
-function normalizeCombinationInput<T extends readonly Tribe[]>(input: TribeSelector<T> | TribeId<T>): TribeSelector<T> {
-  let selector: TribeSelector<T>;
-  if (typeof input === 'string') {
-    selector = explicitTribesSelector([input]);
-  } else {
-    selector = normalizeSelector(input);
-  }
-  return selector;
-}
-
-/**
  * Serializes a value with deterministic object key order.
  *
  * @param {unknown} value value to serialize.
@@ -266,16 +249,16 @@ export function normalizeClauseForPersistence<T extends readonly Tribe[]>(clause
 }
 
 /**
- * Normalizes legacy rule targets into the current outcome expression.
+ * Normalizes an optional canonical outcome expression.
  *
  * @template {readonly Tribe[]} T
- * @param {Pick<Rule<T>, 'become' | 'tribe'>} rule rule target data to normalize.
+ * @param {Become<T> | undefined} become outcome expression.
  * @returns {Become<T>} normalized outcome expression.
  */
-export function normalizeBecome<T extends readonly Tribe[]>(rule: Pick<Rule<T>, 'become' | 'tribe'>): Become<T> {
-  return rule.become ?? {
+export function normalizeBecome<T extends readonly Tribe[]>(become: Become<T> | undefined): Become<T> {
+  return become ?? {
     kind: FIXED_BECOME_KIND,
-    tribe: (rule.tribe ?? DEAD_TRIBE_ID) as TribeId<T>
+    tribe: DEAD_TRIBE_ID as TribeId<T>
   };
 }
 
@@ -305,7 +288,7 @@ export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Be
           ...become.strategy,
           entries: become.strategy.entries.map(entry => ({
             ...entry,
-            inputs: entry.inputs.map(input => normalizeCombinationInput(input as TribeSelector<T> | TribeId<T>)).sort((left, right) => selectorSignature(left).localeCompare(selectorSignature(right)))
+            inputs: entry.inputs.map(input => normalizeSelector(input)).sort((left, right) => selectorSignature(left).localeCompare(selectorSignature(right)))
           })),
           default: become.strategy.default ? normalizeBecomeExpression(become.strategy.default) : undefined
         }
@@ -327,7 +310,7 @@ export function normalizeBecomeExpression<T extends readonly Tribe[]>(become: Be
  */
 export function normalizeRule<T extends readonly Tribe[]>(rule: Rule<T>): NormalizedRule<T> {
   const normalizedRule = structuredClone(rule) as NormalizedRule<T>;
-  normalizedRule.become = normalizeBecomeExpression(normalizeBecome(rule));
+  normalizedRule.become = normalizeBecomeExpression(normalizeBecome(rule.become));
   normalizedRule.probability = normalizeRuleProbability(rule.probability);
   return normalizedRule;
 }
@@ -358,7 +341,6 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
   const persistedRule = normalizeRule(rule);
   persistedRule.clause = normalizeClauseForPersistence(persistedRule.clause);
   delete persistedRule.key;
-  delete persistedRule.tribe;
   persistedRule.muted = !!persistedRule.muted;
   persistedRule.probability = normalizeRuleProbability(persistedRule.probability);
   return persistedRule;
@@ -505,10 +487,7 @@ export function toPersistedRuleDraft(rule: RuleDraft): Rule<Tribe[]> {
     key: rule.key,
     muted: !!rule.muted,
     clause: toCanonicalClause(rule.clause),
-    become: normalizeBecomeExpression(normalizeBecome({
-      become: rule.become,
-      tribe: rule.tribe
-    }))
+    become: normalizeBecomeExpression(normalizeBecome(rule.become))
   };
   if (rule.probability !== undefined) {
     if (!isRuleProbability(rule.probability)) {
@@ -610,13 +589,9 @@ function normalizeRuleDraftForComparison(rule: RuleDraft): RuleDraft {
     ...draft,
     muted: !!draft.muted,
     clause: normalizeClauseDraftForComparison(draft.clause),
-    become: normalizeBecomeExpression(normalizeBecome({
-      become: draft.become,
-      tribe: draft.tribe
-    }))
+    become: normalizeBecomeExpression(normalizeBecome(draft.become))
   };
   delete normalizedDraft.key;
-  delete normalizedDraft.tribe;
   normalizedDraft.probability = probability === undefined ? DEFAULT_RULE_PROBABILITY : probability;
   return normalizedDraft;
 }

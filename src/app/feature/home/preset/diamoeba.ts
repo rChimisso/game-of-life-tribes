@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MIN_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, MIN_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Tribe ID.
@@ -50,7 +50,7 @@ export const DIAMOEBA_PRESET: Preset = {
             }
           ]
         },
-        tribe: DIAMOEBA_TRIBE
+        become: {kind: FIXED_BECOME_KIND, tribe: DIAMOEBA_TRIBE}
       },
       {
         clause: {
@@ -67,7 +67,7 @@ export const DIAMOEBA_PRESET: Preset = {
             }
           ]
         },
-        tribe: DIAMOEBA_TRIBE
+        become: {kind: FIXED_BECOME_KIND, tribe: DIAMOEBA_TRIBE}
       }
     ]
   }

@@ -493,6 +493,29 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Whether the rendered clause node is invalid.
+   *
+   * @public
+   * @param {number[]} path path to the clause node.
+   * @returns {boolean} `true` if the clause node or any descendant is invalid.
+   */
+  public isClauseNodeInvalid(path: number[]): boolean {
+    return this.isClauseTreeInvalid(this.getClauseAtPath(this.clause, path), path);
+  }
+
+  /**
+   * Whether a rendered clause numeric field is invalid.
+   *
+   * @public
+   * @param {number[]} path path to the clause node.
+   * @param {ClauseNumberField} field number field.
+   * @returns {boolean} `true` if the field control is invalid.
+   */
+  public isClauseNumberFieldInvalid(path: number[], field: ClauseNumberField): boolean {
+    return this.numberControls.get(this.numberControlKey(path, field))?.invalid ?? false;
+  }
+
+  /**
    * Sets the comparison operator.
    *
    * @public
@@ -789,17 +812,31 @@ export class RuleClause implements OnChanges {
    * @returns {boolean} `true` if the clause contains empty placeholders, `false` otherwise.
    */
   private isInvalid(): boolean {
-    return this.containsEmptyClause(this.clause) || this.containsInvalidSelector(this.clause) || this.containsInvalidNumberControl();
+    return this.isClauseTreeInvalid(this.clause, []);
   }
 
   /**
-   * Whether any active numeric clause control is invalid.
+   * Whether a clause tree is invalid.
    *
    * @private
-   * @returns {boolean} `true` if any active numeric control is invalid.
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {number[]} path current clause path.
+   * @returns {boolean} `true` if the clause tree is invalid.
    */
-  private containsInvalidNumberControl(): boolean {
-    return this.activeNumberControlKeys().some(key => this.numberControls.get(key)?.invalid);
+  private isClauseTreeInvalid(clause: Clause<Tribe[]>, path: number[]): boolean {
+    return this.containsEmptyClause(clause) || this.containsInvalidSelector(clause) || this.containsInvalidNumberControlForClause(clause, path);
+  }
+
+  /**
+   * Whether a clause tree contains invalid active numeric controls.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {number[]} path current clause path.
+   * @returns {boolean} `true` if any active numeric control in the clause tree is invalid.
+   */
+  private containsInvalidNumberControlForClause(clause: Clause<Tribe[]>, path: number[]): boolean {
+    return this.activeNumberDescriptors(clause, path).some(descriptor => this.numberControls.get(this.numberControlKey(descriptor.path, descriptor.field))?.invalid);
   }
 
   /**
@@ -816,16 +853,6 @@ export class RuleClause implements OnChanges {
         control.markAsUntouched();
       }
     }
-  }
-
-  /**
-   * Gets active numeric control keys for the current clause tree.
-   *
-   * @private
-   * @returns {string[]} active numeric control keys.
-   */
-  private activeNumberControlKeys(): string[] {
-    return this.activeNumberDescriptors(this.clause, []).map(descriptor => this.numberControlKey(descriptor.path, descriptor.field));
   }
 
   /**

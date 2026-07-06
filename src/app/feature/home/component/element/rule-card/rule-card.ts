@@ -1,5 +1,5 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, inject, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, HostBinding, inject, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
@@ -217,6 +217,18 @@ export class RuleCard implements OnChanges, Validator {
    * @type {ChangeDetectorRef}
    */
   private readonly ruleCardChangeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
+   * Whether the rule card should render invalid styling.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  @HostBinding('class.invalid-rule')
+  public get invalidRuleClass(): boolean {
+    return this.isInvalid;
+  }
 
   /**
    * Whether the rule differs from its baseline.

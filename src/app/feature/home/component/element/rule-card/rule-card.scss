@@ -11,6 +11,11 @@
   width: 100%;
   min-width: 0;
 
+  &.invalid-rule {
+    outline: 2px solid #ff5c5c;
+    outline-offset: -1px;
+  }
+
   &:has(.muted) {
     opacity: 0.6;
   }
@@ -140,6 +145,12 @@
           border-bottom: 1px solid #8f8f8f;
           color: #cfcfcf;
           font-size: 0.8rem;
+
+          > gol-number-input.invalid-field {
+            border-radius: 4px;
+            outline: 2px solid #ff5c5c;
+            outline-offset: 0px;
+          }
 
           > span {
             text-overflow: ellipsis;

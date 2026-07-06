@@ -3,6 +3,14 @@
 
   .clause-node {
     margin: 2px 0;
+    border-radius: 4px;
+    padding-right: 4px;
+    min-width: fit-content;
+
+    &.invalid-clause {
+      outline: 2px solid #ff5c5c;
+      outline-offset: -1px;
+    }
 
     .clause-header {
       display: flex;
@@ -59,6 +67,12 @@
 
       > gol-number-input {
         width: 40px;
+
+        &.invalid-field {
+          border-radius: 3px;
+          outline: 2px solid #ff5c5c;
+          outline-offset: 0px;
+        }
       }
 
       > span:not(.interval-label) {
@@ -90,6 +104,12 @@
       > gol-number-input {
         width: 44px;
         --gol-number-input-clause-font-size: 0.75rem;
+
+        &.invalid-field {
+          border-radius: 3px;
+          outline: 2px solid #ff5c5c;
+          outline-offset: 0px;
+        }
       }
     }
 

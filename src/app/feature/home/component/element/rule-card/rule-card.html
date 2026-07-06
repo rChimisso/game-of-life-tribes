@@ -22,7 +22,7 @@
     <div class="rule-body">
       <div class="rule-probability-row gol-grid-tiny" title="Rule probability percentage">
         <span class="gol-cell-4">Probability %</span>
-        <gol-number-input class="gol-cell-5" name="rule-probability-{{ ruleIndex }}" title="Probability %" [decimalDigits]="3" [fixedDecimalDigits]="3" [formControl]="probabilityControl" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
+        <gol-number-input class="gol-cell-5" name="rule-probability-{{ ruleIndex }}" title="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [fixedDecimalDigits]="3" [formControl]="probabilityControl" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
         <span class="gol-cell-3 error-message" [title]="probabilityError ?? ''">{{ probabilityError }}</span>
       </div>
       <gol-rule-clause [baselineClause]="baselineRule?.clause ?? null" [clause]="rule.clause" [depth]="0" [disabled]="!!rule.muted" [path]="[]" [tribes]="tribes" (clauseChange)="onClauseChanged($event)" (clauseStateChange)="onClauseStateChanged($event)" />

@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, inject, Input, OnChanges} from '@angular/core';
 import {AbstractControl, ControlValueAccessor, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -95,6 +95,15 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   public allowedKinds: TribeSelectorKind[] = [TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND];
 
   /**
+   * Change detector.
+   *
+   * @private
+   * @readonly
+   * @type {ChangeDetectorRef}
+   */
+  private readonly selectorEditorChangeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
    * Human-readable selector mode options.
    *
    * @public
@@ -176,6 +185,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
     if (changes.selector || changes.baselineSelector || changes.tribes || changes.allowedKinds) {
       this.selector = normalizeSelector(this.selector);
       this.onValidatorChange();
+      this.selectorEditorChangeDetectorRef.markForCheck();
     }
   }
 
@@ -184,6 +194,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    */
   public writeValue(value: TribeSelector<Tribe[]> | null): void {
     this.selector = normalizeSelector(value ?? this.createSelector(this.allowedKinds[0] ?? TRIBES_SELECTOR_KIND));
+    this.selectorEditorChangeDetectorRef.markForCheck();
   }
 
   /**
@@ -205,6 +216,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    */
   public setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
+    this.selectorEditorChangeDetectorRef.markForCheck();
   }
 
   /**

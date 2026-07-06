@@ -403,6 +403,96 @@ export function ruleSignature<T extends readonly Tribe[]>(rule: Rule<T>): string
 }
 
 /**
+ * Normalizes a clause draft for editor comparison without coercing invalid drafts.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {Clause<T>} clause clause draft.
+ * @returns {Clause<T>} comparable clause draft.
+ */
+function normalizeClauseDraftForComparison<T extends readonly Tribe[]>(clause: Clause<T>): Clause<T> {
+  let normalized: Clause<T>;
+  switch (clause.kind) {
+    case EMPTY_CLAUSE_KIND:
+      normalized = EMPTY_CLAUSE;
+      break;
+    case COUNT_CLAUSE_KIND:
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        selector: normalizeSelector(clause.selector, clause.tribes)
+      };
+      break;
+    case COMPARISON_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        left: normalizeCountExpression(clause.left, clause.tribe1),
+        right: normalizeCountExpression(clause.right, clause.tribe2),
+        margin: clause.margin === undefined ? 0 : clause.margin
+      };
+      break;
+    case NOT_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        clause: normalizeClauseDraftForComparison(clause.clause)
+      };
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND: {
+      const normalizedClauses = clause.clauses.map(sub => normalizeClauseDraftForComparison(sub));
+      while (normalizedClauses.length < 2) {
+        normalizedClauses.push(EMPTY_CLAUSE);
+      }
+      normalized = {
+        ...clause,
+        clauses: normalizedClauses as [Clause<T>, Clause<T>, ...Clause<T>[]]
+      };
+      break;
+    }
+    default:
+      normalized = clause;
+      break;
+  }
+  return normalized;
+}
+
+/**
+ * Normalizes a rule draft for editor comparison without persisted numeric coercion.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {Rule<T>} rule rule draft.
+ * @returns {Rule<T>} comparable rule draft.
+ */
+function normalizeRuleDraftForComparison<T extends readonly Tribe[]>(rule: Rule<T>): Rule<T> {
+  const draft = structuredClone(rule);
+  const {probability} = draft;
+  const normalizedDraft: Rule<T> = {
+    ...draft,
+    muted: !!draft.muted,
+    clause: normalizeClauseDraftForComparison(draft.clause),
+    become: normalizeBecomeExpression(normalizeBecome(draft))
+  };
+  delete normalizedDraft.key;
+  delete normalizedDraft.tribe;
+  normalizedDraft.probability = probability === undefined ? DEFAULT_RULE_PROBABILITY : probability;
+  return normalizedDraft;
+}
+
+/**
+ * Creates a comparable rule draft without editor-only identity.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {Rule<T>} rule rule draft to sign.
+ * @returns {string} serialized rule draft.
+ */
+export function ruleDraftSignature<T extends readonly Tribe[]>(rule: Rule<T>): string {
+  return stableStringify(normalizeRuleDraftForComparison(rule));
+}
+
+/**
  * Compares two clauses after editor normalization.
  *
  * @template {readonly Tribe[]} T
@@ -427,6 +517,18 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
 }
 
 /**
+ * Compares two rule drafts without persisted normalization.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {Rule<T>} editableRule editable rule.
+ * @param {Rule<T>} baseRule baseline rule.
+ * @returns {boolean} `true` if equal.
+ */
+export function ruleDraftsEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, baseRule: Rule<T>): boolean {
+  return ruleDraftSignature(editableRule) === ruleDraftSignature(baseRule);
+}
+
+/**
  * Compares two rule lists after persisted normalization.
  *
  * @template {readonly Tribe[]} T
@@ -436,4 +538,16 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
  */
 export function ruleListsEqual<T extends readonly Tribe[]>(editableRules: readonly Rule<T>[], baseRules: readonly Rule<T>[]): boolean {
   return editableRules.length === baseRules.length && editableRules.every((rule, index) => ruleSignature(rule) === ruleSignature(baseRules[index]!));
+}
+
+/**
+ * Compares two rule draft lists without persisted normalization.
+ *
+ * @template {readonly Tribe[]} T
+ * @param {readonly Rule<T>[]} editableRules editable rules.
+ * @param {readonly Rule<T>[]} baseRules baseline rules.
+ * @returns {boolean} `true` if equal.
+ */
+export function ruleDraftListsEqual<T extends readonly Tribe[]>(editableRules: readonly Rule<T>[], baseRules: readonly Rule<T>[]): boolean {
+  return editableRules.length === baseRules.length && editableRules.every((rule, index) => ruleDraftsEqual(rule, baseRules[index]!));
 }

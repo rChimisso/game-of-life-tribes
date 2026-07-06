@@ -1,5 +1,5 @@
 import {NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, inject, Input, OnChanges} from '@angular/core';
 import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator} from '@angular/forms';
 
 import {SelectorEditor} from '../selector-editor/selector-editor';
@@ -201,6 +201,15 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   public readonly nestedOptions: SelectOption[] = [{value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL}, {value: SAME_BECOME_KIND, label: 'Same'}, {value: COMBINE_BECOME_KIND, label: 'Combine'}];
 
   /**
+   * Change detector.
+   *
+   * @private
+   * @readonly
+   * @type {ChangeDetectorRef}
+   */
+  private readonly becomeEditorChangeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
    * Selectable tribes for fixed outcomes.
    *
    * @public
@@ -265,6 +274,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (changes.become || changes.baselineBecome || changes.tribes) {
       this.syncRankSelectorControl();
       this.onValidatorChange();
+      this.becomeEditorChangeDetectorRef.markForCheck();
     }
   }
 
@@ -274,6 +284,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   public writeValue(value: Become<Tribe[]> | null): void {
     this.become = value ? structuredClone(value) : this.createBecome(FIXED_BECOME_KIND);
     this.syncRankSelectorControl();
+    this.becomeEditorChangeDetectorRef.markForCheck();
   }
 
   /**
@@ -296,6 +307,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   public setDisabledState(isDisabled: boolean): void {
     this.disabled = isDisabled;
     this.syncRankSelectorControl();
+    this.becomeEditorChangeDetectorRef.markForCheck();
   }
 
   /**

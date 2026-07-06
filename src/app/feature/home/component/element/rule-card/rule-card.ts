@@ -8,8 +8,7 @@ import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {hasInvalidClauseStructure} from '~gol/feature/home/logic/rule-validation';
+import {normalizeBecome, normalizeRuleProbability, ruleDraftsEqual} from '~gol/feature/home/logic/rule-editor';
 import {Become, Clause, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
 import {RuleCardFormControls} from '~gol/feature/home/model/rule-card-form';
 import {Button} from '~gol/shared/component/button/button';
@@ -158,7 +157,7 @@ export class RuleCard implements OnChanges, Validator {
   public readonly form = new FormGroup<RuleCardFormControls>({
     muted: new FormControl(false, {nonNullable: true}),
     probability: new FormControl<number | null>(MAX_RULE_PROBABILITY, {validators: [Validators.required]}),
-    clause: new FormControl<Clause<Tribe[]>>(EMPTY_CLAUSE, {nonNullable: true, validators: [control => this.validateClauseControl(control)]}),
+    clause: new FormControl<Clause<Tribe[]>>(EMPTY_CLAUSE, {nonNullable: true}),
     become: new FormControl<Become<Tribe[]>>({
       kind: FIXED_BECOME_KIND,
       tribe: ''
@@ -240,7 +239,7 @@ export class RuleCard implements OnChanges, Validator {
   public get isDirty(): boolean {
     let dirty = true;
     if (this.baselineRule) {
-      dirty = !rulesEqual(this.rule, this.baselineRule) || this.probabilityControl.value !== this.baselineProbability();
+      dirty = !ruleDraftsEqual(this.rule, this.baselineRule);
     }
     return dirty;
   }
@@ -304,8 +303,8 @@ export class RuleCard implements OnChanges, Validator {
    */
   public ngOnChanges(changes: TypedChanges<RuleCard>): void {
     if (changes.tribes) {
-      this.form.controls.clause.updateValueAndValidity({emitEvent: false});
-      this.form.controls.become.updateValueAndValidity({emitEvent: false});
+      this.form.updateValueAndValidity({emitEvent: false});
+      this.onValidatorChange();
     }
     if (changes.baselineRule) {
       this.emitRuleState();
@@ -518,23 +517,13 @@ export class RuleCard implements OnChanges, Validator {
   }
 
   /**
-   * Returns the normalized baseline probability.
-   *
-   * @private
-   * @returns {number} normalized baseline probability.
-   */
-  private baselineProbability(): number {
-    return normalizeRuleProbability(this.baselineRule?.probability);
-  }
-
-  /**
    * Handles rule form value changes.
    *
    * @private
    */
   private onRuleFormChanged(): void {
     const nextRule = this.ruleFromForm();
-    const changed = !rulesEqual(nextRule, this.rule);
+    const changed = !ruleDraftsEqual(nextRule, this.rule);
     this.rule = nextRule;
     this.syncRuleFormDisabled();
     if (changed) {
@@ -569,23 +558,8 @@ export class RuleCard implements OnChanges, Validator {
       clause: structuredClone(value.clause),
       become: structuredClone(value.become)
     };
-    if (value.probability !== null) {
-      rule.probability = normalizeRuleProbability(value.probability);
-    } else if (this.rule.probability !== undefined) {
-      rule.probability = this.rule.probability;
-    }
+    rule.probability = value.probability as Rule<Tribe[]>['probability'];
     return rule;
-  }
-
-  /**
-   * Validates the local clause control.
-   *
-   * @private
-   * @param {AbstractControl<Clause<Tribe[]> | null>} control clause control.
-   * @returns {(ValidationErrors | null)} validation result.
-   */
-  private validateClauseControl(control: AbstractControl<Clause<Tribe[]> | null>): ValidationErrors | null {
-    return control.value && hasInvalidClauseStructure(control.value, this.tribes) ? {clause: true} : null;
   }
 
   /**

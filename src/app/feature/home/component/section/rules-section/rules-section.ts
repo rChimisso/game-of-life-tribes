@@ -7,7 +7,7 @@ import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {BaselineState} from '~gol/core/model/baseline-state';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
+import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleDraftListsEqual, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
 import {RulesFormControls} from '~gol/feature/home/model/rules-form';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
@@ -450,7 +450,7 @@ export class RulesSection implements OnChanges {
       };
       this.baselineRules.set({
         randomSeed: appliedValue.randomSeed,
-        rules: appliedValue.rules.map((rule, index) => this.toEditableRule(rule, currentRules[index]?.key))
+        rules: currentRules
       });
       this.form.markAsPristine();
       this.form.markAsUntouched();
@@ -516,17 +516,13 @@ export class RulesSection implements OnChanges {
    * @private
    */
   private syncRandomSeedFromCommitted(): void {
-    const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.currentRules());
-    const nextValue: RulesEditorValue = {
-      randomSeed: normalizeRandomSeed(this.randomSeed),
-      rules: this.committedRules.map(rule => {
-        const keyBucket = previousRuleKeyBuckets.get(ruleSignature(rule));
-        const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
-        return this.toEditableRule(rule, preferredKey);
-      })
-    };
-    this.form.controls.randomSeed.setValue(nextValue.randomSeed, {emitEvent: false});
-    this.resetBaselineFromCurrent();
+    const nextRandomSeed = normalizeRandomSeed(this.randomSeed);
+    const baseline = this.baselineRules.value();
+    this.form.controls.randomSeed.setValue(nextRandomSeed, {emitEvent: false});
+    this.baselineRules.set({
+      randomSeed: nextRandomSeed,
+      rules: baseline.rules
+    });
   }
 
   /**
@@ -639,7 +635,7 @@ export class RulesSection implements OnChanges {
    * @returns {boolean} whether values are equal.
    */
   private editorValuesEqual(baseline: RulesEditorValue, current: RulesEditorValue): boolean {
-    return baseline.randomSeed === current.randomSeed && ruleListsEqual(current.rules, baseline.rules);
+    return baseline.randomSeed === current.randomSeed && ruleDraftListsEqual(current.rules, baseline.rules);
   }
 
   /**

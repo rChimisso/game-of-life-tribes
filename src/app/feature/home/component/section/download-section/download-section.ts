@@ -3,10 +3,11 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
 import {DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
-import {DownloadFormControls, DownloadFormValue} from '~gol/feature/home/model/download-form';
+import {DownloadFormValue} from '~gol/feature/home/model/download-form';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {CheckboxComponent} from '~gol/shared/component/checkbox/checkbox';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
@@ -203,9 +204,9 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    *
    * @public
    * @readonly
-   * @type {FormGroup<DownloadFormControls>}
+   * @type {FormGroup<FormType<DownloadFormValue>>}
    */
-  public readonly form = new FormGroup<DownloadFormControls>({
+  public readonly form = new FormGroup<FormType<DownloadFormValue>>({
     outputs: new FormGroup({
       saves: new FormControl(true, {nonNullable: true}),
       metrics: new FormControl(true, {nonNullable: true}),

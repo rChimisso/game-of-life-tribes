@@ -242,10 +242,3 @@ export interface SnapshotErrorMessage {
  * @typedef {SnapshotWorkerResponse}
  */
 export type SnapshotWorkerResponse = SnapshotSavedBufferMessage | SnapshotSavedFileMessage | SnapshotLoadedMessage | SnapshotInvalidMessage | SnapshotProgressMessage | SnapshotErrorMessage;
-
-/**
- * Snapshot worker response event.
- *
- * @typedef {SnapshotWorkerResponseEvent}
- */
-export type SnapshotWorkerResponseEvent = MessageEvent<SnapshotWorkerResponse>;

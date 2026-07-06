@@ -1,5 +1,3 @@
-import {FormType} from '~gol/core/model/form-type';
-
 /**
  * Download form value.
  *
@@ -44,10 +42,3 @@ export interface DownloadFormValue {
    */
   forceChunkDownload: boolean;
 }
-
-/**
- * Download form controls.
- *
- * @typedef {DownloadFormControls}
- */
-export type DownloadFormControls = FormType<DownloadFormValue>;

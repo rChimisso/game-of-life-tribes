@@ -5,12 +5,12 @@
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Grid columns">
     <span class="input-label gol-cell-2">Cols</span>
-    <gol-number-input class="gol-cell-5" formControlName="cols" name="columns" [decimalDigits]="0" [min]="3" />
+    <gol-number-input class="gol-cell-5" formControlName="cols" [decimalDigits]="0" [min]="3" />
     <span class="gol-cell-5 error-message">{{ gridColsError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny" title="Grid rows">
     <span class="input-label gol-cell-2">Rows</span>
-    <gol-number-input class="gol-cell-5" formControlName="rows" name="rows" [decimalDigits]="0" [min]="3" />
+    <gol-number-input class="gol-cell-5" formControlName="rows" [decimalDigits]="0" [min]="3" />
     <span class="gol-cell-5 error-message">{{ gridRowsError }}</span>
   </div>
   <gol-frame-size-limits class="gol-cell-12" [frameBytes]="pendingGridFrameByteSize" [maxBytes]="maxBytes" (overAllowedLimitChange)="pendingGridOverAllowedFrameLimit = $event" />

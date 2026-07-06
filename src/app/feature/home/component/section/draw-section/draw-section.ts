@@ -3,8 +3,9 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {DrawFormControls} from '~gol/feature/home/model/draw-form';
+import {DrawFormValue} from '~gol/feature/home/model/draw-form';
 import {BrushFill, BrushShape, MAX_BRUSH_DENSITY, MIN_BRUSH_DENSITY, TouchMode} from '~gol/feature/home/model/draw-mode';
 import {Tribe} from '~gol/feature/home/model/rule';
 import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
@@ -191,9 +192,9 @@ export class DrawSection implements OnChanges, OnInit {
    *
    * @public
    * @readonly
-   * @type {FormGroup<DrawFormControls>}
+   * @type {FormGroup<FormType<DrawFormValue>>}
    */
-  public readonly form = new FormGroup<DrawFormControls>({
+  public readonly form = new FormGroup<FormType<DrawFormValue>>({
     brushSize: new FormControl<number | null>(1, {validators: [Validators.required]}),
     brushShape: new FormControl<BrushShape>('square', {nonNullable: true}),
     brushFill: new FormControl<BrushFill>('full', {nonNullable: true}),

@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, inject, Input, OnChanges, Output, ViewChild} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, inject, Input, numberAttribute, OnChanges, Output, ViewChild} from '@angular/core';
 import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
 import {AbstractInputComponent} from '../abstract-input';
@@ -52,7 +52,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {(number | undefined)}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public min?: number;
 
   /**
@@ -61,7 +61,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {(number | undefined)}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public max?: number;
 
   /**
@@ -70,7 +70,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {number}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public decimalDigits = 0;
 
   /**
@@ -79,7 +79,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {(number | undefined)}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public fixedDecimalDigits?: number;
 
   /**
@@ -88,7 +88,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {(number | undefined)}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public minIntegerDigits?: number;
 
   /**
@@ -97,7 +97,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @public
    * @type {(number | undefined)}
    */
-  @Input()
+  @Input({transform: numberAttribute})
   public maxIntegerDigits?: number;
 
   /**
@@ -408,7 +408,8 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @returns {number} normalized decimal digit count.
    */
   private normalizedDecimalDigits(): number {
-    return Math.max(0, Math.trunc(Number(this.decimalDigits) || 0));
+    const decimalDigits = Number.isFinite(this.decimalDigits) ? this.decimalDigits : 0;
+    return Math.max(0, Math.trunc(decimalDigits));
   }
 
   /**
@@ -418,7 +419,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @returns {(number | undefined)} normalized fixed decimal digit count.
    */
   private normalizedFixedDecimalDigits(): number | undefined {
-    const normalized = this.fixedDecimalDigits === undefined ? undefined : Math.max(0, Math.trunc(Number(this.fixedDecimalDigits) || 0));
+    const normalized = this.fixedDecimalDigits === undefined || !Number.isFinite(this.fixedDecimalDigits) ? undefined : Math.max(0, Math.trunc(this.fixedDecimalDigits));
     return normalized === undefined ? undefined : Math.min(this.normalizedDecimalDigits(), normalized);
   }
 }

@@ -11,7 +11,7 @@
   @if (activeForm; as editForm) {
     <div class="tribe-editor" [attr.aria-hidden]="!showEditor" [class.open]="showEditor" [formGroup]="editForm">
       <div class="tribe-editor-inner">
-        <gol-text-input allowedPattern="^[0-9a-zA-Z]*$" formControlName="id" name="tribeName" placeholder="Name (A-z, 0-9)" />
+        <gol-text-input allowedPattern="^[0-9a-zA-Z]*$" formControlName="id" placeholder="Name (A-z, 0-9)" />
         <div class="color-palette">
           @for (c of basicColors; track c) {
             <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [title]="'#' + c" (clicked)="setColor(c)" />
@@ -20,7 +20,7 @@
         </div>
         <div class="hex-row">
           <span class="hex-hash">#</span>
-          <gol-text-input allowedPattern="^[0-9a-fA-F]{0,6}$" class="hex-input" formControlName="color" name="tribeHex" />
+          <gol-text-input allowedPattern="^[0-9a-fA-F]{0,6}$" class="hex-input" formControlName="color" />
           <input class="native-picker" type="color" [value]="nativeColor(editForm.controls.color.value)" (input)="onNativeColorInput($event)" />
         </div>
         @if (adder) {

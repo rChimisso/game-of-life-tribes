@@ -1,5 +1,5 @@
 <div class="gol-grid-tiny" [formGroup]="form">
-  <gol-number-input class="gol-cell-4" formControlName="speed" name="speed" title="Target speed" [decimalDigits]="0" [min]="1" (blurred)="restoreInvalidSpeed()" />
+  <gol-number-input class="gol-cell-4" formControlName="speed" title="Target speed" [decimalDigits]="0" [min]="1" (blurred)="restoreInvalidSpeed()" />
   <span class="speed-unit gol-cell-3" title="Target speed">gen/s</span>
   <gol-toggle-button class="gol-cell-5" formControlName="maxSpeed" label="Max" title="Toggle max speed" />
   <span class="warning-message gol-cell-7" title="">{{ recordingGateMessage }}</span>

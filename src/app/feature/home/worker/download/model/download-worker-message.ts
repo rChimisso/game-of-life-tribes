@@ -219,10 +219,3 @@ export interface DownloadDoneMessage {
  * @typedef {DownloadWorkerMessage}
  */
 export type DownloadWorkerMessage = DownloadProgressMessage | DownloadWarningMessage | DownloadDonePartMessage | DownloadErrorMessage | DownloadCancelledMessage | DownloadCancelCleanupDoneMessage | DownloadDoneMessage;
-
-/**
- * Download worker response event.
- *
- * @typedef {DownloadWorkerResponseEvent}
- */
-export type DownloadWorkerResponseEvent = MessageEvent<DownloadWorkerMessage>;

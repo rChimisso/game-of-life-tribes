@@ -2,8 +2,9 @@ import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, In
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {SpeedFormControls} from '~gol/feature/home/model/speed-form';
+import {SpeedFormValue} from '~gol/feature/home/model/speed-form';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-button';
 
@@ -141,9 +142,9 @@ export class SpeedSection implements OnChanges, OnInit {
    *
    * @public
    * @readonly
-   * @type {FormGroup<SpeedFormControls>}
+   * @type {FormGroup<FormType<SpeedFormValue>>}
    */
-  public readonly form = new FormGroup<SpeedFormControls>({
+  public readonly form = new FormGroup<FormType<SpeedFormValue>>({
     speed: new FormControl<number | null>(1, {validators: [Validators.required]}),
     maxSpeed: new FormControl(false, {nonNullable: true}),
     recording: new FormControl(false, {nonNullable: true}),

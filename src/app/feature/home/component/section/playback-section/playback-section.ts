@@ -3,8 +3,9 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {PlaybackFormControls} from '~gol/feature/home/model/playback-form';
+import {PlaybackFormValue} from '~gol/feature/home/model/playback-form';
 import {PlaybackSectionPreferences} from '~gol/feature/home/model/preferences';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
@@ -170,9 +171,9 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    *
    * @public
    * @readonly
-   * @type {FormGroup<PlaybackFormControls>}
+   * @type {FormGroup<FormType<PlaybackFormValue>>}
    */
-  public readonly form = new FormGroup<PlaybackFormControls>({
+  public readonly form = new FormGroup<FormType<PlaybackFormValue>>({
     skipAmount: new FormControl<number | null>(this.defaultPreferences.skipAmount, {validators: [Validators.required]})
   });
 

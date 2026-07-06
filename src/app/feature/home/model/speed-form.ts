@@ -1,5 +1,3 @@
-import {FormType} from '~gol/core/model/form-type';
-
 /**
  * Speed section form value.
  *
@@ -32,10 +30,3 @@ export interface SpeedFormValue {
    */
   liveMetricsEnabled: boolean;
 }
-
-/**
- * Speed section form controls.
- *
- * @typedef {SpeedFormControls}
- */
-export type SpeedFormControls = FormType<SpeedFormValue>;

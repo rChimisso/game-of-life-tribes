@@ -3,6 +3,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, injec
 import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator} from '@angular/forms';
 
 import {SelectorEditor} from '../selector-editor/selector-editor';
+import {BecomeMode, CombineBecome, CombineTarget, FIXED_TRIBE_LABEL, NestedBecomeMode} from './model/become-editor';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {combinationInputValue, combinationTribeIds, DIFFERENT_INPUT_VALUE, isRankedBecome, RANK_INPUT_VALUE, RankedBecome, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
@@ -11,41 +12,6 @@ import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
-
-/**
- * Outcome editor mode.
- *
- * @typedef {BecomeMode}
- */
-type BecomeMode = Become<Tribe[]>['kind'];
-
-/**
- * Combine outcome handled by the lookup table UI.
- *
- * @typedef {CombineBecome}
- */
-type CombineBecome = Extract<Become<Tribe[]>, {kind: typeof COMBINE_BECOME_KIND}>;
-
-/**
- * Simplified nested outcome mode.
- *
- * @typedef {NestedBecomeMode}
- */
-type NestedBecomeMode = typeof FIXED_BECOME_KIND | typeof SAME_BECOME_KIND | typeof COMBINE_BECOME_KIND;
-
-/**
- * Editable combine target.
- *
- * @typedef {CombineTarget}
- */
-type CombineTarget = 'root' | 'tie' | 'fallback';
-
-/**
- * Label shared by fixed outcome controls.
- *
- * @type {"Fixed tribe"}
- */
-const FIXED_TRIBE_LABEL = 'Fixed tribe';
 
 /**
  * Editor for rule outcome expressions.

@@ -1,4 +1,3 @@
-import {FormType} from '~gol/core/model/form-type';
 import {BrushFill, BrushShape, TouchMode} from '~gol/feature/home/model/draw-mode';
 
 /**
@@ -39,10 +38,3 @@ export interface DrawFormValue {
    */
   touchMode: TouchMode;
 }
-
-/**
- * Draw section form controls.
- *
- * @typedef {DrawFormControls}
- */
-export type DrawFormControls = FormType<DrawFormValue>;

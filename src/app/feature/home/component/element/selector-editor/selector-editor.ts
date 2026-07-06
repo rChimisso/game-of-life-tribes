@@ -1,19 +1,14 @@
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, inject, Input, OnChanges} from '@angular/core';
 import {AbstractControl, ControlValueAccessor, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
+import {TribeSelectorKind} from './model/selector-editor';
+
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
-
-/**
- * Selector kind editable in the selector editor.
- *
- * @typedef {TribeSelectorKind}
- */
-export type TribeSelectorKind = TribeSelector<Tribe[]>['kind'];
 
 /**
  * Editor for tribe selector expressions.

@@ -4,9 +4,9 @@ import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule} from '@ang
 
 import {MetricRow} from '../../element/metric-row/metric-row';
 
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '~gol/feature/home/model/metrics';
-import {MetricsFormControls} from '~gol/feature/home/model/metrics-form';
 import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 import {MetricMessage} from '~gol/feature/home/model/worker-message';
 import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
@@ -142,9 +142,9 @@ export class MetricsSection implements OnChanges, OnInit {
    *
    * @public
    * @readonly
-   * @type {FormGroup<MetricsFormControls>}
+   * @type {FormGroup<FormType<LiveMetricSectionSettings>>}
    */
-  public readonly form = new FormGroup<MetricsFormControls>({
+  public readonly form = new FormGroup<FormType<LiveMetricSectionSettings>>({
     population: new FormControl(true, {nonNullable: true}),
     diversity: new FormControl(true, {nonNullable: true}),
     interfaces: new FormControl(false, {nonNullable: true})

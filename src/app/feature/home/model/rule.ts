@@ -731,7 +731,7 @@ export interface NoneClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof NONE_CLAUSE_KIND;
   /**
-   * Selector counted by this alias.
+   * Selector counted by this clause.
    *
    * @type {?TribeSelector<T>}
    */
@@ -753,7 +753,7 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof EXACTLY_CLAUSE_KIND;
   /**
-   * Selector counted by this alias.
+   * Selector counted by this clause.
    *
    * @type {?TribeSelector<T>}
    */
@@ -781,7 +781,7 @@ export interface MinClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof MIN_CLAUSE_KIND;
   /**
-   * Selector counted by this alias.
+   * Selector counted by this clause.
    *
    * @type {?TribeSelector<T>}
    */
@@ -809,7 +809,7 @@ export interface MaxClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof MAX_CLAUSE_KIND;
   /**
-   * Selector counted by this alias.
+   * Selector counted by this clause.
    *
    * @type {?TribeSelector<T>}
    */

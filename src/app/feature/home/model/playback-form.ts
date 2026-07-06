@@ -1,5 +1,3 @@
-import {FormType} from '~gol/core/model/form-type';
-
 /**
  * Playback section form value.
  *
@@ -14,10 +12,3 @@ export interface PlaybackFormValue {
    */
   skipAmount: number | null;
 }
-
-/**
- * Playback section form controls.
- *
- * @typedef {PlaybackFormControls}
- */
-export type PlaybackFormControls = FormType<PlaybackFormValue>;

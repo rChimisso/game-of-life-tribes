@@ -1,4 +1,3 @@
-import {FormType} from '~gol/core/model/form-type';
 import {GridTopology} from '~gol/feature/home/model/grid';
 
 /**
@@ -33,10 +32,3 @@ export interface GridSizeFormValue {
    */
   boundaryTribe: string;
 }
-
-/**
- * Grid size form controls.
- *
- * @typedef {GridSizeFormControls}
- */
-export type GridSizeFormControls = FormType<GridSizeFormValue>;

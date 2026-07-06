@@ -95,13 +95,8 @@ export class TextInputComponent extends AbstractInputComponent<string> implement
    */
   public onBeforeInput(event: InputEvent): void {
     const {target} = event;
-    if (target instanceof HTMLInputElement && event.data !== null) {
-      const start = target.selectionStart ?? target.value.length;
-      const end = target.selectionEnd ?? target.value.length;
-      const prospectiveValue = `${target.value.slice(0, start)}${event.data}${target.value.slice(end)}`;
-      if (!this.isAllowed(prospectiveValue)) {
-        event.preventDefault();
-      }
+    if (target instanceof HTMLInputElement && event.data !== null && !this.isAllowed(`${target.value.slice(0, target.selectionStart ?? target.value.length)}${event.data}${target.value.slice(target.selectionEnd ?? target.value.length)}`)) {
+      event.preventDefault();
     }
   }
 

@@ -14,15 +14,6 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Directive()
 export abstract class AbstractInputComponent<T> extends CvaComponent<T> {
   /**
-   * Input name.
-   *
-   * @public
-   * @type {(string | undefined)}
-   */
-  @Input()
-  public name?: string;
-
-  /**
    * Input placeholder.
    *
    * @public

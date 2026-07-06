@@ -24,13 +24,6 @@ export type EngineWorkerOutputMessage =
   | GpuErrorMessage;
 
 /**
- * Engine worker output message type.
- *
- * @typedef {EngineWorkerOutputType}
- */
-export type EngineWorkerOutputType = EngineWorkerOutputMessage['type'];
-
-/**
  * Output callbacks used by the engine worker client.
  *
  * @typedef {EngineWorkerOutputHandlers}

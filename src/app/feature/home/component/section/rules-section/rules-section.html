@@ -2,7 +2,7 @@
   <div class="rules-settings">
     <div class="seed-field gol-grid-tiny" title="Random seed for rule probability rolls">
       <span class="gol-cell-4">Random seed</span>
-      <gol-number-input class="gol-cell-5" formControlName="randomSeed" name="random-seed" title="Random seed" [decimalDigits]="0" [max]="maxRandomSeed" [maxIntegerDigits]="maxRandomSeedIntegerDigits" [min]="minRandomSeed" />
+      <gol-number-input class="gol-cell-5" formControlName="randomSeed" title="Random seed" [decimalDigits]="0" [max]="maxRandomSeed" [maxIntegerDigits]="maxRandomSeedIntegerDigits" [min]="minRandomSeed" />
       <span class="gol-cell-3 error-message" [title]="randomSeedError ?? ''">{{ randomSeedError }}</span>
     </div>
   </div>

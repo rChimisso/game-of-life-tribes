@@ -5,11 +5,12 @@ import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {BaselineState} from '~gol/core/model/baseline-state';
+import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {gridByteSize, gridFormatFromBits} from '~gol/feature/home/logic/grid-format';
 import {GridSettings, GridTopology} from '~gol/feature/home/model/grid';
 import {BitsPerCell} from '~gol/feature/home/model/grid-format';
-import {GridSizeFormControls, GridSizeFormValue} from '~gol/feature/home/model/grid-size-form';
+import {GridSizeFormValue} from '~gol/feature/home/model/grid-size-form';
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
@@ -137,9 +138,9 @@ export class GridSizeSection implements OnChanges, OnInit {
    *
    * @public
    * @readonly
-   * @type {FormGroup<GridSizeFormControls>}
+   * @type {FormGroup<FormType<GridSizeFormValue>>}
    */
-  public readonly form = new FormGroup<GridSizeFormControls>({
+  public readonly form = new FormGroup<FormType<GridSizeFormValue>>({
     cols: new FormControl<number | null>(0, {validators: [Validators.required]}),
     rows: new FormControl<number | null>(0, {validators: [Validators.required]}),
     topology: new FormControl<GridTopology>(TOROIDAL_GRID_TOPOLOGY, {nonNullable: true}),

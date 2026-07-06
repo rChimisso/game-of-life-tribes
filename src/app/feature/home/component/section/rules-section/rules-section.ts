@@ -3,6 +3,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, Event
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
+import {RulesEditorValue} from './model/rules-editor';
 import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {BaselineState} from '~gol/core/model/baseline-state';
@@ -15,27 +16,6 @@ import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
-
-/**
- * Rules editor value tracked by the Apply/Restore baseline.
- *
- * @interface RulesEditorValue
- * @typedef {RulesEditorValue}
- */
-interface RulesEditorValue {
-  /**
-   * Deterministic random seed.
-   *
-   * @type {(number | null)}
-   */
-  randomSeed: number | null;
-  /**
-   * Editable rules.
-   *
-   * @type {RuleDraft[]}
-   */
-  rules: RuleDraft[];
-}
 
 /**
  * Rules editor section.

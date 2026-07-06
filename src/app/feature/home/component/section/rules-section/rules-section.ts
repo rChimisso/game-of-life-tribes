@@ -7,8 +7,9 @@ import {RuleCard} from '../../element/rule-card/rule-card';
 
 import {BaselineState} from '~gol/core/model/baseline-state';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleDraftListsEqual, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
+import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleDraftListsEqual, ruleDraftSignature, ruleListsEqual, toPersistedRuleDraft} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
+import {RuleDraft} from '~gol/feature/home/model/rule-draft';
 import {RulesFormControls} from '~gol/feature/home/model/rules-form';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
@@ -31,9 +32,9 @@ interface RulesEditorValue {
   /**
    * Editable rules.
    *
-   * @type {Rule<Tribe[]>[]}
+   * @type {RuleDraft[]}
    */
-  rules: Rule<Tribe[]>[];
+  rules: RuleDraft[];
 }
 
 /**
@@ -123,7 +124,7 @@ export class RulesSection implements OnChanges {
    */
   public readonly form = new FormGroup<RulesFormControls>({
     randomSeed: new FormControl<number | null>(42, {validators: [Validators.required]}),
-    rules: new FormArray<FormControl<Rule<Tribe[]>>>([])
+    rules: new FormArray<FormControl<RuleDraft>>([])
   });
 
   /**
@@ -211,9 +212,9 @@ export class RulesSection implements OnChanges {
    *
    * @public
    * @readonly
-   * @type {FormArray<FormControl<Rule<Tribe[]>>>}
+   * @type {FormArray<FormControl<RuleDraft>>}
    */
-  public get rules(): FormArray<FormControl<Rule<Tribe[]>>> {
+  public get rules(): FormArray<FormControl<RuleDraft>> {
     return this.form.controls.rules;
   }
 
@@ -313,9 +314,9 @@ export class RulesSection implements OnChanges {
    *
    * @public
    * @param {number} index rule index.
-   * @returns {(Rule<Tribe[]> | null)} baseline rule.
+   * @returns {(RuleDraft | null)} baseline rule.
    */
-  public baselineRule(index: number): Rule<Tribe[]> | null {
+  public baselineRule(index: number): RuleDraft | null {
     return this.baselineRules.value().rules[index] ?? null;
   }
 
@@ -325,7 +326,7 @@ export class RulesSection implements OnChanges {
    * @public
    */
   public onAddRule(): void {
-    const newRule: Rule<Tribe[]> = {
+    const newRule: RuleDraft = {
       key: this.createEditableRuleKey(),
       muted: false,
       clause: EMPTY_CLAUSE,
@@ -362,8 +363,9 @@ export class RulesSection implements OnChanges {
    * @param {number} index rule index.
    */
   public onDuplicateRule(index: number): void {
-    const rule = this.rules.at(index)?.value;
-    if (rule) {
+    const control = this.rules.at(index);
+    const rule = control?.value;
+    if (rule && !control.invalid) {
       const clonedRule = structuredClone(rule);
       clonedRule.key = this.createEditableRuleKey();
       clonedRule.muted = !!clonedRule.muted;
@@ -411,9 +413,9 @@ export class RulesSection implements OnChanges {
    * Handles rule drop reordering.
    *
    * @public
-   * @param {CdkDragDrop<FormControl<Rule<Tribe[]>>[]>} event drop event.
+   * @param {CdkDragDrop<FormControl<RuleDraft>[]>} event drop event.
    */
-  public onRuleDropped(event: CdkDragDrop<FormControl<Rule<Tribe[]>>[]>): void {
+  public onRuleDropped(event: CdkDragDrop<FormControl<RuleDraft>[]>): void {
     if (event.previousIndex !== event.currentIndex) {
       const control = this.rules.at(event.previousIndex);
       this.rules.removeAt(event.previousIndex);
@@ -444,19 +446,16 @@ export class RulesSection implements OnChanges {
     if (!this.applyDisabled) {
       const currentRules = this.currentRules();
       const appliedRandomSeed = normalizeRandomSeed(this.form.controls.randomSeed.value ?? this.randomSeed);
-      const appliedValue: RulesEditorValue = {
-        randomSeed: appliedRandomSeed,
-        rules: currentRules.map(rule => toPersistedRule(rule))
-      };
+      const persistedRules = currentRules.map(rule => toPersistedRuleDraft(rule));
       this.baselineRules.set({
-        randomSeed: appliedValue.randomSeed,
+        randomSeed: appliedRandomSeed,
         rules: currentRules
       });
       this.form.markAsPristine();
       this.form.markAsUntouched();
       this.applyRules.emit({
         randomSeed: appliedRandomSeed,
-        rules: appliedValue.rules
+        rules: persistedRules
       });
       this.cdr.markForCheck();
     }
@@ -500,9 +499,11 @@ export class RulesSection implements OnChanges {
     const nextValue: RulesEditorValue = {
       randomSeed: normalizeRandomSeed(this.randomSeed),
       rules: this.committedRules.map(rule => {
-        const keyBucket = previousRuleKeyBuckets.get(ruleSignature(rule));
+        const editableRule = this.toEditableRule(rule, '');
+        const keyBucket = previousRuleKeyBuckets.get(ruleDraftSignature(editableRule));
         const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
-        return this.toEditableRule(rule, preferredKey);
+        editableRule.key = preferredKey ?? this.createEditableRuleKey();
+        return editableRule;
       })
     };
     this.rebuildForm(nextValue);
@@ -556,10 +557,10 @@ export class RulesSection implements OnChanges {
    * Creates one rule control.
    *
    * @private
-   * @param {Rule<Tribe[]>} rule editable rule.
-   * @returns {FormControl<Rule<Tribe[]>>} rule control.
+   * @param {RuleDraft} rule editable rule.
+   * @returns {FormControl<RuleDraft>} rule control.
    */
-  private createRuleControl(rule: Rule<Tribe[]>): FormControl<Rule<Tribe[]>> {
+  private createRuleControl(rule: RuleDraft): FormControl<RuleDraft> {
     return new FormControl(rule, {nonNullable: true});
   }
 
@@ -569,9 +570,9 @@ export class RulesSection implements OnChanges {
    * @private
    * @param {Rule<Tribe[]>} rule committed rule.
    * @param {string} [preferredKey] preferred key.
-   * @returns {Rule<Tribe[]>} editable rule.
+   * @returns {RuleDraft} editable rule.
    */
-  private toEditableRule(rule: Rule<Tribe[]>, preferredKey?: string): Rule<Tribe[]> {
+  private toEditableRule(rule: Rule<Tribe[]>, preferredKey?: string): RuleDraft {
     const editableRule = normalizeRule(rule);
     editableRule.clause = normalizeClauseForEditor(editableRule.clause);
     editableRule.key = preferredKey ?? this.createEditableRuleKey();
@@ -583,9 +584,9 @@ export class RulesSection implements OnChanges {
    * Gets the current rule values.
    *
    * @private
-   * @returns {Rule<Tribe[]>[]} editable rules.
+   * @returns {RuleDraft[]} editable rules.
    */
-  private currentRules(): Rule<Tribe[]>[] {
+  private currentRules(): RuleDraft[] {
     return this.rules.controls.map(control => control.value);
   }
 
@@ -593,15 +594,15 @@ export class RulesSection implements OnChanges {
    * Builds reusable key buckets from editable rules.
    *
    * @private
-   * @param {readonly Rule<Tribe[]>[]} rules editable rules.
+   * @param {readonly RuleDraft[]} rules editable rules.
    * @returns {Map<string, string[]>} keys grouped by persisted rule signature.
    */
-  private buildRuleKeyBuckets(rules: readonly Rule<Tribe[]>[]): Map<string, string[]> {
+  private buildRuleKeyBuckets(rules: readonly RuleDraft[]): Map<string, string[]> {
     const ruleKeyBuckets = new Map<string, string[]>();
     for (const rule of rules) {
       const {key} = rule;
       if (key) {
-        const signature = ruleSignature(rule);
+        const signature = ruleDraftSignature(rule);
         const existingKeys = ruleKeyBuckets.get(signature);
         if (existingKeys) {
           existingKeys.push(key);

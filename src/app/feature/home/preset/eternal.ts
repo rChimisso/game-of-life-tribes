@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND} from '../model/rule';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Tribe ID.
@@ -36,7 +36,7 @@ export const ETERNAL_PRESET: Preset = {
             {
               kind: EXACTLY_CLAUSE_KIND,
               value: 3,
-              tribes: [ETERNAL_TRIBE]
+              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ETERNAL_TRIBE]}
             }
           ]
         },

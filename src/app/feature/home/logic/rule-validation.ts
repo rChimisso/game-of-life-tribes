@@ -1,15 +1,16 @@
 import {normalizeCountExpression, normalizeSelector} from './rule-editor';
 
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 
 /**
  * Checks whether a clause has intrinsic validation errors.
  *
- * @param {Clause<Tribe[]>} clause clause to inspect.
+ * @param {Clause<Tribe[]> | ClauseDraft} clause clause to inspect.
  * @param {readonly Tribe[]} tribes known tribes.
  * @returns {boolean} `true` if the clause has intrinsic errors.
  */
-function hasInvalidClauseStructure(clause: Clause<Tribe[]>, tribes: readonly Tribe[]): boolean {
+function hasInvalidClauseStructure(clause: Clause<Tribe[]> | ClauseDraft, tribes: readonly Tribe[]): boolean {
   return containsEmptyClause(clause) || containsInvalidSelector(clause, tribes) || containsInvalidCountInterval(clause);
 }
 
@@ -19,7 +20,7 @@ function hasInvalidClauseStructure(clause: Clause<Tribe[]>, tribes: readonly Tri
  * @param {Clause<Tribe[]>} clause clause to inspect.
  * @returns {boolean} `true` if an empty placeholder exists.
  */
-function containsEmptyClause(clause: Clause<Tribe[]>): boolean {
+function containsEmptyClause(clause: Clause<Tribe[]> | ClauseDraft): boolean {
   let invalid = false;
   switch (clause.kind) {
     case EMPTY_CLAUSE_KIND:
@@ -44,21 +45,24 @@ function containsEmptyClause(clause: Clause<Tribe[]>): boolean {
  * @param {readonly Tribe[]} tribes known tribes.
  * @returns {boolean} `true` if an invalid selector exists.
  */
-function containsInvalidSelector(clause: Clause<Tribe[]>, tribes: readonly Tribe[]): boolean {
+function containsInvalidSelector(clause: Clause<Tribe[]> | ClauseDraft, tribes: readonly Tribe[]): boolean {
   let invalid = false;
   switch (clause.kind) {
     case IS_CLAUSE_KIND:
-      invalid = isSelectorInvalid(normalizeSelector(undefined, clause.tribes), tribes);
+      invalid = clause.tribes.length === 0 || isSelectorInvalid({
+        kind: TRIBES_SELECTOR_KIND,
+        tribes: [clause.tribes[0] ?? '', ...clause.tribes.slice(1)]
+      }, tribes);
       break;
     case COUNT_CLAUSE_KIND:
     case NONE_CLAUSE_KIND:
     case EXACTLY_CLAUSE_KIND:
     case MIN_CLAUSE_KIND:
     case MAX_CLAUSE_KIND:
-      invalid = isSelectorInvalid(normalizeSelector(clause.selector, clause.tribes), tribes);
+      invalid = isSelectorInvalid(normalizeSelector(clause.selector), tribes);
       break;
     case COMPARISON_CLAUSE_KIND:
-      invalid = isSelectorInvalid(normalizeCountExpression(clause.left, clause.tribe1).selector, tribes) || isSelectorInvalid(normalizeCountExpression(clause.right, clause.tribe2).selector, tribes);
+      invalid = isSelectorInvalid(normalizeCountExpression(clause.left).selector, tribes) || isSelectorInvalid(normalizeCountExpression(clause.right).selector, tribes);
       break;
     case NOT_CLAUSE_KIND:
       invalid = containsInvalidSelector(clause.clause, tribes);
@@ -99,11 +103,11 @@ function isSelectorInvalid(selector: TribeSelector<Tribe[]>, tribes: readonly Tr
  * @param {Clause<Tribe[]>} clause clause to inspect.
  * @returns {boolean} `true` if a lower bound is greater than an upper bound.
  */
-function containsInvalidCountInterval(clause: Clause<Tribe[]>): boolean {
+function containsInvalidCountInterval(clause: Clause<Tribe[]> | ClauseDraft): boolean {
   let invalid = false;
   switch (clause.kind) {
     case COUNT_CLAUSE_KIND:
-      invalid = clause.interval[0] > clause.interval[1];
+      invalid = typeof clause.interval[0] === 'number' && typeof clause.interval[1] === 'number' && clause.interval[0] > clause.interval[1];
       break;
     case NOT_CLAUSE_KIND:
       invalid = containsInvalidCountInterval(clause.clause);

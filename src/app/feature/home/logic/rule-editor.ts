@@ -1,4 +1,5 @@
-import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NeighborCount, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {ClauseDraft, RuleDraft} from '../model/rule-draft';
 
 /**
  * Normalizes one combination row input, including previous string-only rows.
@@ -70,7 +71,7 @@ export function probabilityThresholdU32(probability: number | undefined): number
 }
 
 /**
- * Creates a legacy explicit-tribe selector.
+ * Creates an explicit-tribe selector.
  *
  * @template {readonly Tribe[]} T
  * @param {readonly TribeId<T>[] | undefined} tribes selected tribe IDs.
@@ -109,11 +110,10 @@ export function toggleExplicitTribeSelection<T extends readonly Tribe[]>(tribes:
  *
  * @template {readonly Tribe[]} T
  * @param {TribeSelector<T> | undefined} selector selector to normalize.
- * @param {readonly TribeId<T>[] | undefined} legacyTribes legacy tribe list.
  * @returns {TribeSelector<T>} normalized selector.
  */
-export function normalizeSelector<T extends readonly Tribe[]>(selector: TribeSelector<T> | undefined, legacyTribes?: readonly TribeId<T>[]): TribeSelector<T> {
-  const normalized = selector ?? explicitTribesSelector(legacyTribes);
+export function normalizeSelector<T extends readonly Tribe[]>(selector: TribeSelector<T> | undefined): TribeSelector<T> {
+  const normalized = selector ?? explicitTribesSelector(undefined);
   let result: TribeSelector<T>;
   switch (normalized.kind) {
     case TRIBES_SELECTOR_KIND:
@@ -140,13 +140,12 @@ export function normalizeSelector<T extends readonly Tribe[]>(selector: TribeSel
  *
  * @template {readonly Tribe[]} T
  * @param {CountExpression<T> | undefined} expression expression to normalize.
- * @param {readonly TribeId<T>[] | undefined} legacyTribes legacy tribe list.
  * @returns {CountExpression<T>} normalized count expression.
  */
-export function normalizeCountExpression<T extends readonly Tribe[]>(expression: CountExpression<T> | undefined, legacyTribes?: readonly TribeId<T>[]): CountExpression<T> {
+export function normalizeCountExpression<T extends readonly Tribe[]>(expression: CountExpression<T> | undefined): CountExpression<T> {
   return {
     kind: 'count',
-    selector: normalizeSelector(expression?.selector, legacyTribes)
+    selector: normalizeSelector(expression?.selector)
   };
 }
 
@@ -208,13 +207,13 @@ export function normalizeClauseForEditor<T extends readonly Tribe[]>(clause: Cla
     case MAX_CLAUSE_KIND:
       return {
         ...clause,
-        selector: normalizeSelector(clause.selector, clause.tribes)
+        selector: normalizeSelector(clause.selector)
       };
     case COMPARISON_CLAUSE_KIND:
       return {
         ...clause,
-        left: normalizeCountExpression(clause.left, clause.tribe1),
-        right: normalizeCountExpression(clause.right, clause.tribe2),
+        left: normalizeCountExpression(clause.left),
+        right: normalizeCountExpression(clause.right),
         margin: clause.margin ?? 0
       };
     case NOT_CLAUSE_KIND:
@@ -240,7 +239,7 @@ export function normalizeClauseForEditor<T extends readonly Tribe[]>(clause: Cla
 }
 
 /**
- * Normalizes a clause for persistence by removing legacy selector aliases.
+ * Normalizes a clause for persistence.
  *
  * @template {readonly Tribe[]} T
  * @param {Clause<T>} clause clause to normalize.
@@ -249,21 +248,6 @@ export function normalizeClauseForEditor<T extends readonly Tribe[]>(clause: Cla
 export function normalizeClauseForPersistence<T extends readonly Tribe[]>(clause: Clause<T>): Clause<T> {
   const normalized = normalizeClauseForEditor(clause);
   switch (normalized.kind) {
-    case COUNT_CLAUSE_KIND:
-    case NONE_CLAUSE_KIND:
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND: {
-      const persistedClause = structuredClone(normalized);
-      delete persistedClause.tribes;
-      return persistedClause;
-    }
-    case COMPARISON_CLAUSE_KIND: {
-      const persistedClause = structuredClone(normalized);
-      delete persistedClause.tribe1;
-      delete persistedClause.tribe2;
-      return persistedClause;
-    }
     case NOT_CLAUSE_KIND:
       return {
         ...normalized,
@@ -381,6 +365,161 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
 }
 
 /**
+ * Checks whether a numeric draft is a valid neighbor count.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is NeighborCount} `true` if the value is a valid neighbor count.
+ */
+function isNeighborCount(value: number | null | undefined): value is NeighborCount {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 8;
+}
+
+/**
+ * Checks whether a numeric draft is a valid comparison margin.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is number} `true` if the value is a valid margin.
+ */
+function isComparisonMargin(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= -8 && value <= 8;
+}
+
+/**
+ * Checks whether a numeric draft is a valid rule probability.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is number} `true` if the value is a valid probability.
+ */
+function isRuleProbability(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= MIN_RULE_PROBABILITY && value <= MAX_RULE_PROBABILITY;
+}
+
+/**
+ * Converts a string list into a non-empty tribe list.
+ *
+ * @param {readonly string[]} tribes tribe IDs.
+ * @returns {[string, ...string[]]} non-empty tribe IDs.
+ */
+function toNonEmptyTribeIds(tribes: readonly string[]): [string, ...string[]] {
+  const [first, ...rest] = tribes;
+  if (first === undefined) {
+    throw new Error('Cannot convert an empty tribe draft to a canonical clause.');
+  }
+  return [first, ...rest];
+}
+
+/**
+ * Converts a valid clause draft into a canonical clause.
+ *
+ * @param {ClauseDraft} clause clause draft.
+ * @returns {Clause<Tribe[]>} canonical clause.
+ */
+function toCanonicalClause(clause: ClauseDraft): Clause<Tribe[]> {
+  let canonical: Clause<Tribe[]>;
+  switch (clause.kind) {
+    case EMPTY_CLAUSE_KIND:
+      canonical = EMPTY_CLAUSE;
+      break;
+    case IS_CLAUSE_KIND:
+      canonical = {
+        kind: IS_CLAUSE_KIND,
+        tribes: toNonEmptyTribeIds(clause.tribes)
+      };
+      break;
+    case COUNT_CLAUSE_KIND: {
+      const [min, max] = clause.interval;
+      if (!isNeighborCount(min) || !isNeighborCount(max)) {
+        throw new Error('Cannot convert an invalid count interval draft to a canonical clause.');
+      }
+      canonical = {
+        kind: COUNT_CLAUSE_KIND,
+        selector: normalizeSelector(clause.selector),
+        interval: [min, max]
+      };
+      break;
+    }
+    case NONE_CLAUSE_KIND:
+      canonical = {
+        kind: NONE_CLAUSE_KIND,
+        selector: normalizeSelector(clause.selector)
+      };
+      break;
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      if (!isNeighborCount(clause.value)) {
+        throw new Error('Cannot convert an invalid count value draft to a canonical clause.');
+      }
+      canonical = {
+        kind: clause.kind,
+        selector: normalizeSelector(clause.selector),
+        value: clause.value
+      };
+      break;
+    case COMPARISON_CLAUSE_KIND: {
+      const margin = clause.margin ?? 0;
+      if (!isComparisonMargin(margin)) {
+        throw new Error('Cannot convert an invalid comparison margin draft to a canonical clause.');
+      }
+      canonical = {
+        kind: COMPARISON_CLAUSE_KIND,
+        left: normalizeCountExpression(clause.left),
+        right: normalizeCountExpression(clause.right),
+        operator: clause.operator,
+        margin
+      };
+      break;
+    }
+    case NOT_CLAUSE_KIND:
+      canonical = {
+        kind: NOT_CLAUSE_KIND,
+        clause: toCanonicalClause(clause.clause)
+      };
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND: {
+      const canonicalClauses = clause.clauses.map(child => toCanonicalClause(child));
+      const [first, second, ...rest] = canonicalClauses;
+      if (first === undefined || second === undefined) {
+        throw new Error('Cannot convert a logical clause draft with fewer than two children.');
+      }
+      canonical = {
+        kind: clause.kind,
+        clauses: [first, second, ...rest]
+      };
+      break;
+    }
+  }
+  return canonical;
+}
+
+/**
+ * Converts a valid rule draft into a persisted canonical rule.
+ *
+ * @param {RuleDraft} rule rule draft.
+ * @returns {Rule<Tribe[]>} persisted canonical rule.
+ */
+export function toPersistedRuleDraft(rule: RuleDraft): Rule<Tribe[]> {
+  const canonicalRule: Rule<Tribe[]> = {
+    key: rule.key,
+    muted: !!rule.muted,
+    clause: toCanonicalClause(rule.clause),
+    become: normalizeBecomeExpression(normalizeBecome({
+      become: rule.become,
+      tribe: rule.tribe
+    }))
+  };
+  if (rule.probability !== undefined) {
+    if (!isRuleProbability(rule.probability)) {
+      throw new Error('Cannot convert an invalid probability draft to a canonical rule.');
+    }
+    canonicalRule.probability = rule.probability;
+  }
+  return toPersistedRule(canonicalRule);
+}
+
+/**
  * Creates a comparable clause signature.
  *
  * @template {readonly Tribe[]} T
@@ -405,12 +544,11 @@ export function ruleSignature<T extends readonly Tribe[]>(rule: Rule<T>): string
 /**
  * Normalizes a clause draft for editor comparison without coercing invalid drafts.
  *
- * @template {readonly Tribe[]} T
- * @param {Clause<T>} clause clause draft.
- * @returns {Clause<T>} comparable clause draft.
+ * @param {ClauseDraft} clause clause draft.
+ * @returns {ClauseDraft} comparable clause draft.
  */
-function normalizeClauseDraftForComparison<T extends readonly Tribe[]>(clause: Clause<T>): Clause<T> {
-  let normalized: Clause<T>;
+function normalizeClauseDraftForComparison(clause: ClauseDraft): ClauseDraft {
+  let normalized: ClauseDraft;
   switch (clause.kind) {
     case EMPTY_CLAUSE_KIND:
       normalized = EMPTY_CLAUSE;
@@ -422,14 +560,14 @@ function normalizeClauseDraftForComparison<T extends readonly Tribe[]>(clause: C
     case MAX_CLAUSE_KIND:
       normalized = {
         ...clause,
-        selector: normalizeSelector(clause.selector, clause.tribes)
+        selector: normalizeSelector(clause.selector)
       };
       break;
     case COMPARISON_CLAUSE_KIND:
       normalized = {
         ...clause,
-        left: normalizeCountExpression(clause.left, clause.tribe1),
-        right: normalizeCountExpression(clause.right, clause.tribe2),
+        left: normalizeCountExpression(clause.left),
+        right: normalizeCountExpression(clause.right),
         margin: clause.margin === undefined ? 0 : clause.margin
       };
       break;
@@ -448,7 +586,7 @@ function normalizeClauseDraftForComparison<T extends readonly Tribe[]>(clause: C
       }
       normalized = {
         ...clause,
-        clauses: normalizedClauses as [Clause<T>, Clause<T>, ...Clause<T>[]]
+        clauses: normalizedClauses
       };
       break;
     }
@@ -462,18 +600,20 @@ function normalizeClauseDraftForComparison<T extends readonly Tribe[]>(clause: C
 /**
  * Normalizes a rule draft for editor comparison without persisted numeric coercion.
  *
- * @template {readonly Tribe[]} T
- * @param {Rule<T>} rule rule draft.
- * @returns {Rule<T>} comparable rule draft.
+ * @param {RuleDraft} rule rule draft.
+ * @returns {RuleDraft} comparable rule draft.
  */
-function normalizeRuleDraftForComparison<T extends readonly Tribe[]>(rule: Rule<T>): Rule<T> {
+function normalizeRuleDraftForComparison(rule: RuleDraft): RuleDraft {
   const draft = structuredClone(rule);
   const {probability} = draft;
-  const normalizedDraft: Rule<T> = {
+  const normalizedDraft: RuleDraft = {
     ...draft,
     muted: !!draft.muted,
     clause: normalizeClauseDraftForComparison(draft.clause),
-    become: normalizeBecomeExpression(normalizeBecome(draft))
+    become: normalizeBecomeExpression(normalizeBecome({
+      become: draft.become,
+      tribe: draft.tribe
+    }))
   };
   delete normalizedDraft.key;
   delete normalizedDraft.tribe;
@@ -484,11 +624,10 @@ function normalizeRuleDraftForComparison<T extends readonly Tribe[]>(rule: Rule<
 /**
  * Creates a comparable rule draft without editor-only identity.
  *
- * @template {readonly Tribe[]} T
- * @param {Rule<T>} rule rule draft to sign.
+ * @param {RuleDraft} rule rule draft to sign.
  * @returns {string} serialized rule draft.
  */
-export function ruleDraftSignature<T extends readonly Tribe[]>(rule: Rule<T>): string {
+export function ruleDraftSignature(rule: RuleDraft): string {
   return stableStringify(normalizeRuleDraftForComparison(rule));
 }
 
@@ -519,12 +658,11 @@ export function rulesEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, ba
 /**
  * Compares two rule drafts without persisted normalization.
  *
- * @template {readonly Tribe[]} T
- * @param {Rule<T>} editableRule editable rule.
- * @param {Rule<T>} baseRule baseline rule.
+ * @param {RuleDraft} editableRule editable rule.
+ * @param {RuleDraft} baseRule baseline rule.
  * @returns {boolean} `true` if equal.
  */
-export function ruleDraftsEqual<T extends readonly Tribe[]>(editableRule: Rule<T>, baseRule: Rule<T>): boolean {
+export function ruleDraftsEqual(editableRule: RuleDraft, baseRule: RuleDraft): boolean {
   return ruleDraftSignature(editableRule) === ruleDraftSignature(baseRule);
 }
 
@@ -543,11 +681,10 @@ export function ruleListsEqual<T extends readonly Tribe[]>(editableRules: readon
 /**
  * Compares two rule draft lists without persisted normalization.
  *
- * @template {readonly Tribe[]} T
- * @param {readonly Rule<T>[]} editableRules editable rules.
- * @param {readonly Rule<T>[]} baseRules baseline rules.
+ * @param {readonly RuleDraft[]} editableRules editable rules.
+ * @param {readonly RuleDraft[]} baseRules baseline rules.
  * @returns {boolean} `true` if equal.
  */
-export function ruleDraftListsEqual<T extends readonly Tribe[]>(editableRules: readonly Rule<T>[], baseRules: readonly Rule<T>[]): boolean {
+export function ruleDraftListsEqual(editableRules: readonly RuleDraft[], baseRules: readonly RuleDraft[]): boolean {
   return editableRules.length === baseRules.length && editableRules.every((rule, index) => ruleDraftsEqual(rule, baseRules[index]!));
 }

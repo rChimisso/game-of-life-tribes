@@ -1,5 +1,5 @@
 import {directRule, Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND} from '../model/rule';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Fresh living tribe ID.
@@ -145,7 +145,7 @@ export const AFTERIMAGE_PRESET: Preset = {
             {
               kind: EXACTLY_CLAUSE_KIND,
               value: 3,
-              tribes: [AFTERIMAGE_SPARK_TRIBE]
+              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [AFTERIMAGE_SPARK_TRIBE]}
             }
           ]
         },
@@ -162,7 +162,7 @@ export const AFTERIMAGE_PRESET: Preset = {
             {
               kind: COUNT_CLAUSE_KIND,
               interval: [2, 3],
-              tribes: [AFTERIMAGE_SPARK_TRIBE]
+              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [AFTERIMAGE_SPARK_TRIBE]}
             }
           ]
         },

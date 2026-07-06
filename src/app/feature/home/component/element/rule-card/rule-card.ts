@@ -9,8 +9,9 @@ import {RuleClause} from '../clause/clause';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, ruleDraftsEqual} from '~gol/feature/home/logic/rule-editor';
-import {Become, Clause, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
+import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
 import {RuleCardFormControls} from '~gol/feature/home/model/rule-card-form';
+import {ClauseDraft, RuleDraft} from '~gol/feature/home/model/rule-draft';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
@@ -60,10 +61,10 @@ export class RuleCard implements OnChanges, Validator {
    * Baseline rule used for dirty-state checks.
    *
    * @public
-   * @type {Rule<Tribe[]> | null}
+   * @type {RuleDraft | null}
    */
   @Input()
-  public baselineRule: Rule<Tribe[]> | null = null;
+  public baselineRule: RuleDraft | null = null;
 
   /**
    * Index of this rule in the list.
@@ -136,9 +137,9 @@ export class RuleCard implements OnChanges, Validator {
    * Current rule value.
    *
    * @public
-   * @type {Rule<Tribe[]>}
+   * @type {RuleDraft}
    */
-  public rule: Rule<Tribe[]> = {
+  public rule: RuleDraft = {
     muted: false,
     clause: EMPTY_CLAUSE,
     become: {
@@ -157,7 +158,7 @@ export class RuleCard implements OnChanges, Validator {
   public readonly form = new FormGroup<RuleCardFormControls>({
     muted: new FormControl(false, {nonNullable: true}),
     probability: new FormControl<number | null>(MAX_RULE_PROBABILITY, {validators: [Validators.required]}),
-    clause: new FormControl<Clause<Tribe[]>>(EMPTY_CLAUSE, {nonNullable: true}),
+    clause: new FormControl<ClauseDraft>(EMPTY_CLAUSE, {nonNullable: true}),
     become: new FormControl<Become<Tribe[]>>({
       kind: FIXED_BECOME_KIND,
       tribe: ''
@@ -314,11 +315,11 @@ export class RuleCard implements OnChanges, Validator {
   /**
    * @inheritdoc
    */
-  public writeValue(value: Rule<Tribe[]> | null): void {
+  public writeValue(value: RuleDraft | null): void {
     this.rule = value ? structuredClone(value) : this.rule;
     this.form.setValue({
       muted: !!this.rule.muted,
-      probability: this.probability(),
+      probability: this.rule.probability === undefined ? this.probability() : this.rule.probability,
       clause: structuredClone(this.rule.clause),
       become: normalizeBecome(this.rule)
     }, {emitEvent: false});
@@ -330,7 +331,7 @@ export class RuleCard implements OnChanges, Validator {
   /**
    * @inheritdoc
    */
-  public registerOnChange(fn: (value: Rule<Tribe[]>) => void): void {
+  public registerOnChange(fn: (value: RuleDraft) => void): void {
     this.onChange = fn;
   }
 
@@ -344,7 +345,7 @@ export class RuleCard implements OnChanges, Validator {
   /**
    * @inheritdoc
    */
-  public validate(_: AbstractControl<Rule<Tribe[]> | null>): ValidationErrors | null {
+  public validate(_: AbstractControl<RuleDraft | null>): ValidationErrors | null {
     return this.form.invalid ? {rule: true} : null;
   }
 
@@ -440,7 +441,7 @@ export class RuleCard implements OnChanges, Validator {
    * @returns {number} probability percentage.
    */
   public probability(): number {
-    return normalizeRuleProbability(this.rule.probability);
+    return normalizeRuleProbability(this.rule.probability ?? undefined);
   }
 
   /**
@@ -482,7 +483,9 @@ export class RuleCard implements OnChanges, Validator {
    */
   public onDuplicate(event: Event): void {
     event.stopPropagation();
-    this.duplicateRule.emit();
+    if (!this.isInvalid) {
+      this.duplicateRule.emit();
+    }
   }
 
   /**
@@ -548,17 +551,17 @@ export class RuleCard implements OnChanges, Validator {
    * Builds a rule value from the local form.
    *
    * @private
-   * @returns {Rule<Tribe[]>} rule value.
+   * @returns {RuleDraft} rule value.
    */
-  private ruleFromForm(): Rule<Tribe[]> {
+  private ruleFromForm(): RuleDraft {
     const value = this.form.getRawValue();
-    const rule: Rule<Tribe[]> = {
+    const rule: RuleDraft = {
       key: this.rule.key,
       muted: value.muted,
       clause: structuredClone(value.clause),
       become: structuredClone(value.become)
     };
-    rule.probability = value.probability as Rule<Tribe[]>['probability'];
+    rule.probability = value.probability;
     return rule;
   }
 
@@ -616,9 +619,9 @@ export class RuleCard implements OnChanges, Validator {
    * CVA change callback.
    *
    * @private
-   * @type {(value: Rule<Tribe[]>) => void}
+   * @type {(value: RuleDraft) => void}
    */
-  private onChange: (value: Rule<Tribe[]>) => void = () => undefined;
+  private onChange: (value: RuleDraft) => void = () => undefined;
 
   /**
    * CVA touched callback.

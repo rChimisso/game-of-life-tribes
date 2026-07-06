@@ -1,6 +1,6 @@
 import {FormArray, FormControl} from '@angular/forms';
 
-import {Rule, Tribe} from './rule';
+import {RuleDraft} from './rule-draft';
 
 /**
  * Rules editor form controls.
@@ -18,7 +18,7 @@ export interface RulesFormControls {
   /**
    * Editable rule controls.
    *
-   * @type {FormArray<FormControl<Rule<Tribe[]>>>}
+   * @type {FormArray<FormControl<RuleDraft>>}
    */
-  rules: FormArray<FormControl<Rule<Tribe[]>>>;
+  rules: FormArray<FormControl<RuleDraft>>;
 }

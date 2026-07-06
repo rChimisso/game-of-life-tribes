@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MIN_CLAUSE_KIND} from '../model/rule';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, MIN_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Tribe ID.
@@ -39,12 +39,12 @@ export const ANNEAL_PRESET: Preset = {
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 4,
-                  tribes: [ANNEAL_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
                 },
                 {
                   kind: MIN_CLAUSE_KIND,
                   value: 6,
-                  tribes: [ANNEAL_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
                 }
               ]
             }
@@ -66,12 +66,12 @@ export const ANNEAL_PRESET: Preset = {
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 3,
-                  tribes: [ANNEAL_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
                 },
                 {
                   kind: MIN_CLAUSE_KIND,
                   value: 5,
-                  tribes: [ANNEAL_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
                 }
               ]
             }

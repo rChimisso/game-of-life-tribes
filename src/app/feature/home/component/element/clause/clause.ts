@@ -9,34 +9,14 @@ import {SelectorEditor} from '../selector-editor/selector-editor';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeCountExpression, normalizeSelector, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {hasInvalidClauseStructure} from '~gol/feature/home/logic/rule-validation';
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
-
-/**
- * Clause fragment that stores a count selector.
- *
- * @interface CountSelectorClause
- * @typedef {CountSelectorClause}
- */
-interface CountSelectorClause {
-  /**
-   * Selector expression.
-   *
-   * @type {?TribeSelector<Tribe[]>}
-   */
-  selector?: TribeSelector<Tribe[]>;
-  /**
-   * Legacy explicit tribe list.
-   *
-   * @type {?[string, ...string[]]}
-   */
-  tribes?: [string, ...string[]];
-}
 
 /**
  * Clause editor form controls.
@@ -102,15 +82,15 @@ interface ClauseFormControls {
   /**
    * NOT child clause.
    *
-   * @type {FormControl<Clause<Tribe[]>>}
+   * @type {FormControl<ClauseDraft>}
    */
-  child: FormControl<Clause<Tribe[]>>;
+  child: FormControl<ClauseDraft>;
   /**
    * Logical child clauses.
    *
-   * @type {FormArray<FormControl<Clause<Tribe[]>>>}
+   * @type {FormArray<FormControl<ClauseDraft>>}
    */
-  children: FormArray<FormControl<Clause<Tribe[]>>>;
+  children: FormArray<FormControl<ClauseDraft>>;
 }
 
 /**
@@ -159,19 +139,19 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Editable clause.
    *
    * @public
-   * @type {Clause<Tribe[]>}
+   * @type {ClauseDraft}
    */
   @Input()
-  public clause: Clause<Tribe[]> = EMPTY_CLAUSE;
+  public clause: ClauseDraft = EMPTY_CLAUSE;
 
   /**
    * Baseline clause used for dirty-state checks.
    *
    * @public
-   * @type {Clause<Tribe[]> | null}
+   * @type {ClauseDraft | null}
    */
   @Input()
-  public baselineClause: Clause<Tribe[]> | null = null;
+  public baselineClause: ClauseDraft | null = null;
 
   /**
    * Available tribes for selection.
@@ -236,8 +216,8 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
     value: new FormControl<number | null>(null, {validators: [Validators.required, Validators.min(0), Validators.max(8)]}),
     margin: new FormControl<number | null>(null, {validators: [Validators.required, Validators.min(-8), Validators.max(8)]}),
     operator: new FormControl<Operator>('=', {nonNullable: true}),
-    child: new FormControl<Clause<Tribe[]>>(EMPTY_CLAUSE, {nonNullable: true}),
-    children: new FormArray<FormControl<Clause<Tribe[]>>>([])
+    child: new FormControl<ClauseDraft>(EMPTY_CLAUSE, {nonNullable: true}),
+    children: new FormArray<FormControl<ClauseDraft>>([])
   });
 
   /**
@@ -313,9 +293,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    *
    * @public
    * @readonly
-   * @type {FormArray<FormControl<Clause<Tribe[]>>>}
+   * @type {FormArray<FormControl<ClauseDraft>>}
    */
-  public get children(): FormArray<FormControl<Clause<Tribe[]>>> {
+  public get children(): FormArray<FormControl<ClauseDraft>> {
     return this.form.controls.children;
   }
 
@@ -358,14 +338,14 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   /**
    * @inheritdoc
    */
-  public writeValue(value: Clause<Tribe[]> | null): void {
+  public writeValue(value: ClauseDraft | null): void {
     this.writeClause(value ?? EMPTY_CLAUSE);
   }
 
   /**
    * @inheritdoc
    */
-  public registerOnChange(fn: (value: Clause<Tribe[]>) => void): void {
+  public registerOnChange(fn: (value: ClauseDraft) => void): void {
     this.onChange = fn;
   }
 
@@ -388,7 +368,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   /**
    * @inheritdoc
    */
-  public validate(_: AbstractControl<Clause<Tribe[]> | null>): ValidationErrors | null {
+  public validate(_: AbstractControl<ClauseDraft | null>): ValidationErrors | null {
     return this.invalidClause ? {clause: true} : null;
   }
 
@@ -461,7 +441,6 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   public emitAddChild(): void {
     if (!this.disabled && this.isBinaryLogicalClause(this.clause)) {
       this.children.push(this.createClauseControl(EMPTY_CLAUSE));
-      this.emitClauseDraft();
     }
   }
 
@@ -478,7 +457,6 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
       } else {
         this.children.at(index).setValue(EMPTY_CLAUSE);
       }
-      this.emitClauseDraft();
     }
   }
 
@@ -500,17 +478,6 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    */
   public toggleGroupCollapse(): void {
     this.groupCollapsed = !this.groupCollapsed;
-  }
-
-  /**
-   * Returns the normalized count selector for a count-style clause.
-   *
-   * @public
-   * @param {CountSelectorClause} clause count-style clause.
-   * @returns {TribeSelector<Tribe[]>} normalized selector.
-   */
-  public countSelector(clause: CountSelectorClause): TribeSelector<Tribe[]> {
-    return normalizeSelector(clause.selector, clause.tribes);
   }
 
   /**
@@ -539,9 +506,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Writes one clause into the active form node.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause value.
+   * @param {ClauseDraft} clause clause value.
    */
-  private writeClause(clause: Clause<Tribe[]>): void {
+  private writeClause(clause: ClauseDraft): void {
     this.syncing = true;
     this.clause = structuredClone(clause);
     this.syncFormFromClause(this.clause);
@@ -556,9 +523,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Synchronizes active controls from a clause.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause value.
+   * @param {ClauseDraft} clause clause value.
    */
-  private syncFormFromClause(clause: Clause<Tribe[]>): void {
+  private syncFormFromClause(clause: ClauseDraft): void {
     this.form.controls.selector.setValue(null, {emitEvent: false});
     this.form.controls.leftSelector.setValue(null, {emitEvent: false});
     this.form.controls.rightSelector.setValue(null, {emitEvent: false});
@@ -576,22 +543,22 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
         this.form.controls.tribes.setValue([...clause.tribes], {emitEvent: false});
         break;
       case COUNT_CLAUSE_KIND:
-        this.form.controls.selector.setValue(normalizeSelector(clause.selector, clause.tribes), {emitEvent: false});
+        this.form.controls.selector.setValue(normalizeSelector(clause.selector), {emitEvent: false});
         this.form.controls.intervalMin.setValue(clause.interval[0], {emitEvent: false});
         this.form.controls.intervalMax.setValue(clause.interval[1], {emitEvent: false});
         break;
       case NONE_CLAUSE_KIND:
-        this.form.controls.selector.setValue(normalizeSelector(clause.selector, clause.tribes), {emitEvent: false});
+        this.form.controls.selector.setValue(normalizeSelector(clause.selector), {emitEvent: false});
         break;
       case EXACTLY_CLAUSE_KIND:
       case MIN_CLAUSE_KIND:
       case MAX_CLAUSE_KIND:
-        this.form.controls.selector.setValue(normalizeSelector(clause.selector, clause.tribes), {emitEvent: false});
+        this.form.controls.selector.setValue(normalizeSelector(clause.selector), {emitEvent: false});
         this.form.controls.value.setValue(clause.value, {emitEvent: false});
         break;
       case COMPARISON_CLAUSE_KIND:
-        this.form.controls.leftSelector.setValue(normalizeCountExpression(clause.left, clause.tribe1).selector, {emitEvent: false});
-        this.form.controls.rightSelector.setValue(normalizeCountExpression(clause.right, clause.tribe2).selector, {emitEvent: false});
+        this.form.controls.leftSelector.setValue(normalizeCountExpression(clause.left).selector, {emitEvent: false});
+        this.form.controls.rightSelector.setValue(normalizeCountExpression(clause.right).selector, {emitEvent: false});
         this.form.controls.operator.setValue(clause.operator || '=', {emitEvent: false});
         this.form.controls.margin.setValue(clause.margin ?? 0, {emitEvent: false});
         break;
@@ -682,22 +649,22 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Builds a clause from the active form state.
    *
    * @private
-   * @returns {Clause<Tribe[]>} clause draft.
+   * @returns {ClauseDraft} clause draft.
    */
-  private buildClauseFromForm(): Clause<Tribe[]> {
-    let clause: Clause<Tribe[]> = EMPTY_CLAUSE;
+  private buildClauseFromForm(): ClauseDraft {
+    let clause: ClauseDraft = EMPTY_CLAUSE;
     switch (this.clause.kind) {
       case IS_CLAUSE_KIND:
         clause = {
           kind: IS_CLAUSE_KIND,
-          tribes: this.form.controls.tribes.value as [string, ...string[]]
+          tribes: this.form.controls.tribes.value
         };
         break;
       case COUNT_CLAUSE_KIND:
         clause = {
           kind: COUNT_CLAUSE_KIND,
           selector: this.form.controls.selector.value ?? this.defaultSelector(),
-          interval: [this.form.controls.intervalMin.value as NeighborCount, this.form.controls.intervalMax.value as NeighborCount]
+          interval: [this.form.controls.intervalMin.value, this.form.controls.intervalMax.value]
         };
         break;
       case NONE_CLAUSE_KIND:
@@ -712,7 +679,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
         clause = {
           kind: this.clause.kind,
           selector: this.form.controls.selector.value ?? this.defaultSelector(),
-          value: this.form.controls.value.value as NeighborCount
+          value: this.form.controls.value.value
         };
         break;
       case COMPARISON_CLAUSE_KIND:
@@ -727,7 +694,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
             selector: this.form.controls.rightSelector.value ?? this.defaultSelector()
           },
           operator: this.form.controls.operator.value,
-          margin: this.form.controls.margin.value as number
+          margin: this.form.controls.margin.value
         };
         break;
       case NOT_CLAUSE_KIND:
@@ -741,7 +708,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
       case XOR_CLAUSE_KIND:
         clause = {
           kind: this.clause.kind,
-          clauses: this.children.getRawValue() as [Clause<Tribe[]>, Clause<Tribe[]>, ...Clause<Tribe[]>[]]
+          clauses: this.children.getRawValue()
         };
         break;
     }
@@ -753,16 +720,21 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    *
    * @private
    * @param {string} kind clause kind.
-   * @returns {Clause<Tribe[]>} created clause.
+   * @returns {ClauseDraft} created clause.
    */
-  private createClause(kind: string): Clause<Tribe[]> {
-    let clause: Clause<Tribe[]> = EMPTY_CLAUSE;
+  private createClause(kind: string): ClauseDraft {
+    let clause: ClauseDraft = EMPTY_CLAUSE;
     switch (kind) {
       case IS_CLAUSE_KIND:
+        clause = {
+          kind: IS_CLAUSE_KIND,
+          tribes: [DEAD_TRIBE_ID]
+        };
+        break;
       case NONE_CLAUSE_KIND:
         clause = {
-          kind,
-          tribes: [DEAD_TRIBE_ID]
+          kind: NONE_CLAUSE_KIND,
+          selector: this.defaultSelector()
         };
         break;
       case EXACTLY_CLAUSE_KIND:
@@ -770,7 +742,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
       case MAX_CLAUSE_KIND:
         clause = {
           kind,
-          tribes: [DEAD_TRIBE_ID],
+          selector: this.defaultSelector(),
           value: 1
         };
         break;
@@ -818,21 +790,21 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Creates one child clause control.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause value.
-   * @returns {FormControl<Clause<Tribe[]>>} clause control.
+   * @param {ClauseDraft} clause clause value.
+   * @returns {FormControl<ClauseDraft>} clause control.
    */
-  private createClauseControl(clause: Clause<Tribe[]>): FormControl<Clause<Tribe[]>> {
-    return new FormControl<Clause<Tribe[]>>(clause, {nonNullable: true});
+  private createClauseControl(clause: ClauseDraft): FormControl<ClauseDraft> {
+    return new FormControl<ClauseDraft>(clause, {nonNullable: true});
   }
 
   /**
    * Whether the clause is count-style.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {ClauseDraft} clause clause to inspect.
    * @returns {boolean} `true` if count-style.
    */
-  private isCountStyleClause(clause: Clause<Tribe[]>): boolean {
+  private isCountStyleClause(clause: ClauseDraft): boolean {
     return clause.kind === COUNT_CLAUSE_KIND || clause.kind === NONE_CLAUSE_KIND || clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND;
   }
 
@@ -840,10 +812,10 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * Whether the clause is a binary logical group.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {ClauseDraft} clause clause to inspect.
    * @returns {boolean} `true` if binary logical.
    */
-  private isBinaryLogicalClause(clause: Clause<Tribe[]>): boolean {
+  private isBinaryLogicalClause(clause: ClauseDraft): boolean {
     return clause.kind === AND_CLAUSE_KIND || clause.kind === OR_CLAUSE_KIND || clause.kind === XOR_CLAUSE_KIND;
   }
 
@@ -882,9 +854,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * CVA change callback.
    *
    * @private
-   * @type {(value: Clause<Tribe[]>) => void}
+   * @type {(value: ClauseDraft) => void}
    */
-  private onChange: (value: Clause<Tribe[]>) => void = () => undefined;
+  private onChange: (value: ClauseDraft) => void = () => undefined;
 
   /**
    * CVA touched callback.

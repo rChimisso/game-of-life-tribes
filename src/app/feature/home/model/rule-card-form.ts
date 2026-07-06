@@ -1,6 +1,7 @@
 import {FormControl} from '@angular/forms';
 
-import {Become, Clause, Tribe} from './rule';
+import {Become, Tribe} from './rule';
+import {ClauseDraft} from './rule-draft';
 
 /**
  * Rule card editor form controls.
@@ -24,9 +25,9 @@ export interface RuleCardFormControls {
   /**
    * Rule clause.
    *
-   * @type {FormControl<Clause<Tribe[]>>}
+   * @type {FormControl<ClauseDraft>}
    */
-  clause: FormControl<Clause<Tribe[]>>;
+  clause: FormControl<ClauseDraft>;
   /**
    * Rule outcome.
    *

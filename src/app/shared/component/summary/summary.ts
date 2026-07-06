@@ -8,6 +8,7 @@ import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeCountExpression, normalizeSelector} from '~gol/feature/home/logic/rule-editor';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 
 /**
  * Clause/rule summary component.
@@ -33,10 +34,10 @@ export class SummaryComponent implements OnChanges {
    * Clause to summarize.
    *
    * @public
-   * @type {Clause<Tribe[]> | null}
+   * @type {Clause<Tribe[]> | ClauseDraft | null}
    */
   @Input({required: true})
-  public clause: Clause<Tribe[]> | null = null;
+  public clause: Clause<Tribe[]> | ClauseDraft | null = null;
 
   /**
    * Colors for the tribes.
@@ -152,10 +153,10 @@ export class SummaryComponent implements OnChanges {
    * Builds the summary parts for the given clause.
    *
    * @private
-   * @param {Clause<Tribe[]>} clause clause to summarize.
+   * @param {Clause<Tribe[]> | ClauseDraft} clause clause to summarize.
    * @returns {SummaryPart[]} summary parts for the clause.
    */
-  private buildClauseSummaryParts(clause: Clause<Tribe[]>): SummaryPart[] {
+  private buildClauseSummaryParts(clause: Clause<Tribe[]> | ClauseDraft): SummaryPart[] {
     const parts: SummaryPart[] = [];
     this.appendClauseSummaryParts(parts, clause);
     return parts;
@@ -166,10 +167,10 @@ export class SummaryComponent implements OnChanges {
    *
    * @private
    * @param {SummaryPart[]} parts summary parts to append to.
-   * @param {Clause<Tribe[]>} clause clause to summarize.
-   * @param {Clause<Tribe[]> | null} [parentClause=null] parent clause, if any.
+   * @param {Clause<Tribe[]> | ClauseDraft} clause clause to summarize.
+   * @param {Clause<Tribe[]> | ClauseDraft | null} [parentClause=null] parent clause, if any.
    */
-  private appendClauseSummaryParts(parts: SummaryPart[], clause: Clause<Tribe[]>, parentClause: Clause<Tribe[]> | null = null): void {
+  private appendClauseSummaryParts(parts: SummaryPart[], clause: Clause<Tribe[]> | ClauseDraft, parentClause: Clause<Tribe[]> | ClauseDraft | null = null): void {
     const wrapWithParentheses = !!parentClause && isBinaryLogicalClause(clause) && (parentClause.kind === NOT_CLAUSE_KIND || (isBinaryLogicalClause(parentClause) && parentClause.kind !== clause.kind));
     if (wrapWithParentheses) {
       this.appendSummaryText(parts, this.summaryTokens.openParen);
@@ -185,9 +186,9 @@ export class SummaryComponent implements OnChanges {
    *
    * @private
    * @param {SummaryPart[]} parts summary parts to append to.
-   * @param {Clause<Tribe[]>} clause clause to summarize.
+   * @param {Clause<Tribe[]> | ClauseDraft} clause clause to summarize.
    */
-  private appendClauseContent(parts: SummaryPart[], clause: Clause<Tribe[]>): void {
+  private appendClauseContent(parts: SummaryPart[], clause: Clause<Tribe[]> | ClauseDraft): void {
     switch (clause.kind) {
       case EMPTY_CLAUSE_KIND:
         this.appendSummaryText(parts, this.summaryTokens.empty);
@@ -198,24 +199,24 @@ export class SummaryComponent implements OnChanges {
         break;
       case NONE_CLAUSE_KIND:
         this.appendSummaryText(parts, this.summaryTokens[clause.kind]);
-        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector));
         break;
       case EXACTLY_CLAUSE_KIND:
       case MIN_CLAUSE_KIND:
       case MAX_CLAUSE_KIND:
         this.appendSummaryText(parts, `${this.summaryTokens[clause.kind]}${clause.value} `);
-        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector));
         break;
       case COUNT_CLAUSE_KIND:
-        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector, clause.tribes));
+        this.appendSelectorSummaryParts(parts, normalizeSelector(clause.selector));
         this.appendSummaryText(parts, ` ∈ [${clause.interval[0]},${clause.interval[1]}]`);
         break;
       case COMPARISON_CLAUSE_KIND: {
         this.appendSummaryText(parts, this.summaryTokens.comparisonCountPrefix);
-        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.left, clause.tribe1).selector);
+        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.left).selector);
         this.appendSummaryText(parts, ` ${clause.operator} ${this.summaryTokens.comparisonCountPrefix}`);
-        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.right, clause.tribe2).selector);
-        const {margin = 0} = clause;
+        this.appendSelectorSummaryParts(parts, normalizeCountExpression(clause.right).selector);
+        const margin = clause.margin ?? 0;
         if (margin !== 0) {
           this.appendSummaryText(parts, margin >= 0 ? ` +${margin}` : ` -${Math.abs(margin)}`);
         }

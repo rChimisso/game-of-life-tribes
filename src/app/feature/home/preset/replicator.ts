@@ -1,5 +1,5 @@
 import {Preset} from '.';
-import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND} from '../model/rule';
+import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Tribe ID.
@@ -39,22 +39,22 @@ export const REPLICATOR_PRESET: Preset = {
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 1,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 3,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 5,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 7,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 }
               ]
             }
@@ -76,22 +76,22 @@ export const REPLICATOR_PRESET: Preset = {
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 1,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 3,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 5,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
                   value: 7,
-                  tribes: [REPLICATOR_TRIBE]
+                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
                 }
               ]
             }

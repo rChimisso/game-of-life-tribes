@@ -26,22 +26,7 @@ function collectReferencedTribeIds(rules: readonly Rule<Tribe[]>[]): Set<string>
 function visitClauseTribeIdLists(clause: Clause<Tribe[]>, visit: (ids: [string, ...string[]]) => void): void {
   switch (clause.kind) {
     case IS_CLAUSE_KIND:
-    case COUNT_CLAUSE_KIND:
-    case NONE_CLAUSE_KIND:
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND:
-      if (clause.tribes) {
-        visit(clause.tribes);
-      }
-      break;
-    case COMPARISON_CLAUSE_KIND:
-      if (clause.tribe1) {
-        visit(clause.tribe1);
-      }
-      if (clause.tribe2) {
-        visit(clause.tribe2);
-      }
+      visit(clause.tribes);
       break;
     case NOT_CLAUSE_KIND:
       visitClauseTribeIdLists(clause.clause, visit);
@@ -84,11 +69,11 @@ function collectClauseSelectorTribeIds(clause: Clause<Tribe[]>, ids: Set<string>
     case EXACTLY_CLAUSE_KIND:
     case MIN_CLAUSE_KIND:
     case MAX_CLAUSE_KIND:
-      collectSelectorTribeIds(normalizeSelector(clause.selector, clause.tribes), ids);
+      collectSelectorTribeIds(normalizeSelector(clause.selector), ids);
       break;
     case COMPARISON_CLAUSE_KIND:
-      collectSelectorTribeIds(normalizeCountExpression(clause.left, clause.tribe1).selector, ids);
-      collectSelectorTribeIds(normalizeCountExpression(clause.right, clause.tribe2).selector, ids);
+      collectSelectorTribeIds(normalizeCountExpression(clause.left).selector, ids);
+      collectSelectorTribeIds(normalizeCountExpression(clause.right).selector, ids);
       break;
     case NOT_CLAUSE_KIND:
       collectClauseSelectorTribeIds(clause.clause, ids);
@@ -186,17 +171,14 @@ function renameClauseSelectorTribes(clause: Clause<Tribe[]>, renameMap: Readonly
     case EXACTLY_CLAUSE_KIND:
     case MIN_CLAUSE_KIND:
     case MAX_CLAUSE_KIND:
-      clause.selector = normalizeSelector(clause.selector, clause.tribes);
+      clause.selector = normalizeSelector(clause.selector);
       renameSelectorTribes(clause.selector, renameMap);
-      delete clause.tribes;
       break;
     case COMPARISON_CLAUSE_KIND:
-      clause.left = normalizeCountExpression(clause.left, clause.tribe1);
-      clause.right = normalizeCountExpression(clause.right, clause.tribe2);
+      clause.left = normalizeCountExpression(clause.left);
+      clause.right = normalizeCountExpression(clause.right);
       renameSelectorTribes(clause.left.selector, renameMap);
       renameSelectorTribes(clause.right.selector, renameMap);
-      delete clause.tribe1;
-      delete clause.tribe2;
       break;
     case NOT_CLAUSE_KIND:
       renameClauseSelectorTribes(clause.clause, renameMap);

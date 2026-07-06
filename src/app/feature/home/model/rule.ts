@@ -315,7 +315,7 @@ export type Interval = [NeighborCount, NeighborCount];
  *
  * @typedef {Operator}
  */
-export type Operator = '=' | '≠' | '>' | '<' | '≥' | '≤';
+export type Operator = '=' | '\u2260' | '>' | '<' | '\u2265' | '\u2264';
 
 /**
  * Selector that targets one explicit set of tribes.
@@ -655,12 +655,6 @@ export interface IntervalClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof COUNT_CLAUSE_KIND;
   /**
-   * Legacy set of tribes that this clause counts.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribes?: [TribeId<T>, ...TribeId<T>[]];
-  /**
    * Selector counted by this clause.
    *
    * @type {?TribeSelector<T>}
@@ -701,26 +695,14 @@ export interface ComparisonClause<T extends readonly Tribe[]> {
    */
   right?: CountExpression<T>;
   /**
-   * Legacy tribes for the left-hand side count.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribe1?: [TribeId<T>, ...TribeId<T>[]];
-  /**
-   * Legacy tribes for the right-hand side count.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribe2?: [TribeId<T>, ...TribeId<T>[]];
-  /**
    * Comparison operator between the two counts.
    *
    * @type {Operator}
    */
   operator: Operator;
   /**
-   * Right-side margin applied to tribe2 count before comparison.
-   * Effective expression: count(tribe1) operator (count(tribe2) + margin).
+   * Right-side margin applied to the right count before comparison.
+   * Effective expression: left count operator (right count + margin).
    *
    * @type {number}
    */
@@ -741,12 +723,6 @@ export interface NoneClause<T extends readonly Tribe[]> {
    * @type {typeof NONE_CLAUSE_KIND}
    */
   readonly kind: typeof NONE_CLAUSE_KIND;
-  /**
-   * Legacy set of tribes this alias counts.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribes?: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Selector counted by this alias.
    *
@@ -769,12 +745,6 @@ export interface ExactlyClause<T extends readonly Tribe[]> {
    * @type {typeof EXACTLY_CLAUSE_KIND}
    */
   readonly kind: typeof EXACTLY_CLAUSE_KIND;
-  /**
-   * Legacy set of tribes this alias counts.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribes?: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Selector counted by this alias.
    *
@@ -804,12 +774,6 @@ export interface MinClause<T extends readonly Tribe[]> {
    */
   readonly kind: typeof MIN_CLAUSE_KIND;
   /**
-   * Legacy set of tribes this alias counts.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribes?: [TribeId<T>, ...TribeId<T>[]];
-  /**
    * Selector counted by this alias.
    *
    * @type {?TribeSelector<T>}
@@ -837,12 +801,6 @@ export interface MaxClause<T extends readonly Tribe[]> {
    * @type {typeof MAX_CLAUSE_KIND}
    */
   readonly kind: typeof MAX_CLAUSE_KIND;
-  /**
-   * Legacy set of tribes this alias counts.
-   *
-   * @type {?[TribeId<T>, ...TribeId<T>[]]}
-   */
-  tribes?: [TribeId<T>, ...TribeId<T>[]];
   /**
    * Selector counted by this alias.
    *

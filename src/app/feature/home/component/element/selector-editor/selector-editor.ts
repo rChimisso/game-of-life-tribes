@@ -1,5 +1,4 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
 
 import {SelectorChangeEvent, SelectorStateChangeEvent} from '../model/selector-event';
 
@@ -27,7 +26,7 @@ export type TribeSelectorKind = TribeSelector<Tribe[]>['kind'];
 @Component({
   selector: 'gol-selector-editor',
   standalone: true,
-  imports: [FormsModule, SelectComponent, TribeSwatch],
+  imports: [SelectComponent, TribeSwatch],
   templateUrl: './selector-editor.html',
   styleUrl: './selector-editor.scss',
   preserveWhitespaces: false,

@@ -75,15 +75,17 @@ function normalizeDecimalPrefix(rawValue: string, viewValue: string, constraints
  *
  * @param {(number | null)} value model value.
  * @param {'.' | ','} separator decimal separator.
+ * @param {number | undefined} fixedDecimalDigits decimal places to preserve in the formatted view.
  * @returns {string} view value.
  */
-function formatNumberView(value: number | null, separator: '.' | ','): string {
+function formatNumberView(value: number | null, separator: '.' | ',', fixedDecimalDigits?: number): string {
   let viewValue = '';
   if (value !== null && Number.isFinite(value)) {
     const normalizedValue = Object.is(value, -0) ? 0 : value;
     const sign = normalizedValue < 0 ? '-' : '';
     const {integerPart, decimalPart} = decimalParts(normalizedValue);
-    viewValue = decimalPart ? `${sign}${integerPart}${separator}${decimalPart}` : `${sign}${integerPart}`;
+    const formattedDecimalPart = fixedDecimalDigits !== undefined && decimalPart.length < fixedDecimalDigits ? decimalPart.padEnd(fixedDecimalDigits, '0') : decimalPart;
+    viewValue = formattedDecimalPart ? `${sign}${integerPart}${separator}${formattedDecimalPart}` : `${sign}${integerPart}`;
   }
   return viewValue;
 }
@@ -100,7 +102,7 @@ function normalizeNumberBlur(viewValue: string, constraints: NumberInputConstrai
   let normalizedView = result.viewValue;
   let normalizedModel = result.modelValue;
   if (result.accepted && normalizedView !== '' && normalizedView !== '-') {
-    normalizedView = formatNumberView(normalizedModel, constraints.decimalSeparator);
+    normalizedView = formatNumberView(normalizedModel, constraints.decimalSeparator, constraints.fixedDecimalDigits);
     normalizedModel = parseViewNumber(normalizedView, constraints.decimalSeparator);
   } else if (normalizedView === '-') {
     normalizedView = '';

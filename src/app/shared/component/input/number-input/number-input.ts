@@ -74,6 +74,15 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
   public decimalDigits = 0;
 
   /**
+   * Decimal digits kept in the formatted view.
+   *
+   * @public
+   * @type {(number | undefined)}
+   */
+  @Input()
+  public fixedDecimalDigits?: number;
+
+  /**
    * Minimum integer digits.
    *
    * @public
@@ -99,6 +108,15 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    */
   @Input()
   public decimalSeparator: '.' | ',' = '.';
+
+  /**
+   * Visual presentation variant.
+   *
+   * @public
+   * @type {'default' | 'clause'}
+   */
+  @Input()
+  public variant: 'default' | 'clause' = 'default';
 
   /**
    * Emits after the input loses focus.
@@ -159,10 +177,10 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    */
   public ngOnChanges(changes: TypedChanges<NumberInputComponent>): void {
     if (changes.decimalSeparator) {
-      this.viewValue = formatNumberView(this.value, this.decimalSeparator);
+      this.viewValue = formatNumberView(this.value, this.decimalSeparator, this.normalizedFixedDecimalDigits());
       this.lastAcceptedViewValue = this.viewValue;
     }
-    if (changes.min || changes.decimalDigits || changes.maxIntegerDigits) {
+    if (changes.min || changes.decimalDigits || changes.maxIntegerDigits || changes.fixedDecimalDigits) {
       this.refreshViewFromModel();
     }
     if (changes.min || changes.max || changes.decimalDigits || changes.minIntegerDigits || changes.maxIntegerDigits || changes.decimalSeparator) {
@@ -175,7 +193,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    */
   public override writeValue(value: number | null): void {
     this.value = this.normalizeValue(value);
-    this.viewValue = formatNumberView(this.value, this.decimalSeparator);
+    this.viewValue = formatNumberView(this.value, this.decimalSeparator, this.normalizedFixedDecimalDigits());
     this.lastAcceptedViewValue = this.viewValue;
     if (this.input) {
       this.input.nativeElement.value = this.viewValue;
@@ -330,7 +348,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    * @private
    */
   private refreshViewFromModel(): void {
-    this.viewValue = formatNumberView(this.value, this.decimalSeparator);
+    this.viewValue = formatNumberView(this.value, this.decimalSeparator, this.normalizedFixedDecimalDigits());
     this.lastAcceptedViewValue = this.viewValue;
     if (this.input) {
       this.input.nativeElement.value = this.viewValue;
@@ -364,6 +382,10 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
       decimalDigits: this.normalizedDecimalDigits(),
       decimalSeparator: this.decimalSeparator
     };
+    const fixedDecimalDigits = this.normalizedFixedDecimalDigits();
+    if (fixedDecimalDigits !== undefined) {
+      constraints.fixedDecimalDigits = fixedDecimalDigits;
+    }
     if (this.min !== undefined) {
       constraints.min = this.min;
     }
@@ -387,5 +409,16 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
    */
   private normalizedDecimalDigits(): number {
     return Math.max(0, Math.trunc(Number(this.decimalDigits) || 0));
+  }
+
+  /**
+   * Normalizes the configured fixed decimal digit count.
+   *
+   * @private
+   * @returns {(number | undefined)} normalized fixed decimal digit count.
+   */
+  private normalizedFixedDecimalDigits(): number | undefined {
+    const normalized = this.fixedDecimalDigits === undefined ? undefined : Math.max(0, Math.trunc(Number(this.fixedDecimalDigits) || 0));
+    return normalized === undefined ? undefined : Math.min(this.normalizedDecimalDigits(), normalized);
   }
 }

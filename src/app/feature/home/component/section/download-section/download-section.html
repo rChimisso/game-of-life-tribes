@@ -11,9 +11,9 @@
       <gol-label-value class="gol-cell-12 selected-frames" label="Selected frames" title="Selected frames out of total recorded frames" [value]="selectedFrameCount" />
       <div class="gol-cell-12 gol-grid-tiny">
         <gol-checkbox class="gol-cell-3" formControlName="allFrames" label="All" size="sm" tooltip="Select all recorded frames" />
-        <gol-number-input class="gol-cell-4" formControlName="startFrame" name="startFrame" title="Start frame" [decimalDigits]="0" [max]="totalRecordedFrames" [min]="1" />
+        <gol-number-input class="gol-cell-4" formControlName="startFrame" name="startFrame" title="Start frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
         <span class="gol-cell-1 range-dash">-</span>
-        <gol-number-input class="gol-cell-4" formControlName="endFrame" name="endFrame" title="End frame" [decimalDigits]="0" [max]="totalRecordedFrames" [min]="1" />
+        <gol-number-input class="gol-cell-4" formControlName="endFrame" name="endFrame" title="End frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
       </div>
       <div class="gol-cell-12 gol-grid-tiny">
         <div class="gol-cell-3"></div>
@@ -26,9 +26,9 @@
   <gol-subsection title="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
     <div class="gol-grid-tiny" formGroupName="mp4Settings">
       <div class="gol-cell-12 gol-grid-tiny mp4-settings-row">
-        <gol-number-input class="gol-cell-3" formControlName="fps" name="fps" title="MP4 FPS" [decimalDigits]="0" [max]="240" [min]="1" />
+        <gol-number-input class="gol-cell-3" formControlName="fps" name="fps" title="MP4 FPS" [decimalDigits]="0" [max]="240" [maxIntegerDigits]="3" [min]="1" />
         <span class="gol-cell-3 mp4-setting-text" title="MP4 FPS">FPS</span>
-        <gol-number-input class="gol-cell-4" formControlName="bitrateMbps" name="bitrate" title="MP4 Bitrate" [decimalDigits]="0" [max]="60" [min]="1" />
+        <gol-number-input class="gol-cell-4" formControlName="bitrateMbps" name="bitrate" title="MP4 Bitrate" [decimalDigits]="0" [max]="60" [maxIntegerDigits]="2" [min]="1" />
         <span class="gol-cell-2 mp4-setting-text" title="MP4 Bitrate">Mbps</span>
       </div>
       <div class="gol-cell-12 gol-grid-tiny">

@@ -102,6 +102,7 @@ export class SelectComponent extends CvaComponent<SelectValue> {
    * @public
    * @type {SelectValue}
    */
+  @Input()
   public value: SelectValue = null;
 
   /**

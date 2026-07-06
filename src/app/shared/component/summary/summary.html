@@ -6,7 +6,7 @@
       <mat-icon>more_horiz</mat-icon>
     </span>
   } @else {
-    @for (tribeId of part.tribes; track tribeId) {
+    @for (tribeId of part.tribes; track $index) {
       <gol-tribe-swatch size="xs" [color]="tribeColor(tribeId)" [interactive]="false" [title]="tribeId" />
     }
   }

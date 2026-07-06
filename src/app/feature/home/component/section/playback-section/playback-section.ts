@@ -348,6 +348,17 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   }
 
   /**
+   * Restores the minimum skip amount when the field loses focus with an invalid value.
+   *
+   * @public
+   */
+  public restoreInvalidSkipAmount(): void {
+    if (this.form.controls.skipAmount.invalid) {
+      this.form.controls.skipAmount.setValue(this.defaultPreferences.skipAmount, {emitEvent: false});
+    }
+  }
+
+  /**
    * Collects current preferences.
    *
    * @protected
@@ -389,7 +400,8 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @private
    */
   private onSkipAmountChange(): void {
-    if (this.form.controls.skipAmount.valid) {
+    const control = this.form.controls.skipAmount;
+    if (control.valid && control.value !== null) {
       this.savePreferences();
     }
   }

@@ -3,7 +3,7 @@
 <ng-template #clauseTpl let-clause let-depth="depth" let-path="path">
   <div class="clause-node" [style.padding-left.px]="depth > 0 ? 16 : 0">
     <div class="clause-header">
-      <gol-select title="Change clause type" [disabled]="disabled" [ngModel]="clause.kind" [options]="clauseKindOptions" (ngModelChange)="emitChangeKind(path, $event)" />
+      <gol-select title="Change clause type" [disabled]="disabled" [options]="clauseKindOptions" [value]="clause.kind" (valueChange)="onClauseKindSelected(path, $event)" />
       @if (clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") {
         <gol-button size="sm" variant="icon" [icon]="isGroupCollapsed(path) ? 'chevron_right' : 'expand_more'" [label]="isGroupCollapsed(path) ? 'Expand clause' : 'Collapse clause'" [title]="isGroupCollapsed(path) ? 'Expand clause' : 'Collapse clause'" (clicked)="toggleGroupCollapse(path)" />
       }
@@ -28,9 +28,9 @@
       @case ("count") {
         <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
-          <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.interval[0]" (ngModelChange)="emitSetInterval(path, 0, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'interval-0', clause.interval[0])" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
           <span>-</span>
-          <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.interval[1]" (ngModelChange)="emitSetInterval(path, 1, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'interval-1', clause.interval[1])" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
           <span class="interval-label">neighbors</span>
         </div>
       }
@@ -44,30 +44,30 @@
         <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <span class="interval-label">neighbors =</span>
-          <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         </div>
       }
       @case ("min") {
         <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <span class="interval-label">neighbors &ge;</span>
-          <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         </div>
       }
       @case ("max") {
         <gol-selector-editor [disabled]="disabled" [selector]="countSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'count', $event)" />
         <div class="clause-interval">
           <span class="interval-label">neighbors &le;</span>
-          <input charFilter inputmode="numeric" max="8" min="0" regex="^[0-8]$" [disabled]="disabled" [ngModel]="clause.value" (ngModelChange)="emitSetInterval(path, 0, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'value', clause.value)" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         </div>
       }
       @case ("comparison") {
         <div class="clause-eq">
           <gol-selector-editor [disabled]="disabled" [selector]="comparisonLeftSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'left', $event)" />
-          <gol-select [disabled]="disabled" [ngModel]="clause.operator || '='" [options]="comparisonOperatorOptions" (ngModelChange)="emitSetOperator(path, $event)" />
+          <gol-select [disabled]="disabled" [options]="comparisonOperatorOptions" [value]="clause.operator || '='" (valueChange)="onOperatorSelected(path, $event)" />
           <gol-selector-editor [disabled]="disabled" [selector]="comparisonRightSelector(clause)" [tribes]="tribes" (selectorChange)="onSelectorChanged(path, 'right', $event)" />
           <span class="interval-label">+</span>
-          <input charFilter inputmode="numeric" max="8" min="-8" regex="^-?[0-8]?$" [disabled]="disabled" [ngModel]="clause.margin ?? 0" (ngModelChange)="emitSetMargin(path, $event)" />
+          <gol-number-input variant="clause" [decimalDigits]="0" [formControl]="clauseNumberControl(path, 'margin', clause.margin ?? 0)" [max]="8" [maxIntegerDigits]="1" [min]="-8" [minIntegerDigits]="1" />
         </div>
       }
     }

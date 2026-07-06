@@ -1,6 +1,7 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, inject, Input, OnChanges, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {AbstractControl, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 
 import {BecomeEditor} from '../become-editor/become-editor';
@@ -10,8 +11,7 @@ import {ClauseChangeEvent, ClauseStateChangeEvent} from '../model/clause-event';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, rulesEqual} from '~gol/feature/home/logic/rule-editor';
-import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY_INPUT, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY_INPUT, RULE_PROBABILITY_INPUT_SCALE, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
-import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
+import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, Rule, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
@@ -23,13 +23,14 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
  * @class RuleCard
  * @typedef {RuleCard}
  * @implements {OnChanges}
+ * @implements {Validator}
  */
 @Component({
   selector: 'gol-rule-card',
   standalone: true,
   imports: [
     DragDropModule,
-    FormsModule,
+    ReactiveFormsModule,
     BecomeEditor,
     RuleClause,
     Button,
@@ -41,18 +42,21 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   templateUrl: './rule-card.html',
   styleUrl: './rule-card.scss',
   preserveWhitespaces: false,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => RuleCard),
+      multi: true
+    },
+    {
+      provide: NG_VALIDATORS,
+      useExisting: forwardRef(() => RuleCard),
+      multi: true
+    }
+  ]
 })
-export class RuleCard implements OnChanges {
-  /**
-   * Editable rule.
-   *
-   * @public
-   * @type {!Rule<Tribe[]>}
-   */
-  @Input({required: true})
-  public rule!: Rule<Tribe[]>;
-
+export class RuleCard implements OnChanges, Validator {
   /**
    * Baseline rule used for dirty-state checks.
    *
@@ -94,50 +98,30 @@ export class RuleCard implements OnChanges {
    *
    * @public
    * @readonly
-   * @type {EventEmitter<number>}
+   * @type {EventEmitter<void>}
    */
   @Output()
-  public readonly toggleExpand = new EventEmitter<number>();
+  public readonly toggleExpand = new EventEmitter<void>();
 
   /**
    * Emits rule removal requests.
    *
    * @public
    * @readonly
-   * @type {EventEmitter<number>}
+   * @type {EventEmitter<void>}
    */
   @Output()
-  public readonly removeRule = new EventEmitter<number>();
+  public readonly removeRule = new EventEmitter<void>();
 
   /**
    * Emits rule duplication requests.
    *
    * @public
    * @readonly
-   * @type {EventEmitter<number>}
+   * @type {EventEmitter<void>}
    */
   @Output()
-  public readonly duplicateRule = new EventEmitter<number>();
-
-  /**
-   * Emits rule edits with derived state.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<RuleChangeEvent>}
-   */
-  @Output()
-  public readonly ruleChange = new EventEmitter<RuleChangeEvent>();
-
-  /**
-   * Emits dirty and invalid state changes.
-   *
-   * @public
-   * @readonly
-   * @type {EventEmitter<RuleStateChangeEvent>}
-   */
-  @Output()
-  public readonly ruleStateChange = new EventEmitter<RuleStateChangeEvent>();
+  public readonly duplicateRule = new EventEmitter<void>();
 
   /**
    * Emits drag-handle pointer-down interactions.
@@ -150,20 +134,28 @@ export class RuleCard implements OnChanges {
   public readonly dragHandlePointerDown = new EventEmitter<void>();
 
   /**
-   * Pending scaled probability input value.
+   * Current rule value.
    *
    * @public
-   * @type {number}
+   * @type {Rule<Tribe[]>}
    */
-  public pendingProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
+  public rule: Rule<Tribe[]> = {
+    muted: false,
+    clause: EMPTY_CLAUSE,
+    become: {
+      kind: FIXED_BECOME_KIND,
+      tribe: ''
+    }
+  };
 
   /**
-   * Whether the user tried to exceed the probability max while already at the cap.
+   * Probability input control.
    *
    * @public
-   * @type {boolean}
+   * @readonly
+   * @type {FormControl<number | null>}
    */
-  public showProbabilityMaxError = false;
+  public readonly probabilityControl = new FormControl<number | null>(MAX_RULE_PROBABILITY, {validators: [Validators.required]});
 
   /**
    * Minimum probability input value.
@@ -172,7 +164,7 @@ export class RuleCard implements OnChanges {
    * @readonly
    * @type {number}
    */
-  public readonly minRuleProbabilityInput = MIN_RULE_PROBABILITY_INPUT;
+  public readonly minRuleProbability = MIN_RULE_PROBABILITY;
 
   /**
    * Maximum probability input value.
@@ -181,7 +173,16 @@ export class RuleCard implements OnChanges {
    * @readonly
    * @type {number}
    */
-  public readonly maxRuleProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
+  public readonly maxRuleProbability = MAX_RULE_PROBABILITY;
+
+  /**
+   * Maximum probability integer digits.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly maxRuleProbabilityIntegerDigits = MAX_RULE_PROBABILITY.toString().length;
 
   /**
    * Whether the clause editor is invalid.
@@ -200,6 +201,24 @@ export class RuleCard implements OnChanges {
   private becomeInvalid = false;
 
   /**
+   * Destroy ref.
+   *
+   * @private
+   * @readonly
+   * @type {DestroyRef}
+   */
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Change detector.
+   *
+   * @private
+   * @readonly
+   * @type {ChangeDetectorRef}
+   */
+  private readonly ruleCardChangeDetectorRef = inject(ChangeDetectorRef);
+
+  /**
    * Whether the rule differs from its baseline.
    *
    * @public
@@ -209,7 +228,7 @@ export class RuleCard implements OnChanges {
   public get isDirty(): boolean {
     let dirty = true;
     if (this.baselineRule) {
-      dirty = !rulesEqual(this.rule, this.baselineRule) || this.pendingProbabilityInput !== this.baselineProbabilityInput();
+      dirty = !rulesEqual(this.rule, this.baselineRule) || this.probabilityControl.value !== this.baselineProbability();
     }
     return dirty;
   }
@@ -222,7 +241,7 @@ export class RuleCard implements OnChanges {
    * @type {boolean}
    */
   public get isInvalid(): boolean {
-    return this.clauseInvalid || this.becomeInvalid || !!this.probabilityError;
+    return this.clauseInvalid || this.becomeInvalid || this.probabilityControl.invalid;
   }
 
   /**
@@ -232,26 +251,75 @@ export class RuleCard implements OnChanges {
    * @type {(string | null)}
    */
   public get probabilityError(): string | null {
+    const control = this.probabilityControl;
     let error: string | null = null;
-    if (this.pendingProbabilityInput < MIN_RULE_PROBABILITY_INPUT) {
-      error = `Min ${MIN_RULE_PROBABILITY_INPUT}`;
-    } else if (this.showProbabilityMaxError) {
-      error = `Max ${MAX_RULE_PROBABILITY_INPUT}`;
+    if (control.hasError('required')) {
+      error = 'Required';
+    } else if (control.hasError('min')) {
+      error = `Min ${MIN_RULE_PROBABILITY}`;
+    } else if (control.hasError('max')) {
+      error = `Max ${MAX_RULE_PROBABILITY}`;
+    } else if (control.hasError('decimalDigits')) {
+      error = 'Max 3 decimals';
     }
     return error;
+  }
+
+  /**
+   * Creates the rule card.
+   *
+   * @public
+   * @constructor
+   */
+  public constructor() {
+    this.probabilityControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.onProbabilityChanged(value));
   }
 
   /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<RuleCard>): void {
-    if (changes.rule) {
-      this.pendingProbabilityInput = this.probabilityInput();
-      this.showProbabilityMaxError = false;
-    }
-    if (changes.rule || changes.baselineRule) {
+    if (changes.baselineRule) {
       this.emitRuleState();
     }
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public writeValue(value: Rule<Tribe[]> | null): void {
+    this.rule = value ? structuredClone(value) : this.rule;
+    this.probabilityControl.setValue(this.probability(), {emitEvent: false});
+    this.syncProbabilityControlDisabled();
+    this.ruleCardChangeDetectorRef.markForCheck();
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnChange(fn: (value: Rule<Tribe[]>) => void): void {
+    this.onChange = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public validate(_: AbstractControl<Rule<Tribe[]> | null>): ValidationErrors | null {
+    return this.isInvalid ? {rule: true} : null;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public registerOnValidatorChange(fn: () => void): void {
+    this.onValidatorChange = fn;
   }
 
   /**
@@ -335,28 +403,13 @@ export class RuleCard implements OnChanges {
   }
 
   /**
-   * Returns the probability as an integer scaled percentage.
-   *
-   * @public
-   * @returns {number} scaled probability input.
-   */
-  public probabilityInput(): number {
-    return Math.round(this.probability() * RULE_PROBABILITY_INPUT_SCALE);
-  }
-
-  /**
    * Formats the probability percentage for compact display.
    *
    * @public
    * @returns {string} formatted percentage.
    */
   public probabilityLabel(): string {
-    const scaledProbability = this.probabilityInput();
-    const wholeProbability = Math.trunc(scaledProbability / RULE_PROBABILITY_INPUT_SCALE);
-    const fractionalProbability = scaledProbability % RULE_PROBABILITY_INPUT_SCALE;
-    const decimalPlaces = RULE_PROBABILITY_INPUT_SCALE.toString().length - 1;
-    const fractionLabel = fractionalProbability.toString().padStart(decimalPlaces, '0').replace(/0+$/, '');
-    return fractionLabel.length > 0 ? `${wholeProbability}.${fractionLabel}` : `${wholeProbability}`;
+    return this.probability().toFixed(3).replace(/(?:\.0+|(\.\d*?)0+)$/, '$1');
   }
 
   /**
@@ -426,19 +479,10 @@ export class RuleCard implements OnChanges {
    */
   public onProbabilityChanged(value: number | null): void {
     if (!this.rule.muted) {
-      const parsedProbability = this.parseIntegerInput(value);
-      const wasAtProbabilityMax = this.pendingProbabilityInput >= MAX_RULE_PROBABILITY_INPUT;
-      if (parsedProbability > MAX_RULE_PROBABILITY_INPUT) {
-        this.pendingProbabilityInput = MAX_RULE_PROBABILITY_INPUT;
-        this.showProbabilityMaxError = wasAtProbabilityMax;
-      } else {
-        this.pendingProbabilityInput = parsedProbability;
-        this.showProbabilityMaxError = false;
-      }
       if (this.probabilityError) {
         this.emitRuleState();
-      } else {
-        this.updateRule(rule => (rule.probability = normalizeRuleProbability(this.pendingProbabilityInput / RULE_PROBABILITY_INPUT_SCALE)));
+      } else if (value !== null) {
+        this.updateRule(rule => (rule.probability = normalizeRuleProbability(value)));
       }
     }
   }
@@ -451,7 +495,7 @@ export class RuleCard implements OnChanges {
    */
   public onRemove(event: Event): void {
     event.stopPropagation();
-    this.removeRule.emit(this.ruleIndex);
+    this.removeRule.emit();
   }
 
   /**
@@ -462,7 +506,7 @@ export class RuleCard implements OnChanges {
    */
   public onDuplicate(event: Event): void {
     event.stopPropagation();
-    this.duplicateRule.emit(this.ruleIndex);
+    this.duplicateRule.emit();
   }
 
   /**
@@ -488,6 +532,15 @@ export class RuleCard implements OnChanges {
   }
 
   /**
+   * Marks the card as touched.
+   *
+   * @public
+   */
+  public touch(): void {
+    this.onTouched();
+  }
+
+  /**
    * Applies a rule mutation and emits updates.
    *
    * @private
@@ -497,28 +550,18 @@ export class RuleCard implements OnChanges {
     const nextRule = structuredClone(this.rule);
     mutator(nextRule);
     this.rule = nextRule;
+    this.syncProbabilityControlDisabled();
     this.emitRuleChange();
   }
 
   /**
-   * Returns the baseline probability as a scaled integer input.
+   * Returns the normalized baseline probability.
    *
    * @private
-   * @returns {number} scaled baseline probability.
+   * @returns {number} normalized baseline probability.
    */
-  private baselineProbabilityInput(): number {
-    return Math.round(normalizeRuleProbability(this.baselineRule?.probability) * RULE_PROBABILITY_INPUT_SCALE);
-  }
-
-  /**
-   * Parses an integer input without applying field bounds.
-   *
-   * @private
-   * @param {(number | null)} value input value.
-   * @returns {number} parsed integer.
-   */
-  private parseIntegerInput(value: number | null): number {
-    return Math.round(Number(value) || 0);
+  private baselineProbability(): number {
+    return normalizeRuleProbability(this.baselineRule?.probability);
   }
 
   /**
@@ -527,19 +570,8 @@ export class RuleCard implements OnChanges {
    * @private
    */
   private emitRuleChange(): void {
-    const dirty = this.isDirty;
-    const invalid = this.isInvalid;
-    this.ruleChange.emit({
-      index: this.ruleIndex,
-      rule: this.rule,
-      dirty,
-      invalid
-    });
-    this.ruleStateChange.emit({
-      index: this.ruleIndex,
-      dirty,
-      invalid
-    });
+    this.onChange(this.rule);
+    this.onValidatorChange();
   }
 
   /**
@@ -548,10 +580,43 @@ export class RuleCard implements OnChanges {
    * @private
    */
   private emitRuleState(): void {
-    this.ruleStateChange.emit({
-      index: this.ruleIndex,
-      dirty: this.isDirty,
-      invalid: this.isInvalid
-    });
+    this.onValidatorChange();
   }
+
+  /**
+   * Synchronizes probability control disabled state from the rule.
+   *
+   * @private
+   */
+  private syncProbabilityControlDisabled(): void {
+    if (this.rule.muted && this.probabilityControl.enabled) {
+      this.probabilityControl.disable({emitEvent: false});
+    } else if (!this.rule.muted && this.probabilityControl.disabled) {
+      this.probabilityControl.enable({emitEvent: false});
+    }
+  }
+
+  /**
+   * Validator change callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onValidatorChange: () => void = () => undefined;
+
+  /**
+   * CVA change callback.
+   *
+   * @private
+   * @type {(value: Rule<Tribe[]>) => void}
+   */
+  private onChange: (value: Rule<Tribe[]>) => void = () => undefined;
+
+  /**
+   * CVA touched callback.
+   *
+   * @private
+   * @type {() => void}
+   */
+  private onTouched: () => void = () => undefined;
 }

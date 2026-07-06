@@ -1,17 +1,40 @@
-import {CdkDragDrop, DragDropModule, moveItemInArray} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {CdkDragDrop, DragDropModule} from '@angular/cdk/drag-drop';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
+import {FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
 import {RuleCard} from '../../element/rule-card/rule-card';
 
+import {BaselineState} from '~gol/core/model/baseline-state';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleListsEqual, ruleSignature, toPersistedRule} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
-import {RuleChangeEvent, RuleStateChangeEvent} from '~gol/feature/home/model/rule-card';
+import {RulesFormControls} from '~gol/feature/home/model/rules-form';
 import {UpdateRulesPayload} from '~gol/feature/home/model/sidebar-event';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
 import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
+
+/**
+ * Rules editor value tracked by the Apply/Restore baseline.
+ *
+ * @interface RulesEditorValue
+ * @typedef {RulesEditorValue}
+ */
+interface RulesEditorValue {
+  /**
+   * Deterministic random seed.
+   *
+   * @type {(number | null)}
+   */
+  randomSeed: number | null;
+  /**
+   * Editable rules.
+   *
+   * @type {Rule<Tribe[]>[]}
+   */
+  rules: Rule<Tribe[]>[];
+}
 
 /**
  * Rules editor section.
@@ -25,7 +48,7 @@ import {NumberInputComponent} from '~gol/shared/component/input/number-input/num
   standalone: true,
   imports: [
     DragDropModule,
-    FormsModule,
+    ReactiveFormsModule,
     Button,
     ApplyRestoreButtons,
     RuleCard,
@@ -92,28 +115,16 @@ export class RulesSection implements OnChanges {
   public readonly applyRules = new EventEmitter<UpdateRulesPayload>();
 
   /**
-   * Editable rules.
+   * Rules form.
    *
    * @public
-   * @type {Rule<Tribe[]>[]}
+   * @readonly
+   * @type {FormGroup<RulesFormControls>}
    */
-  public editRules: Rule<Tribe[]>[] = [];
-
-  /**
-   * Editable deterministic random seed.
-   *
-   * @public
-   * @type {number}
-   */
-  public editRandomSeed = 42;
-
-  /**
-   * Whether the user tried to exceed the random seed max while already at the cap.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public showRandomSeedMaxError = false;
+  public readonly form = new FormGroup<RulesFormControls>({
+    randomSeed: new FormControl<number | null>(42, {validators: [Validators.required]}),
+    rules: new FormArray<FormControl<Rule<Tribe[]>>>([])
+  });
 
   /**
    * Minimum random seed value.
@@ -134,6 +145,15 @@ export class RulesSection implements OnChanges {
   public readonly maxRandomSeed = MAX_RANDOM_SEED;
 
   /**
+   * Maximum random seed integer digits.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public readonly maxRandomSeedIntegerDigits = MAX_RANDOM_SEED.toString().length;
+
+  /**
    * Currently dragged rule index.
    *
    * @public
@@ -148,15 +168,6 @@ export class RulesSection implements OnChanges {
    * @type {(number | null)}
    */
   public expandedRuleIndex: number | null = null;
-
-  /**
-   * Rule state lookup by editable key.
-   *
-   * @private
-   * @readonly
-   * @type {Map<string, {dirty: boolean; invalid: boolean}>}
-   */
-  private readonly ruleStatesByKey = new Map<string, {dirty: boolean; invalid: boolean}>();
 
   /**
    * Next editable rule key counter.
@@ -175,45 +186,101 @@ export class RulesSection implements OnChanges {
   private expandedRuleKeyBeforeDrag: string | null = null;
 
   /**
+   * Baseline rules editor value.
+   *
+   * @private
+   * @readonly
+   * @type {BaselineState<RulesEditorValue>}
+   */
+  private readonly baselineRules = new BaselineState<RulesEditorValue>({
+    randomSeed: 42,
+    rules: []
+  });
+
+  /**
+   * Destroy ref.
+   *
+   * @private
+   * @readonly
+   * @type {DestroyRef}
+   */
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Rule form array.
+   *
+   * @public
+   * @readonly
+   * @type {FormArray<FormControl<Rule<Tribe[]>>>}
+   */
+  public get rules(): FormArray<FormControl<Rule<Tribe[]>>> {
+    return this.form.controls.rules;
+  }
+
+  /**
    * Whether editable rules differ from committed rules.
    *
    * @public
+   * @readonly
    * @type {boolean}
    */
   public get hasUnappliedRules(): boolean {
-    const ruleContentChanged = !ruleListsEqual(this.editRules, this.committedRules);
-    const ruleStateChanged = this.editRules.some((rule, index) => {
-      const state = this.getRuleState(rule, index);
-      return state.dirty || state.invalid;
-    });
-    const randomSeedChanged = this.editRandomSeed !== normalizeRandomSeed(this.randomSeed) || !!this.randomSeedError;
-    return ruleContentChanged || ruleStateChanged || randomSeedChanged;
+    return this.baselineRules.hasChanges(this.currentValue(), (baseline, current) => this.editorValuesEqual(baseline, current));
   }
 
   /**
    * Whether any editable rule setting is invalid.
    *
    * @public
+   * @readonly
    * @type {boolean}
    */
   public get hasInvalidRules(): boolean {
-    return !!this.randomSeedError || this.editRules.some((rule, index) => this.getRuleState(rule, index).invalid);
+    return this.form.invalid;
   }
 
   /**
    * Random seed validation message.
    *
    * @public
+   * @readonly
    * @type {(string | null)}
    */
   public get randomSeedError(): string | null {
+    const control = this.form.controls.randomSeed;
     let error: string | null = null;
-    if (this.editRandomSeed < MIN_RANDOM_SEED) {
+    if (control.hasError('required')) {
+      error = 'Required';
+    } else if (control.hasError('min')) {
       error = `Min ${MIN_RANDOM_SEED}`;
-    } else if (this.showRandomSeedMaxError) {
+    } else if (control.hasError('max')) {
       error = `Max ${MAX_RANDOM_SEED}`;
+    } else if (control.hasError('decimalDigits')) {
+      error = 'Integer';
     }
     return error;
+  }
+
+  /**
+   * Whether Apply is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get applyDisabled(): boolean {
+    return this.running || this.downloading || !this.hasUnappliedRules || this.hasInvalidRules;
+  }
+
+  /**
+   * Whether Restore is disabled.
+   *
+   * @public
+   * @readonly
+   * @type {boolean}
+   */
+  public get restoreDisabled(): boolean {
+    return this.downloading || !this.hasUnappliedRules;
   }
 
   /**
@@ -221,7 +288,10 @@ export class RulesSection implements OnChanges {
    * @public
    * @param {ChangeDetectorRef} cdr change detector.
    */
-  public constructor(private readonly cdr: ChangeDetectorRef) {}
+  public constructor(private readonly cdr: ChangeDetectorRef) {
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cdr.markForCheck());
+    this.form.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cdr.markForCheck());
+  }
 
   /**
    * @inheritdoc
@@ -234,26 +304,7 @@ export class RulesSection implements OnChanges {
       }
     }
     if (changes.randomSeed) {
-      this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
-      this.showRandomSeedMaxError = false;
-    }
-  }
-
-  /**
-   * Applies seed edits to the editable ruleset state.
-   *
-   * @public
-   * @param {string | number} value seed input value.
-   */
-  public onRandomSeedChange(value: number | null): void {
-    const parsedSeed = this.parseIntegerInput(value);
-    const wasAtRandomSeedMax = this.editRandomSeed >= MAX_RANDOM_SEED;
-    if (parsedSeed > MAX_RANDOM_SEED) {
-      this.editRandomSeed = MAX_RANDOM_SEED;
-      this.showRandomSeedMaxError = wasAtRandomSeedMax;
-    } else {
-      this.editRandomSeed = parsedSeed;
-      this.showRandomSeedMaxError = false;
+      this.syncRandomSeedFromCommitted();
     }
   }
 
@@ -261,11 +312,11 @@ export class RulesSection implements OnChanges {
    * Finds a committed rule by index.
    *
    * @public
-   * @param {number} index
-   * @returns {(Rule<Tribe[]> | null)}
+   * @param {number} index rule index.
+   * @returns {(Rule<Tribe[]> | null)} baseline rule.
    */
   public baselineRule(index: number): Rule<Tribe[]> | null {
-    return this.committedRules[index] ?? null;
+    return this.baselineRules.value().rules[index] ?? null;
   }
 
   /**
@@ -283,49 +334,45 @@ export class RulesSection implements OnChanges {
         tribe: this.defaultTribeId()
       }
     };
-    this.editRules.push(newRule);
-    this.ruleStatesByKey.set(this.ruleStateKey(newRule, this.editRules.length - 1), {dirty: true, invalid: true});
-    this.expandedRuleIndex = this.editRules.length - 1;
+    this.rules.push(this.createRuleControl(newRule));
+    this.expandedRuleIndex = this.rules.length - 1;
+    this.cdr.markForCheck();
   }
 
   /**
    * Removes an editable rule.
    *
    * @public
-   * @param {number} index
+   * @param {number} index rule index.
    */
   public onRemoveRule(index: number): void {
-    const removedRule = this.editRules[index];
-    this.editRules.splice(index, 1);
-    if (removedRule) {
-      this.ruleStatesByKey.delete(this.ruleStateKey(removedRule, index));
-    }
-    this.pruneRuleStates();
+    this.rules.removeAt(index);
     if (this.expandedRuleIndex === index) {
       this.expandedRuleIndex = null;
     } else if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
       this.expandedRuleIndex--;
     }
+    this.cdr.markForCheck();
   }
 
   /**
    * Duplicates an editable rule.
    *
    * @public
-   * @param {number} index
+   * @param {number} index rule index.
    */
   public onDuplicateRule(index: number): void {
-    const rule = this.editRules[index];
+    const rule = this.rules.at(index)?.value;
     if (rule) {
       const clonedRule = structuredClone(rule);
       clonedRule.key = this.createEditableRuleKey();
       clonedRule.muted = !!clonedRule.muted;
-      this.editRules.splice(index + 1, 0, clonedRule);
-      this.ruleStatesByKey.set(this.ruleStateKey(clonedRule, index + 1), {dirty: true, invalid: true});
+      this.rules.insert(index + 1, this.createRuleControl(clonedRule));
       if (this.expandedRuleIndex !== null && this.expandedRuleIndex > index) {
         this.expandedRuleIndex++;
       }
       this.expandedRuleIndex = index + 1;
+      this.cdr.markForCheck();
     }
   }
 
@@ -333,7 +380,7 @@ export class RulesSection implements OnChanges {
    * Starts a rule drag session.
    *
    * @public
-   * @param {number} index
+   * @param {number} index rule index.
    */
   public onRuleDragStarted(index: number): void {
     this.draggingRuleIndex = index;
@@ -344,7 +391,7 @@ export class RulesSection implements OnChanges {
    * Starts a drag session from the rule handle.
    *
    * @public
-   * @param {number} index
+   * @param {number} index rule index.
    */
   public onRuleDragHandlePointerDown(index: number): void {
     this.draggingRuleIndex = index;
@@ -364,53 +411,28 @@ export class RulesSection implements OnChanges {
    * Handles rule drop reordering.
    *
    * @public
-   * @param {CdkDragDrop<Rule<Tribe[]>[]>} event
+   * @param {CdkDragDrop<FormControl<Rule<Tribe[]>>[]>} event drop event.
    */
-  public onRuleDropped(event: CdkDragDrop<Rule<Tribe[]>[]>): void {
+  public onRuleDropped(event: CdkDragDrop<FormControl<Rule<Tribe[]>>[]>): void {
     if (event.previousIndex !== event.currentIndex) {
-      moveItemInArray(this.editRules, event.previousIndex, event.currentIndex);
-      this.pruneRuleStates();
+      const control = this.rules.at(event.previousIndex);
+      this.rules.removeAt(event.previousIndex);
+      this.rules.insert(event.currentIndex, control);
+      this.rules.updateValueAndValidity();
     }
     this.draggingRuleIndex = null;
     this.restoreExpandedRuleAfterReorder();
+    this.cdr.markForCheck();
   }
 
   /**
    * Toggles a rule expansion panel.
    *
    * @public
-   * @param {number} index
+   * @param {number} index rule index.
    */
   public onToggleRuleExpand(index: number): void {
     this.expandedRuleIndex = this.expandedRuleIndex === index ? null : index;
-  }
-
-  /**
-   * Handles changed rule content.
-   *
-   * @public
-   * @param {RuleChangeEvent} event
-   */
-  public onRuleChanged(event: RuleChangeEvent): void {
-    const currentRule = this.editRules[event.index];
-    if (currentRule) {
-      this.editRules[event.index] = {...event.rule, key: currentRule.key};
-      this.ruleStatesByKey.set(this.ruleStateKey(this.editRules[event.index]!, event.index), {dirty: event.dirty, invalid: event.invalid});
-      this.pruneRuleStates();
-    }
-  }
-
-  /**
-   * Handles rule state changes.
-   *
-   * @public
-   * @param {RuleStateChangeEvent} event
-   */
-  public onRuleStateChanged(event: RuleStateChangeEvent): void {
-    const rule = this.editRules[event.index];
-    if (rule) {
-      this.ruleStatesByKey.set(this.ruleStateKey(rule, event.index), {dirty: event.dirty, invalid: event.invalid});
-    }
   }
 
   /**
@@ -419,11 +441,24 @@ export class RulesSection implements OnChanges {
    * @public
    */
   public onApplyRules(): void {
-    if (!(this.hasInvalidRules || !this.hasUnappliedRules)) {
-      this.applyRules.emit({
-        randomSeed: normalizeRandomSeed(this.editRandomSeed),
-        rules: this.editRules.map(rule => toPersistedRule(rule))
+    if (!this.applyDisabled) {
+      const currentRules = this.currentRules();
+      const appliedRandomSeed = normalizeRandomSeed(this.form.controls.randomSeed.value ?? this.randomSeed);
+      const appliedValue: RulesEditorValue = {
+        randomSeed: appliedRandomSeed,
+        rules: currentRules.map(rule => toPersistedRule(rule))
+      };
+      this.baselineRules.set({
+        randomSeed: appliedValue.randomSeed,
+        rules: appliedValue.rules.map((rule, index) => this.toEditableRule(rule, currentRules[index]?.key))
       });
+      this.form.markAsPristine();
+      this.form.markAsUntouched();
+      this.applyRules.emit({
+        randomSeed: appliedRandomSeed,
+        rules: appliedValue.rules
+      });
+      this.cdr.markForCheck();
     }
   }
 
@@ -433,23 +468,26 @@ export class RulesSection implements OnChanges {
    * @public
    */
   public onRestoreRules(): void {
-    const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.editRules[this.expandedRuleIndex]?.key ?? null : null;
-    const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.editRules);
-    this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
-    this.showRandomSeedMaxError = false;
-    this.editRules = this.committedRules.map(rule => {
-      const signature = ruleSignature(rule);
-      const keyBucket = previousRuleKeyBuckets.get(signature);
-      const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
-      return this.toEditableRule(rule, preferredKey);
-    });
-    this.ruleStatesByKey.clear();
+    const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.currentRules()[this.expandedRuleIndex]?.key ?? null : null;
+    this.rebuildForm(this.baselineRules.clone());
     if (previousExpandedRuleKey) {
-      const expandedRuleIndex = this.editRules.findIndex(rule => rule.key === previousExpandedRuleKey);
+      const expandedRuleIndex = this.currentRules().findIndex(rule => rule.key === previousExpandedRuleKey);
       this.expandedRuleIndex = expandedRuleIndex >= 0 ? expandedRuleIndex : null;
     } else {
       this.expandedRuleIndex = null;
     }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Gets one rule key.
+   *
+   * @public
+   * @param {number} index rule index.
+   * @returns {string} rule key.
+   */
+  public ruleKey(index: number): string {
+    return this.rules.at(index).value.key ?? `rule-${index}`;
   }
 
   /**
@@ -458,20 +496,75 @@ export class RulesSection implements OnChanges {
    * @private
    */
   private syncRulesFromCommitted(): void {
-    this.editRandomSeed = normalizeRandomSeed(this.randomSeed);
-    this.showRandomSeedMaxError = false;
-    this.editRules = this.committedRules.map(rule => this.toEditableRule(rule));
-    this.ruleStatesByKey.clear();
+    const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.currentRules());
+    const nextValue: RulesEditorValue = {
+      randomSeed: normalizeRandomSeed(this.randomSeed),
+      rules: this.committedRules.map(rule => {
+        const keyBucket = previousRuleKeyBuckets.get(ruleSignature(rule));
+        const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
+        return this.toEditableRule(rule, preferredKey);
+      })
+    };
+    this.baselineRules.set(nextValue);
+    this.rebuildForm(nextValue);
     this.expandedRuleIndex = null;
+  }
+
+  /**
+   * Synchronizes the random seed from committed input.
+   *
+   * @private
+   */
+  private syncRandomSeedFromCommitted(): void {
+    const previousRuleKeyBuckets = this.buildRuleKeyBuckets(this.currentRules());
+    const nextValue: RulesEditorValue = {
+      randomSeed: normalizeRandomSeed(this.randomSeed),
+      rules: this.committedRules.map(rule => {
+        const keyBucket = previousRuleKeyBuckets.get(ruleSignature(rule));
+        const preferredKey = keyBucket && keyBucket.length > 0 ? keyBucket.shift() : undefined;
+        return this.toEditableRule(rule, preferredKey);
+      })
+    };
+    this.baselineRules.set(nextValue);
+    this.form.controls.randomSeed.setValue(nextValue.randomSeed, {emitEvent: false});
+  }
+
+  /**
+   * Rebuilds the rules form from a value.
+   *
+   * @private
+   * @param {RulesEditorValue} value editor value.
+   */
+  private rebuildForm(value: RulesEditorValue): void {
+    this.form.controls.randomSeed.setValue(value.randomSeed, {emitEvent: false});
+    this.rules.clear();
+    for (const rule of value.rules) {
+      this.rules.push(this.createRuleControl(rule));
+    }
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
+    this.form.updateValueAndValidity({emitEvent: false});
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Creates one rule control.
+   *
+   * @private
+   * @param {Rule<Tribe[]>} rule editable rule.
+   * @returns {FormControl<Rule<Tribe[]>>} rule control.
+   */
+  private createRuleControl(rule: Rule<Tribe[]>): FormControl<Rule<Tribe[]>> {
+    return new FormControl(rule, {nonNullable: true});
   }
 
   /**
    * Converts a committed rule to an editable rule.
    *
    * @private
-   * @param {Rule<Tribe[]>} rule
-   * @param {string} [preferredKey]
-   * @returns {Rule<Tribe[]>}
+   * @param {Rule<Tribe[]>} rule committed rule.
+   * @param {string} [preferredKey] preferred key.
+   * @returns {Rule<Tribe[]>} editable rule.
    */
   private toEditableRule(rule: Rule<Tribe[]>, preferredKey?: string): Rule<Tribe[]> {
     const editableRule = normalizeRule(rule);
@@ -482,81 +575,21 @@ export class RulesSection implements OnChanges {
   }
 
   /**
-   * Parses an integer input without applying field bounds.
+   * Gets the current rule values.
    *
    * @private
-   * @param {(number | null)} value input value.
-   * @returns {number} parsed integer.
+   * @returns {Rule<Tribe[]>[]} editable rules.
    */
-  private parseIntegerInput(value: number | null): number {
-    return Math.trunc(Number(value) || 0);
-  }
-
-  /**
-   * Restores the expanded rule after a reorder.
-   *
-   * @private
-   */
-  private restoreExpandedRuleAfterReorder(): void {
-    if (this.expandedRuleKeyBeforeDrag) {
-      const expandedIndex = this.editRules.findIndex(rule => rule.key === this.expandedRuleKeyBeforeDrag);
-      this.expandedRuleIndex = expandedIndex >= 0 ? expandedIndex : null;
-      this.expandedRuleKeyBeforeDrag = null;
-    }
-  }
-
-  /**
-   * Begins a rule drag session.
-   *
-   * @private
-   */
-  private beginRuleDragSession(): void {
-    if (this.expandedRuleIndex !== null) {
-      const expandedRule = this.editRules[this.expandedRuleIndex];
-      this.expandedRuleKeyBeforeDrag = expandedRule?.key ?? null;
-      this.expandedRuleIndex = null;
-      this.cdr.detectChanges();
-    }
-  }
-
-  /**
-   * Creates an editable rule key.
-   *
-   * @private
-   * @returns {string}
-   */
-  private createEditableRuleKey(): string {
-    return `editable-rule-${this.nextEditableRuleKey++}`;
-  }
-
-  /**
-   * Returns the default tribe id for new rules.
-   *
-   * @private
-   * @returns {string}
-   */
-  private defaultTribeId(): string {
-    return this.tribes.find(tribe => tribe.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID;
-  }
-
-  /**
-   * Builds a stable rule state key.
-   *
-   * @private
-   * @param {Rule<Tribe[]>} rule
-   * @param {number} index
-   * @returns {string}
-   */
-  private ruleStateKey(rule: Rule<Tribe[]>, index: number): string {
-    return rule.key ?? `rule-${index}`;
+  private currentRules(): Rule<Tribe[]>[] {
+    return this.rules.controls.map(control => control.value);
   }
 
   /**
    * Builds reusable key buckets from editable rules.
    *
    * @private
-   * @param {readonly Rule<Tribe[]>[]} rules
-   * @returns {Map<string, string[]>}
+   * @param {readonly Rule<Tribe[]>[]} rules editable rules.
+   * @returns {Map<string, string[]>} keys grouped by persisted rule signature.
    */
   private buildRuleKeyBuckets(rules: readonly Rule<Tribe[]>[]): Map<string, string[]> {
     const ruleKeyBuckets = new Map<string, string[]>();
@@ -576,28 +609,74 @@ export class RulesSection implements OnChanges {
   }
 
   /**
-   * Gets the validation state for an editable rule.
+   * Gets the current editor value.
    *
    * @private
-   * @param {Rule<Tribe[]>} rule
-   * @param {number} index
-   * @returns {{dirty: boolean; invalid: boolean}}
+   * @returns {RulesEditorValue} editor value.
    */
-  private getRuleState(rule: Rule<Tribe[]>, index: number): {dirty: boolean; invalid: boolean} {
-    return this.ruleStatesByKey.get(this.ruleStateKey(rule, index)) ?? {dirty: false, invalid: false};
+  private currentValue(): RulesEditorValue {
+    return {
+      randomSeed: this.form.controls.randomSeed.value,
+      rules: this.currentRules()
+    };
   }
 
   /**
-   * Removes states for rules that no longer exist.
+   * Compares rules editor values.
+   *
+   * @private
+   * @param {RulesEditorValue} baseline baseline value.
+   * @param {RulesEditorValue} current current value.
+   * @returns {boolean} whether values are equal.
+   */
+  private editorValuesEqual(baseline: RulesEditorValue, current: RulesEditorValue): boolean {
+    return baseline.randomSeed === current.randomSeed && ruleListsEqual(current.rules, baseline.rules);
+  }
+
+  /**
+   * Restores the expanded rule after a reorder.
    *
    * @private
    */
-  private pruneRuleStates(): void {
-    const activeKeys = new Set(this.editRules.map((rule, index) => this.ruleStateKey(rule, index)));
-    for (const key of this.ruleStatesByKey.keys()) {
-      if (!activeKeys.has(key)) {
-        this.ruleStatesByKey.delete(key);
-      }
+  private restoreExpandedRuleAfterReorder(): void {
+    if (this.expandedRuleKeyBeforeDrag) {
+      const expandedIndex = this.currentRules().findIndex(rule => rule.key === this.expandedRuleKeyBeforeDrag);
+      this.expandedRuleIndex = expandedIndex >= 0 ? expandedIndex : null;
+      this.expandedRuleKeyBeforeDrag = null;
     }
+  }
+
+  /**
+   * Begins a rule drag session.
+   *
+   * @private
+   */
+  private beginRuleDragSession(): void {
+    if (this.expandedRuleIndex !== null) {
+      const expandedRule = this.currentRules()[this.expandedRuleIndex];
+      this.expandedRuleKeyBeforeDrag = expandedRule?.key ?? null;
+      this.expandedRuleIndex = null;
+      this.cdr.detectChanges();
+    }
+  }
+
+  /**
+   * Creates an editable rule key.
+   *
+   * @private
+   * @returns {string} editable rule key.
+   */
+  private createEditableRuleKey(): string {
+    return `editable-rule-${this.nextEditableRuleKey++}`;
+  }
+
+  /**
+   * Returns the default tribe id for new rules.
+   *
+   * @private
+   * @returns {string} default tribe id.
+   */
+  private defaultTribeId(): string {
+    return this.tribes.find(tribe => tribe.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID;
   }
 }

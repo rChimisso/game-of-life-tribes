@@ -1,6 +1,5 @@
 import {NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
 
 import {BecomeChangeEvent, BecomeStateChangeEvent} from '../model/become-event';
 import {SelectorChangeEvent} from '../model/selector-event';
@@ -101,7 +100,6 @@ const RANK_INPUT_VALUE = 'selector:rank';
   selector: 'gol-become-editor',
   standalone: true,
   imports: [
-    FormsModule,
     NgTemplateOutlet,
     Button,
     SelectorEditor,

@@ -24,6 +24,12 @@ export interface NumberInputConstraints {
    */
   decimalDigits: number;
   /**
+   * Decimal places to preserve in the formatted view.
+   *
+   * @type {(number | undefined)}
+   */
+  fixedDecimalDigits?: number;
+  /**
    * Minimum integer digits.
    *
    * @type {(number | undefined)}

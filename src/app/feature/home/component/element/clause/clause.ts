@@ -1,6 +1,6 @@
 import {NgTemplateOutlet} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import {FormControl, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
@@ -12,12 +12,12 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 import {clausesEqual, normalizeCountExpression, normalizeSelector, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NeighborCount, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, Operator, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
-import {SelectOption} from '~gol/shared/component/select/model/select';
+import {NumberInputComponent} from '~gol/shared/component/input/number-input/number-input';
+import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {SummaryComponent} from '~gol/shared/component/summary/summary';
 import {isBinaryLogicalClause} from '~gol/shared/component/summary/util/clause';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
-import {CharFilterDirective} from '~gol/shared/directive/char-filter';
 
 /**
  * Clause fragment that stores a count selector.
@@ -41,6 +41,40 @@ interface CountSelectorClause {
 }
 
 /**
+ * Clause numeric field.
+ *
+ * @typedef {ClauseNumberField}
+ */
+type ClauseNumberField = 'interval-0' | 'interval-1' | 'value' | 'margin';
+
+/**
+ * Active clause numeric field descriptor.
+ *
+ * @interface ClauseNumberDescriptor
+ * @typedef {ClauseNumberDescriptor}
+ */
+interface ClauseNumberDescriptor {
+  /**
+   * Clause path.
+   *
+   * @type {number[]}
+   */
+  path: number[];
+  /**
+   * Number field.
+   *
+   * @type {ClauseNumberField}
+   */
+  field: ClauseNumberField;
+  /**
+   * Current model value.
+   *
+   * @type {number}
+   */
+  value: number;
+}
+
+/**
  * Rule clause editor.
  *
  * @class RuleClause
@@ -51,12 +85,12 @@ interface CountSelectorClause {
   selector: 'gol-rule-clause',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     NgTemplateOutlet,
     MatButtonModule,
     MatIconModule,
-    CharFilterDirective,
     SelectorEditor,
+    NumberInputComponent,
     SelectComponent,
     SummaryComponent,
     TribeSwatch,
@@ -151,6 +185,15 @@ export class RuleClause implements OnChanges {
   public collapsedGroupKeys = new Set<string>();
 
   /**
+   * Local numeric controls keyed by clause path and field.
+   *
+   * @private
+   * @readonly
+   * @type {Map<string, FormControl<number | null>>}
+   */
+  private readonly numberControls = new Map<string, FormControl<number | null>>();
+
+  /**
    * Selectable clause kinds.
    *
    * @public
@@ -197,6 +240,9 @@ export class RuleClause implements OnChanges {
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<RuleClause>): void {
+    if (changes.clause) {
+      this.syncNumberControlsFromClause();
+    }
     if (changes.clause || changes.baselineClause) {
       this.emitClauseState();
     }
@@ -338,6 +384,19 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Handles clause kind select changes.
+   *
+   * @public
+   * @param {number[]} path path to the clause to replace.
+   * @param {SelectValue} value selected value.
+   */
+  public onClauseKindSelected(path: number[], value: SelectValue): void {
+    if (typeof value === 'string') {
+      this.emitChangeKind(path, value);
+    }
+  }
+
+  /**
    * Toggles a tribe in one comparison group.
    *
    * @public
@@ -410,26 +469,27 @@ export class RuleClause implements OnChanges {
   }
 
   /**
-   * Updates an interval or count value.
+   * Gets a reactive numeric control for one clause number field.
    *
    * @public
    * @param {number[]} path path to the clause to update.
-   * @param {0 | 1} which interval index to update.
-   * @param {string} value next numeric value.
+   * @param {ClauseNumberField} field number field.
+   * @param {number} value current value.
+   * @returns {FormControl<number | null>} numeric control.
    */
-  public emitSetInterval(path: number[], which: 0 | 1, value: string): void {
-    if (!this.disabled) {
-      this.updateClause(clauseRoot => {
-        const clause = this.getClauseAtPath(clauseRoot, path);
-        const nextValue = Math.max(0, Math.min(8, parseInt(value, 10) || 0)) as NeighborCount;
-        if (clause.kind === COUNT_CLAUSE_KIND) {
-          clause.interval[which] = nextValue;
-        } else if (clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) {
-          clause.value = nextValue;
-        }
-        return clauseRoot;
-      });
+  public clauseNumberControl(path: number[], field: ClauseNumberField, value: number): FormControl<number | null> {
+    const key = this.numberControlKey(path, field);
+    let control = this.numberControls.get(key);
+    if (!control) {
+      control = new FormControl<number | null>(value, {validators: [Validators.required]});
+      control.valueChanges.subscribe(nextValue => this.onClauseNumberChanged(path, field, key, nextValue));
+      this.numberControls.set(key, control);
     }
+    this.syncNumberControlDisabled(control);
+    if (!control.dirty && control.value !== value) {
+      control.setValue(value, {emitEvent: false});
+    }
+    return control;
   }
 
   /**
@@ -452,22 +512,15 @@ export class RuleClause implements OnChanges {
   }
 
   /**
-   * Sets the comparison margin.
+   * Handles comparison operator select changes.
    *
    * @public
    * @param {number[]} path path to the comparison clause.
-   * @param {string} value next margin value.
+   * @param {SelectValue} value selected value.
    */
-  public emitSetMargin(path: number[], value: string): void {
-    if (!this.disabled) {
-      this.updateClause(clauseRoot => {
-        const clause = this.getClauseAtPath(clauseRoot, path);
-        if (clause.kind === COMPARISON_CLAUSE_KIND) {
-          const parsed = +value;
-          clause.margin = Math.max(-8, Math.min(8, Number.isNaN(parsed) ? 0 : parsed));
-        }
-        return clauseRoot;
-      });
+  public onOperatorSelected(path: number[], value: SelectValue): void {
+    if (typeof value === 'string') {
+      this.emitSetOperator(path, value as Operator);
     }
   }
 
@@ -600,6 +653,50 @@ export class RuleClause implements OnChanges {
   }
 
   /**
+   * Updates a numeric clause value.
+   *
+   * @private
+   * @param {number[]} path path to the clause to update.
+   * @param {ClauseNumberField} field number field.
+   * @param {string} key control key.
+   * @param {(number | null)} value next numeric value.
+   */
+  private onClauseNumberChanged(path: number[], field: ClauseNumberField, key: string, value: number | null): void {
+    const control = this.numberControls.get(key);
+    if (!this.disabled && value !== null && (!control || control.valid)) {
+      this.updateClause(clauseRoot => {
+        const clause = this.getClauseAtPath(clauseRoot, path);
+        if (clause.kind === COUNT_CLAUSE_KIND && field === 'interval-0') {
+          clause.interval[0] = value as NeighborCount;
+        } else if (clause.kind === COUNT_CLAUSE_KIND && field === 'interval-1') {
+          clause.interval[1] = value as NeighborCount;
+        } else if ((clause.kind === EXACTLY_CLAUSE_KIND || clause.kind === MIN_CLAUSE_KIND || clause.kind === MAX_CLAUSE_KIND) && field === 'value') {
+          clause.value = value as NeighborCount;
+        } else if (clause.kind === COMPARISON_CLAUSE_KIND && field === 'margin') {
+          clause.margin = value;
+        }
+        return clauseRoot;
+      });
+    } else {
+      this.emitClauseState();
+    }
+  }
+
+  /**
+   * Synchronizes a numeric control disabled state.
+   *
+   * @private
+   * @param {FormControl<number | null>} control numeric control.
+   */
+  private syncNumberControlDisabled(control: FormControl<number | null>): void {
+    if (this.disabled && control.enabled) {
+      control.disable({emitEvent: false});
+    } else if (!this.disabled && control.disabled) {
+      control.enable({emitEvent: false});
+    }
+  }
+
+  /**
    * Serializes a path into a group key.
    *
    * @private
@@ -692,7 +789,112 @@ export class RuleClause implements OnChanges {
    * @returns {boolean} `true` if the clause contains empty placeholders, `false` otherwise.
    */
   private isInvalid(): boolean {
-    return this.containsEmptyClause(this.clause) || this.containsInvalidSelector(this.clause);
+    return this.containsEmptyClause(this.clause) || this.containsInvalidSelector(this.clause) || this.containsInvalidNumberControl();
+  }
+
+  /**
+   * Whether any active numeric clause control is invalid.
+   *
+   * @private
+   * @returns {boolean} `true` if any active numeric control is invalid.
+   */
+  private containsInvalidNumberControl(): boolean {
+    return this.activeNumberControlKeys().some(key => this.numberControls.get(key)?.invalid);
+  }
+
+  /**
+   * Synchronizes active numeric controls from the clause model.
+   *
+   * @private
+   */
+  private syncNumberControlsFromClause(): void {
+    for (const descriptor of this.activeNumberDescriptors(this.clause, [])) {
+      const control = this.numberControls.get(this.numberControlKey(descriptor.path, descriptor.field));
+      if (control && control.value !== descriptor.value) {
+        control.setValue(descriptor.value, {emitEvent: false});
+        control.markAsPristine();
+        control.markAsUntouched();
+      }
+    }
+  }
+
+  /**
+   * Gets active numeric control keys for the current clause tree.
+   *
+   * @private
+   * @returns {string[]} active numeric control keys.
+   */
+  private activeNumberControlKeys(): string[] {
+    return this.activeNumberDescriptors(this.clause, []).map(descriptor => this.numberControlKey(descriptor.path, descriptor.field));
+  }
+
+  /**
+   * Gets active numeric field descriptors for a clause tree.
+   *
+   * @private
+   * @param {Clause<Tribe[]>} clause clause to inspect.
+   * @param {number[]} path current clause path.
+   * @returns {ClauseNumberDescriptor[]} active numeric descriptors.
+   */
+  private activeNumberDescriptors(clause: Clause<Tribe[]>, path: number[]): ClauseNumberDescriptor[] {
+    let descriptors: ClauseNumberDescriptor[] = [];
+    switch (clause.kind) {
+      case COUNT_CLAUSE_KIND:
+        descriptors = [
+          {
+            path,
+            field: 'interval-0',
+            value: clause.interval[0]
+          },
+          {
+            path,
+            field: 'interval-1',
+            value: clause.interval[1]
+          }
+        ];
+        break;
+      case EXACTLY_CLAUSE_KIND:
+      case MIN_CLAUSE_KIND:
+      case MAX_CLAUSE_KIND:
+        descriptors = [
+          {
+            path,
+            field: 'value',
+            value: clause.value
+          }
+        ];
+        break;
+      case COMPARISON_CLAUSE_KIND:
+        descriptors = [
+          {
+            path,
+            field: 'margin',
+            value: clause.margin ?? 0
+          }
+        ];
+        break;
+      case NOT_CLAUSE_KIND:
+        descriptors = this.activeNumberDescriptors(clause.clause, path.concat(0));
+        break;
+      case AND_CLAUSE_KIND:
+      case OR_CLAUSE_KIND:
+      case XOR_CLAUSE_KIND:
+        descriptors = clause.clauses.flatMap((child, index) => this.activeNumberDescriptors(child, path.concat(index)));
+        break;
+    }
+    return descriptors;
+  }
+
+  /**
+   * Builds a stable key for a numeric clause control.
+   *
+   * @private
+   * @param {number[]} path clause path.
+   * @param {ClauseNumberField} field number field.
+   * @returns {string} numeric control key.
+   */
+  private numberControlKey(path: number[], field: ClauseNumberField): string {
+    return `${path.join('.')}:${field}`;
   }
 
   /**

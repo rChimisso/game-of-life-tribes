@@ -327,6 +327,28 @@ export class DrawSection implements OnChanges, OnInit {
   }
 
   /**
+   * Maximum brush size integer digits.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get brushSizeIntegerDigits(): number {
+    return this.integerDigits(this.normalizedBrushMaxSize);
+  }
+
+  /**
+   * Maximum brush density integer digits.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get brushDensityIntegerDigits(): number {
+    return this.integerDigits(MAX_BRUSH_DENSITY);
+  }
+
+  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<DrawSection>): void {
@@ -398,7 +420,20 @@ export class DrawSection implements OnChanges, OnInit {
       message = `Max ${max}`;
     } else if (control.hasError('decimalDigits')) {
       message = 'Integer';
+    } else if (control.hasError('maxIntegerDigits')) {
+      message = 'Too many digits';
     }
     return message;
+  }
+
+  /**
+   * Counts integer digits in a positive numeric limit.
+   *
+   * @private
+   * @param {number} value numeric limit.
+   * @returns {number} digit count.
+   */
+  private integerDigits(value: number): number {
+    return Math.max(1, Math.trunc(Math.abs(value)).toString().length);
   }
 }

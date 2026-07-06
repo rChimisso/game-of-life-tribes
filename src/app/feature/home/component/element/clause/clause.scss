@@ -57,15 +57,8 @@
       gap: 4px;
       padding: 2px 0;
 
-      > input {
+      > gol-number-input {
         width: 40px;
-        padding: 2px 4px;
-        background: #111;
-        border: 1px solid #444;
-        border-radius: 3px;
-        color: white;
-        font-size: 0.8rem;
-        text-align: center;
       }
 
       > span:not(.interval-label) {
@@ -94,15 +87,9 @@
         flex: 0 0 auto;
       }
 
-      > input {
+      > gol-number-input {
         width: 44px;
-        padding: 2px 4px;
-        background: #111;
-        border: 1px solid #444;
-        border-radius: 3px;
-        color: white;
-        font-size: 0.75rem;
-        text-align: center;
+        --gol-number-input-clause-font-size: 0.75rem;
       }
     }
 

@@ -435,6 +435,17 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   }
 
   /**
+   * Maximum recorded frame integer digits.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get recordedFrameIntegerDigits(): number {
+    return this.integerDigits(Math.max(1, this.totalRecordedFrames));
+  }
+
+  /**
    * Number of selected frames.
    *
    * @public
@@ -928,6 +939,8 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       message = 'Min 1';
     } else if (control.enabled && control.hasError('max')) {
       message = `Max ${this.totalRecordedFrames.toLocaleString()}`;
+    } else if (control.enabled && control.hasError('maxIntegerDigits')) {
+      message = 'Too many digits';
     }
     return message;
   }
@@ -950,7 +963,20 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
       message = `Max ${max}`;
     } else if (control.enabled && control.hasError('decimalDigits')) {
       message = 'Integer';
+    } else if (control.enabled && control.hasError('maxIntegerDigits')) {
+      message = 'Too many digits';
     }
     return message;
+  }
+
+  /**
+   * Counts integer digits in a positive numeric limit.
+   *
+   * @private
+   * @param {number} value numeric limit.
+   * @returns {number} digit count.
+   */
+  private integerDigits(value: number): number {
+    return Math.max(1, Math.trunc(Math.abs(value)).toString().length);
   }
 }

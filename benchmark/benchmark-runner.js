@@ -5,15 +5,19 @@
  * 1. Build and serve the app, for example:
  *      pnpm run build
  *      npx http-server docs
- *    or run the development server if desired.
+ *    or open the published app.
  * 2. Open the app in the browser.
  * 3. Paste this file into DevTools Console, or run it as a DevTools Snippet.
- * 4. Run:
+ * 4. Optionally validate the current production UI contract:
+ *      await window.goltBenchmarkRunner.preflight()
+ * 5. Run:
  *      await window.goltBenchmarkRunner.run()
  *
- * This runner works against the production UI. It drives the same controls a
- * user would use manually, stores a checkpoint after every sample, and
- * downloads JSON plus CSV files when the run finishes or is stopped.
+ * This runner works against the production UI. It explicitly prepares the
+ * deterministic toroidal Conway workload used by the published benchmark,
+ * drives the same controls a user would use manually, stores a checkpoint
+ * after every sample, and downloads JSON plus CSV files when the run finishes
+ * or is stopped.
  */
 (() => {
   'use strict';
@@ -21,6 +25,8 @@
   const CHECKPOINT_KEY = 'golt-benchmark-results-v1';
 
   const CONFIG = {
+    presetName: 'Conway',
+    topologyLabel: 'Toroidal',
     runSeconds: 60,
     warmUpSeconds: 5,
     counterSettleSeconds: 2,
@@ -28,6 +34,7 @@
     repeats: 5,
     cooldownSeconds: 30,
     rebuildTimeoutSeconds: 240,
+    readyStabilityMs: 300,
     settleAfterClickMs: 150,
     settleAfterStopMs: 1000,
     outputPrefix: 'golt-benchmark-run',
@@ -63,13 +70,6 @@
   const text = el => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
   const fileTimestamp = () => new Date().toISOString().replace(/[:.]/g, '-');
 
-  /**
-   * Returns the adjusted dimensions used in the README benchmark table.
-   *
-   * @param {number} side Requested side.
-   * @param {number} bits Bit packing.
-   * @returns {{cols: number; rows: number}} Dimensions.
-   */
   function dimensionsFor(side, bits) {
     let rows = side;
     if (side === 32768 && bits === 16) {
@@ -82,26 +82,10 @@
     return {cols: side, rows};
   }
 
-  /**
-   * Computes one packed frame size.
-   *
-   * @param {number} cols Grid columns.
-   * @param {number} rows Grid rows.
-   * @param {number} bits Bit packing.
-   * @returns {number} Frame bytes.
-   */
   function frameBytes(cols, rows, bits) {
     return Math.ceil(cols / (32 / bits)) * rows * 4;
   }
 
-  /**
-   * Throws if a required element is missing.
-   *
-   * @template T
-   * @param {T | null | undefined} value Element.
-   * @param {string} label Element label.
-   * @returns {T} Element.
-   */
   function required(value, label) {
     if (!value) {
       throw new Error(`Missing UI element: ${label}`);
@@ -109,14 +93,6 @@
     return value;
   }
 
-  /**
-   * Waits until a predicate becomes true.
-   *
-   * @param {() => boolean} predicate Condition.
-   * @param {number} timeoutMs Timeout.
-   * @param {string} label Timeout label.
-   * @returns {Promise<void>} Promise resolved when the condition is true.
-   */
   async function waitFor(predicate, timeoutMs, label) {
     const startedAt = performance.now();
     while (!predicate() && performance.now() - startedAt < timeoutMs) {
@@ -127,11 +103,6 @@
     }
   }
 
-  /**
-   * Opens the sidebar if it is currently collapsed.
-   *
-   * @returns {Promise<void>} Promise resolved after the sidebar is open.
-   */
   async function ensureSidebarOpen() {
     const panel = required(document.querySelector('gol-sidebar .sidebar-panel'), 'sidebar panel');
     if (!panel.classList.contains('open')) {
@@ -140,55 +111,23 @@
     }
   }
 
-  /**
-   * Returns one custom section host.
-   *
-   * @param {string} selector Section selector.
-   * @returns {Element} Section element.
-   */
   function section(selector) {
     return required(document.querySelector(selector), selector);
   }
 
-  /**
-   * Finds a button by visible label or aria-label.
-   *
-   * @param {ParentNode} root Search root.
-   * @param {string} label Button label.
-   * @returns {HTMLButtonElement | null} Matching button.
-   */
   function findButton(root, label) {
     const buttons = Array.from(root.querySelectorAll('button'));
     return buttons.find(button => text(button).includes(label) || button.getAttribute('aria-label') === label) ?? null;
   }
 
-  /**
-   * Returns whether a section is showing validation text.
-   *
-   * @param {ParentNode} root Search root.
-   * @returns {boolean} Whether validation text is visible.
-   */
   function hasValidationText(root) {
     return Array.from(root.querySelectorAll('.error-message')).some(item => Boolean(text(item)));
   }
 
-  /**
-   * Returns whether a section is over the supported frame-size limit.
-   *
-   * @param {ParentNode} root Search root.
-   * @returns {boolean} Whether the supported frame-size limit is exceeded.
-   */
   function hasFrameLimitError(root) {
     return root.querySelector('gol-frame-size-limits .error') !== null;
   }
 
-  /**
-   * Clicks a button and waits briefly for Angular to process the event.
-   *
-   * @param {ParentNode} root Search root.
-   * @param {string} label Button label.
-   * @returns {Promise<boolean>} Whether the button was clicked.
-   */
   async function clickButton(root, label) {
     const button = findButton(root, label);
     let clicked = false;
@@ -200,38 +139,35 @@
     return clicked;
   }
 
-  /**
-   * Sets a native input value through the browser property setter.
-   *
-   * @param {HTMLInputElement} input Input element.
-   * @param {string | number} value Value.
-   */
   function setInputValue(input, value) {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (!setter) {
+      throw new Error('Could not resolve the native HTML input value setter.');
+    }
     setter.call(input, String(value));
     input.dispatchEvent(new Event('input', {bubbles: true}));
     input.dispatchEvent(new Event('change', {bubbles: true}));
     input.dispatchEvent(new Event('blur', {bubbles: true}));
   }
 
-  /**
-   * Returns the inner switch button for a slide-toggle label.
-   *
-   * @param {string} label Toggle label.
-   * @returns {HTMLElement | null} Switch button.
-   */
+  function queryFormControlInput(root, controlName) {
+    const host = root.querySelector(`[formcontrolname="${controlName}"]`);
+    if (host instanceof HTMLInputElement) {
+      return host;
+    }
+    return host?.querySelector('input') ?? null;
+  }
+
+  function formControlInput(root, controlName, label) {
+    return required(queryFormControlInput(root, controlName), label);
+  }
+
   function switchFor(label) {
     const toggles = Array.from(section('gol-speed-section').querySelectorAll('mat-slide-toggle'));
-    const host = toggles.find(toggle => text(toggle).includes(label));
+    const host = toggles.find(toggle => text(toggle) === label || text(toggle).includes(label));
     return host?.querySelector('[role="switch"]') ?? host?.querySelector('button') ?? null;
   }
 
-  /**
-   * Reads a slide-toggle state.
-   *
-   * @param {string} label Toggle label.
-   * @returns {{found: boolean; checked: boolean; disabled: boolean}} Toggle state.
-   */
   function switchState(label) {
     const button = switchFor(label);
     const checked = button?.getAttribute('aria-checked') === 'true' || button?.classList.contains('mdc-switch--selected') || false;
@@ -239,13 +175,6 @@
     return {found: Boolean(button), checked, disabled};
   }
 
-  /**
-   * Sets a slide-toggle to the requested state.
-   *
-   * @param {string} label Toggle label.
-   * @param {boolean} desired Desired checked state.
-   * @returns {Promise<boolean>} Whether the desired state was reached.
-   */
   async function setSwitch(label, desired) {
     const button = switchFor(label);
     if (!button) {
@@ -260,47 +189,65 @@
     return stateNow.checked === desired;
   }
 
-  /**
-   * Parses the generation counter from the Playback section.
-   *
-   * @returns {number} Current generation.
-   */
-  function generation() {
+  function topologyOption(label) {
+    const grid = section('gol-grid-size-section');
+    const control = grid.querySelector('gol-segmented-control[formcontrolname="topology"]') ?? grid.querySelector('gol-segmented-control');
+    return Array.from(control?.querySelectorAll('.segmented-option') ?? []).find(option => text(option) === label) ?? null;
+  }
+
+  function topologySelected(label) {
+    const option = topologyOption(label);
+    return option?.getAttribute('aria-checked') === 'true' || option?.classList.contains('active') || false;
+  }
+
+  function presetHost(name) {
+    const presets = section('gol-presets-section');
+    return Array.from(presets.querySelectorAll('gol-preset-button')).find(host => text(host.querySelector('.preset-name')) === name) ?? null;
+  }
+
+  function generationRow() {
     const rows = Array.from(section('gol-playback-section').querySelectorAll('gol-label-value'));
-    const row = rows.find(item => text(item.querySelector('.label')) === 'Generation');
-    const raw = text(row?.querySelector('.value'));
+    return rows.find(item => text(item.querySelector('.label')) === 'Generation') ?? null;
+  }
+
+  function generation() {
+    const raw = text(generationRow()?.querySelector('.value'));
     return Number(raw.replace(/[^\d]/g, '') || 0);
   }
 
-  /**
-   * Returns whether the playback button currently offers pause.
-   *
-   * @returns {boolean} Whether the simulation is running.
-   */
   function isRunning() {
     const playback = section('gol-playback-section');
     const pauseButton = findButton(playback, 'Pause');
     return Boolean(pauseButton && !pauseButton.disabled);
   }
 
-  /**
-   * Waits for playback controls to become usable after a rebuild.
-   *
-   * @returns {Promise<void>} Promise resolved when ready.
-   */
-  async function waitForReady() {
-    await waitFor(() => {
-      const runButton = findButton(section('gol-playback-section'), 'Run') ?? findButton(section('gol-playback-section'), 'Pause');
-      return Boolean(runButton && !runButton.disabled);
-    }, CONFIG.rebuildTimeoutSeconds * 1000, 'engine ready');
+  function playbackReady() {
+    const playback = document.querySelector('gol-playback-section');
+    if (!playback) {
+      return false;
+    }
+    const runButton = findButton(playback, 'Run') ?? findButton(playback, 'Pause');
+    return Boolean(runButton && !runButton.disabled);
   }
 
-  /**
-   * Pauses the run and disables max speed, recording, and the metrics toggle.
-   *
-   * @param {number} settleMs Time to wait after controls settle.
-   * @returns {Promise<void>} Promise resolved after controls settle.
-   */
+  async function waitForReady() {
+    const startedAt = performance.now();
+    let stableSince = null;
+    while (performance.now() - startedAt < CONFIG.rebuildTimeoutSeconds * 1000) {
+      const now = performance.now();
+      if (playbackReady()) {
+        stableSince ??= now;
+        if (now - stableSince >= CONFIG.readyStabilityMs) {
+          return;
+        }
+      } else {
+        stableSince = null;
+      }
+      await sleep(100);
+    }
+    throw new Error('Timed out waiting for engine ready.');
+  }
+
   async function forceIdle(settleMs = CONFIG.settleAfterStopMs) {
     await ensureSidebarOpen();
     if (isRunning()) {
@@ -312,16 +259,104 @@
     await sleep(settleMs);
   }
 
-  /**
-   * Applies one grid size.
-   *
-   * @param {{cols: number; rows: number}} dims Dimensions.
-   * @returns {Promise<{supported: boolean; reason: string}>} Status.
-   */
+  async function applyPreset(name) {
+    const presets = section('gol-presets-section');
+    const host = required(presetHost(name), `${name} preset`);
+    const button = required(host.querySelector('button'), `${name} preset button`);
+    button.click();
+    await sleep(CONFIG.settleAfterClickMs);
+    const applied = await clickButton(presets, 'Apply');
+    if (!applied) {
+      throw new Error(`Could not apply the ${name} preset.`);
+    }
+    await waitForReady();
+  }
+
+  async function setTopology(label) {
+    const grid = section('gol-grid-size-section');
+    const option = required(topologyOption(label), `${label} topology option`);
+    if (!topologySelected(label)) {
+      if (option.disabled) {
+        throw new Error(`${label} topology is disabled.`);
+      }
+      option.click();
+      await sleep(CONFIG.settleAfterClickMs);
+      if (!topologySelected(label)) {
+        throw new Error(`Could not select ${label} topology.`);
+      }
+      const applied = await clickButton(grid, 'Apply');
+      if (!applied) {
+        throw new Error(`Could not apply ${label} topology.`);
+      }
+      await waitForReady();
+    }
+  }
+
+  async function prepareBenchmarkProfile() {
+    await forceIdle();
+    await applyPreset(CONFIG.presetName);
+    await setTopology(CONFIG.topologyLabel);
+    await clickButton(section('gol-playback-section'), 'Reset Simulation');
+    await waitForReady();
+    await setSwitch('Metrics', false);
+    await sleep(CONFIG.settleAfterClickMs);
+    console.info('[GOLT benchmark] Benchmark profile prepared', {
+      preset: CONFIG.presetName,
+      topology: CONFIG.topologyLabel
+    });
+  }
+
+  async function preflight() {
+    await ensureSidebarOpen();
+    await waitForReady();
+
+    const grid = section('gol-grid-size-section');
+    const packing = section('gol-packing-section');
+    const playback = section('gol-playback-section');
+    const report = {
+      url: location.href,
+      presetName: CONFIG.presetName,
+      topologyLabel: CONFIG.topologyLabel,
+      presetFound: Boolean(presetHost(CONFIG.presetName)),
+      topologyFound: Boolean(topologyOption(CONFIG.topologyLabel)),
+      colsInputFound: Boolean(queryFormControlInput(grid, 'cols')),
+      rowsInputFound: Boolean(queryFormControlInput(grid, 'rows')),
+      packingOptions: Array.from(packing.querySelectorAll('.exclusive-button')).map(button => text(button)),
+      maxToggleFound: switchState('Max').found,
+      recordingToggleFound: switchState('Rec').found,
+      metricsToggleFound: switchState('Metrics').found,
+      playbackButtonFound: Boolean(findButton(playback, 'Run') ?? findButton(playback, 'Pause')),
+      resetButtonFound: Boolean(findButton(playback, 'Reset Simulation')),
+      generationRowFound: Boolean(generationRow())
+    };
+
+    const failures = [
+      ['presetFound', report.presetFound],
+      ['topologyFound', report.topologyFound],
+      ['colsInputFound', report.colsInputFound],
+      ['rowsInputFound', report.rowsInputFound],
+      ['packingOptions', report.packingOptions.length > 0],
+      ['maxToggleFound', report.maxToggleFound],
+      ['recordingToggleFound', report.recordingToggleFound],
+      ['metricsToggleFound', report.metricsToggleFound],
+      ['playbackButtonFound', report.playbackButtonFound],
+      ['resetButtonFound', report.resetButtonFound],
+      ['generationRowFound', report.generationRowFound]
+    ].filter(([, ok]) => !ok).map(([name]) => name);
+
+    if (failures.length > 0) {
+      console.error('[GOLT benchmark] Preflight failed', report);
+      throw new Error(`Benchmark UI preflight failed: ${failures.join(', ')}.`);
+    }
+
+    console.info('[GOLT benchmark] Preflight passed', report);
+    return report;
+  }
+
   async function setGridSize(dims) {
     const grid = section('gol-grid-size-section');
-    const columnsInput = required(grid.querySelector('input[name="columns"]'), 'columns input');
-    const rowsInput = required(grid.querySelector('input[name="rows"]'), 'rows input');
+    const columnsInput = formControlInput(grid, 'cols', 'grid cols input');
+    const rowsInput = formControlInput(grid, 'rows', 'grid rows input');
     setInputValue(columnsInput, dims.cols);
     setInputValue(rowsInput, dims.rows);
     await sleep(CONFIG.settleAfterClickMs);
@@ -343,12 +378,6 @@
     return status;
   }
 
-  /**
-   * Applies one bit-packing format.
-   *
-   * @param {number} bits Bit packing.
-   * @returns {Promise<{supported: boolean; reason: string}>} Status.
-   */
   async function setPacking(bits) {
     const packing = section('gol-packing-section');
     const option = Array.from(packing.querySelectorAll('.exclusive-button')).find(button => text(button) === String(bits));
@@ -371,34 +400,32 @@
     return status;
   }
 
-  /**
-   * Starts or stops playback via the Playback button.
-   *
-   * @param {boolean} running Desired run state.
-   * @returns {Promise<void>} Promise resolved after the click.
-   */
   async function setRunning(running) {
     if (isRunning() !== running) {
-      await clickButton(section('gol-playback-section'), running ? 'Run' : 'Pause');
+      const clicked = await clickButton(section('gol-playback-section'), running ? 'Run' : 'Pause');
+      if (!clicked) {
+        throw new Error(`Could not ${running ? 'start' : 'pause'} the simulation.`);
+      }
     }
   }
 
-  /**
-   * Returns whether the UI says recording is unavailable for the current grid.
-   *
-   * @returns {boolean} Whether recording is unavailable.
-   */
-  function recordingUnavailable() {
-    return text(section('gol-speed-section')).includes('Grid is too large for recording.');
+  function recordingUnavailableReason() {
+    const stateNow = switchState('Rec');
+    const speed = section('gol-speed-section');
+    const gateMessage = text(speed.querySelector('.warning-message'));
+    let reason = '';
+    if (stateNow.disabled && !stateNow.checked) {
+      if (gateMessage.includes('Grid is too large for recording.')) {
+        reason = 'Recording is unavailable for this grid and bit packing.';
+      } else if (gateMessage.includes('Not enough browser storage for one frame.')) {
+        reason = 'Recording is unavailable because browser storage cannot hold one frame.';
+      } else {
+        reason = `Recording is unavailable: ${gateMessage || 'recording control is disabled.'}`;
+      }
+    }
+    return reason;
   }
 
-  /**
-   * Applies one packing and grid-size pair while recovering from stale UI state.
-   *
-   * @param {number} bits Bit packing.
-   * @param {{cols: number; rows: number}} dims Dimensions.
-   * @returns {Promise<{supported: boolean; reason: string}>} Status.
-   */
   async function setPackingAndGrid(bits, dims) {
     let packingStatus = await setPacking(bits);
     let gridStatus = {supported: false, reason: ''};
@@ -419,19 +446,11 @@
       }
     }
 
-    const status = packingStatus.supported && gridStatus.supported
+    return packingStatus.supported && gridStatus.supported
       ? {supported: true, reason: ''}
       : {supported: false, reason: packingStatus.supported ? gridStatus.reason : packingStatus.reason};
-
-    return status;
   }
 
-  /**
-   * Configures one benchmark sample through the production UI.
-   *
-   * @param {{side: number; bits: number; mode: object}} sample Sample.
-   * @returns {Promise<{supported: boolean; reason: string; cols: number; rows: number; frameBytes: number}>} Setup result.
-   */
   async function configureSample(sample) {
     const dims = dimensionsFor(sample.side, sample.bits);
     const bytes = frameBytes(dims.cols, dims.rows, sample.bits);
@@ -447,41 +466,43 @@
     };
 
     if (setup.supported) {
-      await clickButton(section('gol-playback-section'), 'Reset Simulation');
+      const reset = await clickButton(section('gol-playback-section'), 'Reset Simulation');
+      if (!reset) {
+        throw new Error('Could not reset the simulation before the benchmark sample.');
+      }
       await waitForReady();
       await setSwitch('Metrics', false);
       await sleep(CONFIG.settleAfterClickMs);
-      if (setup.supported && sample.mode.recording && recordingUnavailable()) {
-        setup = {
-          ...setup,
-          supported: false,
-          reason: 'Recording is unavailable for this grid and bit packing.'
-        };
+
+      if (sample.mode.recording) {
+        const unavailableReason = recordingUnavailableReason();
+        if (unavailableReason) {
+          setup = {...setup, supported: false, reason: unavailableReason};
+        }
       }
+
       if (setup.supported) {
         const recordingReached = await setSwitch('Rec', sample.mode.recording).catch(() => false);
         if (sample.mode.recording && !recordingReached) {
           setup = {
             ...setup,
             supported: false,
-            reason: 'Recording is unavailable for this grid and bit packing.'
+            reason: recordingUnavailableReason() || 'Recording is unavailable for this grid and bit packing.'
           };
         }
       }
+
       if (setup.supported) {
-        await setSwitch('Max', true);
+        const maxReached = await setSwitch('Max', true);
+        if (!maxReached) {
+          throw new Error('Could not enable max-speed mode.');
+        }
       }
     }
 
     return setup;
   }
 
-  /**
-   * Runs one sample.
-   *
-   * @param {{side: number; bits: number; mode: object; repeat: number}} sample Sample.
-   * @returns {Promise<object>} Result.
-   */
   async function runSample(sample) {
     const setup = await configureSample(sample);
     const startedAt = new Date().toISOString();
@@ -519,14 +540,6 @@
     return result;
   }
 
-  /**
-   * Builds common result fields.
-   *
-   * @param {{side: number; bits: number; mode: object; repeat: number}} sample Sample.
-   * @param {{cols: number; rows: number; frameBytes: number}} setup Setup result.
-   * @param {string} startedAt Start time.
-   * @returns {object} Common fields.
-   */
   function baseResult(sample, setup, startedAt) {
     return {
       gridSide: sample.side,
@@ -544,15 +557,6 @@
     };
   }
 
-  /**
-   * Builds an unsupported result row.
-   *
-   * @param {{side: number; bits: number; mode: object; repeat: number}} sample Sample.
-   * @param {{cols: number; rows: number; frameBytes: number}} setup Setup result.
-   * @param {string} startedAt Start time.
-   * @param {string} reason Unsupported reason.
-   * @returns {object} Result row.
-   */
   function buildUnsupportedResult(sample, setup, startedAt, reason) {
     const currentGeneration = generation();
     return {
@@ -568,11 +572,6 @@
     };
   }
 
-  /**
-   * Builds all configured benchmark samples.
-   *
-   * @returns {object[]} Plan.
-   */
   function buildPlan() {
     const plan = [];
     const modeById = new Map(CONFIG.modes.map(mode => [mode.id, mode]));
@@ -601,12 +600,6 @@
     return plan;
   }
 
-  /**
-   * Computes the average of values.
-   *
-   * @param {number[]} values Values.
-   * @returns {number | null} Average.
-   */
   function average(values) {
     let value = null;
     if (values.length > 0) {
@@ -615,12 +608,6 @@
     return value;
   }
 
-  /**
-   * Builds summary rows grouped by grid and packing.
-   *
-   * @param {object[]} results Raw results.
-   * @returns {object[]} Summary rows.
-   */
   function buildSummary(results) {
     const groups = new Map();
     for (const result of results) {
@@ -649,12 +636,20 @@
     }));
   }
 
-  /**
-   * Writes a checkpoint to localStorage.
-   */
-  function saveCheckpoint() {
-    localStorage.setItem(CHECKPOINT_KEY, JSON.stringify({
+  function runtimeMetadata() {
+    return {
+      url: location.href,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+      deviceMemoryGiB: navigator.deviceMemory ?? null,
+      language: navigator.language
+    };
+  }
+
+  function checkpointPayload() {
+    return {
       config: CONFIG,
+      runtime: runtimeMetadata(),
       state: {
         startedAt: state.startedAt,
         finishedAt: state.finishedAt,
@@ -663,25 +658,18 @@
       },
       results: state.results,
       summary: buildSummary(state.results)
-    }));
+    };
   }
 
-  /**
-   * Reads the latest checkpoint.
-   *
-   * @returns {object | null} Checkpoint.
-   */
+  function saveCheckpoint() {
+    localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(checkpointPayload()));
+  }
+
   function readCheckpoint() {
     const raw = localStorage.getItem(CHECKPOINT_KEY);
     return raw ? JSON.parse(raw) : null;
   }
 
-  /**
-   * Escapes a CSV value.
-   *
-   * @param {unknown} value Value.
-   * @returns {string} CSV field.
-   */
   function csvField(value) {
     let field = value === null || value === undefined ? '' : String(value);
     if (/[",\n\r]/.test(field)) {
@@ -690,13 +678,6 @@
     return field;
   }
 
-  /**
-   * Serializes rows to CSV.
-   *
-   * @param {object[]} rows Rows.
-   * @param {string[]} columns Columns.
-   * @returns {string} CSV text.
-   */
   function toCsv(rows, columns) {
     return `${[
       columns.map(csvField).join(','),
@@ -704,13 +685,6 @@
     ].join('\n')}\n`;
   }
 
-  /**
-   * Downloads one text file.
-   *
-   * @param {string} filename Filename.
-   * @param {string} content Contents.
-   * @param {string} type MIME type.
-   */
   function downloadText(filename, content, type) {
     const blob = new Blob([content], {type});
     const url = URL.createObjectURL(blob);
@@ -723,11 +697,6 @@
     URL.revokeObjectURL(url);
   }
 
-  /**
-   * Downloads result files.
-   *
-   * @param {object} payload Payload.
-   */
   function downloadPayload(payload) {
     const timestamp = fileTimestamp();
     downloadText(`${CONFIG.outputPrefix}-${timestamp}.json`, JSON.stringify(payload, null, 2), 'application/json');
@@ -770,12 +739,10 @@
     );
   }
 
-  /**
-   * Downloads the in-memory result set.
-   */
   function downloadResults() {
     downloadPayload({
       config: CONFIG,
+      runtime: runtimeMetadata(),
       startedAt: state.startedAt,
       finishedAt: state.finishedAt,
       results: state.results,
@@ -783,14 +750,12 @@
     });
   }
 
-  /**
-   * Downloads the latest checkpoint from localStorage.
-   */
   function downloadCheckpoint() {
     const checkpoint = readCheckpoint();
     if (checkpoint) {
       downloadPayload({
         config: checkpoint.config,
+        runtime: checkpoint.runtime,
         startedAt: checkpoint.state.startedAt,
         finishedAt: checkpoint.state.finishedAt,
         results: checkpoint.results,
@@ -801,26 +766,17 @@
     }
   }
 
-  /**
-   * Requests a stop after the current sample.
-   */
   function requestStop() {
     state.stopRequested = true;
     saveCheckpoint();
   }
 
-  /**
-   * Runs the full benchmark plan.
-   *
-   * @returns {Promise<object[]>} Raw results.
-   */
   async function run() {
     if (state.running) {
       throw new Error('Benchmark is already running.');
     }
 
-    await ensureSidebarOpen();
-    await waitForReady();
+    await preflight();
     state.stopRequested = false;
     state.running = true;
     state.results = [];
@@ -828,8 +784,9 @@
     state.finishedAt = null;
     saveCheckpoint();
 
-    const plan = buildPlan();
     try {
+      await prepareBenchmarkProfile();
+      const plan = buildPlan();
       for (let index = 0; index < plan.length; index++) {
         const sample = plan[index];
         if (state.stopRequested) {
@@ -839,6 +796,8 @@
         console.info('[GOLT benchmark] Starting sample', {
           index: index + 1,
           total: plan.length,
+          preset: CONFIG.presetName,
+          topology: CONFIG.topologyLabel,
           grid: sample.side,
           bits: sample.bits,
           mode: sample.mode.id,
@@ -851,6 +810,7 @@
         } catch (error) {
           await forceIdle().catch(() => undefined);
           const dims = dimensionsFor(sample.side, sample.bits);
+          const currentGeneration = generation();
           result = {
             gridSide: sample.side,
             ...dims,
@@ -866,8 +826,8 @@
             endedAt: new Date().toISOString(),
             status: 'failed',
             reason: error?.message ?? String(error),
-            startGeneration: generation(),
-            endGeneration: generation(),
+            startGeneration: currentGeneration,
+            endGeneration: currentGeneration,
             elapsedGenerations: 0,
             seconds: 0,
             genPerSecond: null
@@ -879,7 +839,9 @@
         console.info('[GOLT benchmark] Finished sample', result);
 
         if (!state.stopRequested && result.status !== 'unsupported' && index < plan.length - 1) {
-          const cooldownSeconds = result.status === 'ok' ? Math.max(0, CONFIG.cooldownSeconds - CONFIG.counterSettleSeconds) : CONFIG.cooldownSeconds;
+          const cooldownSeconds = result.status === 'ok'
+            ? Math.max(0, CONFIG.cooldownSeconds - CONFIG.counterSettleSeconds)
+            : CONFIG.cooldownSeconds;
           console.info(`[GOLT benchmark] Cooling down for ${cooldownSeconds}s more`);
           await sleep(cooldownSeconds * 1000);
         }
@@ -897,11 +859,17 @@
 
   window.goltBenchmarkRunner = {
     config: CONFIG,
+    preflight,
+    prepare: prepareBenchmarkProfile,
     run,
     stop: requestStop,
     checkpoint: readCheckpoint,
     downloadCheckpoint
   };
 
-  console.info('GOLT production benchmark runner loaded. Start with: await window.goltBenchmarkRunner.run()');
+  console.info(
+    'GOLT production benchmark runner loaded. Validate with: ' +
+    'await window.goltBenchmarkRunner.preflight(); then run: ' +
+    'await window.goltBenchmarkRunner.run()'
+  );
 })();

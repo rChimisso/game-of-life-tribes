@@ -98,7 +98,7 @@ export const DEFAULT_RANDOM_SEED = 42;
  *
  * @type {number}
  */
-export const MIN_RANDOM_SEED = 1;
+export const MIN_RANDOM_SEED = 0;
 
 /**
  * Maximum deterministic random seed accepted by rulesets.

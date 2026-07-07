@@ -22,7 +22,7 @@
     <div class="rule-body">
       <div class="rule-probability-row gol-grid-tiny">
         <span class="gol-cell-4" matTooltip="Rule probability percentage">Probability %</span>
-        <gol-number-input class="gol-cell-5" formControlName="probability" tooltip="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [fixedDecimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
+        <gol-number-input class="gol-cell-5" formControlName="probability" tooltip="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
         <span class="gol-cell-3 error-message" [matTooltip]="probabilityError ?? ''" [matTooltipDisabled]="!probabilityError">{{ probabilityError }}</span>
       </div>
       <gol-rule-clause formControlName="clause" [baselineClause]="baselineRule?.clause ?? null" [depth]="0" [path]="[]" [tribes]="tribes" />

@@ -1,63 +1,8 @@
 import {validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
 import {isSupportedBitsPerCell, validatePackingAgainstStateCount} from '~gol/feature/home/logic/grid-format';
 import {AND_CLAUSE_KIND, Become, BOUNDED_GRID_TOPOLOGY, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, GRID_TOPOLOGY_VALUES, IS_CLAUSE_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, TOROIDAL_GRID_TOPOLOGY, Tribe, TRIBES_SELECTOR_KIND, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {EXPECTED_KNOWN_TRIBE_ID_ERROR, INVALID_SNAPSHOT_PAYLOAD_MESSAGE, OPERATORS, type SanitizerContext, type UnknownRecord} from '~gol/feature/home/worker/snapshot/model/golt-header-sanitizer';
 import {GoltHeader} from '~gol/feature/home/worker/snapshot/model/golt-types';
-
-/**
- * User-visible message for canonical snapshot payload validation failures.
- *
- * @type {string}
- */
-const INVALID_SNAPSHOT_PAYLOAD_MESSAGE = 'Snapshot contains invalid or unsupported data and could not be loaded.';
-
-/**
- * Sanitizer context.
- *
- * @interface SanitizerContext
- * @typedef {SanitizerContext}
- */
-interface SanitizerContext {
-  /**
-   * Stripped unsupported field paths.
-   *
-   * @type {string[]}
-   */
-  strippedFields: string[];
-  /**
-   * Invalid canonical payload details.
-   *
-   * @type {string[]}
-   */
-  errors: string[];
-}
-
-/**
- * Plain object shape used while handling untrusted JSON.
- *
- * @typedef {UnknownRecord}
- */
-type UnknownRecord = Record<string, unknown>;
-
-/**
- * Operator values accepted by comparison clauses.
- *
- * @type {ReadonlySet<string>}
- */
-const OPERATORS = new Set([
-  '=',
-  '\u2260',
-  '>',
-  '<',
-  '\u2265',
-  '\u2264'
-]);
-
-/**
- * Validation reason used for invalid tribe references.
- *
- * @type {string}
- */
-const EXPECTED_KNOWN_TRIBE_ID_ERROR = 'expected known tribe id';
 
 /**
  * Checks whether a value is a plain JSON object.
@@ -883,7 +828,7 @@ function sanitizeBoundaryTribe(value: unknown, tribeIds: ReadonlySet<string>, co
  * @param {unknown} value untrusted parsed JSON value.
  * @returns {GoltHeader} sanitized canonical header.
  */
-function sanitizeGoltHeader(value: unknown): GoltHeader {
+export function sanitizeGoltHeader(value: unknown): GoltHeader {
   const context: SanitizerContext = {strippedFields: [], errors: []};
   const header: GoltHeader = {
     cols: 3,
@@ -931,5 +876,3 @@ function sanitizeGoltHeader(value: unknown): GoltHeader {
   }
   return header;
 }
-
-export {INVALID_SNAPSHOT_PAYLOAD_MESSAGE, sanitizeGoltHeader};

@@ -3,7 +3,7 @@ import {MatIconModule} from '@angular/material/icon';
 
 import {HomeSectionPreferences} from '../../model/preferences';
 
-import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {PreferencesStore} from '~gol/core/service/preferences-store';
 
 /**
  * Home sidebar section.
@@ -20,7 +20,7 @@ import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-prefer
   styleUrl: './section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class HomeSection extends PersistedPreferencesComponent<HomeSectionPreferences> implements OnInit {
+export class HomeSection implements OnInit {
   /**
    * Section title.
    *
@@ -88,11 +88,11 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
   /**
    * Default preferences.
    *
-   * @protected
+   * @private
    * @readonly
    * @type {HomeSectionPreferences}
    */
-  protected override readonly defaultPreferences: HomeSectionPreferences = {
+  private readonly defaultPreferences: HomeSectionPreferences = {
     expanded: true
   };
 
@@ -101,17 +101,15 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
    *
    * @public
    * @constructor
+   * @param {PreferencesStore} preferencesStore preference storage.
    */
-  public constructor() {
-    super('');
-  }
+  public constructor(private readonly preferencesStore: PreferencesStore) {}
 
   /**
    * @inheritdoc
    */
   public ngOnInit(): void {
     if (this.preferenceKey) {
-      this.setStorageKey(this.preferenceKey);
       this.restorePreferences();
     }
   }
@@ -132,10 +130,10 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
   /**
    * Collects current preferences.
    *
-   * @protected
+   * @private
    * @returns {HomeSectionPreferences}
    */
-  protected override collectPreferences(): HomeSectionPreferences {
+  private collectPreferences(): HomeSectionPreferences {
     return {
       expanded: this.expanded
     };
@@ -144,10 +142,31 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
   /**
    * Applies restored preferences.
    *
-   * @protected
+   * @private
    * @param {HomeSectionPreferences} preferences
    */
-  protected override applyPreferences(preferences: HomeSectionPreferences): void {
+  private applyPreferences(preferences: HomeSectionPreferences): void {
     this.expanded = preferences.expanded;
+  }
+
+  /**
+   * Restores preferences from storage.
+   *
+   * @private
+   */
+  private restorePreferences(): void {
+    this.applyPreferences(this.preferencesStore.load(this.preferenceKey, this.defaultPreferences, (stored, defaults) => ({
+      ...defaults,
+      ...stored
+    })));
+  }
+
+  /**
+   * Saves current preferences.
+   *
+   * @private
+   */
+  private savePreferences(): void {
+    this.preferencesStore.save(this.preferenceKey, this.collectPreferences());
   }
 }

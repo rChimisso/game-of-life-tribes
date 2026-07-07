@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
+import {setControlDisabled, validControlValues} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {SpeedFormValue} from '~gol/feature/home/model/speed-form';
@@ -158,15 +159,6 @@ export class SpeedSection implements OnChanges, OnInit {
   });
 
   /**
-   * Destroy ref for subscriptions.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
-
-  /**
    * Whether recording control is disabled.
    *
    * @public
@@ -215,6 +207,15 @@ export class SpeedSection implements OnChanges, OnInit {
   }
 
   /**
+   * Creates the speed section.
+   *
+   * @public
+   * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   */
+  public constructor(private readonly destroyRef: DestroyRef) {}
+
+  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<SpeedSection>): void {
@@ -235,7 +236,7 @@ export class SpeedSection implements OnChanges, OnInit {
    * @inheritdoc
    */
   public ngOnInit(): void {
-    this.form.controls.speed.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSpeedControlChange());
+    validControlValues(this.form.controls.speed).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.speedChange.emit(value));
     this.form.controls.maxSpeed.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.onMaxSpeedControlChange(value));
     this.form.controls.recording.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.recordingChange.emit(value));
     this.form.controls.liveMetricsEnabled.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.liveMetricsEnabledChange.emit(value));
@@ -250,18 +251,6 @@ export class SpeedSection implements OnChanges, OnInit {
   public restoreInvalidSpeed(): void {
     if (this.form.controls.speed.invalid) {
       this.form.controls.speed.setValue(this.speed, {emitEvent: false});
-    }
-  }
-
-  /**
-   * Emits valid speed control changes.
-   *
-   * @private
-   */
-  private onSpeedControlChange(): void {
-    const control = this.form.controls.speed;
-    if (control.valid && control.value !== null) {
-      this.speedChange.emit(control.value);
     }
   }
 
@@ -282,24 +271,9 @@ export class SpeedSection implements OnChanges, OnInit {
    * @private
    */
   private syncControlDisabledState(): void {
-    this.setControlDisabled(this.form.controls.speed, this.form.controls.maxSpeed.value || this.liveControlDisabled);
-    this.setControlDisabled(this.form.controls.maxSpeed, this.liveControlDisabled);
-    this.setControlDisabled(this.form.controls.recording, this.recordingDisabled);
-    this.setControlDisabled(this.form.controls.liveMetricsEnabled, this.liveControlDisabled);
-  }
-
-  /**
-   * Sets one control disabled state without emitting value changes.
-   *
-   * @private
-   * @param {AbstractControl} control control to update.
-   * @param {boolean} disabled whether the control should be disabled.
-   */
-  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
-    if (disabled && control.enabled) {
-      control.disable({emitEvent: false});
-    } else if (!disabled && control.disabled) {
-      control.enable({emitEvent: false});
-    }
+    setControlDisabled(this.form.controls.speed, this.form.controls.maxSpeed.value || this.liveControlDisabled);
+    setControlDisabled(this.form.controls.maxSpeed, this.liveControlDisabled);
+    setControlDisabled(this.form.controls.recording, this.recordingDisabled);
+    setControlDisabled(this.form.controls.liveMetricsEnabled, this.liveControlDisabled);
   }
 }

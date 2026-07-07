@@ -1,4 +1,5 @@
-import {directRule, Preset} from '.';
+import {directRule} from './logic/direct-rule';
+import {Preset} from './model/preset';
 import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND} from '../model/rule';
 
 /**

@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
-import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
+import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {AbstractInputComponent} from '../abstract-input';
@@ -12,7 +12,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
  * @class TextInputComponent
  * @typedef {TextInputComponent}
  * @extends {AbstractInputComponent<string>}
- * @implements {Validator}
  * @implements {OnChanges}
  */
 @Component({
@@ -35,7 +34,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
     }
   ]
 })
-export class TextInputComponent extends AbstractInputComponent<string> implements Validator, OnChanges {
+export class TextInputComponent extends AbstractInputComponent<string> implements OnChanges {
   /**
    * Input type.
    *
@@ -85,7 +84,7 @@ export class TextInputComponent extends AbstractInputComponent<string> implement
    */
   public ngOnChanges(changes: TypedChanges<TextInputComponent>): void {
     if (changes.allowedPattern || changes.minLength || changes.maxLength) {
-      this.onValidatorChange();
+      this.notifyValidatorChange();
     }
   }
 
@@ -149,24 +148,9 @@ export class TextInputComponent extends AbstractInputComponent<string> implement
   /**
    * @inheritdoc
    */
-  public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
-  }
-
-  /**
-   * @inheritdoc
-   */
   protected override normalizeValue(value: string | null): string {
     return value ?? '';
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
 
   /**
    * Checks whether a full value is allowed.

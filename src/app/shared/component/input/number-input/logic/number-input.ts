@@ -1,53 +1,6 @@
 import {NumberInputConstraints, NumberInputEditResult, NumberInputValidation} from '../model/number-input';
 
 /**
- * Builds a prospective input value from a replacement edit.
- *
- * @param {string} value current value.
- * @param {number} start selection start.
- * @param {number} end selection end.
- * @param {string} replacement replacement text.
- * @returns {string} prospective value.
- */
-function prospectiveNumberView(value: string, start: number, end: number, replacement: string): string {
-  return `${value.slice(0, start)}${replacement}${value.slice(end)}`;
-}
-
-/**
- * Normalizes and classifies a numeric input view value.
- *
- * @param {string} rawValue raw view value.
- * @param {NumberInputConstraints} constraints numeric constraints.
- * @returns {NumberInputEditResult} edit result.
- */
-function normalizeNumberEdit(rawValue: string, constraints: NumberInputConstraints): NumberInputEditResult {
-  const separator = constraints.decimalSeparator;
-  let viewValue = rawValue.replace(/[.,]/g, separator);
-  let accepted = true;
-  let modelValue: number | null = null;
-  if (viewValue === '') {
-    modelValue = null;
-  } else if (viewValue === '-' && negativesAllowed(constraints)) {
-    modelValue = null;
-  } else {
-    viewValue = normalizeDecimalPrefix(rawValue, viewValue, constraints);
-    accepted = hasValidStructure(viewValue, constraints);
-    if (accepted) {
-      viewValue = normalizeLeadingZeroes(viewValue, separator);
-      accepted = hasValidStructure(viewValue, constraints);
-    }
-    if (accepted) {
-      modelValue = parseViewNumber(viewValue, separator);
-    }
-  }
-  return {
-    accepted,
-    viewValue,
-    modelValue
-  };
-}
-
-/**
  * Normalizes decimal-prefix shorthand.
  *
  * @param {string} rawValue raw view value.
@@ -68,71 +21,6 @@ function normalizeDecimalPrefix(rawValue: string, viewValue: string, constraints
     normalizedViewValue = `-0${viewValue.slice(1)}`;
   }
   return normalizedViewValue;
-}
-
-/**
- * Formats a model value for the input view.
- *
- * @param {(number | null)} value model value.
- * @param {'.' | ','} separator decimal separator.
- * @param {number | undefined} fixedDecimalDigits decimal places to preserve in the formatted view.
- * @returns {string} view value.
- */
-function formatNumberView(value: number | null, separator: '.' | ',', fixedDecimalDigits?: number): string {
-  let viewValue = '';
-  if (value !== null && Number.isFinite(value)) {
-    const normalizedValue = Object.is(value, -0) ? 0 : value;
-    const sign = normalizedValue < 0 ? '-' : '';
-    const {integerPart, decimalPart} = decimalParts(normalizedValue);
-    const formattedDecimalPart = fixedDecimalDigits !== undefined && decimalPart.length < fixedDecimalDigits ? decimalPart.padEnd(fixedDecimalDigits, '0') : decimalPart;
-    viewValue = formattedDecimalPart ? `${sign}${integerPart}${separator}${formattedDecimalPart}` : `${sign}${integerPart}`;
-  }
-  return viewValue;
-}
-
-/**
- * Normalizes a numeric view on blur.
- *
- * @param {string} viewValue current view value.
- * @param {NumberInputConstraints} constraints numeric constraints.
- * @returns {NumberInputEditResult} edit result.
- */
-function normalizeNumberBlur(viewValue: string, constraints: NumberInputConstraints): NumberInputEditResult {
-  const result = normalizeNumberEdit(viewValue, constraints);
-  let normalizedView = result.viewValue;
-  let normalizedModel = result.modelValue;
-  if (result.accepted && normalizedView !== '' && normalizedView !== '-') {
-    normalizedView = formatNumberView(normalizedModel, constraints.decimalSeparator, constraints.fixedDecimalDigits);
-    normalizedModel = parseViewNumber(normalizedView, constraints.decimalSeparator);
-  } else if (normalizedView === '-') {
-    normalizedView = '';
-    normalizedModel = null;
-  }
-  return {
-    accepted: result.accepted,
-    viewValue: normalizedView,
-    modelValue: normalizedModel
-  };
-}
-
-/**
- * Counts digits relevant to numeric validation.
- *
- * @param {(number | null)} value model value.
- * @returns {NumberInputValidation} validation metadata.
- */
-function numberValidationMetadata(value: number | null): NumberInputValidation {
-  let integerDigits = 0;
-  let decimalDigits = 0;
-  if (value !== null && Number.isFinite(value)) {
-    const {integerPart, decimalPart} = decimalParts(value);
-    integerDigits = integerPart.length;
-    decimalDigits = decimalPart.length;
-  }
-  return {
-    integerDigits,
-    decimalDigits
-  };
 }
 
 /**
@@ -269,4 +157,114 @@ function parseViewNumber(viewValue: string, separator: '.' | ','): number | null
   return value;
 }
 
-export {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView};
+/**
+ * Builds a prospective input value from a replacement edit.
+ *
+ * @param {string} value current value.
+ * @param {number} start selection start.
+ * @param {number} end selection end.
+ * @param {string} replacement replacement text.
+ * @returns {string} prospective value.
+ */
+export function prospectiveNumberView(value: string, start: number, end: number, replacement: string): string {
+  return `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+}
+
+/**
+ * Normalizes and classifies a numeric input view value.
+ *
+ * @param {string} rawValue raw view value.
+ * @param {NumberInputConstraints} constraints numeric constraints.
+ * @returns {NumberInputEditResult} edit result.
+ */
+export function normalizeNumberEdit(rawValue: string, constraints: NumberInputConstraints): NumberInputEditResult {
+  const separator = constraints.decimalSeparator;
+  let viewValue = rawValue.replace(/[.,]/g, separator);
+  let accepted = true;
+  let modelValue: number | null = null;
+  if (viewValue === '') {
+    modelValue = null;
+  } else if (viewValue === '-' && negativesAllowed(constraints)) {
+    modelValue = null;
+  } else {
+    viewValue = normalizeDecimalPrefix(rawValue, viewValue, constraints);
+    accepted = hasValidStructure(viewValue, constraints);
+    if (accepted) {
+      viewValue = normalizeLeadingZeroes(viewValue, separator);
+      accepted = hasValidStructure(viewValue, constraints);
+    }
+    if (accepted) {
+      modelValue = parseViewNumber(viewValue, separator);
+    }
+  }
+  return {
+    accepted,
+    viewValue,
+    modelValue
+  };
+}
+
+/**
+ * Formats a model value for the input view.
+ *
+ * @param {(number | null)} value model value.
+ * @param {'.' | ','} separator decimal separator.
+ * @param {number | undefined} fixedDecimalDigits decimal places to preserve in the formatted view.
+ * @returns {string} view value.
+ */
+export function formatNumberView(value: number | null, separator: '.' | ',', fixedDecimalDigits?: number): string {
+  let viewValue = '';
+  if (value !== null && Number.isFinite(value)) {
+    const normalizedValue = Object.is(value, -0) ? 0 : value;
+    const sign = normalizedValue < 0 ? '-' : '';
+    const {integerPart, decimalPart} = decimalParts(normalizedValue);
+    const formattedDecimalPart = fixedDecimalDigits !== undefined && decimalPart.length < fixedDecimalDigits ? decimalPart.padEnd(fixedDecimalDigits, '0') : decimalPart;
+    viewValue = formattedDecimalPart ? `${sign}${integerPart}${separator}${formattedDecimalPart}` : `${sign}${integerPart}`;
+  }
+  return viewValue;
+}
+
+/**
+ * Normalizes a numeric view on blur.
+ *
+ * @param {string} viewValue current view value.
+ * @param {NumberInputConstraints} constraints numeric constraints.
+ * @returns {NumberInputEditResult} edit result.
+ */
+export function normalizeNumberBlur(viewValue: string, constraints: NumberInputConstraints): NumberInputEditResult {
+  const result = normalizeNumberEdit(viewValue, constraints);
+  let normalizedView = result.viewValue;
+  let normalizedModel = result.modelValue;
+  if (result.accepted && normalizedView !== '' && normalizedView !== '-') {
+    normalizedView = formatNumberView(normalizedModel, constraints.decimalSeparator, constraints.fixedDecimalDigits);
+    normalizedModel = parseViewNumber(normalizedView, constraints.decimalSeparator);
+  } else if (normalizedView === '-') {
+    normalizedView = '';
+    normalizedModel = null;
+  }
+  return {
+    accepted: result.accepted,
+    viewValue: normalizedView,
+    modelValue: normalizedModel
+  };
+}
+
+/**
+ * Counts digits relevant to numeric validation.
+ *
+ * @param {(number | null)} value model value.
+ * @returns {NumberInputValidation} validation metadata.
+ */
+export function numberValidationMetadata(value: number | null): NumberInputValidation {
+  let integerDigits = 0;
+  let decimalDigits = 0;
+  if (value !== null && Number.isFinite(value)) {
+    const {integerPart, decimalPart} = decimalParts(value);
+    integerDigits = integerPart.length;
+    decimalDigits = decimalPart.length;
+  }
+  return {
+    integerDigits,
+    decimalDigits
+  };
+}

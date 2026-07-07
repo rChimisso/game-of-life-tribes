@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Outp
 import {FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
+import {resetControlInteractionState} from '~gol/core/function/form-control';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {TribeFormControls, TribeFormValue} from '~gol/feature/home/model/tribe-form';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
@@ -361,8 +362,7 @@ export class TribeEntry implements OnChanges {
   private syncEditorFromRow(): void {
     if (this.form) {
       this.editorForm.setValue(this.form.getRawValue(), {emitEvent: false});
-      this.editorForm.markAsPristine();
-      this.editorForm.markAsUntouched();
+      resetControlInteractionState(this.editorForm);
       this.editorForm.updateValueAndValidity({emitEvent: false});
     }
   }

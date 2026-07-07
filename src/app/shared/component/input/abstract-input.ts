@@ -1,6 +1,6 @@
 import {Directive, Input} from '@angular/core';
 
-import {CvaComponent} from '~gol/core/abstract/cva-component';
+import {ValidatingCvaComponent} from '~gol/core/abstract/validating-cva-component';
 
 /**
  * Common scalar input API.
@@ -9,10 +9,10 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
  * @class AbstractInputComponent
  * @typedef {AbstractInputComponent}
  * @template T
- * @extends {CvaComponent<T>}
+ * @extends {ValidatingCvaComponent<T>}
  */
 @Directive()
-export abstract class AbstractInputComponent<T> extends CvaComponent<T> {
+export abstract class AbstractInputComponent<T> extends ValidatingCvaComponent<T> {
   /**
    * Input placeholder.
    *

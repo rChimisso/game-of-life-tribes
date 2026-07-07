@@ -1,13 +1,16 @@
 import {NgTemplateOutlet} from '@angular/common';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, inject, Input, OnChanges} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, Input, OnChanges} from '@angular/core';
 import {AbstractControl, ControlValueAccessor, FormControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator} from '@angular/forms';
 
 import {SelectorEditor} from '../selector-editor/selector-editor';
 import {BecomeMode, CombineBecome, CombineTarget, FIXED_TRIBE_LABEL, NestedBecomeMode} from './model/become-editor';
 
+import {setControlDisabled} from '~gol/core/function/form-control';
+import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {combinationInputValue, combinationTribeIds, DIFFERENT_INPUT_VALUE, isRankedBecome, RANK_INPUT_VALUE, RankedBecome, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
+import {combinationInputValue, combinationTribeIds, isRankedBecome, validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
 import {normalizeSelector} from '~gol/feature/home/logic/rule-editor';
+import {DIFFERENT_INPUT_VALUE, RANK_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type RankedBecome} from '~gol/feature/home/model/become-validation';
 import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
@@ -126,13 +129,13 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   public readonly nestedOptions: SelectOption[] = [{value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL}, {value: SAME_BECOME_KIND, label: 'Same'}, {value: COMBINE_BECOME_KIND, label: 'Combine'}];
 
   /**
-   * Change detector.
+   * Compound CVA callback controller.
    *
    * @private
    * @readonly
-   * @type {ChangeDetectorRef}
+   * @type {CvaController<Become<Tribe[]>>}
    */
-  private readonly becomeEditorChangeDetectorRef = inject(ChangeDetectorRef);
+  private readonly cva = new CvaController<Become<Tribe[]>>();
 
   /**
    * Selectable tribes for fixed outcomes.
@@ -187,8 +190,9 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    *
    * @public
    * @constructor
+   * @param {ChangeDetectorRef} becomeEditorChangeDetectorRef change detector.
    */
-  public constructor() {
+  public constructor(private readonly becomeEditorChangeDetectorRef: ChangeDetectorRef) {
     this.rankSelectorControl.valueChanges.subscribe(selector => this.onSetRankSelector(selector));
   }
 
@@ -198,7 +202,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   public ngOnChanges(changes: TypedChanges<BecomeEditor>): void {
     if (changes.become || changes.baselineBecome || changes.tribes) {
       this.syncRankSelectorControl();
-      this.onValidatorChange();
+      this.cva.emitValidatorChange();
       this.becomeEditorChangeDetectorRef.markForCheck();
     }
   }
@@ -216,14 +220,14 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @inheritdoc
    */
   public registerOnChange(fn: (value: Become<Tribe[]>) => void): void {
-    this.onChange = fn;
+    this.cva.registerOnChange(fn);
   }
 
   /**
    * @inheritdoc
    */
   public registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
+    this.cva.registerOnTouched(fn);
   }
 
   /**
@@ -246,7 +250,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @inheritdoc
    */
   public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
+    this.cva.registerOnValidatorChange(fn);
   }
 
   /**
@@ -642,9 +646,9 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    */
   private emitBecomeChange(): void {
     this.syncRankSelectorControl();
-    this.onChange(this.become);
-    this.onValidatorChange();
-    this.onTouched();
+    this.cva.emitChange(this.become);
+    this.cva.emitValidatorChange();
+    this.cva.emitTouched();
   }
 
   /**
@@ -954,34 +958,6 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (this.isRankedBecome(this.become) && this.rankSelectorControl.value !== this.become.selector) {
       this.rankSelectorControl.setValue(this.become.selector, {emitEvent: false});
     }
-    if (this.disabled && this.rankSelectorControl.enabled) {
-      this.rankSelectorControl.disable({emitEvent: false});
-    } else if (!this.disabled && this.rankSelectorControl.disabled) {
-      this.rankSelectorControl.enable({emitEvent: false});
-    }
+    setControlDisabled(this.rankSelectorControl, this.disabled);
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
-
-  /**
-   * CVA change callback.
-   *
-   * @private
-   * @type {(value: Become<Tribe[]>) => void}
-   */
-  private onChange: (value: Become<Tribe[]>) => void = () => undefined;
-
-  /**
-   * CVA touched callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onTouched: () => void = () => undefined;
 }

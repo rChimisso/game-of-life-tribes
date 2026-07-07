@@ -1,62 +1,7 @@
 import {normalizeSelector, selectorSignature} from './rule-editor';
 
+import {DIFFERENT_INPUT_VALUE, RANK_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type BecomeValidationIssue, type RankedBecome} from '~gol/feature/home/model/become-validation';
 import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, TRIBES_SELECTOR_KIND} from '~gol/feature/home/model/rule';
-
-/**
- * Ranked outcome that provides context for rank-derived combination inputs.
- *
- * @typedef {RankedBecome}
- */
-type RankedBecome = Extract<Become<Tribe[]>, {kind: typeof MAJORITY_BECOME_KIND | typeof MINORITY_BECOME_KIND}>;
-
-/**
- * One semantic validation issue.
- *
- * @interface BecomeValidationIssue
- * @typedef {BecomeValidationIssue}
- */
-interface BecomeValidationIssue {
-  /**
-   * Invalid value path.
-   *
-   * @type {string}
-   */
-  path: string;
-  /**
-   * Validation message.
-   *
-   * @type {string}
-   */
-  message: string;
-}
-
-/**
- * Select value prefix for concrete tribe inputs.
- *
- * @type {"tribe:"}
- */
-const TRIBE_INPUT_PREFIX = 'tribe:';
-
-/**
- * Select value for the current-cell tribe input.
- *
- * @type {"selector:same"}
- */
-const SAME_INPUT_VALUE = 'selector:same';
-
-/**
- * Select value for tribes different from the current-cell tribe.
- *
- * @type {"selector:different"}
- */
-const DIFFERENT_INPUT_VALUE = 'selector:different';
-
-/**
- * Select value for the active ranked candidates.
- *
- * @type {"selector:rank"}
- */
-const RANK_INPUT_VALUE = 'selector:rank';
 
 /**
  * Appends a field path segment.
@@ -97,7 +42,7 @@ function addIssue(issues: BecomeValidationIssue[], path: string, message: string
  * @param {Become<Tribe[]>} become outcome expression.
  * @returns {become is RankedBecome} whether the outcome is ranked.
  */
-function isRankedBecome(become: Become<Tribe[]>): become is RankedBecome {
+export function isRankedBecome(become: Become<Tribe[]>): become is RankedBecome {
   return become.kind === MAJORITY_BECOME_KIND || become.kind === MINORITY_BECOME_KIND;
 }
 
@@ -107,7 +52,7 @@ function isRankedBecome(become: Become<Tribe[]>): become is RankedBecome {
  * @param {TribeSelector<Tribe[]>} input input selector.
  * @returns {string} select value.
  */
-function combinationInputValue(input: TribeSelector<Tribe[]>): string {
+export function combinationInputValue(input: TribeSelector<Tribe[]>): string {
   const selector = normalizeSelector(input);
   let value: string;
   switch (selector.kind) {
@@ -134,7 +79,7 @@ function combinationInputValue(input: TribeSelector<Tribe[]>): string {
  * @param {(RankedBecome | null)} ranked ranked context.
  * @returns {string[]} selectable tribe IDs.
  */
-function combinationTribeIds(tribes: readonly Tribe[], ranked: RankedBecome | null): string[] {
+export function combinationTribeIds(tribes: readonly Tribe[], ranked: RankedBecome | null): string[] {
   const allowedIds = ranked?.selector.kind === TRIBES_SELECTOR_KIND ? new Set(ranked.selector.tribes) : null;
   return tribes.filter(tribe => !allowedIds || allowedIds.has(tribe.id) || tribe.id === DEAD_TRIBE_ID).map(tribe => tribe.id);
 }
@@ -146,7 +91,7 @@ function combinationTribeIds(tribes: readonly Tribe[], ranked: RankedBecome | nu
  * @param {(RankedBecome | null)} ranked ranked context.
  * @returns {Set<string>} allowed input values.
  */
-function availableCombinationInputValues(tribes: readonly Tribe[], ranked: RankedBecome | null): Set<string> {
+export function availableCombinationInputValues(tribes: readonly Tribe[], ranked: RankedBecome | null): Set<string> {
   const values = new Set(combinationTribeIds(tribes, ranked).map(id => `${TRIBE_INPUT_PREFIX}${id}`));
   values.add(SAME_INPUT_VALUE);
   values.add(DIFFERENT_INPUT_VALUE);
@@ -165,7 +110,7 @@ function availableCombinationInputValues(tribes: readonly Tribe[], ranked: Ranke
  * @param {(RankedBecome | null)} ranked ranked input context, when rank inputs are valid.
  * @returns {BecomeValidationIssue[]} validation issues.
  */
-function validateSelectorInContext(selector: TribeSelector<Tribe[]>, tribes: readonly Tribe[], path: string, ranked: RankedBecome | null = null): BecomeValidationIssue[] {
+export function validateSelectorInContext(selector: TribeSelector<Tribe[]>, tribes: readonly Tribe[], path: string, ranked: RankedBecome | null = null): BecomeValidationIssue[] {
   const knownIds = new Set(tribes.map(tribe => tribe.id));
   const issues: BecomeValidationIssue[] = [];
   switch (selector.kind) {
@@ -196,7 +141,7 @@ function validateSelectorInContext(selector: TribeSelector<Tribe[]>, tribes: rea
  * @param {CombinationEntry<Tribe[]>} entry combination row.
  * @returns {string} normalized row signature.
  */
-function combinationRowSignature(entry: CombinationEntry<Tribe[]>): string {
+export function combinationRowSignature(entry: CombinationEntry<Tribe[]>): string {
   return entry.inputs.map(selector => selectorSignature(selector)).sort().join('|');
 }
 
@@ -210,7 +155,7 @@ function combinationRowSignature(entry: CombinationEntry<Tribe[]>): string {
  * @param {string} path row path.
  * @returns {BecomeValidationIssue[]} validation issues.
  */
-function validateCombinationEntry(entry: CombinationEntry<Tribe[]>, tribes: readonly Tribe[], ranked: RankedBecome | null, seenRows: Set<string>, path: string): BecomeValidationIssue[] {
+export function validateCombinationEntry(entry: CombinationEntry<Tribe[]>, tribes: readonly Tribe[], ranked: RankedBecome | null, seenRows: Set<string>, path: string): BecomeValidationIssue[] {
   const knownIds = new Set(tribes.map(tribe => tribe.id));
   const allowedValues = availableCombinationInputValues(tribes, ranked);
   const issues: BecomeValidationIssue[] = [];
@@ -251,7 +196,7 @@ function validateCombinationEntry(entry: CombinationEntry<Tribe[]>, tribes: read
  * @param {(RankedBecome | null)} ranked ranked context.
  * @returns {BecomeValidationIssue[]} validation issues.
  */
-function validateBecomeSemantics(become: Become<Tribe[]>, tribes: readonly Tribe[], path: string, ranked: RankedBecome | null = null): BecomeValidationIssue[] {
+export function validateBecomeSemantics(become: Become<Tribe[]>, tribes: readonly Tribe[], path: string, ranked: RankedBecome | null = null): BecomeValidationIssue[] {
   const knownIds = new Set(tribes.map(tribe => tribe.id));
   const issues: BecomeValidationIssue[] = [];
   switch (become.kind) {
@@ -289,17 +234,3 @@ function validateBecomeSemantics(become: Become<Tribe[]>, tribes: readonly Tribe
   }
   return issues;
 }
-
-export {availableCombinationInputValues,
-  combinationInputValue,
-  combinationRowSignature,
-  combinationTribeIds,
-  DIFFERENT_INPUT_VALUE,
-  isRankedBecome,
-  RANK_INPUT_VALUE,
-  SAME_INPUT_VALUE,
-  TRIBE_INPUT_PREFIX,
-  validateBecomeSemantics,
-  validateCombinationEntry,
-  validateSelectorInContext};
-export type {BecomeValidationIssue, RankedBecome};

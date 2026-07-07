@@ -1,10 +1,11 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
+import {FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {MetricRow} from '../../element/metric-row/metric-row';
 
+import {setControlDisabled} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSection, LiveMetricSectionSettings, MetricAvailabilityStatus} from '~gol/feature/home/model/metrics';
@@ -153,15 +154,6 @@ export class MetricsSection implements OnChanges, OnInit {
   });
 
   /**
-   * Destroy ref for subscriptions.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
-
-  /**
    * Tribes shown in the population subsection.
    *
    * @public
@@ -171,6 +163,15 @@ export class MetricsSection implements OnChanges, OnInit {
   public get populationTribes(): readonly Tribe[] {
     return this.tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID);
   }
+
+  /**
+   * Creates the metrics section.
+   *
+   * @public
+   * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   */
+  public constructor(private readonly destroyRef: DestroyRef) {}
 
   /**
    * @inheritdoc
@@ -270,21 +271,6 @@ export class MetricsSection implements OnChanges, OnInit {
    * @private
    */
   private syncControlDisabledState(): void {
-    this.setControlDisabled(this.form, !this.liveMetricsEnabled);
-  }
-
-  /**
-   * Sets one control disabled state without emitting value changes.
-   *
-   * @private
-   * @param {AbstractControl} control control to update.
-   * @param {boolean} disabled whether the control should be disabled.
-   */
-  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
-    if (disabled && control.enabled) {
-      control.disable({emitEvent: false});
-    } else if (!disabled && control.disabled) {
-      control.enable({emitEvent: false});
-    }
+    setControlDisabled(this.form, !this.liveMetricsEnabled);
   }
 }

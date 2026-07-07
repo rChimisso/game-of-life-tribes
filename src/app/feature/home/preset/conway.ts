@@ -1,4 +1,4 @@
-import {Preset} from '.';
+import {Preset} from './model/preset';
 import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**

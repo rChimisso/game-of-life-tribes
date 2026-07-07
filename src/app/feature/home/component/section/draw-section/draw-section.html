@@ -11,7 +11,7 @@
 <div class="gol-grid-small" [formGroup]="form">
   <div class="gol-cell-12 gol-grid-tiny">
     <span class="input-label gol-cell-2" matTooltip="Brush size">Size</span>
-    <gol-number-input class="gol-cell-4" formControlName="brushSize" tooltip="Brush size" [decimalDigits]="0" [max]="normalizedBrushMaxSize" [maxIntegerDigits]="brushSizeIntegerDigits" [min]="1" />
+    <gol-number-input class="gol-cell-4" formControlName="brushSize" tooltip="Brush size" [decimalDigits]="0" [max]="normalizedBrushMaxSize" [maxIntegerDigits]="brushSizeIntegerDigits" [min]="minBrushSize" />
     <span class="gol-cell-6 error-message">{{ brushSizeError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny">

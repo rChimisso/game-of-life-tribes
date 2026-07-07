@@ -1,10 +1,11 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 
-import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {setControlDisabled, validControlValues} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {PreferencesStore} from '~gol/core/service/preferences-store';
 import {PlaybackFormValue} from '~gol/feature/home/model/playback-form';
 import {PlaybackSectionPreferences} from '~gol/feature/home/model/preferences';
 import {Button} from '~gol/shared/component/button/button';
@@ -16,7 +17,6 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
  *
  * @class PlaybackSection
  * @typedef {PlaybackSection}
- * @extends {PersistedPreferencesComponent<PlaybackSectionPreferences>}
  * @implements {OnChanges}
  * @implements {OnInit}
  */
@@ -33,7 +33,7 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
   styleUrl: './playback-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSectionPreferences> implements OnChanges, OnInit {
+export class PlaybackSection implements OnChanges, OnInit {
   /**
    * Whether the simulation is running.
    *
@@ -158,11 +158,11 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   /**
    * Default preferences.
    *
-   * @protected
+   * @private
    * @readonly
    * @type {PlaybackSectionPreferences}
    */
-  protected override readonly defaultPreferences: PlaybackSectionPreferences = {
+  private readonly defaultPreferences: PlaybackSectionPreferences = {
     skipAmount: 1
   };
 
@@ -176,15 +176,6 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   public readonly form = new FormGroup<FormType<PlaybackFormValue>>({
     skipAmount: new FormControl<number | null>(this.defaultPreferences.skipAmount, {validators: [Validators.required]})
   });
-
-  /**
-   * Destroy ref for subscriptions.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
 
   /**
    * Valid skip amount.
@@ -301,10 +292,10 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    *
    * @public
    * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   * @param {PreferencesStore} preferencesStore preference storage.
    */
-  public constructor() {
-    super('golt-playback-section-prefs');
-  }
+  public constructor(private readonly destroyRef: DestroyRef, private readonly preferencesStore: PreferencesStore) {}
 
   /**
    * @inheritdoc
@@ -320,7 +311,7 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    */
   public ngOnInit(): void {
     this.restorePreferences();
-    this.form.controls.skipAmount.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSkipAmountChange());
+    validControlValues(this.form.controls.skipAmount).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.savePreferences());
     this.syncControlDisabledState();
   }
 
@@ -362,10 +353,10 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   /**
    * Collects current preferences.
    *
-   * @protected
+   * @private
    * @returns {PlaybackSectionPreferences}
    */
-  protected override collectPreferences(): PlaybackSectionPreferences {
+  private collectPreferences(): PlaybackSectionPreferences {
     return {
       skipAmount: this.validSkipAmount ?? this.defaultPreferences.skipAmount
     };
@@ -374,37 +365,25 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
   /**
    * Applies restored preferences.
    *
-   * @protected
+   * @private
    * @param {PlaybackSectionPreferences} preferences
    */
-  protected override applyPreferences(preferences: PlaybackSectionPreferences): void {
+  private applyPreferences(preferences: PlaybackSectionPreferences): void {
     this.form.controls.skipAmount.setValue(preferences.skipAmount, {emitEvent: false});
   }
 
   /**
    * Normalizes stored preferences.
    *
-   * @protected
+   * @private
    * @param {Partial<PlaybackSectionPreferences>} stored
    * @param {PlaybackSectionPreferences} defaults
    * @returns {PlaybackSectionPreferences}
    */
-  protected override normalizePreferences(stored: Partial<PlaybackSectionPreferences>, defaults: PlaybackSectionPreferences): PlaybackSectionPreferences {
+  private normalizePreferences(stored: Partial<PlaybackSectionPreferences>, defaults: PlaybackSectionPreferences): PlaybackSectionPreferences {
     return {
       skipAmount: typeof stored.skipAmount === 'number' && Number.isInteger(stored.skipAmount) && stored.skipAmount >= 1 ? stored.skipAmount : defaults.skipAmount
     };
-  }
-
-  /**
-   * Persists valid skip amount changes.
-   *
-   * @private
-   */
-  private onSkipAmountChange(): void {
-    const control = this.form.controls.skipAmount;
-    if (control.valid && control.value !== null) {
-      this.savePreferences();
-    }
   }
 
   /**
@@ -413,21 +392,24 @@ export class PlaybackSection extends PersistedPreferencesComponent<PlaybackSecti
    * @private
    */
   private syncControlDisabledState(): void {
-    this.setControlDisabled(this.form.controls.skipAmount, this.livePlaybackDisabled);
+    setControlDisabled(this.form.controls.skipAmount, this.livePlaybackDisabled);
   }
 
   /**
-   * Sets one control disabled state without emitting value changes.
+   * Restores preferences from storage.
    *
    * @private
-   * @param {AbstractControl} control control to update.
-   * @param {boolean} disabled whether the control should be disabled.
    */
-  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
-    if (disabled && control.enabled) {
-      control.disable({emitEvent: false});
-    } else if (!disabled && control.disabled) {
-      control.enable({emitEvent: false});
-    }
+  private restorePreferences(): void {
+    this.applyPreferences(this.preferencesStore.load('golt-playback-section-prefs', this.defaultPreferences, (stored, defaults) => this.normalizePreferences(stored, defaults)));
+  }
+
+  /**
+   * Saves current preferences.
+   *
+   * @private
+   */
+  private savePreferences(): void {
+    this.preferencesStore.save('golt-playback-section-prefs', this.collectPreferences());
   }
 }

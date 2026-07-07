@@ -9,6 +9,7 @@ import {Store} from '@ngrx/store';
 import {Engine} from './component/engine/engine';
 import {Sidebar} from './component/sidebar/sidebar';
 import {clampBrushDensity} from './logic/brush-density';
+import {clampBrushSize as clampBrushSizeValue} from './logic/brush-size';
 import {CompressionScheduler} from './logic/compression-scheduler';
 import {estimateDownloadWorkingSet} from './logic/download-estimate';
 import {prepareHomeDownload} from './logic/download-preparation';
@@ -32,12 +33,12 @@ import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePrefe
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
-import {Preset} from './preset';
 import {CONWAY_PRESET} from './preset/conway';
+import {Preset} from './preset/model/preset';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
-import {PersistedPreferencesComponent} from '../../core/abstract/persisted-preferences-component';
 
 import {downloadBlob} from '~gol/core/redux/actions';
+import {PreferencesStore} from '~gol/core/service/preferences-store';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
@@ -61,7 +62,7 @@ import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/pr
   templateUrl: './home.html',
   styleUrl: './home.scss'
 })
-export class HomePage extends PersistedPreferencesComponent<HomePreferences> implements OnDestroy {
+export class HomePage implements OnDestroy {
   /**
    * Engine component instance.
    *
@@ -561,11 +562,11 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   /**
    * Default preferences.
    *
-   * @protected
+   * @private
    * @readonly
    * @type {HomePreferences}
    */
-  protected override readonly defaultPreferences: HomePreferences = DEFAULT_HOME_PREFERENCES;
+  private readonly defaultPreferences: HomePreferences = DEFAULT_HOME_PREFERENCES;
 
   /**
    * Current ruleset tribes.
@@ -651,9 +652,9 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @param {ChangeDetectorRef} cdr change detector.
    * @param {MatSnackBar} snackBar snackbar service.
    * @param {Store} store$ store.
+   * @param {PreferencesStore} preferencesStore preference storage.
    */
-  public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar, private readonly store$: Store) {
-    super('golt-home-prefs');
+  public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar, private readonly store$: Store, private readonly preferencesStore: PreferencesStore) {
     console.log('[GOLT] Home page initialized');
     this.restorePreferences();
     clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files on page init:', error));
@@ -981,10 +982,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   /**
    * Collects current preferences.
    *
-   * @protected
+   * @private
    * @returns {HomePreferences}
    */
-  protected override collectPreferences(): HomePreferences {
+  private collectPreferences(): HomePreferences {
     return {
       draw: {
         brushSize: this.brushSize,
@@ -1014,10 +1015,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   /**
    * Applies restored preferences.
    *
-   * @protected
+   * @private
    * @param {HomePreferences} preferences
    */
-  protected override applyPreferences(preferences: HomePreferences): void {
+  private applyPreferences(preferences: HomePreferences): void {
     this.brushSize = preferences.draw.brushSize;
     this.brushShape = preferences.draw.brushShape;
     this.brushFill = preferences.draw.brushFill;
@@ -1042,18 +1043,36 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   /**
    * Normalizes stored preferences.
    *
-   * @protected
+   * @private
    * @param {Partial<HomePreferences>} stored
    * @param {HomePreferences} defaults
    * @returns {HomePreferences}
    */
-  protected override normalizePreferences(stored: Partial<HomePreferences>, defaults: HomePreferences): HomePreferences {
+  private normalizePreferences(stored: Partial<HomePreferences>, defaults: HomePreferences): HomePreferences {
     return {
       draw: normalizeDrawSectionPreferences(stored.draw, defaults.draw),
       speed: normalizeSpeedSectionPreferences(stored.speed, defaults.speed),
       metrics: normalizeMetricsSectionPreferences(stored.metrics, defaults.metrics),
       grid: normalizeGridSectionPreferences(stored.grid, defaults.grid)
     };
+  }
+
+  /**
+   * Restores preferences from storage.
+   *
+   * @private
+   */
+  private restorePreferences(): void {
+    this.applyPreferences(this.preferencesStore.load('golt-home-prefs', this.defaultPreferences, (stored, defaults) => this.normalizePreferences(stored, defaults)));
+  }
+
+  /**
+   * Saves current preferences.
+   *
+   * @private
+   */
+  private savePreferences(): void {
+    this.preferencesStore.save('golt-home-prefs', this.collectPreferences());
   }
 
   /**
@@ -1341,11 +1360,10 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
   private handleBrushShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
     switch (key) {
       case '+':
-        const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
-        this.brushSize = Math.min(max, this.brushSize + 1);
+        this.brushSize = clampBrushSizeValue(this.brushSize + 1, this.ruleset);
         return {handled: true, shouldSavePreferences: true};
       case '-':
-        this.brushSize = Math.max(1, this.brushSize - 1);
+        this.brushSize = clampBrushSizeValue(this.brushSize - 1, this.ruleset);
         return {handled: true, shouldSavePreferences: true};
       case 'b':
         this.brushShape = BRUSH_SHAPE_VALUES[(BRUSH_SHAPE_VALUES.indexOf(this.brushShape) + 1) % BRUSH_SHAPE_VALUES.length]!;
@@ -1663,8 +1681,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
    * @returns {boolean} true when the brush size changed.
    */
   private clampBrushSize(): boolean {
-    const max = Math.max(1, Math.floor(Math.min(this.ruleset.cols, this.ruleset.rows) / 4));
-    const nextBrushSize = Math.min(this.brushSize, max);
+    const nextBrushSize = clampBrushSizeValue(this.brushSize, this.ruleset);
     const changed = nextBrushSize !== this.brushSize;
     this.brushSize = nextBrushSize;
     return changed;
@@ -2129,7 +2146,7 @@ export class HomePage extends PersistedPreferencesComponent<HomePreferences> imp
         this.panMode = !this.panMode;
         break;
       case 'setBrushSize':
-        this.brushSize = event.value;
+        this.brushSize = clampBrushSizeValue(event.value, this.ruleset);
         shouldSavePreferences = true;
         break;
       case 'setBrushShape':

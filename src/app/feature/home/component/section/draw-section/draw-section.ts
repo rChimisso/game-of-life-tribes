@@ -1,11 +1,13 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
+import {firstControlError, validControlValues} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {MIN_BRUSH_SIZE} from '~gol/feature/home/model/brush-size';
 import {DrawFormValue} from '~gol/feature/home/model/draw-form';
 import {BrushFill, BrushShape, MAX_BRUSH_DENSITY, MIN_BRUSH_DENSITY, TouchMode} from '~gol/feature/home/model/draw-mode';
 import {Tribe} from '~gol/feature/home/model/rule';
@@ -291,13 +293,13 @@ export class DrawSection implements OnChanges, OnInit {
   ];
 
   /**
-   * Destroy ref for subscriptions.
+   * Minimum brush size.
    *
-   * @private
+   * @public
    * @readonly
-   * @type {DestroyRef}
+   * @type {number}
    */
-  private readonly destroyRef = inject(DestroyRef);
+  public readonly minBrushSize = MIN_BRUSH_SIZE;
 
   /**
    * Brush size validation message.
@@ -306,7 +308,7 @@ export class DrawSection implements OnChanges, OnInit {
    * @type {(string | null)}
    */
   public get brushSizeError(): string | null {
-    return this.rangeError(this.form.controls.brushSize, 1, this.normalizedBrushMaxSize);
+    return this.rangeError(this.form.controls.brushSize, this.minBrushSize, this.normalizedBrushMaxSize);
   }
 
   /**
@@ -326,7 +328,7 @@ export class DrawSection implements OnChanges, OnInit {
    * @type {number}
    */
   public get normalizedBrushMaxSize(): number {
-    return Math.max(1, Math.floor(this.brushMaxSize));
+    return Math.max(this.minBrushSize, Math.floor(this.brushMaxSize));
   }
 
   /**
@@ -352,6 +354,15 @@ export class DrawSection implements OnChanges, OnInit {
   }
 
   /**
+   * Creates the draw section.
+   *
+   * @public
+   * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   */
+  public constructor(private readonly destroyRef: DestroyRef) {}
+
+  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<DrawSection>): void {
@@ -373,35 +384,11 @@ export class DrawSection implements OnChanges, OnInit {
    * @inheritdoc
    */
   public ngOnInit(): void {
-    this.form.controls.brushSize.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onBrushSizeChange());
+    validControlValues(this.form.controls.brushSize).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushSizeChange.emit(value));
     this.form.controls.brushShape.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushShapeChange.emit(value));
     this.form.controls.brushFill.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushFillChange.emit(value));
-    this.form.controls.brushDensity.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onBrushDensityChange());
+    validControlValues(this.form.controls.brushDensity).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.brushDensityChange.emit(value));
     this.form.controls.touchMode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(value => this.touchModeChange.emit(value));
-  }
-
-  /**
-   * Emits valid brush size changes.
-   *
-   * @private
-   */
-  private onBrushSizeChange(): void {
-    const control = this.form.controls.brushSize;
-    if (control.valid && control.value !== null) {
-      this.brushSizeChange.emit(control.value);
-    }
-  }
-
-  /**
-   * Emits valid brush density changes.
-   *
-   * @private
-   */
-  private onBrushDensityChange(): void {
-    const control = this.form.controls.brushDensity;
-    if (control.valid && control.value !== null) {
-      this.brushDensityChange.emit(control.value);
-    }
   }
 
   /**
@@ -414,19 +401,33 @@ export class DrawSection implements OnChanges, OnInit {
    * @returns {(string | null)} validation message.
    */
   private rangeError(control: FormControl<number | null>, min: number, max: number): string | null {
-    let message: string | null = null;
-    if (control.hasError('required')) {
-      message = 'Required';
-    } else if (control.hasError('min')) {
-      message = `Min ${min}`;
-    } else if (control.hasError('max')) {
-      message = `Max ${max}`;
-    } else if (control.hasError('decimalDigits')) {
-      message = 'Integer';
-    } else if (control.hasError('maxIntegerDigits')) {
-      message = 'Too many digits';
+    return firstControlError(control, [
+      ['required', 'Required'],
+      ['min', error => `Min ${this.numericErrorLimit(error, 'min', min)}`],
+      ['max', error => `Max ${this.numericErrorLimit(error, 'max', max)}`],
+      ['decimalDigits', 'Integer'],
+      ['maxIntegerDigits', 'Too many digits']
+    ]);
+  }
+
+  /**
+   * Reads a numeric validation limit from an Angular validation error.
+   *
+   * @private
+   * @param {unknown} error validation error metadata.
+   * @param {'min' | 'max'} key limit key.
+   * @param {number} fallback fallback limit.
+   * @returns {number} resolved limit.
+   */
+  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
+    let limit = fallback;
+    if (typeof error === 'object' && error !== null && key in error) {
+      const value = (error as Record<'min' | 'max', unknown>)[key];
+      if (typeof value === 'number') {
+        limit = value;
+      }
     }
-    return message;
+    return limit;
   }
 
   /**

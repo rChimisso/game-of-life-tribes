@@ -1,5 +1,5 @@
 import {CdkDragDrop, DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -7,7 +7,8 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {RulesEditorValue} from './model/rules-editor';
 import {RuleCard} from '../../element/rule-card/rule-card';
 
-import {BaselineState} from '~gol/core/model/baseline-state';
+import {firstControlError, resetControlInteractionState} from '~gol/core/function/form-control';
+import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleDraftListsEqual, ruleDraftSignature, ruleListsEqual, toPersistedRuleDraft} from '~gol/feature/home/logic/rule-editor';
 import {DEAD_TRIBE_ID, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAX_RANDOM_SEED, MIN_RANDOM_SEED, Rule, Tribe} from '~gol/feature/home/model/rule';
@@ -169,25 +170,16 @@ export class RulesSection implements OnChanges {
   private expandedRuleKeyBeforeDrag: string | null = null;
 
   /**
-   * Baseline rules editor value.
+   * Baseline coordinator.
    *
    * @private
    * @readonly
-   * @type {BaselineState<RulesEditorValue>}
+   * @type {FormBaselineController<RulesEditorValue>}
    */
-  private readonly baselineRules = new BaselineState<RulesEditorValue>({
+  private readonly baselineRules = new FormBaselineController<RulesEditorValue>({
     randomSeed: 42,
     rules: []
-  });
-
-  /**
-   * Destroy ref.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
+  }, this.form, () => this.currentValue(), value => this.rebuildForm(value), (baseline, current) => this.editorValuesEqual(baseline, current));
 
   /**
    * Rule form array.
@@ -208,7 +200,7 @@ export class RulesSection implements OnChanges {
    * @type {boolean}
    */
   public get hasUnappliedRules(): boolean {
-    return this.baselineRules.hasChanges(this.currentValue(), (baseline, current) => this.editorValuesEqual(baseline, current));
+    return this.baselineRules.hasChanges();
   }
 
   /**
@@ -230,18 +222,12 @@ export class RulesSection implements OnChanges {
    * @type {(string | null)}
    */
   public get randomSeedError(): string | null {
-    const control = this.form.controls.randomSeed;
-    let error: string | null = null;
-    if (control.hasError('required')) {
-      error = 'Required';
-    } else if (control.hasError('min')) {
-      error = `Min ${MIN_RANDOM_SEED}`;
-    } else if (control.hasError('max')) {
-      error = `Max ${MAX_RANDOM_SEED}`;
-    } else if (control.hasError('decimalDigits')) {
-      error = 'Integer';
-    }
-    return error;
+    return firstControlError(this.form.controls.randomSeed, [
+      ['required', 'Required'],
+      ['min', error => `Min ${this.numericErrorLimit(error, 'min', MIN_RANDOM_SEED)}`],
+      ['max', error => `Max ${this.numericErrorLimit(error, 'max', MAX_RANDOM_SEED)}`],
+      ['decimalDigits', 'Integer']
+    ]);
   }
 
   /**
@@ -270,8 +256,9 @@ export class RulesSection implements OnChanges {
    * @constructor
    * @public
    * @param {ChangeDetectorRef} cdr change detector.
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
    */
-  public constructor(private readonly cdr: ChangeDetectorRef) {
+  public constructor(private readonly cdr: ChangeDetectorRef, private readonly destroyRef: DestroyRef) {
     this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cdr.markForCheck());
     this.form.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.cdr.markForCheck());
   }
@@ -299,7 +286,7 @@ export class RulesSection implements OnChanges {
    * @returns {(RuleDraft | null)} baseline rule.
    */
   public baselineRule(index: number): RuleDraft | null {
-    return this.baselineRules.value().rules[index] ?? null;
+    return this.baselineRules.baselineValue().rules[index] ?? null;
   }
 
   /**
@@ -429,12 +416,11 @@ export class RulesSection implements OnChanges {
       const currentRules = this.currentRules();
       const appliedRandomSeed = normalizeRandomSeed(this.form.controls.randomSeed.value ?? this.randomSeed);
       const persistedRules = currentRules.map(rule => toPersistedRuleDraft(rule));
-      this.baselineRules.set({
+      this.baselineRules.setBaseline({
         randomSeed: appliedRandomSeed,
         rules: currentRules
       });
-      this.form.markAsPristine();
-      this.form.markAsUntouched();
+      resetControlInteractionState(this.form);
       this.applyRules.emit({
         randomSeed: appliedRandomSeed,
         rules: persistedRules
@@ -450,7 +436,7 @@ export class RulesSection implements OnChanges {
    */
   public onRestoreRules(): void {
     const previousExpandedRuleKey = this.expandedRuleIndex !== null ? this.currentRules()[this.expandedRuleIndex]?.key ?? null : null;
-    this.rebuildForm(this.baselineRules.clone());
+    this.baselineRules.restore();
     if (previousExpandedRuleKey) {
       const expandedRuleIndex = this.currentRules().findIndex(rule => rule.key === previousExpandedRuleKey);
       this.expandedRuleIndex = expandedRuleIndex >= 0 ? expandedRuleIndex : null;
@@ -488,8 +474,7 @@ export class RulesSection implements OnChanges {
         return editableRule;
       })
     };
-    this.rebuildForm(nextValue);
-    this.resetBaselineFromCurrent();
+    this.baselineRules.syncCommitted(nextValue);
     this.expandedRuleIndex = null;
   }
 
@@ -500,9 +485,9 @@ export class RulesSection implements OnChanges {
    */
   private syncRandomSeedFromCommitted(): void {
     const nextRandomSeed = normalizeRandomSeed(this.randomSeed);
-    const baseline = this.baselineRules.value();
+    const baseline = this.baselineRules.baselineValue();
     this.form.controls.randomSeed.setValue(nextRandomSeed, {emitEvent: false});
-    this.baselineRules.set({
+    this.baselineRules.setBaseline({
       randomSeed: nextRandomSeed,
       rules: baseline.rules
     });
@@ -520,8 +505,6 @@ export class RulesSection implements OnChanges {
     for (const rule of value.rules) {
       this.rules.push(this.createRuleControl(rule));
     }
-    this.form.markAsPristine();
-    this.form.markAsUntouched();
     this.form.updateValueAndValidity({emitEvent: false});
     this.cdr.markForCheck();
   }
@@ -532,7 +515,27 @@ export class RulesSection implements OnChanges {
    * @private
    */
   private resetBaselineFromCurrent(): void {
-    this.baselineRules.set(this.currentValue());
+    this.baselineRules.commitCurrent();
+  }
+
+  /**
+   * Reads a numeric validation limit from an Angular validation error.
+   *
+   * @private
+   * @param {unknown} error validation error metadata.
+   * @param {'min' | 'max'} key limit key.
+   * @param {number} fallback fallback limit.
+   * @returns {number} resolved limit.
+   */
+  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
+    let limit = fallback;
+    if (typeof error === 'object' && error !== null && key in error) {
+      const value = (error as Record<'min' | 'max', unknown>)[key];
+      if (typeof value === 'number') {
+        limit = value;
+      }
+    }
+    return limit;
   }
 
   /**

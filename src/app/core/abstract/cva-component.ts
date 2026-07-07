@@ -1,4 +1,4 @@
-import {ChangeDetectorRef, Directive, inject, Input} from '@angular/core';
+import {ChangeDetectorRef, Directive, Input} from '@angular/core';
 import {ControlValueAccessor} from '@angular/forms';
 
 /**
@@ -30,13 +30,11 @@ export abstract class CvaComponent<T> implements ControlValueAccessor {
   public abstract value: T;
 
   /**
-   * Change detector reference.
-   *
-   * @private
-   * @readonly
-   * @type {ChangeDetectorRef}
+   * @constructor
+   * @protected
+   * @param {ChangeDetectorRef} changeDetectorRef change detector reference.
    */
-  private readonly changeDetectorRef = inject(ChangeDetectorRef);
+  public constructor(protected readonly changeDetectorRef: ChangeDetectorRef) {}
 
   /**
    * @inheritdoc

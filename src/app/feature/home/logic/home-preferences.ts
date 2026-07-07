@@ -1,4 +1,5 @@
 import {clampBrushDensity} from './brush-density';
+import {normalizeBrushSize} from './brush-size';
 import {normalizeLiveMetricSectionSettings} from './metric-settings';
 import {BRUSH_FILL_VALUES, BRUSH_SHAPE_VALUES, BrushDensityByFill} from '../model/draw-mode';
 import {DrawSectionPreferences, GridSectionPreferences, MetricsSectionPreferences, SpeedSectionPreferences} from '../model/preferences';
@@ -30,7 +31,7 @@ function normalizeBrushDensityByFill(stored: Partial<BrushDensityByFill> | undef
 export function normalizeDrawSectionPreferences(stored: Partial<DrawSectionPreferences> | undefined, defaults: DrawSectionPreferences): DrawSectionPreferences {
   const normalizedStored = stored ?? {};
   return {
-    brushSize: typeof normalizedStored.brushSize === 'number' && normalizedStored.brushSize >= 1 ? Math.floor(normalizedStored.brushSize) : defaults.brushSize,
+    brushSize: typeof normalizedStored.brushSize === 'number' ? normalizeBrushSize(normalizedStored.brushSize) : defaults.brushSize,
     brushShape: normalizedStored.brushShape && BRUSH_SHAPE_VALUES.includes(normalizedStored.brushShape) ? normalizedStored.brushShape : defaults.brushShape,
     brushFill: normalizedStored.brushFill && BRUSH_FILL_VALUES.includes(normalizedStored.brushFill) ? normalizedStored.brushFill : defaults.brushFill,
     brushDensityByFill: normalizeBrushDensityByFill(normalizedStored.brushDensityByFill, defaults.brushDensityByFill)

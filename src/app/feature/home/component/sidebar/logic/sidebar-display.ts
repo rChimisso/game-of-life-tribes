@@ -1,4 +1,4 @@
-import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from '../model/sidebar-display';
+import {SidebarStorageDisplayInput, SidebarVramDisplayInput} from '../model/sidebar-display';
 
 import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
@@ -124,14 +124,4 @@ export function createVramSegments(input: SidebarVramDisplayInput): StorageBarSe
       color: '#e91e8a'
     }
   ];
-}
-
-/**
- * Calculates the maximum allowed brush size for the current grid.
- *
- * @param {SidebarGridDisplayInput} input grid display input.
- * @returns {number} maximum brush size.
- */
-export function calculateBrushMaxSize(input: SidebarGridDisplayInput): number {
-  return Math.max(1, Math.floor(Math.min(input.cols, input.rows) / 4));
 }

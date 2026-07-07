@@ -4,17 +4,6 @@ import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPT
 import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 
 /**
- * Checks whether a clause has intrinsic validation errors.
- *
- * @param {Clause<Tribe[]> | ClauseDraft} clause clause to inspect.
- * @param {readonly Tribe[]} tribes known tribes.
- * @returns {boolean} `true` if the clause has intrinsic errors.
- */
-function hasInvalidClauseStructure(clause: Clause<Tribe[]> | ClauseDraft, tribes: readonly Tribe[]): boolean {
-  return containsEmptyClause(clause) || containsInvalidSelector(clause, tribes) || containsInvalidCountInterval(clause);
-}
-
-/**
  * Checks whether a clause tree contains an empty placeholder.
  *
  * @param {Clause<Tribe[]>} clause clause to inspect.
@@ -121,4 +110,13 @@ function containsInvalidCountInterval(clause: Clause<Tribe[]> | ClauseDraft): bo
   return invalid;
 }
 
-export {hasInvalidClauseStructure};
+/**
+ * Checks whether a clause has intrinsic validation errors.
+ *
+ * @param {Clause<Tribe[]> | ClauseDraft} clause clause to inspect.
+ * @param {readonly Tribe[]} tribes known tribes.
+ * @returns {boolean} `true` if the clause has intrinsic errors.
+ */
+export function hasInvalidClauseStructure(clause: Clause<Tribe[]> | ClauseDraft, tribes: readonly Tribe[]): boolean {
+  return containsEmptyClause(clause) || containsInvalidSelector(clause, tribes) || containsInvalidCountInterval(clause);
+}

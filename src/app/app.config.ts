@@ -36,7 +36,7 @@ export const appConfig: ApplicationConfig = {
         showDelay: 1000,
         hideDelay: 0,
         touchendHideDelay: 1000,
-        positionAtOrigin: true,
+        positionAtOrigin: false,
         disableTooltipInteractivity: true
       }
     },

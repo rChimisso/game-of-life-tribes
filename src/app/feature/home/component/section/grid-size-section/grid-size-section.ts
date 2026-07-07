@@ -1,11 +1,12 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
-import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
-import {BaselineState} from '~gol/core/model/baseline-state';
+import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
+import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {gridByteSize, gridFormatFromBits} from '~gol/feature/home/logic/grid-format';
@@ -150,18 +151,18 @@ export class GridSizeSection implements OnChanges, OnInit {
   });
 
   /**
-   * Baseline form value.
+   * Baseline coordinator.
    *
    * @private
    * @readonly
-   * @type {BaselineState<GridSizeFormValue>}
+   * @type {FormBaselineController<GridSizeFormValue>}
    */
-  private readonly baseline = new BaselineState<GridSizeFormValue>({
+  private readonly baseline = new FormBaselineController<GridSizeFormValue>({
     cols: 0,
     rows: 0,
     topology: TOROIDAL_GRID_TOPOLOGY,
     boundaryTribe: DEAD_TRIBE_ID
-  });
+  }, this.form, () => this.currentFormValue(), value => this.writeFormValue(value), (baseline, current) => this.gridValuesEqual(baseline, current));
 
   /**
    * Grid topology select options.
@@ -171,15 +172,6 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @type {readonly SelectOption[]}
    */
   public readonly topologyOptions = [{value: TOROIDAL_GRID_TOPOLOGY, label: 'Toroidal'}, {value: BOUNDED_GRID_TOPOLOGY, label: 'Bounded'}];
-
-  /**
-   * Destroy ref for subscriptions.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
 
   /**
    * Whether pending grid size exceeds the detected frame limit.
@@ -217,7 +209,7 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @type {boolean}
    */
   public get hasUnappliedGridSize(): boolean {
-    return this.baseline.hasChanges(this.currentFormValue(), (baseline, current) => this.gridValuesEqual(baseline, current));
+    return this.baseline.hasChanges();
   }
 
   /**
@@ -300,6 +292,15 @@ export class GridSizeSection implements OnChanges, OnInit {
   }
 
   /**
+   * Creates the grid size section.
+   *
+   * @public
+   * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   */
+  public constructor(private readonly destroyRef: DestroyRef) {}
+
+  /**
    * @inheritdoc
    */
   public ngOnChanges(changes: TypedChanges<GridSizeSection>): void {
@@ -341,9 +342,7 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @public
    */
   public restoreGridSize(): void {
-    this.form.setValue(this.baseline.clone(), {emitEvent: false});
-    this.form.markAsPristine();
-    this.form.markAsUntouched();
+    this.baseline.restore();
     this.syncBoundaryTribeState();
   }
 
@@ -364,11 +363,18 @@ export class GridSizeSection implements OnChanges, OnInit {
    */
   private syncCommittedGridSettings(): void {
     const value = this.committedFormValue();
-    this.baseline.set(value);
-    this.form.setValue(value, {emitEvent: false});
-    this.form.markAsPristine();
-    this.form.markAsUntouched();
+    this.baseline.syncCommitted(value);
     this.syncBoundaryTribeState();
+  }
+
+  /**
+   * Writes a grid form value into the editor.
+   *
+   * @private
+   * @param {GridSizeFormValue} value form value.
+   */
+  private writeFormValue(value: GridSizeFormValue): void {
+    this.form.setValue(value, {emitEvent: false});
   }
 
   /**
@@ -424,22 +430,7 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @private
    */
   private syncBoundaryTribeState(): void {
-    this.setControlDisabled(this.form.controls.boundaryTribe, this.form.controls.topology.value === TOROIDAL_GRID_TOPOLOGY);
-  }
-
-  /**
-   * Sets one control disabled state without emitting value changes.
-   *
-   * @private
-   * @param {AbstractControl} control control to update.
-   * @param {boolean} disabled whether the control should be disabled.
-   */
-  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
-    if (disabled && control.enabled) {
-      control.disable({emitEvent: false});
-    } else if (!disabled && control.disabled) {
-      control.enable({emitEvent: false});
-    }
+    setControlDisabled(this.form.controls.boundaryTribe, this.form.controls.topology.value === TOROIDAL_GRID_TOPOLOGY);
   }
 
   /**
@@ -450,15 +441,26 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @returns {(string | null)} validation message.
    */
   private dimensionError(control: FormControl<number | null>): string | null {
-    let message: string | null = null;
-    if (control.hasError('required')) {
-      message = 'Required';
-    } else if (control.hasError('min')) {
-      message = 'Min 3';
-    } else if (control.hasError('decimalDigits')) {
-      message = 'Integer';
+    return firstControlError(control, [['required', 'Required'], ['min', error => `Min ${this.numericErrorLimit(error, 3)}`], ['decimalDigits', 'Integer']]);
+  }
+
+  /**
+   * Reads a minimum validation limit from an Angular validation error.
+   *
+   * @private
+   * @param {unknown} error validation error metadata.
+   * @param {number} fallback fallback limit.
+   * @returns {number} resolved limit.
+   */
+  private numericErrorLimit(error: unknown, fallback: number): number {
+    let limit = fallback;
+    if (typeof error === 'object' && error !== null && 'min' in error) {
+      const value = (error as Record<'min', unknown>).min;
+      if (typeof value === 'number') {
+        limit = value;
+      }
     }
-    return message;
+    return limit;
   }
 
   /**

@@ -57,24 +57,3 @@ export interface SidebarStorageDisplayInput {
    */
   quotaBytes: number;
 }
-
-/**
- * Sidebar grid display input values.
- *
- * @interface SidebarGridDisplayInput
- * @typedef {SidebarGridDisplayInput}
- */
-export interface SidebarGridDisplayInput {
-  /**
-   * Grid columns.
-   *
-   * @type {number}
-   */
-  cols: number;
-  /**
-   * Grid rows.
-   *
-   * @type {number}
-   */
-  rows: number;
-}

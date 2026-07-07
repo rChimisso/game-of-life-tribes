@@ -2,9 +2,9 @@ import {DownloadRequestPayload} from './download';
 import {BrushFill, BrushShape} from './draw-mode';
 import {BitsPerCell} from './grid-format';
 import {LiveMetricSectionSettings} from './metrics';
-import {Preset} from '../preset';
 import {Rule, Tribe} from './rule';
 import {TribeRenamePair} from './tribe-impact';
+import {Preset} from '../preset/model/preset';
 
 import {GridSettings} from '~gol/feature/home/model/grid';
 

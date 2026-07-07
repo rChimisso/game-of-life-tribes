@@ -1,5 +1,5 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, inject, Input, numberAttribute, OnChanges, Output, ViewChild} from '@angular/core';
-import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, ElementRef, EventEmitter, forwardRef, Input, numberAttribute, OnChanges, Output, ViewChild} from '@angular/core';
+import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {AbstractInputComponent} from '../abstract-input';
@@ -14,7 +14,6 @@ import {TypedChanges} from '~gol/core/model/typed-change';
  * @class NumberInputComponent
  * @typedef {NumberInputComponent}
  * @extends {AbstractInputComponent<number | null>}
- * @implements {Validator}
  * @implements {OnChanges}
  */
 @Component({
@@ -37,7 +36,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
     }
   ]
 })
-export class NumberInputComponent extends AbstractInputComponent<number | null> implements Validator, OnChanges {
+export class NumberInputComponent extends AbstractInputComponent<number | null> implements OnChanges {
   /**
    * Input element.
    *
@@ -155,15 +154,6 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
   private lastAcceptedViewValue = '';
 
   /**
-   * Change detector reference.
-   *
-   * @private
-   * @readonly
-   * @type {ChangeDetectorRef}
-   */
-  private readonly numberInputChangeDetectorRef = inject(ChangeDetectorRef);
-
-  /**
    * Browser input mode.
    *
    * @public
@@ -186,7 +176,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
       this.refreshViewFromModel();
     }
     if (changes.min || changes.max || changes.decimalDigits || changes.minIntegerDigits || changes.maxIntegerDigits || changes.decimalSeparator) {
-      this.onValidatorChange();
+      this.notifyValidatorChange();
     }
   }
 
@@ -200,7 +190,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
     if (this.input) {
       this.input.nativeElement.value = this.viewValue;
     }
-    this.numberInputChangeDetectorRef.markForCheck();
+    this.changeDetectorRef.markForCheck();
   }
 
   /**
@@ -306,24 +296,9 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
   /**
    * @inheritdoc
    */
-  public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
-  }
-
-  /**
-   * @inheritdoc
-   */
   protected override normalizeValue(value: number | null): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
 
   /**
    * Accepts a normalized view value.
@@ -356,7 +331,7 @@ export class NumberInputComponent extends AbstractInputComponent<number | null> 
       this.input.nativeElement.value = this.viewValue;
       this.input.nativeElement.setSelectionRange(this.viewValue.length, this.viewValue.length);
     }
-    this.numberInputChangeDetectorRef.markForCheck();
+    this.changeDetectorRef.markForCheck();
   }
 
   /**

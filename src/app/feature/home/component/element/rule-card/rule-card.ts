@@ -1,5 +1,5 @@
 import {DragDropModule} from '@angular/cdk/drag-drop';
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, HostBinding, inject, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, forwardRef, HostBinding, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
@@ -8,6 +8,8 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
 
+import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
+import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, ruleDraftsEqual} from '~gol/feature/home/logic/rule-editor';
 import {Become, COMBINE_BECOME_KIND, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_RULE_PROBABILITY, MINORITY_BECOME_KIND, MIN_RULE_PROBABILITY, SAME_BECOME_KIND, Tribe} from '~gol/feature/home/model/rule';
@@ -195,30 +197,21 @@ export class RuleCard implements OnChanges, Validator {
   public readonly maxRuleProbabilityIntegerDigits = MAX_RULE_PROBABILITY.toString().length;
 
   /**
-   * Destroy ref.
-   *
-   * @private
-   * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
-
-  /**
-   * Change detector.
-   *
-   * @private
-   * @readonly
-   * @type {ChangeDetectorRef}
-   */
-  private readonly ruleCardChangeDetectorRef = inject(ChangeDetectorRef);
-
-  /**
    * Whether the parent form disabled this editor.
    *
    * @private
    * @type {boolean}
    */
   private externallyDisabled = false;
+
+  /**
+   * Compound CVA callback controller.
+   *
+   * @private
+   * @readonly
+   * @type {CvaController<RuleDraft>}
+   */
+  private readonly cva = new CvaController<RuleDraft>();
 
   /**
    * Whether the rule card should render invalid styling.
@@ -276,18 +269,12 @@ export class RuleCard implements OnChanges, Validator {
    * @type {(string | null)}
    */
   public get probabilityError(): string | null {
-    const control = this.probabilityControl;
-    let error: string | null = null;
-    if (control.hasError('required')) {
-      error = 'Required';
-    } else if (control.hasError('min')) {
-      error = `Min ${MIN_RULE_PROBABILITY}`;
-    } else if (control.hasError('max')) {
-      error = `Max ${MAX_RULE_PROBABILITY}`;
-    } else if (control.hasError('decimalDigits')) {
-      error = 'Max 3 decimals';
-    }
-    return error;
+    return firstControlError(this.probabilityControl, [
+      ['required', 'Required'],
+      ['min', error => `Min ${this.numericErrorLimit(error, 'min', MIN_RULE_PROBABILITY)}`],
+      ['max', error => `Max ${this.numericErrorLimit(error, 'max', MAX_RULE_PROBABILITY)}`],
+      ['decimalDigits', 'Max 3 decimals']
+    ]);
   }
 
   /**
@@ -295,8 +282,10 @@ export class RuleCard implements OnChanges, Validator {
    *
    * @public
    * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   * @param {ChangeDetectorRef} ruleCardChangeDetectorRef change detector.
    */
-  public constructor() {
+  public constructor(private readonly destroyRef: DestroyRef, private readonly ruleCardChangeDetectorRef: ChangeDetectorRef) {
     this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onRuleFormChanged());
     this.form.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onRuleFormStatusChanged());
   }
@@ -307,7 +296,7 @@ export class RuleCard implements OnChanges, Validator {
   public ngOnChanges(changes: TypedChanges<RuleCard>): void {
     if (changes.tribes) {
       this.form.updateValueAndValidity({emitEvent: false});
-      this.onValidatorChange();
+      this.cva.emitValidatorChange();
     }
     if (changes.baselineRule) {
       this.emitRuleState();
@@ -334,14 +323,14 @@ export class RuleCard implements OnChanges, Validator {
    * @inheritdoc
    */
   public registerOnChange(fn: (value: RuleDraft) => void): void {
-    this.onChange = fn;
+    this.cva.registerOnChange(fn);
   }
 
   /**
    * @inheritdoc
    */
   public registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
+    this.cva.registerOnTouched(fn);
   }
 
   /**
@@ -363,7 +352,7 @@ export class RuleCard implements OnChanges, Validator {
    * @inheritdoc
    */
   public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
+    this.cva.registerOnValidatorChange(fn);
   }
 
   /**
@@ -518,7 +507,7 @@ export class RuleCard implements OnChanges, Validator {
    * @public
    */
   public touch(): void {
-    this.onTouched();
+    this.cva.emitTouched();
   }
 
   /**
@@ -545,7 +534,7 @@ export class RuleCard implements OnChanges, Validator {
    * @private
    */
   private onRuleFormStatusChanged(): void {
-    this.onValidatorChange();
+    this.cva.emitValidatorChange();
     this.ruleCardChangeDetectorRef.markForCheck();
   }
 
@@ -573,8 +562,8 @@ export class RuleCard implements OnChanges, Validator {
    * @private
    */
   private emitRuleChange(): void {
-    this.onChange(this.rule);
-    this.onValidatorChange();
+    this.cva.emitChange(this.rule);
+    this.cva.emitValidatorChange();
   }
 
   /**
@@ -583,7 +572,27 @@ export class RuleCard implements OnChanges, Validator {
    * @private
    */
   private emitRuleState(): void {
-    this.onValidatorChange();
+    this.cva.emitValidatorChange();
+  }
+
+  /**
+   * Reads a numeric validation limit from an Angular validation error.
+   *
+   * @private
+   * @param {unknown} error validation error metadata.
+   * @param {'min' | 'max'} key limit key.
+   * @param {number} fallback fallback limit.
+   * @returns {number} resolved limit.
+   */
+  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
+    let limit = fallback;
+    if (typeof error === 'object' && error !== null && key in error) {
+      const value = (error as Record<'min' | 'max', unknown>)[key];
+      if (typeof value === 'number') {
+        limit = value;
+      }
+    }
+    return limit;
   }
 
   /**
@@ -594,42 +603,18 @@ export class RuleCard implements OnChanges, Validator {
   private syncRuleFormDisabled(): void {
     const editableControls = [this.form.controls.probability, this.form.controls.clause, this.form.controls.become];
     if (this.externallyDisabled) {
-      this.form.disable({emitEvent: false});
+      setControlDisabled(this.form, true);
     } else {
-      this.form.controls.muted.enable({emitEvent: false});
+      setControlDisabled(this.form.controls.muted, false);
       if (this.form.controls.muted.value) {
         for (const control of editableControls) {
-          control.disable({emitEvent: false});
+          setControlDisabled(control, true);
         }
       } else {
         for (const control of editableControls) {
-          control.enable({emitEvent: false});
+          setControlDisabled(control, false);
         }
       }
     }
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
-
-  /**
-   * CVA change callback.
-   *
-   * @private
-   * @type {(value: RuleDraft) => void}
-   */
-  private onChange: (value: RuleDraft) => void = () => undefined;
-
-  /**
-   * CVA touched callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onTouched: () => void = () => undefined;
 }

@@ -2,9 +2,9 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Event
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
-import {calculateBrushMaxSize, calculateVramBarTotal, calculateVramRecordingPct, calculateVramSimulationPct, createVramBarTooltip, createVramSegments, formatDownloadStorageQuota, formatDownloadStorageTitleSize, formatVramQuota, formatVramRecording, formatVramSimulation, formatVramTitleSize} from './logic/sidebar-display';
+import {calculateVramBarTotal, calculateVramRecordingPct, calculateVramSimulationPct, createVramBarTooltip, createVramSegments, formatDownloadStorageQuota, formatDownloadStorageTitleSize, formatVramQuota, formatVramRecording, formatVramSimulation, formatVramTitleSize} from './logic/sidebar-display';
 import {startSidebarPointerDrag} from './logic/sidebar-pointer-drag';
-import {SidebarGridDisplayInput, SidebarStorageDisplayInput, SidebarVramDisplayInput} from './model/sidebar-display';
+import {SidebarStorageDisplayInput, SidebarVramDisplayInput} from './model/sidebar-display';
 import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
@@ -12,7 +12,7 @@ import {DEFAULT_SIDEBAR_PREFERENCES, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH, Sideb
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
-import {Preset} from '../../preset';
+import {Preset} from '../../preset/model/preset';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';
@@ -28,7 +28,8 @@ import {SnapshotSection} from '../section/snapshot-section/snapshot-section';
 import {SpeedSection} from '../section/speed-section/speed-section';
 import {TribesSection} from '../section/tribes-section/tribes-section';
 
-import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {PreferencesStore} from '~gol/core/service/preferences-store';
+import {maxBrushSize} from '~gol/feature/home/logic/brush-size';
 import {GridSettings} from '~gol/feature/home/model/grid';
 import {Button} from '~gol/shared/component/button/button';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
@@ -40,7 +41,6 @@ import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
  *
  * @class Sidebar
  * @typedef {Sidebar}
- * @extends {PersistedPreferencesComponent<SidebarPreferences>}
  * @implements {OnDestroy}
  */
 @Component({
@@ -73,7 +73,7 @@ import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
     '(contextmenu)': '$event.preventDefault()'
   }
 })
-export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> implements OnDestroy {
+export class Sidebar implements OnDestroy {
   /**
    * Current ruleset tribes.
    *
@@ -542,11 +542,11 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   /**
    * Default preferences.
    *
-   * @protected
+   * @private
    * @readonly
    * @type {SidebarPreferences}
    */
-  protected override readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
+  private readonly defaultPreferences: SidebarPreferences = DEFAULT_SIDEBAR_PREFERENCES;
 
   /**
    * Mobile layout media query.
@@ -733,7 +733,10 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
    * @type {number}
    */
   public get brushMaxSize(): number {
-    return calculateBrushMaxSize(this.gridDisplayInput);
+    return maxBrushSize({
+      cols: this.gridCols,
+      rows: this.gridRows
+    });
   }
 
   /**
@@ -768,28 +771,14 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   }
 
   /**
-   * Grid display input.
-   *
-   * @private
-   * @readonly
-   * @type {SidebarGridDisplayInput}
-   */
-  private get gridDisplayInput(): SidebarGridDisplayInput {
-    return {
-      cols: this.gridCols,
-      rows: this.gridRows
-    };
-  }
-
-  /**
    * @constructor
    * @public
    * @param {ElementRef} elRef sidebar host element.
    * @param {NgZone} zone Angular zone.
    * @param {ChangeDetectorRef} cdr change detector.
+   * @param {PreferencesStore} preferencesStore preference storage.
    */
-  public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef) {
-    super('golt-sidebar-prefs');
+  public constructor(private readonly elRef: ElementRef, private readonly zone: NgZone, private readonly cdr: ChangeDetectorRef, private readonly preferencesStore: PreferencesStore) {
     if (typeof window !== 'undefined' && 'matchMedia' in window) {
       this.mobileLayoutQuery = window.matchMedia('(max-width: 640px)');
       this.mobileLayoutQuery.addEventListener('change', () => {
@@ -1109,10 +1098,10 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   /**
    * Collects current preferences.
    *
-   * @protected
+   * @private
    * @returns {SidebarPreferences}
    */
-  protected override collectPreferences(): SidebarPreferences {
+  private collectPreferences(): SidebarPreferences {
     return {
       sidebarWidth: this.sidebarWidth
     };
@@ -1121,10 +1110,10 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   /**
    * Applies restored preferences.
    *
-   * @protected
+   * @private
    * @param {SidebarPreferences} preferences
    */
-  protected override applyPreferences(preferences: SidebarPreferences): void {
+  private applyPreferences(preferences: SidebarPreferences): void {
     if (this.isDesktopLayout()) {
       this.sidebarWidth = preferences.sidebarWidth;
     }
@@ -1133,12 +1122,12 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   /**
    * Normalizes stored preferences.
    *
-   * @protected
+   * @private
    * @param {Partial<SidebarPreferences>} stored
    * @param {SidebarPreferences} defaults
    * @returns {SidebarPreferences}
    */
-  protected override normalizePreferences(stored: Partial<SidebarPreferences>, defaults: SidebarPreferences): SidebarPreferences {
+  private normalizePreferences(stored: Partial<SidebarPreferences>, defaults: SidebarPreferences): SidebarPreferences {
     return {
       sidebarWidth: typeof stored.sidebarWidth === 'number' && stored.sidebarWidth >= MIN_SIDEBAR_WIDTH && stored.sidebarWidth <= MAX_SIDEBAR_WIDTH ? stored.sidebarWidth : defaults.sidebarWidth
     };
@@ -1147,11 +1136,31 @@ export class Sidebar extends PersistedPreferencesComponent<SidebarPreferences> i
   /**
    * Whether preferences should be saved.
    *
-   * @protected
+   * @private
    * @returns {boolean}
    */
-  protected override shouldSavePreferences(): boolean {
+  private shouldSavePreferences(): boolean {
     return this.isDesktopLayout();
+  }
+
+  /**
+   * Restores preferences from storage.
+   *
+   * @private
+   */
+  private restorePreferences(): void {
+    this.applyPreferences(this.preferencesStore.load('golt-sidebar-prefs', this.defaultPreferences, (stored, defaults) => this.normalizePreferences(stored, defaults)));
+  }
+
+  /**
+   * Saves current preferences.
+   *
+   * @private
+   */
+  private savePreferences(): void {
+    if (this.shouldSavePreferences()) {
+      this.preferencesStore.save('golt-sidebar-prefs', this.collectPreferences());
+    }
   }
 
   /**

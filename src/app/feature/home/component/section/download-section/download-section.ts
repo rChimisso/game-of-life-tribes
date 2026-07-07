@@ -1,11 +1,12 @@
-import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
-import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
+import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
+import {PreferencesStore} from '~gol/core/service/preferences-store';
 import {formatBinaryBytes} from '~gol/feature/home/logic/byte-format';
 import {DownloadRequestPayload, DownloadSectionPreferences} from '~gol/feature/home/model/download';
 import {DownloadFormValue} from '~gol/feature/home/model/download-form';
@@ -17,6 +18,17 @@ import {ProgressStatus} from '~gol/shared/component/progress-status/progress-sta
 import {StorageBarSegment} from '~gol/shared/component/storage-bar/model/storage-bar-segment';
 import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
 import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
+
+/**
+ * Returns the given value when it is boolean, otherwise the fallback.
+ *
+ * @param {unknown} value possibly boolean value.
+ * @param {boolean} fallback fallback value.
+ * @returns {boolean} normalized boolean value.
+ */
+function normalizeBooleanPreference(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
 
 /**
  * Download options section.
@@ -44,7 +56,7 @@ import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
   styleUrl: './download-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DownloadSection extends PersistedPreferencesComponent<DownloadSectionPreferences> implements OnChanges, OnInit {
+export class DownloadSection implements OnChanges, OnInit {
   /**
    * Number of recorded frames available for download.
    *
@@ -268,22 +280,13 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   private formSubscriptionsInitialized = false;
 
   /**
-   * Destroy ref for subscriptions.
+   * Default preferences.
    *
    * @private
    * @readonly
-   * @type {DestroyRef}
-   */
-  private readonly destroyRef = inject(DestroyRef);
-
-  /**
-   * Default preferences.
-   *
-   * @protected
-   * @readonly
    * @type {DownloadSectionPreferences}
    */
-  protected override readonly defaultPreferences: DownloadSectionPreferences = {
+  private readonly defaultPreferences: DownloadSectionPreferences = {
     metrics: true,
     saves: true,
     mp4: false,
@@ -569,10 +572,10 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    *
    * @public
    * @constructor
+   * @param {DestroyRef} destroyRef destroy ref for subscriptions.
+   * @param {PreferencesStore} preferencesStore preference storage.
    */
-  public constructor() {
-    super('golt-download-section-prefs');
-  }
+  public constructor(private readonly destroyRef: DestroyRef, private readonly preferencesStore: PreferencesStore) {}
 
   /**
    * @inheritdoc
@@ -645,7 +648,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   /**
    * @inheritdoc
    */
-  protected override collectPreferences(): DownloadSectionPreferences {
+  private collectPreferences(): DownloadSectionPreferences {
     const raw = this.form.getRawValue();
     const mp4Fps = this.isValidMp4Fps(raw.mp4Settings.fps) ? raw.mp4Settings.fps : this.lastSavedPreferences.mp4Fps;
     const mp4BitrateMbps = this.isValidMp4BitrateMbps(raw.mp4Settings.bitrateMbps) ? raw.mp4Settings.bitrateMbps : this.lastSavedPreferences.mp4BitrateMbps;
@@ -666,7 +669,7 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   /**
    * @inheritdoc
    */
-  protected override applyPreferences(preferences: DownloadSectionPreferences): void {
+  private applyPreferences(preferences: DownloadSectionPreferences): void {
     this.selectionExpanded = preferences.selectionExpanded;
     this.mp4SettingsExpanded = preferences.mp4SettingsExpanded;
     this.preferredForceChunkDownload = preferences.forceChunkDownload;
@@ -694,22 +697,22 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   /**
    * @inheritdoc
    */
-  protected override normalizePreferences(stored: Partial<DownloadSectionPreferences>, defaults: DownloadSectionPreferences): DownloadSectionPreferences {
+  private normalizePreferences(stored: Partial<DownloadSectionPreferences>, defaults: DownloadSectionPreferences): DownloadSectionPreferences {
     const storedMp4Fps = +(stored.mp4Fps ?? defaults.mp4Fps);
     const storedMp4BitrateMbps = +(stored.mp4BitrateMbps ?? defaults.mp4BitrateMbps);
     const mp4Fps = Number.isInteger(storedMp4Fps) && storedMp4Fps >= 1 && storedMp4Fps <= 240 ? storedMp4Fps : defaults.mp4Fps;
     const mp4BitrateMbps = Number.isInteger(storedMp4BitrateMbps) && storedMp4BitrateMbps >= 1 && storedMp4BitrateMbps <= 60 ? storedMp4BitrateMbps : defaults.mp4BitrateMbps;
     return {
-      metrics: this.forceBoolean(stored.metrics, defaults.metrics),
-      saves: this.forceBoolean(stored.saves, defaults.saves),
-      mp4: this.forceBoolean(stored.mp4, defaults.mp4),
-      png: this.forceBoolean(stored.png, defaults.png),
-      allFrames: this.forceBoolean(stored.allFrames, defaults.allFrames),
-      forceChunkDownload: this.forceBoolean(stored.forceChunkDownload, defaults.forceChunkDownload),
+      metrics: normalizeBooleanPreference(stored.metrics, defaults.metrics),
+      saves: normalizeBooleanPreference(stored.saves, defaults.saves),
+      mp4: normalizeBooleanPreference(stored.mp4, defaults.mp4),
+      png: normalizeBooleanPreference(stored.png, defaults.png),
+      allFrames: normalizeBooleanPreference(stored.allFrames, defaults.allFrames),
+      forceChunkDownload: normalizeBooleanPreference(stored.forceChunkDownload, defaults.forceChunkDownload),
       mp4Fps,
       mp4BitrateMbps,
-      mp4SettingsExpanded: this.forceBoolean(stored.mp4SettingsExpanded, defaults.mp4SettingsExpanded),
-      selectionExpanded: this.forceBoolean(stored.selectionExpanded, defaults.selectionExpanded)
+      mp4SettingsExpanded: normalizeBooleanPreference(stored.mp4SettingsExpanded, defaults.mp4SettingsExpanded),
+      selectionExpanded: normalizeBooleanPreference(stored.selectionExpanded, defaults.selectionExpanded)
     };
   }
 
@@ -773,28 +776,31 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
   private syncFormDisabledState(): void {
     const selectionControlsDisabled = this.downloadControlsDisabled || !this.hasRecordedFrames;
     const mp4ControlsDisabled = this.downloadControlsDisabled || !this.form.controls.outputs.controls.mp4.value;
-    this.setControlDisabled(this.form.controls.outputs, this.downloadControlsDisabled);
-    this.setControlDisabled(this.form.controls.selection.controls.allFrames, selectionControlsDisabled);
-    this.setControlDisabled(this.form.controls.selection.controls.startFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
-    this.setControlDisabled(this.form.controls.selection.controls.endFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
-    this.setControlDisabled(this.form.controls.mp4Settings, mp4ControlsDisabled);
-    this.setControlDisabled(this.form.controls.forceChunkDownload, this.forceChunkDownloadDisabled);
+    setControlDisabled(this.form.controls.outputs, this.downloadControlsDisabled);
+    setControlDisabled(this.form.controls.selection.controls.allFrames, selectionControlsDisabled);
+    setControlDisabled(this.form.controls.selection.controls.startFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
+    setControlDisabled(this.form.controls.selection.controls.endFrame, selectionControlsDisabled || this.form.controls.selection.controls.allFrames.value);
+    setControlDisabled(this.form.controls.mp4Settings, mp4ControlsDisabled);
+    setControlDisabled(this.form.controls.forceChunkDownload, this.forceChunkDownloadDisabled);
     this.form.updateValueAndValidity({emitEvent: false});
   }
 
   /**
-   * Sets one control disabled state without emitting value changes.
+   * Restores preferences from storage.
    *
    * @private
-   * @param {AbstractControl} control control to update.
-   * @param {boolean} disabled whether the control should be disabled.
    */
-  private setControlDisabled(control: AbstractControl, disabled: boolean): void {
-    if (disabled && control.enabled) {
-      control.disable({emitEvent: false});
-    } else if (!disabled && control.disabled) {
-      control.enable({emitEvent: false});
-    }
+  private restorePreferences(): void {
+    this.applyPreferences(this.preferencesStore.load('golt-download-section-prefs', this.defaultPreferences, (stored, defaults) => this.normalizePreferences(stored, defaults)));
+  }
+
+  /**
+   * Saves current preferences.
+   *
+   * @private
+   */
+  private savePreferences(): void {
+    this.preferencesStore.save('golt-download-section-prefs', this.collectPreferences());
   }
 
   /**
@@ -936,14 +942,13 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   private frameError(control: FormControl<number | null>): string {
     let message = '';
-    if (control.enabled && control.hasError('required')) {
-      message = 'Required';
-    } else if (control.enabled && control.hasError('min')) {
-      message = 'Min 1';
-    } else if (control.enabled && control.hasError('max')) {
-      message = `Max ${this.totalRecordedFrames.toLocaleString()}`;
-    } else if (control.enabled && control.hasError('maxIntegerDigits')) {
-      message = 'Too many digits';
+    if (control.enabled) {
+      message = firstControlError(control, [
+        ['required', 'Required'],
+        ['min', error => `Min ${this.numericErrorLimit(error, 'min', 1)}`],
+        ['max', error => `Max ${this.numericErrorLimit(error, 'max', this.totalRecordedFrames).toLocaleString()}`],
+        ['maxIntegerDigits', 'Too many digits']
+      ]) ?? '';
     }
     return message;
   }
@@ -958,18 +963,36 @@ export class DownloadSection extends PersistedPreferencesComponent<DownloadSecti
    */
   private numberError(control: FormControl<number | null>, max: number): string {
     let message = '';
-    if (control.enabled && control.hasError('required')) {
-      message = 'Required';
-    } else if (control.enabled && control.hasError('min')) {
-      message = 'Min 1';
-    } else if (control.enabled && control.hasError('max')) {
-      message = `Max ${max}`;
-    } else if (control.enabled && control.hasError('decimalDigits')) {
-      message = 'Integer';
-    } else if (control.enabled && control.hasError('maxIntegerDigits')) {
-      message = 'Too many digits';
+    if (control.enabled) {
+      message = firstControlError(control, [
+        ['required', 'Required'],
+        ['min', error => `Min ${this.numericErrorLimit(error, 'min', 1)}`],
+        ['max', error => `Max ${this.numericErrorLimit(error, 'max', max)}`],
+        ['decimalDigits', 'Integer'],
+        ['maxIntegerDigits', 'Too many digits']
+      ]) ?? '';
     }
     return message;
+  }
+
+  /**
+   * Reads a numeric validation limit from an Angular validation error.
+   *
+   * @private
+   * @param {unknown} error validation error metadata.
+   * @param {'min' | 'max'} key limit key.
+   * @param {number} fallback fallback limit.
+   * @returns {number} resolved limit.
+   */
+  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
+    let limit = fallback;
+    if (typeof error === 'object' && error !== null && key in error) {
+      const value = (error as Record<'min' | 'max', unknown>)[key];
+      if (typeof value === 'number') {
+        limit = value;
+      }
+    }
+    return limit;
   }
 
   /**

@@ -1,6 +1,7 @@
 import {EnginePoint} from '../model/engine-input';
 
-import {ExportFrameOrigin, wrapExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
+import {wrapExportFrameOrigin} from '~gol/feature/home/logic/export-frame-origin';
+import {ExportFrameOrigin} from '~gol/feature/home/model/export-frame-origin';
 import {GridSettings} from '~gol/feature/home/model/grid';
 import {BOUNDED_GRID_TOPOLOGY} from '~gol/feature/home/model/rule';
 import {CameraMessage} from '~gol/feature/home/model/worker-message';

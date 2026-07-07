@@ -1,8 +1,9 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, inject, Input, OnChanges} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, forwardRef, Input, OnChanges} from '@angular/core';
 import {AbstractControl, ControlValueAccessor, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
 
 import {TribeSelectorKind} from './model/selector-editor';
 
+import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
@@ -99,13 +100,13 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   public allowedKinds: TribeSelectorKind[] = [TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND];
 
   /**
-   * Change detector.
+   * Compound CVA callback controller.
    *
    * @private
    * @readonly
-   * @type {ChangeDetectorRef}
+   * @type {CvaController<TribeSelector<Tribe[]>>}
    */
-  private readonly selectorEditorChangeDetectorRef = inject(ChangeDetectorRef);
+  private readonly cva = new CvaController<TribeSelector<Tribe[]>>();
 
   /**
    * Human-readable selector mode options.
@@ -159,6 +160,15 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   }
 
   /**
+   * Creates the selector editor.
+   *
+   * @public
+   * @constructor
+   * @param {ChangeDetectorRef} selectorEditorChangeDetectorRef change detector.
+   */
+  public constructor(private readonly selectorEditorChangeDetectorRef: ChangeDetectorRef) {}
+
+  /**
    * Validation message for the current selector.
    *
    * @public
@@ -188,7 +198,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   public ngOnChanges(changes: TypedChanges<SelectorEditor>): void {
     if (changes.selector || changes.baselineSelector || changes.tribes || changes.allowedKinds) {
       this.selector = normalizeSelector(this.selector);
-      this.onValidatorChange();
+      this.cva.emitValidatorChange();
       this.selectorEditorChangeDetectorRef.markForCheck();
     }
   }
@@ -205,14 +215,14 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    * @inheritdoc
    */
   public registerOnChange(fn: (value: TribeSelector<Tribe[]>) => void): void {
-    this.onChange = fn;
+    this.cva.registerOnChange(fn);
   }
 
   /**
    * @inheritdoc
    */
   public registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
+    this.cva.registerOnTouched(fn);
   }
 
   /**
@@ -234,7 +244,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    * @inheritdoc
    */
   public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
+    this.cva.registerOnValidatorChange(fn);
   }
 
   /**
@@ -300,9 +310,9 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    * @private
    */
   private emitSelectorChange(): void {
-    this.onChange(this.selector);
-    this.onValidatorChange();
-    this.onTouched();
+    this.cva.emitChange(this.selector);
+    this.cva.emitValidatorChange();
+    this.cva.emitTouched();
   }
 
   /**
@@ -346,28 +356,4 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   private defaultTribeId(): string {
     return this.tribes[0]?.id ?? '';
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
-
-  /**
-   * CVA change callback.
-   *
-   * @private
-   * @type {(value: TribeSelector<Tribe[]>) => void}
-   */
-  private onChange: (value: TribeSelector<Tribe[]>) => void = () => undefined;
-
-  /**
-   * CVA touched callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onTouched: () => void = () => undefined;
 }

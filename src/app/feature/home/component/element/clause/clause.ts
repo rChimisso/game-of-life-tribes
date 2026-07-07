@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, forwardRef, inject, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, forwardRef, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, ControlValueAccessor, FormArray, FormControl, FormGroup, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
@@ -8,6 +8,8 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {SelectorEditor} from '../selector-editor/selector-editor';
 import {ClauseFormControls} from './model/clause-form';
 
+import {setControlDisabled} from '~gol/core/function/form-control';
+import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeCountExpression, normalizeSelector, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
 import {hasInvalidClauseStructure} from '~gol/feature/home/logic/rule-validation';
@@ -208,13 +210,13 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   private syncing = false;
 
   /**
-   * Change detector.
+   * Compound CVA callback controller.
    *
    * @private
    * @readonly
-   * @type {ChangeDetectorRef}
+   * @type {CvaController<ClauseDraft>}
    */
-  private readonly ruleClauseChangeDetectorRef = inject(ChangeDetectorRef);
+  private readonly cva = new CvaController<ClauseDraft>();
 
   /**
    * Logical child clause controls.
@@ -243,8 +245,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    *
    * @public
    * @constructor
+   * @param {ChangeDetectorRef} ruleClauseChangeDetectorRef change detector.
    */
-  public constructor() {
+  public constructor(private readonly ruleClauseChangeDetectorRef: ChangeDetectorRef) {
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.onFormValueChanged());
     this.form.statusChanges.pipe(takeUntilDestroyed()).subscribe(() => this.onFormStatusChanged());
   }
@@ -258,7 +261,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
     }
     if (changes.tribes) {
       this.form.updateValueAndValidity({emitEvent: false});
-      this.onValidatorChange();
+      this.cva.emitValidatorChange();
       this.ruleClauseChangeDetectorRef.markForCheck();
     }
   }
@@ -274,14 +277,14 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * @inheritdoc
    */
   public registerOnChange(fn: (value: ClauseDraft) => void): void {
-    this.onChange = fn;
+    this.cva.registerOnChange(fn);
   }
 
   /**
    * @inheritdoc
    */
   public registerOnTouched(fn: () => void): void {
-    this.onTouched = fn;
+    this.cva.registerOnTouched(fn);
   }
 
   /**
@@ -304,7 +307,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * @inheritdoc
    */
   public registerOnValidatorChange(fn: () => void): void {
-    this.onValidatorChange = fn;
+    this.cva.registerOnValidatorChange(fn);
   }
 
   /**
@@ -443,7 +446,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
     this.syncActiveControlState();
     this.form.updateValueAndValidity({emitEvent: false});
     this.syncing = false;
-    this.onValidatorChange();
+    this.cva.emitValidatorChange();
     this.ruleClauseChangeDetectorRef.markForCheck();
   }
 
@@ -530,11 +533,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    * @param {boolean} active whether the control is active.
    */
   private syncControl(control: AbstractControl, active: boolean): void {
-    if (this.disabled || !active) {
-      control.disable({emitEvent: false});
-    } else {
-      control.enable({emitEvent: false});
-    }
+    setControlDisabled(control, this.disabled || !active);
   }
 
   /**
@@ -555,7 +554,7 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    */
   private onFormStatusChanged(): void {
     if (!this.syncing) {
-      this.onValidatorChange();
+      this.cva.emitValidatorChange();
       this.ruleClauseChangeDetectorRef.markForCheck();
     }
   }
@@ -567,9 +566,9 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
    */
   private emitClauseDraft(): void {
     this.clause = this.buildClauseFromForm();
-    this.onChange(structuredClone(this.clause));
-    this.onValidatorChange();
-    this.onTouched();
+    this.cva.emitChange(structuredClone(this.clause));
+    this.cva.emitValidatorChange();
+    this.cva.emitTouched();
     this.ruleClauseChangeDetectorRef.markForCheck();
   }
 
@@ -769,28 +768,4 @@ export class RuleClause implements OnChanges, ControlValueAccessor, Validator {
   private defaultTribeId(): string {
     return this.tribes[0]?.id ?? '';
   }
-
-  /**
-   * Validator change callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onValidatorChange: () => void = () => undefined;
-
-  /**
-   * CVA change callback.
-   *
-   * @private
-   * @type {(value: ClauseDraft) => void}
-   */
-  private onChange: (value: ClauseDraft) => void = () => undefined;
-
-  /**
-   * CVA touched callback.
-   *
-   * @private
-   * @type {() => void}
-   */
-  private onTouched: () => void = () => undefined;
 }

@@ -2,7 +2,8 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@
 
 import {PresetButton} from '../../element/preset-button/preset-button';
 
-import {Preset, PRESETS} from '~gol/feature/home/preset';
+import {PRESETS} from '~gol/feature/home/preset';
+import {Preset} from '~gol/feature/home/preset/model/preset';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 
 /**

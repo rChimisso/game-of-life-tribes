@@ -3,7 +3,8 @@ import {AbstractControl, FormArray, FormControl, FormGroup, ReactiveFormsModule,
 
 import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 
-import {BaselineState} from '~gol/core/model/baseline-state';
+import {resetControlInteractionState} from '~gol/core/function/form-control';
+import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {analyzeTribeApplyImpact} from '~gol/feature/home/logic/tribe-impact';
 import {GridTopology} from '~gol/feature/home/model/grid';
@@ -172,13 +173,13 @@ export class TribesSection implements OnChanges {
   private readonly editingKeys = new Set<string>();
 
   /**
-   * Baseline editable tribes.
+   * Baseline coordinator.
    *
    * @private
    * @readonly
-   * @type {BaselineState<EditableTribe[]>}
+   * @type {FormBaselineController<EditableTribe[]>}
    */
-  private readonly baselineTribes = new BaselineState<EditableTribe[]>([]);
+  private readonly baselineTribes = new FormBaselineController<EditableTribe[]>([], this.form, () => this.currentEditableTribes(), value => this.rebuildFormFromEditableTribes(value), (baseline, current) => this.tribesEqual(current, baseline));
 
   /**
    * Next editable tribe key counter.
@@ -235,7 +236,7 @@ export class TribesSection implements OnChanges {
    * @type {boolean}
    */
   public get hasUnappliedTribes(): boolean {
-    return this.baselineTribes.hasChanges(this.currentEditableTribes(), (baseline, current) => this.tribesEqual(current, baseline));
+    return this.baselineTribes.hasChanges();
   }
 
   /**
@@ -246,7 +247,7 @@ export class TribesSection implements OnChanges {
    * @type {TribeApplyImpact}
    */
   public get tribeApplyImpact(): TribeApplyImpact {
-    return analyzeTribeApplyImpact(this.baselineTribes.value(), this.currentEditableTribes(), this.committedRules, this.boundaryTribe, this.topology === BOUNDED_GRID_TOPOLOGY);
+    return analyzeTribeApplyImpact(this.baselineTribes.baselineValue(), this.currentEditableTribes(), this.committedRules, this.boundaryTribe, this.topology === BOUNDED_GRID_TOPOLOGY);
   }
 
   /**
@@ -317,8 +318,7 @@ export class TribesSection implements OnChanges {
   public startAddTribe(): void {
     this.showTribeAdder = true;
     this.addForm.setValue({id: '', color: this.randomColor()}, {emitEvent: true});
-    this.addForm.markAsPristine();
-    this.addForm.markAsUntouched();
+    resetControlInteractionState(this.addForm);
     this.updateAllIdValidity();
   }
 
@@ -330,8 +330,7 @@ export class TribesSection implements OnChanges {
   public cancelAddTribe(): void {
     this.showTribeAdder = false;
     this.addForm.setValue({id: '', color: ''}, {emitEvent: false});
-    this.addForm.markAsPristine();
-    this.addForm.markAsUntouched();
+    resetControlInteractionState(this.addForm);
     this.updateAllIdValidity();
   }
 
@@ -406,7 +405,7 @@ export class TribesSection implements OnChanges {
    * @public
    */
   public onRestoreTribes(): void {
-    this.rebuildFormFromEditableTribes(this.baselineTribes.clone());
+    this.baselineTribes.restore();
     this.cancelAddTribe();
     this.editingKeys.clear();
   }
@@ -439,8 +438,7 @@ export class TribesSection implements OnChanges {
    */
   private syncTribesFromCommitted(): void {
     const editableTribes = this.committedTribes.map(tribe => this.toEditableTribe(tribe));
-    this.baselineTribes.set(editableTribes);
-    this.rebuildFormFromEditableTribes(editableTribes);
+    this.baselineTribes.syncCommitted(editableTribes);
     this.editingKeys.clear();
   }
 
@@ -457,8 +455,6 @@ export class TribesSection implements OnChanges {
       this.tribes.push(this.createTribeForm(tribe, tribe.key));
       this.rowKeys.push(tribe.key);
     }
-    this.form.markAsPristine();
-    this.form.markAsUntouched();
     this.updateAllIdValidity();
   }
 
@@ -603,7 +599,7 @@ export class TribesSection implements OnChanges {
     return (control: AbstractControl<string>): ValidationErrors | null => {
       let errors: ValidationErrors | null = null;
       if (key !== 'add' && control.value === DEAD_TRIBE_ID && this.findRowIndexByKey(key) >= 0) {
-        const baseline = this.baselineTribes.value()[this.findRowIndexByKey(key)];
+        const baseline = this.baselineTribes.baselineValue()[this.findRowIndexByKey(key)];
         if (baseline?.id !== DEAD_TRIBE_ID) {
           errors = {reservedTribeId: true};
         }

@@ -1,5 +1,6 @@
 import {ChangeDetectionStrategy, Component, forwardRef, Input, OnChanges} from '@angular/core';
 import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {AbstractInputComponent} from '../abstract-input';
 
@@ -17,6 +18,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 @Component({
   selector: 'gol-text-input',
   standalone: true,
+  imports: [MatTooltipModule],
   templateUrl: './text-input.html',
   styleUrl: './text-input.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

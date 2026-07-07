@@ -1,27 +1,27 @@
 @if (form) {
   @if (!adder) {
     <div class="tribe-edit-row">
-      <gol-tribe-swatch class="tribe-color-swatch" size="base" [color]="headerColor" [interactive]="false" [title]="headerName" />
-      <span class="tribe-id">{{ headerName }}</span>
-      <gol-button size="sm" variant="icon" [disabled]="editing && !canConfirmEdit" [icon]="editing ? 'check' : 'edit'" [title]="editing ? 'Apply tribe changes' : 'Edit tribe'" (clicked)="editing ? confirm() : openEditor()" />
-      <gol-button icon="close" size="sm" title="Discard tribe changes" variant="icon" [disabled]="!editing" (clicked)="cancelEdit()" />
-      <gol-button icon="delete" size="sm" title="Remove tribe" variant="icon" (clicked)="onRemove()" />
+      <gol-tribe-swatch class="tribe-color-swatch" size="base" [color]="headerColor" [interactive]="false" [tooltip]="headerName" />
+      <span class="tribe-id" [matTooltip]="'Tribe ' + headerName" [matTooltipDisabled]="!headerName">{{ headerName }}</span>
+      <gol-button size="sm" variant="icon" [disabled]="editing && !canConfirmEdit" [icon]="editing ? 'check' : 'edit'" [tooltip]="editing ? 'Apply tribe changes' : 'Edit tribe'" (clicked)="editing ? confirm() : openEditor()" />
+      <gol-button icon="close" size="sm" tooltip="Discard tribe changes" variant="icon" [disabled]="!editing" (clicked)="cancelEdit()" />
+      <gol-button icon="delete" size="sm" tooltip="Remove tribe" variant="icon" (clicked)="onRemove()" />
     </div>
   }
   @if (activeForm; as editForm) {
     <div class="tribe-editor" [attr.aria-hidden]="!showEditor" [class.open]="showEditor" [formGroup]="editForm">
       <div class="tribe-editor-inner">
-        <gol-text-input allowedPattern="^[0-9a-zA-Z]*$" formControlName="id" placeholder="Name (A-z, 0-9)" />
+        <gol-text-input allowedPattern="^[0-9a-zA-Z]*$" formControlName="id" placeholder="Name (A-z, 0-9)" tooltip="Tribe name" />
         <div class="color-palette">
           @for (c of basicColors; track c) {
-            <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [title]="'#' + c" (clicked)="setColor(c)" />
+            <gol-tribe-swatch class="color-swatch" size="base" [color]="c" [selected]="isColorSelected(c)" [tooltip]="'#' + c" (clicked)="setColor(c)" />
           }
-          <button class="color-swatch random-swatch" type="button" (click)="setColor(randomColor())">&#127922;</button>
+          <button class="color-swatch random-swatch" matTooltip="Random color" type="button" (click)="setColor(randomColor())">&#127922;</button>
         </div>
         <div class="hex-row">
           <span class="hex-hash">#</span>
-          <gol-text-input allowedPattern="^[0-9a-fA-F]{0,6}$" class="hex-input" formControlName="color" />
-          <input class="native-picker" type="color" [value]="nativeColor(editForm.controls.color.value)" (input)="onNativeColorInput($event)" />
+          <gol-text-input allowedPattern="^[0-9a-fA-F]{0,6}$" class="hex-input" formControlName="color" tooltip="Tribe color hex" />
+          <input class="native-picker" matTooltip="Pick tribe color" type="color" [value]="nativeColor(editForm.controls.color.value)" (input)="onNativeColorInput($event)" />
         </div>
         @if (adder) {
           <gol-button-pair leftIcon="add" leftLabel="Add" leftType="button" rightIcon="close" rightLabel="Cancel" [leftDisabled]="!canConfirmAdd" [rightType]="'button'" (leftClick)="confirm()" (rightClick)="cancelAdd.emit()" />

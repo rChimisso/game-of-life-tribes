@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
@@ -31,6 +32,7 @@ import {SelectComponent} from '~gol/shared/component/select/select';
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    MatTooltipModule,
     NumberInputComponent,
     SegmentedControl,
     SelectComponent,
@@ -148,14 +150,6 @@ export class GridSizeSection implements OnChanges, OnInit {
   });
 
   /**
-   * Whether pending grid size exceeds the detected frame limit.
-   *
-   * @public
-   * @type {boolean}
-   */
-  public pendingGridOverAllowedFrameLimit = false;
-
-  /**
    * Baseline form value.
    *
    * @private
@@ -170,6 +164,15 @@ export class GridSizeSection implements OnChanges, OnInit {
   });
 
   /**
+   * Grid topology select options.
+   *
+   * @public
+   * @readonly
+   * @type {readonly SelectOption[]}
+   */
+  public readonly topologyOptions = [{value: TOROIDAL_GRID_TOPOLOGY, label: 'Toroidal'}, {value: BOUNDED_GRID_TOPOLOGY, label: 'Bounded'}];
+
+  /**
    * Destroy ref for subscriptions.
    *
    * @private
@@ -177,6 +180,14 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @type {DestroyRef}
    */
   private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Whether pending grid size exceeds the detected frame limit.
+   *
+   * @public
+   * @type {boolean}
+   */
+  public pendingGridOverAllowedFrameLimit = false;
 
   /**
    * Grid column validation message.
@@ -249,17 +260,6 @@ export class GridSizeSection implements OnChanges, OnInit {
    */
   public get restoreDisabled(): boolean {
     return this.downloading || !this.hasUnappliedGridSize;
-  }
-
-  /**
-   * Grid topology select options.
-   *
-   * @public
-   * @readonly
-   * @type {readonly SelectOption[]}
-   */
-  public get topologyOptions(): readonly SelectOption[] {
-    return [{value: TOROIDAL_GRID_TOPOLOGY, label: 'Toroidal'}, {value: BOUNDED_GRID_TOPOLOGY, label: 'Bounded'}];
   }
 
   /**

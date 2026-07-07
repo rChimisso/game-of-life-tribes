@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {PersistedPreferencesComponent} from '~gol/core/abstract/persisted-preferences-component';
 import {FormType} from '~gol/core/model/form-type';
@@ -36,7 +37,8 @@ import {SubsectionComponent} from '~gol/shared/component/subsection/subsection';
     LabelValue,
     SubsectionComponent,
     ApplyRestoreButtons,
-    ProgressStatus
+    ProgressStatus,
+    MatTooltipModule
   ],
   templateUrl: './download-section.html',
   styleUrl: './download-section.scss',

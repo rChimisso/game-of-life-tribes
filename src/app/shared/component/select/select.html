@@ -2,12 +2,12 @@
   @if (label) {
     <mat-label>{{ label }}</mat-label>
   }
-  <mat-select [disabled]="disabled" [hideSingleSelectionIndicator]="hideSingleSelectionIndicator" [panelClass]="panelClass" [placeholder]="placeholder" [value]="value" (blur)="touch()" (closed)="touch()" (selectionChange)="onSelectionChange($event.value)">
+  <mat-select [disabled]="disabled" [hideSingleSelectionIndicator]="hideSingleSelectionIndicator" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [panelClass]="panelClass" [placeholder]="placeholder" [value]="value" (blur)="touch()" (closed)="touch()" (selectionChange)="onSelectionChange($event.value)">
     @if (selectedOption; as selected) {
       <mat-select-trigger>
         <span class="gol-select-rich-value">
           @if (selected.swatchColor; as selectedSwatchColor) {
-            <gol-tribe-swatch size="sm" [color]="selectedSwatchColor" [interactive]="false" [title]="selected.label" />
+            <gol-tribe-swatch size="sm" [color]="selectedSwatchColor" [interactive]="false" [tooltip]="selected.label" />
           }
           <span>{{ selected.label }}</span>
         </span>
@@ -17,7 +17,7 @@
       <mat-option [class.gol-option-hidden]="option.hidden === true" [disabled]="option.disabled" [value]="option.value">
         @if (option.swatchColor; as swatchColor) {
           <span class="gol-select-rich-option">
-            <gol-tribe-swatch size="sm" [color]="swatchColor" [interactive]="false" [title]="option.label" />
+            <gol-tribe-swatch size="sm" [color]="swatchColor" [interactive]="false" [tooltip]="option.label" />
             <span>{{ option.label }}</span>
           </span>
         } @else {

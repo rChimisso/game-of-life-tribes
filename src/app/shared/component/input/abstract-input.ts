@@ -23,6 +23,15 @@ export abstract class AbstractInputComponent<T> extends CvaComponent<T> {
   public placeholder = '';
 
   /**
+   * Input tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
+
+  /**
    * Input autocomplete mode.
    *
    * @public

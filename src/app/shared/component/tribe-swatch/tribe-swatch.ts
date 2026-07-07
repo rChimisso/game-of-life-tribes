@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 /**
  * Tribe swatch.
@@ -9,6 +10,7 @@ import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@
 @Component({
   selector: 'gol-tribe-swatch',
   standalone: true,
+  imports: [MatTooltipModule],
   templateUrl: './tribe-swatch.html',
   styleUrl: './tribe-swatch.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -42,13 +44,13 @@ export class TribeSwatch {
   public interactive = true;
 
   /**
-   * Tribe name.
+   * Tooltip.
    *
    * @public
    * @type {string}
    */
   @Input()
-  public title = '';
+  public tooltip = '';
 
   /**
    * Swatch size.

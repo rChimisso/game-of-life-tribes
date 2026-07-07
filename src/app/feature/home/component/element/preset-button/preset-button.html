@@ -1,7 +1,7 @@
-<button mat-flat-button type="button" [class.selected]="isSelected" [title]="presetTitle">
+<button mat-flat-button matTooltipClass="preset-tooltip" type="button" [class.selected]="isSelected" [matTooltip]="presetTooltip" [matTooltipDisabled]="!presetTooltip">
   <div class="preset-content">
     <span class="preset-heading">
-      <span class="preset-packing" [title]="requiredPackingLabel + ' minimum packing'">{{ requiredPackingLabel }}</span>
+      <span class="preset-packing">{{ requiredPackingLabel }}</span>
       <span class="preset-name">{{ preset.name }}</span>
     </span>
     <span class="preset-desc">{{ preset.description }}</span>

@@ -1,13 +1,13 @@
 <div class="clause-node" [class.invalid-clause]="invalidClause" [style.margin-left.px]="depth > 0 ? 16 : 0" [formGroup]="form">
   <div class="clause-header">
-    <gol-select title="Change clause type" [disabled]="disabled" [options]="clauseKindOptions" [value]="clause.kind" (valueChange)="onClauseKindSelected($event)" />
+    <gol-select tooltip="Change clause type" [disabled]="disabled" [options]="clauseKindOptions" [value]="clause.kind" (valueChange)="onClauseKindSelected($event)" />
     @if (clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") {
-      <gol-button size="sm" variant="icon" [icon]="groupCollapsed ? 'chevron_right' : 'expand_more'" [label]="groupCollapsed ? 'Expand clause' : 'Collapse clause'" [title]="groupCollapsed ? 'Expand clause' : 'Collapse clause'" (clicked)="toggleGroupCollapse()" />
+      <gol-button size="sm" variant="icon" [icon]="groupCollapsed ? 'chevron_right' : 'expand_more'" [label]="groupCollapsed ? 'Expand clause' : 'Collapse clause'" [tooltip]="groupCollapsed ? 'Expand clause' : 'Collapse clause'" (clicked)="toggleGroupCollapse()" />
     }
     @if ((clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") && groupCollapsed) {
       <gol-summary [clause]="clause" [tribeColors]="tribes" />
     }
-    <gol-button icon="delete" label="Delete clause" size="sm" title="Delete clause" variant="icon" [disabled]="disabled" (clicked)="onDeleteClicked()" />
+    <gol-button icon="delete" label="Delete clause" size="sm" tooltip="Delete clause" variant="icon" [disabled]="disabled" (clicked)="onDeleteClicked()" />
   </div>
   @switch (clause.kind) {
     @case ("empty") {
@@ -18,7 +18,7 @@
     @case ("is") {
       <div class="clause-tribes">
         @for (t of tribes; track t.id) {
-          <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="isTribeSelected(t.id)" [title]="t.id" (clicked)="onToggleTribe(t.id)" />
+          <gol-tribe-swatch size="sm" [color]="t.color" [interactive]="!disabled" [selected]="isTribeSelected(t.id)" [tooltip]="t.id" (clicked)="onToggleTribe(t.id)" />
         }
       </div>
     }
@@ -74,7 +74,7 @@
         @for (childControl of children.controls; track $index; let ci = $index) {
           <gol-rule-clause [baselineClause]="null" [depth]="depth + 1" [formControl]="childControl" [path]="[]" [tribes]="tribes" (removeSelf)="removeChild(ci)" />
         }
-        <button mat-icon-button title="Add new clause" type="button" [disabled]="disabled" (click)="emitAddChild()">
+        <button mat-icon-button matTooltip="Add new clause" type="button" [disabled]="disabled" (click)="emitAddChild()">
           <mat-icon>add</mat-icon>
         </button>
       </div>

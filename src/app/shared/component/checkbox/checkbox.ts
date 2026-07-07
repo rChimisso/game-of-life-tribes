@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
 import {MatCheckboxChange, MatCheckboxModule} from '@angular/material/checkbox';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {CvaComponent} from '~gol/core/abstract/cva-component';
 
@@ -14,7 +15,7 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Component({
   selector: 'gol-checkbox',
   standalone: true,
-  imports: [MatCheckboxModule],
+  imports: [MatCheckboxModule, MatTooltipModule],
   templateUrl: './checkbox.html',
   styleUrl: './checkbox.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

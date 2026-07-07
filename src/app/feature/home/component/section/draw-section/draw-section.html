@@ -1,30 +1,30 @@
 <div class="tribe-picker">
   @for (tribe of tribes; track tribe.id) {
     @if (tribe.id !== "dead") {
-      <gol-tribe-swatch class="draw-swatch" size="md" [color]="tribe.color" [selected]="drawTribes.includes(tribe.id) && !deleteMode" [title]="tribe.id" (clicked)="tribeChange.emit(tribe.id)" />
+      <gol-tribe-swatch class="draw-swatch" size="md" [color]="tribe.color" [selected]="drawTribes.includes(tribe.id) && !deleteMode" [tooltip]="tribe.id" (clicked)="tribeChange.emit(tribe.id)" />
     }
   }
-  <button class="delete-swatch" title="Delete" type="button" [class.active]="deleteMode" (click)="deleteModeToggle.emit()">
+  <button class="delete-swatch" matTooltip="Delete" type="button" [class.active]="deleteMode" (click)="deleteModeToggle.emit()">
     <mat-icon>close</mat-icon>
   </button>
 </div>
 <div class="gol-grid-small" [formGroup]="form">
-  <div class="gol-cell-12 gol-grid-tiny" title="Brush size">
-    <span class="input-label gol-cell-2">Size</span>
-    <gol-number-input class="gol-cell-4" formControlName="brushSize" [decimalDigits]="0" [max]="normalizedBrushMaxSize" [maxIntegerDigits]="brushSizeIntegerDigits" [min]="1" />
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Brush size">Size</span>
+    <gol-number-input class="gol-cell-4" formControlName="brushSize" tooltip="Brush size" [decimalDigits]="0" [max]="normalizedBrushMaxSize" [maxIntegerDigits]="brushSizeIntegerDigits" [min]="1" />
     <span class="gol-cell-6 error-message">{{ brushSizeError }}</span>
   </div>
-  <div class="gol-cell-12 gol-grid-tiny" title="Brush shape">
-    <span class="input-label gol-cell-2">Shape</span>
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Brush shape">Shape</span>
     <gol-exclusive-button-group class="gol-cell-10" formControlName="brushShape" [options]="brushShapeOptions" />
   </div>
-  <div class="gol-cell-12 gol-grid-tiny" title="Brush fill mode">
-    <span class="input-label gol-cell-2">Mode</span>
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Brush fill mode">Mode</span>
     <gol-exclusive-button-group class="gol-cell-10" formControlName="brushFill" [options]="brushFillOptions" />
   </div>
-  <div class="gol-cell-12 gol-grid-tiny" title="Brush density">
-    <span class="input-label gol-cell-2">Density</span>
-    <gol-number-input class="gol-cell-4" formControlName="brushDensity" [decimalDigits]="0" [max]="100" [maxIntegerDigits]="brushDensityIntegerDigits" [min]="1" />
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Brush density">Density</span>
+    <gol-number-input class="gol-cell-4" formControlName="brushDensity" tooltip="Brush density" [decimalDigits]="0" [max]="100" [maxIntegerDigits]="brushDensityIntegerDigits" [min]="1" />
     <span class="gol-cell-6 error-message">{{ brushDensityError }}</span>
   </div>
   <div class="gol-cell-12 gol-grid-tiny mobile-only">

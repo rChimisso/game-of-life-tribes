@@ -3,6 +3,7 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, ControlValueAccessor, FormArray, FormControl, FormGroup, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {SelectorEditor} from '../selector-editor/selector-editor';
 import {ClauseFormControls} from './model/clause-form';
@@ -35,6 +36,7 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
     ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
+    MatTooltipModule,
     forwardRef(() => RuleClause),
     SelectorEditor,
     NumberInputComponent,

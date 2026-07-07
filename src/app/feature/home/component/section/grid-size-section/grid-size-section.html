@@ -1,16 +1,16 @@
 <form [formGroup]="form" (ngSubmit)="onApplyGridSize()">
-  <div class="topology-row gol-cell-12 gol-grid-tiny" title="Grid topology and virtual boundary tribe">
+  <div class="topology-row gol-cell-12 gol-grid-tiny">
     <gol-segmented-control class="gol-cell-8" formControlName="topology" label="Grid topology" [options]="topologyOptions" />
-    <gol-select class="gol-cell-4" formControlName="boundaryTribe" title="Virtual boundary tribe for bounded grids" [options]="boundaryTribeOptions" />
+    <gol-select class="gol-cell-4" formControlName="boundaryTribe" tooltip="Virtual boundary tribe for bounded grids" [options]="boundaryTribeOptions" />
   </div>
-  <div class="gol-cell-12 gol-grid-tiny" title="Grid columns">
-    <span class="input-label gol-cell-2">Cols</span>
-    <gol-number-input class="gol-cell-5" formControlName="cols" [decimalDigits]="0" [min]="3" />
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Grid columns">Cols</span>
+    <gol-number-input class="gol-cell-5" formControlName="cols" tooltip="Grid columns" [decimalDigits]="0" [min]="3" />
     <span class="gol-cell-5 error-message">{{ gridColsError }}</span>
   </div>
-  <div class="gol-cell-12 gol-grid-tiny" title="Grid rows">
-    <span class="input-label gol-cell-2">Rows</span>
-    <gol-number-input class="gol-cell-5" formControlName="rows" [decimalDigits]="0" [min]="3" />
+  <div class="gol-cell-12 gol-grid-tiny">
+    <span class="input-label gol-cell-2" matTooltip="Grid rows">Rows</span>
+    <gol-number-input class="gol-cell-5" formControlName="rows" tooltip="Grid rows" [decimalDigits]="0" [min]="3" />
     <span class="gol-cell-5 error-message">{{ gridRowsError }}</span>
   </div>
   <gol-frame-size-limits class="gol-cell-12" [frameBytes]="pendingGridFrameByteSize" [maxBytes]="maxBytes" (overAllowedLimitChange)="pendingGridOverAllowedFrameLimit = $event" />

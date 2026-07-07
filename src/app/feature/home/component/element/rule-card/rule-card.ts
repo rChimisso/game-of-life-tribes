@@ -3,6 +3,7 @@ import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, Event
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, NG_VALIDATORS, NG_VALUE_ACCESSOR, ReactiveFormsModule, ValidationErrors, Validator, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
@@ -37,7 +38,8 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
     SummaryComponent,
     TribeSwatch,
     NumberInputComponent,
-    MatIconModule
+    MatIconModule,
+    MatTooltipModule
   ],
   templateUrl: './rule-card.html',
   styleUrl: './rule-card.scss',

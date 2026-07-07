@@ -1,9 +1,9 @@
 <div class="gol-grid-tiny" [formGroup]="form">
-  <gol-number-input class="gol-cell-4" formControlName="speed" title="Target speed" [decimalDigits]="0" [min]="1" (blurred)="restoreInvalidSpeed()" />
-  <span class="speed-unit gol-cell-3" title="Target speed">gen/s</span>
-  <gol-toggle-button class="gol-cell-5" formControlName="maxSpeed" label="Max" title="Toggle max speed" />
-  <span class="warning-message gol-cell-7" title="">{{ recordingGateMessage }}</span>
-  <gol-toggle-button class="gol-cell-5" formControlName="recording" label="Rec" title="Toggle recording" />
-  <span class="warning-message gol-cell-7" title="">{{ liveMetricsMessage }}</span>
-  <gol-toggle-button class="gol-cell-5" formControlName="liveMetricsEnabled" label="Metrics" title="Toggle live metrics" />
+  <gol-number-input class="gol-cell-4" formControlName="speed" tooltip="Target speed" [decimalDigits]="0" [min]="1" (blurred)="restoreInvalidSpeed()" />
+  <span class="speed-unit gol-cell-3" matTooltip="Target speed">gen/s</span>
+  <gol-toggle-button class="gol-cell-5" formControlName="maxSpeed" label="Max" tooltip="Toggle max speed" />
+  <span class="warning-message gol-cell-7">{{ recordingGateMessage }}</span>
+  <gol-toggle-button class="gol-cell-5" formControlName="recording" label="Rec" tooltip="Toggle recording" />
+  <span class="warning-message gol-cell-7">{{ liveMetricsMessage }}</span>
+  <gol-toggle-button class="gol-cell-5" formControlName="liveMetricsEnabled" label="Metrics" tooltip="Toggle live metrics" />
 </div>

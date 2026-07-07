@@ -1,5 +1,6 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
 import {FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {TribeFormControls, TribeFormValue} from '~gol/feature/home/model/tribe-form';
@@ -23,7 +24,8 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
     TextInputComponent,
     Button,
     ApplyRestoreButtons,
-    TribeSwatch
+    TribeSwatch,
+    MatTooltipModule
   ],
   templateUrl: './tribe-entry.html',
   styleUrl: './tribe-entry.scss',

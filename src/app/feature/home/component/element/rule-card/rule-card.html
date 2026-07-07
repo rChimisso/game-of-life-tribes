@@ -1,29 +1,29 @@
-<div class="rule-header" title="" [class.muted]="rule.muted" (click)="toggleExpand.emit()">
-  <button cdkDragHandle class="drag-handle" title="Drag to reorder rule" type="button" (click)="$event.stopPropagation()" (pointerdown)="onDragHandlePointerDown($event)">
+<div class="rule-header" [class.muted]="rule.muted" (click)="toggleExpand.emit()">
+  <button cdkDragHandle class="drag-handle" matTooltip="Drag to reorder rule" type="button" (click)="$event.stopPropagation()" (pointerdown)="onDragHandlePointerDown($event)">
     <mat-icon>drag_indicator</mat-icon>
   </button>
-  <mat-icon class="expand-icon" [title]="expanded ? 'Collapse rule' : 'Expand rule'">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
+  <mat-icon class="expand-icon" [matTooltip]="expanded ? 'Collapse rule' : 'Expand rule'">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
   <gol-summary class="rule-summary" [clause]="rule.clause" [tribeColors]="tribes" />
-  <span class="rule-arrow" [title]="'Becomes ' + outputBecomeLabel()">&rarr;</span>
+  <span class="rule-arrow" [matTooltip]="'Becomes ' + outputBecomeLabel()" [matTooltipDisabled]="!outputBecomeLabel()">&rarr;</span>
   @if (fixedOutputTribeId(); as tribeId) {
-    <gol-tribe-swatch size="xs" [color]="outputTribeColor()" [interactive]="false" [title]="'Becomes ' + tribeId" />
+    <gol-tribe-swatch size="xs" [color]="outputTribeColor()" [interactive]="false" [tooltip]="'Becomes ' + tribeId" />
   } @else {
-    <span class="rule-become-label" [title]="'Becomes ' + outputBecomeLabel()">{{ outputBecomeLabel() }}</span>
+    <span class="rule-become-label" [matTooltip]="'Becomes ' + outputBecomeLabel()" [matTooltipDisabled]="!outputBecomeLabel()">{{ outputBecomeLabel() }}</span>
   }
   @if (showProbabilityBadge()) {
-    <span class="rule-probability-badge" [title]="'Applies ' + probabilityLabel() + '% of matching cells'">{{ probabilityLabel() }}%</span>
+    <span class="rule-probability-badge" [matTooltip]="'Applies ' + probabilityLabel() + '% of matching cells'" [matTooltipDisabled]="!probabilityLabel()">{{ probabilityLabel() }}%</span>
   }
-  <gol-button icon="content_copy" label="Duplicate rule" size="sm" title="Duplicate rule" variant="icon" [disabled]="isInvalid" (click)="onDuplicate($event)" />
-  <gol-button size="sm" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [title]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />
-  <gol-button icon="delete" label="Delete rule" size="sm" title="Delete rule" variant="icon" (click)="onRemove($event)" />
+  <gol-button icon="content_copy" label="Duplicate rule" size="sm" tooltip="Duplicate rule" variant="icon" [disabled]="isInvalid" (click)="onDuplicate($event)" />
+  <gol-button size="sm" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [tooltip]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />
+  <gol-button icon="delete" label="Delete rule" size="sm" tooltip="Delete rule" variant="icon" (click)="onRemove($event)" />
 </div>
-<div class="collapsible" title="" [class.muted]="rule.muted" [class.open]="expanded" [formGroup]="form">
+<div class="collapsible" [class.muted]="rule.muted" [class.open]="expanded" [formGroup]="form">
   <div class="collapsible-inner">
     <div class="rule-body">
-      <div class="rule-probability-row gol-grid-tiny" title="Rule probability percentage">
-        <span class="gol-cell-4">Probability %</span>
-        <gol-number-input class="gol-cell-5" formControlName="probability" title="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [fixedDecimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
-        <span class="gol-cell-3 error-message" [title]="probabilityError ?? ''">{{ probabilityError }}</span>
+      <div class="rule-probability-row gol-grid-tiny">
+        <span class="gol-cell-4" matTooltip="Rule probability percentage">Probability %</span>
+        <gol-number-input class="gol-cell-5" formControlName="probability" tooltip="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [fixedDecimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
+        <span class="gol-cell-3 error-message" [matTooltip]="probabilityError ?? ''" [matTooltipDisabled]="!probabilityError">{{ probabilityError }}</span>
       </div>
       <gol-rule-clause formControlName="clause" [baselineClause]="baselineRule?.clause ?? null" [depth]="0" [path]="[]" [tribes]="tribes" />
       <div class="rule-output-row">

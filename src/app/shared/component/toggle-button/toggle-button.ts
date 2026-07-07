@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
 import {MatSlideToggleChange, MatSlideToggleModule} from '@angular/material/slide-toggle';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {CvaComponent} from '~gol/core/abstract/cva-component';
 
@@ -14,7 +15,7 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Component({
   selector: 'gol-toggle-button',
   standalone: true,
-  imports: [MatSlideToggleModule],
+  imports: [MatSlideToggleModule, MatTooltipModule],
   templateUrl: './toggle-button.html',
   styleUrl: './toggle-button.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,13 +38,13 @@ export class ToggleButtonComponent extends CvaComponent<boolean> {
   public label = '';
 
   /**
-   * Button title.
+   * Button tooltip.
    *
    * @public
    * @type {string}
    */
   @Input()
-  public title = '';
+  public tooltip = '';
 
   /**
    * Button size.

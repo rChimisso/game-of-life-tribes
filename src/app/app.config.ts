@@ -1,7 +1,7 @@
 import {HashLocationStrategy, LocationStrategy} from '@angular/common';
 import {ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection} from '@angular/core';
 import {MAT_RIPPLE_GLOBAL_OPTIONS} from '@angular/material/core';
-import {MAT_FORM_FIELD_DEFAULT_OPTIONS} from '@angular/material/form-field';
+import {MAT_TOOLTIP_DEFAULT_OPTIONS} from '@angular/material/tooltip';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 import {provideRouter, withInMemoryScrolling} from '@angular/router';
 import {provideEffects} from '@ngrx/effects';
@@ -31,8 +31,14 @@ export const appConfig: ApplicationConfig = {
       }
     },
     {
-      provide: MAT_FORM_FIELD_DEFAULT_OPTIONS,
-      useValue: {subscriptSizing: 'dynamic'}
+      provide: MAT_TOOLTIP_DEFAULT_OPTIONS,
+      useValue: {
+        showDelay: 1000,
+        hideDelay: 0,
+        touchendHideDelay: 1000,
+        positionAtOrigin: true,
+        disableTooltipInteractivity: true
+      }
     },
     {
       provide: LocationStrategy,

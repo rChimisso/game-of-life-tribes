@@ -1,16 +1,16 @@
 <div class="become-editor" [class.invalid]="isInvalid">
   <div class="become-row primary-row">
     <span class="become-label">&rarr; becomes</span>
-    <gol-select class="mode-select" title="Choose the rule outcome" [disabled]="disabled" [options]="modeOptions" [value]="become.kind" (valueChange)="onSetMode($event)" />
+    <gol-select class="mode-select" tooltip="Choose the rule outcome" [disabled]="disabled" [options]="modeOptions" [value]="become.kind" (valueChange)="onSetMode($event)" />
     @if (become.kind === "fixed") {
-      <gol-select class="tribe-select" title="Choose the fixed output tribe" [disabled]="disabled" [options]="tribeSelectOptions" [value]="fixedTribe" (valueChange)="onSetFixedTribe($event)" />
+      <gol-select class="tribe-select" tooltip="Choose the fixed output tribe" [disabled]="disabled" [options]="tribeSelectOptions" [value]="fixedTribe" (valueChange)="onSetFixedTribe($event)" />
     }
     @if (become.kind === "same") {
       <span class="become-detail inline">Keep current tribe</span>
     }
     @if (isRankedBecome(become)) {
       <span class="field-label inline-label">{{ rankSelectorLabel(become) }}</span>
-      <gol-selector-editor title="Choose which neighbor tribes are ranked" [formControl]="rankSelectorControl" [tribes]="tribes" />
+      <gol-selector-editor tooltip="Choose which neighbor tribes are ranked" [formControl]="rankSelectorControl" [tribes]="tribes" />
     }
   </div>
   @switch (become.kind) {
@@ -32,9 +32,9 @@
 <ng-template #rankedRows let-ranked>
   <div class="become-row">
     <span class="field-label">Tie</span>
-    <gol-select class="mode-select" title="Choose what happens when ranked candidates tie" [disabled]="disabled" [options]="nestedOptions" [value]="nestedMode(ranked.tie)" (valueChange)="onSetTieMode($event)" />
+    <gol-select class="mode-select" tooltip="Choose what happens when ranked candidates tie" [disabled]="disabled" [options]="nestedOptions" [value]="nestedMode(ranked.tie)" (valueChange)="onSetTieMode($event)" />
     @if (showsNestedFixedTribe(ranked.tie)) {
-      <gol-select class="tribe-select" title="Choose the fixed tribe for ties" [disabled]="disabled" [options]="tribeSelectOptions" [value]="nestedFixedTribe(ranked.tie)" (valueChange)="onSetRankNestedFixedTribe('tie', $event)" />
+      <gol-select class="tribe-select" tooltip="Choose the fixed tribe for ties" [disabled]="disabled" [options]="tribeSelectOptions" [value]="nestedFixedTribe(ranked.tie)" (valueChange)="onSetRankNestedFixedTribe('tie', $event)" />
     }
   </div>
   @if (ranked.tie?.kind === "combine") {
@@ -44,9 +44,9 @@
   }
   <div class="become-row">
     <span class="field-label">Fallback</span>
-    <gol-select class="mode-select" title="Choose what happens when no ranked candidate exists" [disabled]="disabled" [options]="nestedOptions" [value]="nestedMode(ranked.fallback)" (valueChange)="onSetRankFallbackMode($event)" />
+    <gol-select class="mode-select" tooltip="Choose what happens when no ranked candidate exists" [disabled]="disabled" [options]="nestedOptions" [value]="nestedMode(ranked.fallback)" (valueChange)="onSetRankFallbackMode($event)" />
     @if (showsNestedFixedTribe(ranked.fallback)) {
-      <gol-select class="tribe-select" title="Choose the fixed fallback tribe" [disabled]="disabled" [options]="tribeSelectOptions" [value]="nestedFixedTribe(ranked.fallback)" (valueChange)="onSetRankNestedFixedTribe('fallback', $event)" />
+      <gol-select class="tribe-select" tooltip="Choose the fixed fallback tribe" [disabled]="disabled" [options]="tribeSelectOptions" [value]="nestedFixedTribe(ranked.fallback)" (valueChange)="onSetRankNestedFixedTribe('fallback', $event)" />
     }
   </div>
   @if (ranked.fallback?.kind === "combine") {
@@ -66,21 +66,21 @@
               @if (inputIndex > 0) {
                 <span class="input-separator">+</span>
               }
-              <gol-select class="combination-input-select" title="Choose one combination input" [disabled]="disabled" [options]="combinationInputOptions(target, entry, inputIndex)" [value]="combinationInputValue(input)" (valueChange)="onSetCombinationInput(target, rowIndex, inputIndex, $event)" />
-              <gol-button icon="close" label="Remove combination input" size="sm" title="Remove this input" variant="icon" [disabled]="disabled || entry.inputs.length <= 1" (clicked)="onRemoveCombinationInput(target, rowIndex, inputIndex)" />
+              <gol-select class="combination-input-select" tooltip="Choose one combination input" [disabled]="disabled" [options]="combinationInputOptions(target, entry, inputIndex)" [value]="combinationInputValue(input)" (valueChange)="onSetCombinationInput(target, rowIndex, inputIndex, $event)" />
+              <gol-button icon="close" label="Remove combination input" size="sm" tooltip="Remove this input" variant="icon" [disabled]="disabled || entry.inputs.length <= 1" (clicked)="onRemoveCombinationInput(target, rowIndex, inputIndex)" />
             </div>
           }
-          <gol-button class="lookup-add-input" icon="add" label="Add input" size="sm" title="Add another input to this combination" variant="icon" [disabled]="disabled || !canAddCombinationInput(target, entry)" (clicked)="onAddCombinationInput(target, rowIndex)" />
+          <gol-button class="lookup-add-input" icon="add" label="Add input" size="sm" tooltip="Add another input to this combination" variant="icon" [disabled]="disabled || !canAddCombinationInput(target, entry)" (clicked)="onAddCombinationInput(target, rowIndex)" />
         </div>
         <span>&rarr;</span>
-        <gol-select class="tribe-select" title="Choose the output tribe for this combination" [disabled]="disabled" [options]="tribeSelectOptions" [value]="entry.output" (valueChange)="onSetCombinationOutput(target, rowIndex, $event)" />
-        <gol-button icon="delete" label="Remove combination row" size="sm" title="Remove combination row" variant="icon" [disabled]="disabled" (clicked)="onRemoveCombinationRow(target, rowIndex)" />
+        <gol-select class="tribe-select" tooltip="Choose the output tribe for this combination" [disabled]="disabled" [options]="tribeSelectOptions" [value]="entry.output" (valueChange)="onSetCombinationOutput(target, rowIndex, $event)" />
+        <gol-button icon="delete" label="Remove combination row" size="sm" tooltip="Remove combination row" variant="icon" [disabled]="disabled" (clicked)="onRemoveCombinationRow(target, rowIndex)" />
       </div>
     }
     <div class="lookup-row">
       <span class="field-label">Otherwise</span>
-      <gol-select class="tribe-select" title="Choose the default output tribe when no combination row matches" [disabled]="disabled" [options]="tribeSelectOptions" [value]="lookupDefaultTribe(combine)" (valueChange)="onSetLookupDefaultTribe(target, $event)" />
-      <gol-button class="lookup-add-row" icon="add" label="Add combination row" size="sm" title="Add combination row" variant="icon" [disabled]="disabled" (clicked)="onAddCombinationRow(target)" />
+      <gol-select class="tribe-select" tooltip="Choose the default output tribe when no combination row matches" [disabled]="disabled" [options]="tribeSelectOptions" [value]="lookupDefaultTribe(combine)" (valueChange)="onSetLookupDefaultTribe(target, $event)" />
+      <gol-button class="lookup-add-row" icon="add" label="Add combination row" size="sm" tooltip="Add combination row" variant="icon" [disabled]="disabled" (clicked)="onAddCombinationRow(target)" />
     </div>
   </div>
 </ng-template>

@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 /**
  * Code label pair.
@@ -9,12 +10,10 @@ import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 @Component({
   standalone: true,
   selector: 'gol-code-label',
+  imports: [MatTooltipModule],
   templateUrl: './code-label.html',
   styleUrl: './code-label.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '[attr.title]': 'tooltip'
-  }
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CodeLabel {
   /**

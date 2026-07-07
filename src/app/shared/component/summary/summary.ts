@@ -1,5 +1,6 @@
 import {ChangeDetectionStrategy, Component, Input, OnChanges} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {SummaryPart, SummaryTribeColor} from './model/summary';
 import {isBinaryLogicalClause} from './util/clause';
@@ -20,14 +21,11 @@ import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 @Component({
   selector: 'gol-summary',
   standalone: true,
-  imports: [MatIconModule, TribeSwatch],
+  imports: [MatIconModule, MatTooltipModule, TribeSwatch],
   templateUrl: './summary.html',
   styleUrl: './summary.scss',
   preserveWhitespaces: false,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '[attr.title]': 'summaryTitle'
-  }
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SummaryComponent implements OnChanges {
   /**

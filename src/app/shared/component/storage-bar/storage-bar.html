@@ -1,9 +1,9 @@
-<div class="storage-bar">
+<div class="storage-bar" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip">
   @for (segment of segments; track segment.label) {
     <div class="storage-segment" [style.background-color]="segment.color" [style.width.%]="segmentPercent(segment.value)"></div>
   }
 </div>
-<div class="storage-legend">
+<div class="storage-legend" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip">
   @for (segment of segments; track segment.label) {
     <span class="storage-legend-item">
       <span class="legend-dot" [style.background-color]="segment.color"></span>

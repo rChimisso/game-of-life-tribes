@@ -1,5 +1,5 @@
 <div class="gol-grid-tiny">
-  <span class="input-label gol-cell-3">Bits/cell</span>
+  <span class="input-label gol-cell-3" matTooltip="How many bits represent the state of a single cell">Bits/cell</span>
   <gol-exclusive-button-group class="gol-cell-9" [options]="packingButtonOptions" [selectedValue]="pendingSimulationBitsPerCell" (selectedChange)="onPackingOptionChange($event)" />
 </div>
 <gol-frame-size-limits [frameBytes]="pendingPackingFrameByteSize" [maxBytes]="maxBytes" (overAllowedLimitChange)="pendingPackingOverAllowedFrameLimit = $event" />

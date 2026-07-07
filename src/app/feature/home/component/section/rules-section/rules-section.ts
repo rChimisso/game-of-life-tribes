@@ -2,6 +2,7 @@ import {CdkDragDrop, DragDropModule} from '@angular/cdk/drag-drop';
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {RulesEditorValue} from './model/rules-editor';
 import {RuleCard} from '../../element/rule-card/rule-card';
@@ -30,6 +31,7 @@ import {NumberInputComponent} from '~gol/shared/component/input/number-input/num
   imports: [
     DragDropModule,
     ReactiveFormsModule,
+    MatTooltipModule,
     Button,
     ApplyRestoreButtons,
     RuleCard,

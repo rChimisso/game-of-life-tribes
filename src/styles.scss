@@ -330,6 +330,33 @@ a {
   }
 }
 
+.mat-mdc-tooltip {
+  @include mat.tooltip-overrides(
+    (
+      container-color: #d0d0d0,
+      container-shape: 4px,
+      supporting-text-color: #000000,
+      supporting-text-size: 0.8rem,
+    )
+  );
+
+  .mat-mdc-tooltip-surface {
+    max-width: none;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  &.mdc-tooltip--multiline .mat-mdc-tooltip-surface {
+    text-align: center;
+  }
+
+  &.preset-tooltip .mat-mdc-tooltip-surface {
+    max-width: none;
+    overflow-wrap: normal;
+    white-space: pre;
+  }
+}
+
 .snackbar-info .mdc-snackbar__surface .mat-mdc-button,
 .snackbar-warning .mdc-snackbar__surface .mat-mdc-button,
 .snackbar-error .mdc-snackbar__surface .mat-mdc-button {

@@ -1,5 +1,6 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {requiredGridFormatForStateCount} from '~gol/feature/home/logic/grid-format';
 import {Preset} from '~gol/feature/home/preset';
@@ -13,7 +14,7 @@ import {Preset} from '~gol/feature/home/preset';
 @Component({
   selector: 'gol-preset-button',
   standalone: true,
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatTooltipModule],
   templateUrl: './preset-button.html',
   styleUrl: './preset-button.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -63,7 +64,8 @@ export class PresetButton {
    * @public
    * @returns {string}
    */
-  public get presetTitle(): string {
-    return `${this.preset.name}: ${this.preset.description}. Requires at least ${this.requiredPackingLabel} packing.`;
+  public get presetTooltip(): string {
+    const description = this.preset.description.endsWith('.') ? this.preset.description : `${this.preset.description}.`;
+    return `${this.preset.name}: ${description}\nRequires at least ${this.requiredPackingLabel} packing.`;
   }
 }

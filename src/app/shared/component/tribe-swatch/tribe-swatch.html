@@ -1,5 +1,5 @@
 @if (interactive) {
-  <button class="swatch" type="button" [attr.aria-label]="title" [class.selected]="selected" [class.size-md]="size === 'md'" [class.size-sm]="size === 'sm'" [class.size-xs]="size === 'xs'" [style.background-color]="color ? '#' + color : null" [title]="title" (click)="emitClick($event)"></button>
+  <button class="swatch" type="button" [attr.aria-label]="tooltip" [class.selected]="selected" [class.size-md]="size === 'md'" [class.size-sm]="size === 'sm'" [class.size-xs]="size === 'xs'" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [style.background-color]="color ? '#' + color : null" (click)="emitClick($event)"></button>
 } @else {
-  <span class="swatch" [attr.aria-label]="title" [class.selected]="selected" [class.size-md]="size === 'md'" [class.size-sm]="size === 'sm'" [class.size-xs]="size === 'xs'" [style.background-color]="color ? '#' + color : null" [title]="title"></span>
+  <span class="swatch" [attr.aria-label]="tooltip" [class.selected]="selected" [class.size-md]="size === 'md'" [class.size-sm]="size === 'sm'" [class.size-xs]="size === 'xs'" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [style.background-color]="color ? '#' + color : null"></span>
 }

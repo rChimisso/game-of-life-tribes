@@ -1,9 +1,9 @@
 <form [formGroup]="form" (ngSubmit)="onApplyRules()">
   <div class="rules-settings">
-    <div class="seed-field gol-grid-tiny" title="Random seed for rule probability rolls">
-      <span class="gol-cell-4">Random seed</span>
-      <gol-number-input class="gol-cell-5" formControlName="randomSeed" title="Random seed" [decimalDigits]="0" [max]="maxRandomSeed" [maxIntegerDigits]="maxRandomSeedIntegerDigits" [min]="minRandomSeed" />
-      <span class="gol-cell-3 error-message" [title]="randomSeedError ?? ''">{{ randomSeedError }}</span>
+    <div class="seed-field gol-grid-tiny">
+      <span class="gol-cell-4" matTooltip="Random seed for rule probability rolls">Random seed</span>
+      <gol-number-input class="gol-cell-5" formControlName="randomSeed" tooltip="Random seed" [decimalDigits]="0" [max]="maxRandomSeed" [maxIntegerDigits]="maxRandomSeedIntegerDigits" [min]="minRandomSeed" />
+      <span class="gol-cell-3 error-message" [matTooltip]="randomSeedError ?? ''" [matTooltipDisabled]="!randomSeedError">{{ randomSeedError }}</span>
     </div>
   </div>
   <div cdkDropList cdkDropListOrientation="vertical" class="rules-list" [cdkDropListData]="rules.controls" [class.dragging-list]="draggingRuleIndex !== null" (cdkDropListDropped)="onRuleDropped($event)">
@@ -13,6 +13,6 @@
       </div>
     }
   </div>
-  <gol-button icon="add" label="Add rule" title="Add a new rule" type="button" variant="stroked" (clicked)="onAddRule()" />
+  <gol-button icon="add" label="Add rule" tooltip="Add a new rule" type="button" variant="stroked" (clicked)="onAddRule()" />
   <gol-button-pair [leftDisabled]="applyDisabled" [rightDisabled]="restoreDisabled" [rightType]="'button'" (rightClick)="onRestoreRules()" />
 </form>

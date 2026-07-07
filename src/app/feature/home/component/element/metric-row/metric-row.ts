@@ -1,5 +1,6 @@
 import {DecimalPipe, PercentPipe} from '@angular/common';
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {MetricRowFormat} from '../model/metric-row-format';
 
@@ -12,7 +13,7 @@ import {MetricRowFormat} from '../model/metric-row-format';
 @Component({
   selector: 'gol-metric-row',
   standalone: true,
-  imports: [DecimalPipe, PercentPipe],
+  imports: [DecimalPipe, PercentPipe, MatTooltipModule],
   templateUrl: './metric-row.html',
   styleUrl: './metric-row.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -28,13 +29,13 @@ export class MetricRow {
   public label = '';
 
   /**
-   * Metric explanation.
+   * Metric tooltip.
    *
    * @public
    * @type {string}
    */
   @Input()
-  public title = '';
+  public tooltip = '';
 
   /**
    * Metric value.

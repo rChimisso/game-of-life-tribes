@@ -1,6 +1,6 @@
 <h4 class="subsection-title" [class.disabled]="disabled" (click)="toggle()">
   <mat-icon class="expand-icon">{{ expanded ? "expand_more" : "chevron_right" }}</mat-icon>
-  {{ title }}
+  {{ header }}
 </h4>
 <div class="subsection-collapsible" [class.open]="expanded">
   <div class="subsection-inner">

@@ -1,5 +1,6 @@
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, inject, Input, numberAttribute, OnChanges, Output, ViewChild} from '@angular/core';
 import {AbstractControl, NG_VALIDATORS, NG_VALUE_ACCESSOR, ValidationErrors, Validator} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {AbstractInputComponent} from '../abstract-input';
 import {formatNumberView, normalizeNumberBlur, normalizeNumberEdit, numberValidationMetadata, prospectiveNumberView} from './logic/number-input';
@@ -19,6 +20,7 @@ import {TypedChanges} from '~gol/core/model/typed-change';
 @Component({
   selector: 'gol-number-input',
   standalone: true,
+  imports: [MatTooltipModule],
   templateUrl: './number-input.html',
   styleUrl: './number-input.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

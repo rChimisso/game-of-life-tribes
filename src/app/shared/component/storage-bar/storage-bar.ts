@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {StorageBarSegment} from './model/storage-bar-segment';
 
@@ -11,6 +12,7 @@ import {StorageBarSegment} from './model/storage-bar-segment';
 @Component({
   selector: 'gol-storage-bar',
   standalone: true,
+  imports: [MatTooltipModule],
   templateUrl: './storage-bar.html',
   styleUrl: './storage-bar.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -33,6 +35,15 @@ export class StorageBar {
    */
   @Input()
   public total = 0;
+
+  /**
+   * Tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
 
   /**
    * Returns the percentage of a segment value relative to the total.

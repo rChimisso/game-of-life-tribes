@@ -1,6 +1,7 @@
 import {Component, EventEmitter, Input, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 /**
  * Button.
@@ -11,7 +12,7 @@ import {MatIconModule} from '@angular/material/icon';
 @Component({
   selector: 'gol-button',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule],
+  imports: [MatIconModule, MatButtonModule, MatTooltipModule],
   templateUrl: './button.html',
   styleUrl: './button.scss'
 })
@@ -78,6 +79,15 @@ export class Button {
    */
   @Input()
   public disabled = false;
+
+  /**
+   * Tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
 
   /**
    * Emitter for the clicked event.

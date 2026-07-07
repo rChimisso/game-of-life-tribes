@@ -1,2 +1,2 @@
-<kbd class="shortcut-code">{{ code }}</kbd>
-<span class="shortcut-label">{{ label }}</span>
+<kbd class="shortcut-code" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip">{{ code }}</kbd>
+<span class="shortcut-label" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip">{{ label }}</span>

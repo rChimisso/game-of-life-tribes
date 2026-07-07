@@ -1,29 +1,29 @@
 @switch (variant) {
   @case ("flat") {
-    <button mat-flat-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [type]="type" (click)="clicked.emit()">
+    <button mat-flat-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [type]="type" (click)="clicked.emit()">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("stroked") {
-    <button mat-stroked-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [type]="type" (click)="clicked.emit()">
+    <button mat-stroked-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [type]="type" (click)="clicked.emit()">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("text") {
-    <button mat-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [type]="type" (click)="clicked.emit()">
+    <button mat-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [type]="type" (click)="clicked.emit()">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   }
   @case ("icon") {
-    <button mat-icon-button [attr.aria-label]="label" [attr.data-size]="size" [color]="color" [disabled]="disabled" [type]="type" (click)="clicked.emit()">
+    <button mat-icon-button [attr.aria-label]="label" [attr.data-size]="size" [color]="color" [disabled]="disabled" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [type]="type" (click)="clicked.emit()">
       <mat-icon>{{ icon }}</mat-icon>
     </button>
   }
   @default {
-    <button mat-raised-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [type]="type" (click)="clicked.emit()">
+    <button mat-raised-button [attr.data-size]="size" [color]="color" [disabled]="disabled" [matTooltip]="tooltip" [matTooltipDisabled]="!tooltip" [type]="type" (click)="clicked.emit()">
       <mat-icon [style.display]="icon ? '' : 'none'">{{ icon }}</mat-icon>
       {{ label }}
     </button>

@@ -1,6 +1,7 @@
 import {NgStyle} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output} from '@angular/core';
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {SelectOption, SelectValue} from '../select/model/select';
 
@@ -16,7 +17,7 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Component({
   selector: 'gol-segmented-control',
   standalone: true,
-  imports: [NgStyle],
+  imports: [NgStyle, MatTooltipModule],
   templateUrl: './segmented-control.html',
   styleUrl: './segmented-control.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -23,7 +23,7 @@ export class SubsectionComponent {
    * @type {string}
    */
   @Input({required: true})
-  public title = '';
+  public header = '';
 
   /**
    * Whether the subsection is expanded.

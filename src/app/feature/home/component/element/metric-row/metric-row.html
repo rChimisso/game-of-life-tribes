@@ -1,5 +1,5 @@
-<span class="metric-label" [title]="title || label">{{ label }}</span>
-<span class="metric-value" [title]="title || label">
+<span class="metric-label" [matTooltip]="tooltip || label" [matTooltipDisabled]="!(tooltip || label)">{{ label }}</span>
+<span class="metric-value" [matTooltip]="tooltip || label" [matTooltipDisabled]="!(tooltip || label)">
   @if (disabledText) {
     {{ disabledText }}
   } @else if (value === null || value === undefined) {

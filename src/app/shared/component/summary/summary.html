@@ -1,13 +1,13 @@
 @for (part of displayParts; track $index) {
   @if (part.kind === "text") {
-    <span class="summary-text">{{ part.text }}</span>
+    <span class="summary-text" [matTooltip]="summaryTitle ?? ''" [matTooltipDisabled]="!summaryTitle">{{ part.text }}</span>
   } @else if (part.tribes.length > overflowThreshold) {
-    <span class="summary-overflow" tabindex="0" [attr.aria-label]="summaryOverflowLabel(part.tribes)" [title]="summaryOverflowLabel(part.tribes)">
+    <span class="summary-overflow" tabindex="0" [attr.aria-label]="summaryOverflowLabel(part.tribes)" [matTooltip]="summaryOverflowLabel(part.tribes)" [matTooltipDisabled]="!summaryOverflowLabel(part.tribes)">
       <mat-icon>more_horiz</mat-icon>
     </span>
   } @else {
     @for (tribeId of part.tribes; track $index) {
-      <gol-tribe-swatch size="xs" [color]="tribeColor(tribeId)" [interactive]="false" [title]="tribeId" />
+      <gol-tribe-swatch size="xs" [color]="tribeColor(tribeId)" [interactive]="false" [tooltip]="tribeId" />
     }
   }
 }

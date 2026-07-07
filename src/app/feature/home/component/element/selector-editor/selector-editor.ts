@@ -81,6 +81,15 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   public disabled = false;
 
   /**
+   * Tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
+
+  /**
    * Selector kinds allowed in this editor.
    *
    * @public

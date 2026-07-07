@@ -1,8 +1,8 @@
-<div class="info-labels gol-grid-tiny" [title]="frameInfo.title">
-  <gol-label-value class="gol-cell-6" label="Frame size" [value]="frameInfo.formatted" />
-  <gol-label-value class="gol-cell-6" label="Bytes" [value]="frameInfo.labels.bytes" />
+<div class="info-labels gol-grid-tiny">
+  <gol-label-value class="gol-cell-6" label="Frame size" [tooltip]="frameInfo.title" [value]="frameInfo.formatted" />
+  <gol-label-value class="gol-cell-6" label="Bytes" [tooltip]="frameInfo.title" [value]="frameInfo.labels.bytes" />
 </div>
-<div class="limits-labels gol-grid-tiny" [title]="frameInfo.tooltip">
-  <gol-label-value class="gol-cell-12" label="Max recording size" [type]="frameInfo.overRecordingLimit ? 'warn' : 'info'" [value]="frameInfo.labels.recording" />
-  <gol-label-value class="gol-cell-12" label="Max supported size" [type]="frameInfo.overAllowedLimit ? 'error' : 'info'" [value]="frameInfo.labels.allowed" />
+<div class="limits-labels gol-grid-tiny">
+  <gol-label-value class="gol-cell-12" label="Max recording size" [tooltip]="frameInfo.tooltip" [type]="frameInfo.overRecordingLimit ? 'warn' : 'info'" [value]="frameInfo.labels.recording" />
+  <gol-label-value class="gol-cell-12" label="Max supported size" [tooltip]="frameInfo.tooltip" [type]="frameInfo.overAllowedLimit ? 'error' : 'info'" [value]="frameInfo.labels.allowed" />
 </div>

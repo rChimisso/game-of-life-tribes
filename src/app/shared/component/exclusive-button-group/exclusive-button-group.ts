@@ -2,6 +2,7 @@ import {NgStyle} from '@angular/common';
 import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Output, ViewEncapsulation} from '@angular/core';
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {ExclusiveButtonOption} from './model/exclusive-button-option';
 
@@ -18,7 +19,7 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Component({
   selector: 'gol-exclusive-button-group',
   standalone: true,
-  imports: [MatIconModule, NgStyle],
+  imports: [MatIconModule, MatTooltipModule, NgStyle],
   templateUrl: './exclusive-button-group.html',
   styleUrl: './exclusive-button-group.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

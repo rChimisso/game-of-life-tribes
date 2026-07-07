@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -19,7 +20,12 @@ import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-
 @Component({
   selector: 'gol-speed-section',
   standalone: true,
-  imports: [ReactiveFormsModule, NumberInputComponent, ToggleButtonComponent],
+  imports: [
+    ReactiveFormsModule,
+    MatTooltipModule,
+    NumberInputComponent,
+    ToggleButtonComponent
+  ],
   templateUrl: './speed-section.html',
   styleUrl: './speed-section.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

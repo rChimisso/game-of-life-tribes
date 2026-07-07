@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, In
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -27,6 +28,7 @@ import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
   imports: [
     ReactiveFormsModule,
     MatIconModule,
+    MatTooltipModule,
     NumberInputComponent,
     TribeSwatch,
     ExclusiveButtonGroup

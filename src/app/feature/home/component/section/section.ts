@@ -28,7 +28,7 @@ export class HomeSection extends PersistedPreferencesComponent<HomeSectionPrefer
    * @type {string}
    */
   @Input({required: true})
-  public title = '';
+  public header = '';
 
   /**
    * Section description.

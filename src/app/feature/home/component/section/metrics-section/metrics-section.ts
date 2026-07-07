@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnChanges, OnInit, Output} from '@angular/core';
 import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule} from '@angular/forms';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {MetricRow} from '../../element/metric-row/metric-row';
 
@@ -25,6 +26,7 @@ import {ToggleButtonComponent} from '~gol/shared/component/toggle-button/toggle-
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    MatTooltipModule,
     SubsectionComponent,
     ToggleButtonComponent,
     MetricRow

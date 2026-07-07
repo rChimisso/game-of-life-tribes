@@ -2,6 +2,7 @@ import {ChangeDetectionStrategy, Component, EventEmitter, forwardRef, Input, Out
 import {NG_VALUE_ACCESSOR} from '@angular/forms';
 import {MatFormFieldModule, MatFormFieldAppearance} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {SelectOption, SelectValue} from './model/select';
 import {TribeSwatch} from '../tribe-swatch/tribe-swatch';
@@ -18,7 +19,12 @@ import {CvaComponent} from '~gol/core/abstract/cva-component';
 @Component({
   selector: 'gol-select',
   standalone: true,
-  imports: [MatFormFieldModule, MatSelectModule, TribeSwatch],
+  imports: [
+    MatFormFieldModule,
+    MatSelectModule,
+    MatTooltipModule,
+    TribeSwatch
+  ],
   templateUrl: './select.html',
   styleUrl: './select.scss',
   preserveWhitespaces: false,
@@ -58,6 +64,15 @@ export class SelectComponent extends CvaComponent<SelectValue> {
    */
   @Input()
   public placeholder = '';
+
+  /**
+   * Select tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
 
   /**
    * Select appearance.

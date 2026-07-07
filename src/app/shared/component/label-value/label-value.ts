@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {SeverityLevel} from '~gol/core/model/severity-level';
 
@@ -11,6 +12,7 @@ import {SeverityLevel} from '~gol/core/model/severity-level';
 @Component({
   selector: 'gol-label-value',
   standalone: true,
+  imports: [MatTooltipModule],
   templateUrl: './label-value.html',
   styleUrl: './label-value.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -42,4 +44,13 @@ export class LabelValue {
    */
   @Input()
   public type: SeverityLevel = 'info';
+
+  /**
+   * Tooltip.
+   *
+   * @public
+   * @type {string}
+   */
+  @Input()
+  public tooltip = '';
 }

@@ -1,44 +1,44 @@
-<gol-storage-bar [segments]="storageSegments" [title]="storageBarTooltip" [total]="storageQuotaBytes" />
+<gol-storage-bar [segments]="storageSegments" [tooltip]="storageBarTooltip" [total]="storageQuotaBytes" />
 <form [formGroup]="form" (ngSubmit)="onDownload()">
-  <div class="download-checks" formGroupName="outputs" title="">
+  <div class="download-checks" formGroupName="outputs">
     <gol-checkbox formControlName="saves" label="Saves" size="sm" tooltip="Include first and last snapshots in the download" />
     <gol-checkbox formControlName="metrics" label="Metrics" size="sm" tooltip="Include simulation metrics in the download" />
     <gol-checkbox formControlName="png" label="Frames" size="sm" tooltip="Include PNGs for each frame in the download" />
     <gol-checkbox formControlName="mp4" label="MP4" size="sm" tooltip="Include MP4 video of the simulation in the download" />
   </div>
-  <gol-subsection title="Selection range" [expanded]="selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
+  <gol-subsection header="Selection range" [expanded]="selectionExpanded" (expandedChange)="onSubsectionExpandedChange('selection', $event)">
     <div class="gol-grid-tiny" formGroupName="selection">
-      <gol-label-value class="gol-cell-12 selected-frames" label="Selected frames" title="Selected frames out of total recorded frames" [value]="selectedFrameCount" />
+      <gol-label-value class="gol-cell-12 selected-frames" label="Selected frames" tooltip="Selected frames out of total recorded frames" [value]="selectedFrameCount" />
       <div class="gol-cell-12 gol-grid-tiny">
         <gol-checkbox class="gol-cell-3" formControlName="allFrames" label="All" size="sm" tooltip="Select all recorded frames" />
-        <gol-number-input class="gol-cell-4" formControlName="startFrame" title="Start frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
+        <gol-number-input class="gol-cell-4" formControlName="startFrame" tooltip="Start frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
         <span class="gol-cell-1 range-dash">-</span>
-        <gol-number-input class="gol-cell-4" formControlName="endFrame" title="End frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
+        <gol-number-input class="gol-cell-4" formControlName="endFrame" tooltip="End frame" [decimalDigits]="0" [max]="totalRecordedFrames" [maxIntegerDigits]="recordedFrameIntegerDigits" [min]="1" />
       </div>
       <div class="gol-cell-12 gol-grid-tiny">
         <div class="gol-cell-3"></div>
-        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!startFrameError">{{ startFrameError }}</span>
+        <span class="gol-cell-4 error-message compact-message" [class.empty]="!startFrameError">{{ startFrameError }}</span>
         <div class="gol-cell-1"></div>
-        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!endFrameError">{{ endFrameError }}</span>
+        <span class="gol-cell-4 error-message compact-message" [class.empty]="!endFrameError">{{ endFrameError }}</span>
       </div>
     </div>
   </gol-subsection>
-  <gol-subsection title="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
+  <gol-subsection header="MP4 Settings" [expanded]="mp4SettingsExpanded" (expandedChange)="onSubsectionExpandedChange('mp4', $event)">
     <div class="gol-grid-tiny" formGroupName="mp4Settings">
       <div class="gol-cell-12 gol-grid-tiny mp4-settings-row">
-        <gol-number-input class="gol-cell-3" formControlName="fps" title="MP4 FPS" [decimalDigits]="0" [max]="240" [maxIntegerDigits]="3" [min]="1" />
-        <span class="gol-cell-3 mp4-setting-text" title="MP4 FPS">FPS</span>
-        <gol-number-input class="gol-cell-4" formControlName="bitrateMbps" title="MP4 Bitrate" [decimalDigits]="0" [max]="60" [maxIntegerDigits]="2" [min]="1" />
-        <span class="gol-cell-2 mp4-setting-text" title="MP4 Bitrate">Mbps</span>
+        <gol-number-input class="gol-cell-3" formControlName="fps" tooltip="MP4 FPS" [decimalDigits]="0" [max]="240" [maxIntegerDigits]="3" [min]="1" />
+        <span class="gol-cell-3 mp4-setting-text" matTooltip="MP4 FPS">FPS</span>
+        <gol-number-input class="gol-cell-4" formControlName="bitrateMbps" tooltip="MP4 Bitrate" [decimalDigits]="0" [max]="60" [maxIntegerDigits]="2" [min]="1" />
+        <span class="gol-cell-2 mp4-setting-text" matTooltip="MP4 Bitrate">Mbps</span>
       </div>
       <div class="gol-cell-12 gol-grid-tiny">
-        <span class="gol-cell-3 error-message compact-message" title="" [class.empty]="!fpsError">{{ fpsError }}</span>
+        <span class="gol-cell-3 error-message compact-message" [class.empty]="!fpsError">{{ fpsError }}</span>
         <div class="gol-cell-3"></div>
-        <span class="gol-cell-4 error-message compact-message" title="" [class.empty]="!bitrateError">{{ bitrateError }}</span>
+        <span class="gol-cell-4 error-message compact-message" [class.empty]="!bitrateError">{{ bitrateError }}</span>
       </div>
     </div>
   </gol-subsection>
-  <div class="chunk-mode" title="">
+  <div class="chunk-mode">
     <gol-checkbox formControlName="forceChunkDownload" label="Force chunk download" size="sm" tooltip="Export compressed recording chunks instead of selected outputs" />
     <div class="warning-message collapsible-message" [class.empty]="!downloadEstimateExceedsChunkThreshold" (transitionend)="onChunkModeMessageTransitionEnd($event)">
       <span class="message-content">{{ chunkModeWarning }}</span>

@@ -21,6 +21,212 @@ function stableStringify(value: unknown): string {
 }
 
 /**
+ * Checks whether a numeric draft is a valid neighbor count.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is NeighborCount} `true` if the value is a valid neighbor count.
+ */
+function isNeighborCount(value: number | null | undefined): value is NeighborCount {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 8;
+}
+
+/**
+ * Checks whether a numeric draft is a valid comparison margin.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is number} `true` if the value is a valid margin.
+ */
+function isComparisonMargin(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= -8 && value <= 8;
+}
+
+/**
+ * Checks whether a numeric draft is a valid rule probability.
+ *
+ * @param {number | null | undefined} value draft value.
+ * @returns {value is number} `true` if the value is a valid probability.
+ */
+function isRuleProbability(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= MIN_RULE_PROBABILITY && value <= MAX_RULE_PROBABILITY;
+}
+
+/**
+ * Converts a string list into a non-empty tribe list.
+ *
+ * @param {readonly string[]} tribes tribe IDs.
+ * @returns {[string, ...string[]]} non-empty tribe IDs.
+ */
+function toNonEmptyTribeIds(tribes: readonly string[]): [string, ...string[]] {
+  const [first, ...rest] = tribes;
+  if (first === undefined) {
+    throw new Error('Cannot convert an empty tribe draft to a canonical clause.');
+  }
+  return [first, ...rest];
+}
+
+/**
+ * Converts a valid clause draft into a canonical clause.
+ *
+ * @param {ClauseDraft} clause clause draft.
+ * @returns {Clause<Tribe[]>} canonical clause.
+ */
+function toCanonicalClause(clause: ClauseDraft): Clause<Tribe[]> {
+  let canonical: Clause<Tribe[]>;
+  switch (clause.kind) {
+    case EMPTY_CLAUSE_KIND:
+      canonical = EMPTY_CLAUSE;
+      break;
+    case IS_CLAUSE_KIND:
+      canonical = {
+        kind: IS_CLAUSE_KIND,
+        tribes: toNonEmptyTribeIds(clause.tribes)
+      };
+      break;
+    case COUNT_CLAUSE_KIND: {
+      const [min, max] = clause.interval;
+      if (!isNeighborCount(min) || !isNeighborCount(max)) {
+        throw new Error('Cannot convert an invalid count interval draft to a canonical clause.');
+      }
+      canonical = {
+        kind: COUNT_CLAUSE_KIND,
+        selector: normalizeSelector(clause.selector),
+        interval: [min, max]
+      };
+      break;
+    }
+    case NONE_CLAUSE_KIND:
+      canonical = {
+        kind: NONE_CLAUSE_KIND,
+        selector: normalizeSelector(clause.selector)
+      };
+      break;
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      if (!isNeighborCount(clause.value)) {
+        throw new Error('Cannot convert an invalid count value draft to a canonical clause.');
+      }
+      canonical = {
+        kind: clause.kind,
+        selector: normalizeSelector(clause.selector),
+        value: clause.value
+      };
+      break;
+    case COMPARISON_CLAUSE_KIND: {
+      const margin = clause.margin ?? 0;
+      if (!isComparisonMargin(margin)) {
+        throw new Error('Cannot convert an invalid comparison margin draft to a canonical clause.');
+      }
+      canonical = {
+        kind: COMPARISON_CLAUSE_KIND,
+        left: normalizeCountExpression(clause.left),
+        right: normalizeCountExpression(clause.right),
+        operator: clause.operator,
+        margin
+      };
+      break;
+    }
+    case NOT_CLAUSE_KIND:
+      canonical = {
+        kind: NOT_CLAUSE_KIND,
+        clause: toCanonicalClause(clause.clause)
+      };
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND: {
+      const canonicalClauses = clause.clauses.map(child => toCanonicalClause(child));
+      const [first, second, ...rest] = canonicalClauses;
+      if (first === undefined || second === undefined) {
+        throw new Error('Cannot convert a logical clause draft with fewer than two children.');
+      }
+      canonical = {
+        kind: clause.kind,
+        clauses: [first, second, ...rest]
+      };
+      break;
+    }
+  }
+  return canonical;
+}
+
+/**
+ * Normalizes a clause draft for editor comparison without coercing invalid drafts.
+ *
+ * @param {ClauseDraft} clause clause draft.
+ * @returns {ClauseDraft} comparable clause draft.
+ */
+function normalizeClauseDraftForComparison(clause: ClauseDraft): ClauseDraft {
+  let normalized: ClauseDraft;
+  switch (clause.kind) {
+    case EMPTY_CLAUSE_KIND:
+      normalized = EMPTY_CLAUSE;
+      break;
+    case COUNT_CLAUSE_KIND:
+    case NONE_CLAUSE_KIND:
+    case EXACTLY_CLAUSE_KIND:
+    case MIN_CLAUSE_KIND:
+    case MAX_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        selector: normalizeSelector(clause.selector)
+      };
+      break;
+    case COMPARISON_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        left: normalizeCountExpression(clause.left),
+        right: normalizeCountExpression(clause.right),
+        margin: clause.margin === undefined ? 0 : clause.margin
+      };
+      break;
+    case NOT_CLAUSE_KIND:
+      normalized = {
+        ...clause,
+        clause: normalizeClauseDraftForComparison(clause.clause)
+      };
+      break;
+    case AND_CLAUSE_KIND:
+    case OR_CLAUSE_KIND:
+    case XOR_CLAUSE_KIND: {
+      const normalizedClauses = clause.clauses.map(sub => normalizeClauseDraftForComparison(sub));
+      while (normalizedClauses.length < 2) {
+        normalizedClauses.push(EMPTY_CLAUSE);
+      }
+      normalized = {
+        ...clause,
+        clauses: normalizedClauses
+      };
+      break;
+    }
+    default:
+      normalized = clause;
+      break;
+  }
+  return normalized;
+}
+
+/**
+ * Normalizes a rule draft for editor comparison without persisted numeric coercion.
+ *
+ * @param {RuleDraft} rule rule draft.
+ * @returns {RuleDraft} comparable rule draft.
+ */
+function normalizeRuleDraftForComparison(rule: RuleDraft): RuleDraft {
+  const draft = structuredClone(rule);
+  const {probability} = draft;
+  const normalizedDraft: RuleDraft = {
+    ...draft,
+    muted: !!draft.muted,
+    clause: normalizeClauseDraftForComparison(draft.clause),
+    become: normalizeBecomeExpression(normalizeBecome(draft.become))
+  };
+  delete normalizedDraft.key;
+  normalizedDraft.probability = probability === undefined ? DEFAULT_RULE_PROBABILITY : probability;
+  return normalizedDraft;
+}
+
+/**
  * Normalizes a ruleset random seed into a WebGPU-safe unsigned 32-bit integer.
  *
  * @param {number | undefined} seed seed value to normalize.
@@ -347,136 +553,6 @@ export function toPersistedRule<T extends readonly Tribe[]>(rule: Rule<T>): Rule
 }
 
 /**
- * Checks whether a numeric draft is a valid neighbor count.
- *
- * @param {number | null | undefined} value draft value.
- * @returns {value is NeighborCount} `true` if the value is a valid neighbor count.
- */
-function isNeighborCount(value: number | null | undefined): value is NeighborCount {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 8;
-}
-
-/**
- * Checks whether a numeric draft is a valid comparison margin.
- *
- * @param {number | null | undefined} value draft value.
- * @returns {value is number} `true` if the value is a valid margin.
- */
-function isComparisonMargin(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= -8 && value <= 8;
-}
-
-/**
- * Checks whether a numeric draft is a valid rule probability.
- *
- * @param {number | null | undefined} value draft value.
- * @returns {value is number} `true` if the value is a valid probability.
- */
-function isRuleProbability(value: number | null | undefined): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= MIN_RULE_PROBABILITY && value <= MAX_RULE_PROBABILITY;
-}
-
-/**
- * Converts a string list into a non-empty tribe list.
- *
- * @param {readonly string[]} tribes tribe IDs.
- * @returns {[string, ...string[]]} non-empty tribe IDs.
- */
-function toNonEmptyTribeIds(tribes: readonly string[]): [string, ...string[]] {
-  const [first, ...rest] = tribes;
-  if (first === undefined) {
-    throw new Error('Cannot convert an empty tribe draft to a canonical clause.');
-  }
-  return [first, ...rest];
-}
-
-/**
- * Converts a valid clause draft into a canonical clause.
- *
- * @param {ClauseDraft} clause clause draft.
- * @returns {Clause<Tribe[]>} canonical clause.
- */
-function toCanonicalClause(clause: ClauseDraft): Clause<Tribe[]> {
-  let canonical: Clause<Tribe[]>;
-  switch (clause.kind) {
-    case EMPTY_CLAUSE_KIND:
-      canonical = EMPTY_CLAUSE;
-      break;
-    case IS_CLAUSE_KIND:
-      canonical = {
-        kind: IS_CLAUSE_KIND,
-        tribes: toNonEmptyTribeIds(clause.tribes)
-      };
-      break;
-    case COUNT_CLAUSE_KIND: {
-      const [min, max] = clause.interval;
-      if (!isNeighborCount(min) || !isNeighborCount(max)) {
-        throw new Error('Cannot convert an invalid count interval draft to a canonical clause.');
-      }
-      canonical = {
-        kind: COUNT_CLAUSE_KIND,
-        selector: normalizeSelector(clause.selector),
-        interval: [min, max]
-      };
-      break;
-    }
-    case NONE_CLAUSE_KIND:
-      canonical = {
-        kind: NONE_CLAUSE_KIND,
-        selector: normalizeSelector(clause.selector)
-      };
-      break;
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND:
-      if (!isNeighborCount(clause.value)) {
-        throw new Error('Cannot convert an invalid count value draft to a canonical clause.');
-      }
-      canonical = {
-        kind: clause.kind,
-        selector: normalizeSelector(clause.selector),
-        value: clause.value
-      };
-      break;
-    case COMPARISON_CLAUSE_KIND: {
-      const margin = clause.margin ?? 0;
-      if (!isComparisonMargin(margin)) {
-        throw new Error('Cannot convert an invalid comparison margin draft to a canonical clause.');
-      }
-      canonical = {
-        kind: COMPARISON_CLAUSE_KIND,
-        left: normalizeCountExpression(clause.left),
-        right: normalizeCountExpression(clause.right),
-        operator: clause.operator,
-        margin
-      };
-      break;
-    }
-    case NOT_CLAUSE_KIND:
-      canonical = {
-        kind: NOT_CLAUSE_KIND,
-        clause: toCanonicalClause(clause.clause)
-      };
-      break;
-    case AND_CLAUSE_KIND:
-    case OR_CLAUSE_KIND:
-    case XOR_CLAUSE_KIND: {
-      const canonicalClauses = clause.clauses.map(child => toCanonicalClause(child));
-      const [first, second, ...rest] = canonicalClauses;
-      if (first === undefined || second === undefined) {
-        throw new Error('Cannot convert a logical clause draft with fewer than two children.');
-      }
-      canonical = {
-        kind: clause.kind,
-        clauses: [first, second, ...rest]
-      };
-      break;
-    }
-  }
-  return canonical;
-}
-
-/**
  * Converts a valid rule draft into a persisted canonical rule.
  *
  * @param {RuleDraft} rule rule draft.
@@ -518,82 +594,6 @@ export function clauseSignature<T extends readonly Tribe[]>(clause: Clause<T>): 
  */
 export function ruleSignature<T extends readonly Tribe[]>(rule: Rule<T>): string {
   return stableStringify(toPersistedRule(rule));
-}
-
-/**
- * Normalizes a clause draft for editor comparison without coercing invalid drafts.
- *
- * @param {ClauseDraft} clause clause draft.
- * @returns {ClauseDraft} comparable clause draft.
- */
-function normalizeClauseDraftForComparison(clause: ClauseDraft): ClauseDraft {
-  let normalized: ClauseDraft;
-  switch (clause.kind) {
-    case EMPTY_CLAUSE_KIND:
-      normalized = EMPTY_CLAUSE;
-      break;
-    case COUNT_CLAUSE_KIND:
-    case NONE_CLAUSE_KIND:
-    case EXACTLY_CLAUSE_KIND:
-    case MIN_CLAUSE_KIND:
-    case MAX_CLAUSE_KIND:
-      normalized = {
-        ...clause,
-        selector: normalizeSelector(clause.selector)
-      };
-      break;
-    case COMPARISON_CLAUSE_KIND:
-      normalized = {
-        ...clause,
-        left: normalizeCountExpression(clause.left),
-        right: normalizeCountExpression(clause.right),
-        margin: clause.margin === undefined ? 0 : clause.margin
-      };
-      break;
-    case NOT_CLAUSE_KIND:
-      normalized = {
-        ...clause,
-        clause: normalizeClauseDraftForComparison(clause.clause)
-      };
-      break;
-    case AND_CLAUSE_KIND:
-    case OR_CLAUSE_KIND:
-    case XOR_CLAUSE_KIND: {
-      const normalizedClauses = clause.clauses.map(sub => normalizeClauseDraftForComparison(sub));
-      while (normalizedClauses.length < 2) {
-        normalizedClauses.push(EMPTY_CLAUSE);
-      }
-      normalized = {
-        ...clause,
-        clauses: normalizedClauses
-      };
-      break;
-    }
-    default:
-      normalized = clause;
-      break;
-  }
-  return normalized;
-}
-
-/**
- * Normalizes a rule draft for editor comparison without persisted numeric coercion.
- *
- * @param {RuleDraft} rule rule draft.
- * @returns {RuleDraft} comparable rule draft.
- */
-function normalizeRuleDraftForComparison(rule: RuleDraft): RuleDraft {
-  const draft = structuredClone(rule);
-  const {probability} = draft;
-  const normalizedDraft: RuleDraft = {
-    ...draft,
-    muted: !!draft.muted,
-    clause: normalizeClauseDraftForComparison(draft.clause),
-    become: normalizeBecomeExpression(normalizeBecome(draft.become))
-  };
-  delete normalizedDraft.key;
-  normalizedDraft.probability = probability === undefined ? DEFAULT_RULE_PROBABILITY : probability;
-  return normalizedDraft;
 }
 
 /**

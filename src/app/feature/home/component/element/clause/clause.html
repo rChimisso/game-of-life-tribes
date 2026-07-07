@@ -1,4 +1,4 @@
-<div class="clause-node" [class.invalid-clause]="invalidClause" [style.margin-left.px]="depth > 0 ? 16 : 0" [formGroup]="form">
+<div class="clause-node" [class.invalid-clause]="invalidClause" [formGroup]="form" [style.margin-left.px]="depth > 0 ? 16 : 0">
   <div class="clause-header">
     <gol-select tooltip="Change clause type" [disabled]="disabled" [options]="clauseKindOptions" [value]="clause.kind" (valueChange)="onClauseKindSelected($event)" />
     @if (clause.kind === "and" || clause.kind === "or" || clause.kind === "xor" || clause.kind === "not") {
@@ -25,9 +25,9 @@
     @case ("count") {
       <gol-selector-editor formControlName="selector" [tribes]="tribes" />
       <div class="clause-interval">
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.intervalMin)" [decimalDigits]="0" formControlName="intervalMin" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="intervalMin" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.intervalMin)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         <span>-</span>
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.intervalMax)" [decimalDigits]="0" formControlName="intervalMax" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="intervalMax" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.intervalMax)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
         <span class="interval-label">neighbors</span>
       </div>
     }
@@ -41,21 +41,21 @@
       <gol-selector-editor formControlName="selector" [tribes]="tribes" />
       <div class="clause-interval">
         <span class="interval-label">neighbors =</span>
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" formControlName="value" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="value" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
       </div>
     }
     @case ("min") {
       <gol-selector-editor formControlName="selector" [tribes]="tribes" />
       <div class="clause-interval">
         <span class="interval-label">neighbors &ge;</span>
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" formControlName="value" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="value" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
       </div>
     }
     @case ("max") {
       <gol-selector-editor formControlName="selector" [tribes]="tribes" />
       <div class="clause-interval">
         <span class="interval-label">neighbors &le;</span>
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" formControlName="value" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="value" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.value)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="0" [minIntegerDigits]="1" />
       </div>
     }
     @case ("comparison") {
@@ -64,7 +64,7 @@
         <gol-select [disabled]="disabled" [options]="comparisonOperatorOptions" [value]="form.controls.operator.value" (valueChange)="onOperatorSelected($event)" />
         <gol-selector-editor formControlName="rightSelector" [tribes]="tribes" />
         <span class="interval-label">+</span>
-        <gol-number-input variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.margin)" [decimalDigits]="0" formControlName="margin" [max]="8" [maxIntegerDigits]="1" [min]="-8" [minIntegerDigits]="1" />
+        <gol-number-input formControlName="margin" variant="clause" [class.invalid-field]="isNumberInvalid(form.controls.margin)" [decimalDigits]="0" [max]="8" [maxIntegerDigits]="1" [min]="-8" [minIntegerDigits]="1" />
       </div>
     }
   }
@@ -83,7 +83,7 @@
   @if (clause.kind === "not") {
     <div class="clause-children collapsible" [class.open]="!groupCollapsed">
       <div class="collapsible-inner">
-        <gol-rule-clause [baselineClause]="null" [depth]="depth + 1" formControlName="child" [path]="[]" [tribes]="tribes" (removeSelf)="removeNotChild()" />
+        <gol-rule-clause formControlName="child" [baselineClause]="null" [depth]="depth + 1" [path]="[]" [tribes]="tribes" (removeSelf)="removeNotChild()" />
       </div>
     </div>
   }

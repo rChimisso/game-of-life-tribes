@@ -7,7 +7,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {RulesEditorValue} from './model/rules-editor';
 import {RuleCard} from '../../element/rule-card/rule-card';
 
-import {firstControlError, resetControlInteractionState} from '~gol/core/function/form-control';
+import {firstControlError, numericErrorLimit, resetControlInteractionState} from '~gol/core/function/form-control';
 import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeClauseForEditor, normalizeRandomSeed, normalizeRule, ruleDraftListsEqual, ruleDraftSignature, ruleListsEqual, toPersistedRuleDraft} from '~gol/feature/home/logic/rule-editor';
@@ -224,8 +224,8 @@ export class RulesSection implements OnChanges {
   public get randomSeedError(): string | null {
     return firstControlError(this.form.controls.randomSeed, [
       ['required', 'Required'],
-      ['min', error => `Min ${this.numericErrorLimit(error, 'min', MIN_RANDOM_SEED)}`],
-      ['max', error => `Max ${this.numericErrorLimit(error, 'max', MAX_RANDOM_SEED)}`],
+      ['min', error => `Min ${numericErrorLimit(error, 'min', MIN_RANDOM_SEED)}`],
+      ['max', error => `Max ${numericErrorLimit(error, 'max', MAX_RANDOM_SEED)}`],
       ['decimalDigits', 'Integer']
     ]);
   }
@@ -516,26 +516,6 @@ export class RulesSection implements OnChanges {
    */
   private resetBaselineFromCurrent(): void {
     this.baselineRules.commitCurrent();
-  }
-
-  /**
-   * Reads a numeric validation limit from an Angular validation error.
-   *
-   * @private
-   * @param {unknown} error validation error metadata.
-   * @param {'min' | 'max'} key limit key.
-   * @param {number} fallback fallback limit.
-   * @returns {number} resolved limit.
-   */
-  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
-    let limit = fallback;
-    if (typeof error === 'object' && error !== null && key in error) {
-      const value = (error as Record<'min' | 'max', unknown>)[key];
-      if (typeof value === 'number') {
-        limit = value;
-      }
-    }
-    return limit;
   }
 
   /**

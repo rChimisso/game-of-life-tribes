@@ -52,22 +52,6 @@ export class PreferencesStore {
   }
 
   /**
-   * Saves a top-level preference patch merged over current preferences.
-   *
-   * @public
-   * @param {string} storageKey persisted local storage key.
-   * @param {T} currentPreferences current preferences.
-   * @param {Partial<T>} patch preference patch.
-   * @template {object} T
-   */
-  public savePatch<T extends object>(storageKey: string, currentPreferences: T, patch: Partial<T>): void {
-    this.save(storageKey, {
-      ...currentPreferences,
-      ...patch
-    });
-  }
-
-  /**
    * Whether a parsed storage value can be treated as an object.
    *
    * @private

@@ -62,16 +62,6 @@ export class FormBaselineController<T> {
   }
 
   /**
-   * Gets a cloned baseline value.
-   *
-   * @public
-   * @returns {T} baseline value.
-   */
-  public cloneBaseline(): T {
-    return this.baseline.clone();
-  }
-
-  /**
    * Sets baseline state without writing the editor.
    *
    * @public
@@ -109,7 +99,7 @@ export class FormBaselineController<T> {
    * @public
    */
   public restore(): void {
-    this.write(this.cloneBaseline());
+    this.write(this.baselineValue());
     resetControlInteractionState(this.control);
   }
 }

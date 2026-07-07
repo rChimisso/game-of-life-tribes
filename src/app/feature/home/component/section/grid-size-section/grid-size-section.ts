@@ -5,7 +5,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
-import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
+import {firstControlError, numericErrorLimit, setControlDisabled} from '~gol/core/function/form-control';
 import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
@@ -441,26 +441,7 @@ export class GridSizeSection implements OnChanges, OnInit {
    * @returns {(string | null)} validation message.
    */
   private dimensionError(control: FormControl<number | null>): string | null {
-    return firstControlError(control, [['required', 'Required'], ['min', error => `Min ${this.numericErrorLimit(error, 3)}`], ['decimalDigits', 'Integer']]);
-  }
-
-  /**
-   * Reads a minimum validation limit from an Angular validation error.
-   *
-   * @private
-   * @param {unknown} error validation error metadata.
-   * @param {number} fallback fallback limit.
-   * @returns {number} resolved limit.
-   */
-  private numericErrorLimit(error: unknown, fallback: number): number {
-    let limit = fallback;
-    if (typeof error === 'object' && error !== null && 'min' in error) {
-      const value = (error as Record<'min', unknown>).min;
-      if (typeof value === 'number') {
-        limit = value;
-      }
-    }
-    return limit;
+    return firstControlError(control, [['required', 'Required'], ['min', error => `Min ${numericErrorLimit(error, 'min', 3)}`], ['decimalDigits', 'Integer']]);
   }
 
   /**

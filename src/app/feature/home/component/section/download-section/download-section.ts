@@ -3,7 +3,7 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
-import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
+import {firstControlError, numericErrorLimit, setControlDisabled} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {PreferencesStore} from '~gol/core/service/preferences-store';
@@ -945,8 +945,8 @@ export class DownloadSection implements OnChanges, OnInit {
     if (control.enabled) {
       message = firstControlError(control, [
         ['required', 'Required'],
-        ['min', error => `Min ${this.numericErrorLimit(error, 'min', 1)}`],
-        ['max', error => `Max ${this.numericErrorLimit(error, 'max', this.totalRecordedFrames).toLocaleString()}`],
+        ['min', error => `Min ${numericErrorLimit(error, 'min', 1)}`],
+        ['max', error => `Max ${numericErrorLimit(error, 'max', this.totalRecordedFrames).toLocaleString()}`],
         ['maxIntegerDigits', 'Too many digits']
       ]) ?? '';
     }
@@ -966,33 +966,13 @@ export class DownloadSection implements OnChanges, OnInit {
     if (control.enabled) {
       message = firstControlError(control, [
         ['required', 'Required'],
-        ['min', error => `Min ${this.numericErrorLimit(error, 'min', 1)}`],
-        ['max', error => `Max ${this.numericErrorLimit(error, 'max', max)}`],
+        ['min', error => `Min ${numericErrorLimit(error, 'min', 1)}`],
+        ['max', error => `Max ${numericErrorLimit(error, 'max', max)}`],
         ['decimalDigits', 'Integer'],
         ['maxIntegerDigits', 'Too many digits']
       ]) ?? '';
     }
     return message;
-  }
-
-  /**
-   * Reads a numeric validation limit from an Angular validation error.
-   *
-   * @private
-   * @param {unknown} error validation error metadata.
-   * @param {'min' | 'max'} key limit key.
-   * @param {number} fallback fallback limit.
-   * @returns {number} resolved limit.
-   */
-  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
-    let limit = fallback;
-    if (typeof error === 'object' && error !== null && key in error) {
-      const value = (error as Record<'min' | 'max', unknown>)[key];
-      if (typeof value === 'number') {
-        limit = value;
-      }
-    }
-    return limit;
   }
 
   /**

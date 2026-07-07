@@ -4,7 +4,7 @@ import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
-import {firstControlError, validControlValues} from '~gol/core/function/form-control';
+import {firstControlError, numericErrorLimit, validControlValues} from '~gol/core/function/form-control';
 import {FormType} from '~gol/core/model/form-type';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {MIN_BRUSH_SIZE} from '~gol/feature/home/model/brush-size';
@@ -308,7 +308,7 @@ export class DrawSection implements OnChanges, OnInit {
    * @type {(string | null)}
    */
   public get brushSizeError(): string | null {
-    return this.rangeError(this.form.controls.brushSize, this.minBrushSize, this.normalizedBrushMaxSize);
+    return this.rangeError(this.form.controls.brushSize, this.minBrushSize, this.brushMaxSize);
   }
 
   /**
@@ -322,16 +322,6 @@ export class DrawSection implements OnChanges, OnInit {
   }
 
   /**
-   * Normalized maximum brush size.
-   *
-   * @public
-   * @type {number}
-   */
-  public get normalizedBrushMaxSize(): number {
-    return Math.max(this.minBrushSize, Math.floor(this.brushMaxSize));
-  }
-
-  /**
    * Maximum brush size integer digits.
    *
    * @public
@@ -339,7 +329,7 @@ export class DrawSection implements OnChanges, OnInit {
    * @type {number}
    */
   public get brushSizeIntegerDigits(): number {
-    return this.integerDigits(this.normalizedBrushMaxSize);
+    return this.integerDigits(this.brushMaxSize);
   }
 
   /**
@@ -403,31 +393,11 @@ export class DrawSection implements OnChanges, OnInit {
   private rangeError(control: FormControl<number | null>, min: number, max: number): string | null {
     return firstControlError(control, [
       ['required', 'Required'],
-      ['min', error => `Min ${this.numericErrorLimit(error, 'min', min)}`],
-      ['max', error => `Max ${this.numericErrorLimit(error, 'max', max)}`],
+      ['min', error => `Min ${numericErrorLimit(error, 'min', min)}`],
+      ['max', error => `Max ${numericErrorLimit(error, 'max', max)}`],
       ['decimalDigits', 'Integer'],
       ['maxIntegerDigits', 'Too many digits']
     ]);
-  }
-
-  /**
-   * Reads a numeric validation limit from an Angular validation error.
-   *
-   * @private
-   * @param {unknown} error validation error metadata.
-   * @param {'min' | 'max'} key limit key.
-   * @param {number} fallback fallback limit.
-   * @returns {number} resolved limit.
-   */
-  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
-    let limit = fallback;
-    if (typeof error === 'object' && error !== null && key in error) {
-      const value = (error as Record<'min' | 'max', unknown>)[key];
-      if (typeof value === 'number') {
-        limit = value;
-      }
-    }
-    return limit;
   }
 
   /**

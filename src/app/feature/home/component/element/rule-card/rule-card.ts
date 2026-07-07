@@ -8,7 +8,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {BecomeEditor} from '../become-editor/become-editor';
 import {RuleClause} from '../clause/clause';
 
-import {firstControlError, setControlDisabled} from '~gol/core/function/form-control';
+import {firstControlError, numericErrorLimit, setControlDisabled} from '~gol/core/function/form-control';
 import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeBecome, normalizeRuleProbability, ruleDraftsEqual} from '~gol/feature/home/logic/rule-editor';
@@ -271,8 +271,8 @@ export class RuleCard implements OnChanges, Validator {
   public get probabilityError(): string | null {
     return firstControlError(this.probabilityControl, [
       ['required', 'Required'],
-      ['min', error => `Min ${this.numericErrorLimit(error, 'min', MIN_RULE_PROBABILITY)}`],
-      ['max', error => `Max ${this.numericErrorLimit(error, 'max', MAX_RULE_PROBABILITY)}`],
+      ['min', error => `Min ${numericErrorLimit(error, 'min', MIN_RULE_PROBABILITY)}`],
+      ['max', error => `Max ${numericErrorLimit(error, 'max', MAX_RULE_PROBABILITY)}`],
       ['decimalDigits', 'Max 3 decimals']
     ]);
   }
@@ -573,26 +573,6 @@ export class RuleCard implements OnChanges, Validator {
    */
   private emitRuleState(): void {
     this.cva.emitValidatorChange();
-  }
-
-  /**
-   * Reads a numeric validation limit from an Angular validation error.
-   *
-   * @private
-   * @param {unknown} error validation error metadata.
-   * @param {'min' | 'max'} key limit key.
-   * @param {number} fallback fallback limit.
-   * @returns {number} resolved limit.
-   */
-  private numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
-    let limit = fallback;
-    if (typeof error === 'object' && error !== null && key in error) {
-      const value = (error as Record<'min' | 'max', unknown>)[key];
-      if (typeof value === 'number') {
-        limit = value;
-      }
-    }
-    return limit;
   }
 
   /**

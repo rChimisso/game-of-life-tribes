@@ -59,3 +59,22 @@ export function firstControlError(control: AbstractControl, resolvers: readonly 
   }
   return message;
 }
+
+/**
+ * Reads a numeric validation limit from an Angular validation error.
+ *
+ * @param {unknown} error validation error metadata.
+ * @param {'min' | 'max'} key limit key.
+ * @param {number} fallback fallback limit.
+ * @returns {number} resolved limit.
+ */
+export function numericErrorLimit(error: unknown, key: 'min' | 'max', fallback: number): number {
+  let limit = fallback;
+  if (typeof error === 'object' && error !== null && key in error) {
+    const value = (error as Record<'min' | 'max', unknown>)[key];
+    if (typeof value === 'number') {
+      limit = value;
+    }
+  }
+  return limit;
+}

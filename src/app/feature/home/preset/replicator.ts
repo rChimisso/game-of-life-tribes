@@ -1,4 +1,4 @@
-import {Preset} from './model/preset';
+import {Preset} from '.';
 import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
@@ -31,73 +31,51 @@ export const REPLICATOR_PRESET: Preset = {
           clauses: [
             {
               kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID]
+              tribes: [DEAD_TRIBE_ID, REPLICATOR_TRIBE]
             },
             {
               kind: OR_CLAUSE_KIND,
               clauses: [
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 1,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [REPLICATOR_TRIBE]
+                  },
+                  value: 1
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 3,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [REPLICATOR_TRIBE]
+                  },
+                  value: 3
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 5,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [REPLICATOR_TRIBE]
+                  },
+                  value: 5
                 },
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 7,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [REPLICATOR_TRIBE]
+                  },
+                  value: 7
                 }
               ]
             }
           ]
         },
-        become: {kind: FIXED_BECOME_KIND, tribe: REPLICATOR_TRIBE}
-      },
-      {
-        clause: {
-          kind: AND_CLAUSE_KIND,
-          clauses: [
-            {
-              kind: IS_CLAUSE_KIND,
-              tribes: [REPLICATOR_TRIBE]
-            },
-            {
-              kind: OR_CLAUSE_KIND,
-              clauses: [
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 1,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
-                },
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 3,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
-                },
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 5,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
-                },
-                {
-                  kind: EXACTLY_CLAUSE_KIND,
-                  value: 7,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [REPLICATOR_TRIBE]}
-                }
-              ]
-            }
-          ]
-        },
-        become: {kind: FIXED_BECOME_KIND, tribe: REPLICATOR_TRIBE}
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: REPLICATOR_TRIBE
+        }
       }
     ]
   }

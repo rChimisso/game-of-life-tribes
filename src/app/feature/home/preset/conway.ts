@@ -1,4 +1,4 @@
-import {Preset} from './model/preset';
+import {Preset} from '.';
 import {AND_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
@@ -35,12 +35,18 @@ export const CONWAY_PRESET: Preset = {
             },
             {
               kind: EXACTLY_CLAUSE_KIND,
-              value: 3,
-              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [CONWAY_TRIBE]}
+              selector: {
+                kind: TRIBES_SELECTOR_KIND,
+                tribes: [CONWAY_TRIBE]
+              },
+              value: 3
             }
           ]
         },
-        become: {kind: FIXED_BECOME_KIND, tribe: CONWAY_TRIBE}
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: CONWAY_TRIBE
+        }
       },
       {
         clause: {
@@ -52,12 +58,18 @@ export const CONWAY_PRESET: Preset = {
             },
             {
               kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [CONWAY_TRIBE]}
+              selector: {
+                kind: TRIBES_SELECTOR_KIND,
+                tribes: [CONWAY_TRIBE]
+              },
+              interval: [2, 3]
             }
           ]
         },
-        become: {kind: FIXED_BECOME_KIND, tribe: CONWAY_TRIBE}
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: CONWAY_TRIBE
+        }
       }
     ]
   }

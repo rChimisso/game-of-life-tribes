@@ -3,7 +3,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {requiredGridFormatForStateCount} from '~gol/feature/home/logic/grid-format';
-import {Preset} from '~gol/feature/home/preset/model/preset';
+import {Preset} from '~gol/feature/home/preset';
 
 /**
  * Ruleset preset button.

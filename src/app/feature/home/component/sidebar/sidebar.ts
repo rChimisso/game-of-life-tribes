@@ -12,7 +12,7 @@ import {DEFAULT_SIDEBAR_PREFERENCES, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH, Sideb
 import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
-import {Preset} from '../../preset/model/preset';
+import {Preset} from '../../preset';
 import {DownloadSection} from '../section/download-section/download-section';
 import {DrawSection} from '../section/draw-section/draw-section';
 import {HomeFooter} from '../section/footer/footer';

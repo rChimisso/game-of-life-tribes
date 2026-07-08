@@ -1,4 +1,4 @@
-import {Preset} from './model/preset';
+import {Preset} from '.';
 import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, MIN_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
@@ -38,19 +38,28 @@ export const ANNEAL_PRESET: Preset = {
               clauses: [
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 4,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [ANNEAL_TRIBE]
+                  },
+                  value: 4
                 },
                 {
                   kind: MIN_CLAUSE_KIND,
-                  value: 6,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [ANNEAL_TRIBE]
+                  },
+                  value: 6
                 }
               ]
             }
           ]
         },
-        become: {kind: FIXED_BECOME_KIND, tribe: ANNEAL_TRIBE}
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: ANNEAL_TRIBE
+        }
       },
       {
         clause: {
@@ -65,19 +74,28 @@ export const ANNEAL_PRESET: Preset = {
               clauses: [
                 {
                   kind: EXACTLY_CLAUSE_KIND,
-                  value: 3,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [ANNEAL_TRIBE]
+                  },
+                  value: 3
                 },
                 {
                   kind: MIN_CLAUSE_KIND,
-                  value: 5,
-                  selector: {kind: TRIBES_SELECTOR_KIND, tribes: [ANNEAL_TRIBE]}
+                  selector: {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [ANNEAL_TRIBE]
+                  },
+                  value: 5
                 }
               ]
             }
           ]
         },
-        become: {kind: FIXED_BECOME_KIND, tribe: ANNEAL_TRIBE}
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: ANNEAL_TRIBE
+        }
       }
     ]
   }

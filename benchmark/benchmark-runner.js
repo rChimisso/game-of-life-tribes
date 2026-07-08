@@ -839,9 +839,7 @@
         console.info('[GOLT benchmark] Finished sample', result);
 
         if (!state.stopRequested && result.status !== 'unsupported' && index < plan.length - 1) {
-          const cooldownSeconds = result.status === 'ok'
-            ? Math.max(0, CONFIG.cooldownSeconds - CONFIG.counterSettleSeconds)
-            : CONFIG.cooldownSeconds;
+          const cooldownSeconds = result.status === 'ok' ? Math.max(0, CONFIG.cooldownSeconds - CONFIG.counterSettleSeconds) : CONFIG.cooldownSeconds;
           console.info(`[GOLT benchmark] Cooling down for ${cooldownSeconds}s more`);
           await sleep(cooldownSeconds * 1000);
         }

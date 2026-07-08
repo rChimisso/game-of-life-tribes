@@ -105,19 +105,6 @@ export class PackingSection implements OnChanges {
   public readonly applyPacking = new EventEmitter<BitsPerCell>();
 
   /**
-   * Packing button options.
-   *
-   * @public
-   * @type {readonly ExclusiveButtonOption<BitsPerCell>[]}
-   */
-  public readonly packingButtonOptions: ExclusiveButtonOption<BitsPerCell>[] = SUPPORTED_SIMULATION_BITS_PER_CELL.map(bitsPerCell => ({
-    value: bitsPerCell,
-    tooltip: `${bitsPerCell} bits per cell`,
-    label: `${bitsPerCell}`,
-    disabled: !validatePackingAgainstStateCount(bitsPerCell, this.tribeCount)
-  }));
-
-  /**
    * Pending simulation packing size.
    *
    * @public
@@ -132,6 +119,21 @@ export class PackingSection implements OnChanges {
    * @type {boolean}
    */
   public pendingPackingOverAllowedFrameLimit = false;
+
+  /**
+   * Packing button options.
+   *
+   * @public
+   * @type {readonly ExclusiveButtonOption<BitsPerCell>[]}
+   */
+  public get packingButtonOptions(): readonly ExclusiveButtonOption<BitsPerCell>[] {
+    return SUPPORTED_SIMULATION_BITS_PER_CELL.map(bitsPerCell => ({
+      value: bitsPerCell,
+      tooltip: `${bitsPerCell} bits per cell`,
+      label: `${bitsPerCell}`,
+      disabled: !validatePackingAgainstStateCount(bitsPerCell, this.tribeCount)
+    }));
+  }
 
   /**
    * Whether pending packing differs from the committed packing.

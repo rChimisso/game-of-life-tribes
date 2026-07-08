@@ -1,4 +1,4 @@
-import {Preset} from './model/preset';
+import {Preset} from '.';
 import {COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, SAME_BECOME_KIND} from '../model/rule';
 
 /**
@@ -305,11 +305,11 @@ export const SLIME_MOLD_PRESET: Preset = {
               kind: 'not',
               clause: {
                 kind: 'min',
-                value: 2,
                 selector: {
                   kind: TRIBES_SELECTOR_KIND,
                   tribes: [SLIME_MOLD_BODY_TRIBE, SLIME_MOLD_FRONT_TRIBE]
-                }
+                },
+                value: 2
               }
             }
           ]
@@ -339,11 +339,11 @@ export const SLIME_MOLD_PRESET: Preset = {
             },
             {
               kind: 'min',
-              value: 4,
               selector: {
                 kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
-              }
+              },
+              value: 4
             }
           ]
         },
@@ -371,11 +371,11 @@ export const SLIME_MOLD_PRESET: Preset = {
             },
             {
               kind: 'min',
-              value: 6,
               selector: {
                 kind: TRIBES_SELECTOR_KIND,
                 tribes: [SLIME_MOLD_BODY_TRIBE]
-              }
+              },
+              value: 6
             }
           ]
         },

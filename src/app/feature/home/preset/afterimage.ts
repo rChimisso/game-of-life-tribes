@@ -1,5 +1,4 @@
-import {directRule} from './logic/direct-rule';
-import {Preset} from './model/preset';
+import {directRule, Preset} from '.';
 import {DEAD_TRIBE, AND_CLAUSE_KIND, IS_CLAUSE_KIND, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, COUNT_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND} from '../model/rule';
 
 /**
@@ -66,11 +65,53 @@ const AFTERIMAGE_WISP_TRIBE = 'Wisp';
 const AFTERIMAGE_TRACE_TRIBE = 'Trace';
 
 /**
- * Oldest fading tribe ID.
+ * Ninth fading tribe ID.
  *
  * @type {string}
  */
 const AFTERIMAGE_REMNANT_TRIBE = 'Remnant';
+
+/**
+ * Tenth fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_VEIL_TRIBE = 'Veil';
+
+/**
+ * Eleventh fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_HAZE_TRIBE = 'Haze';
+
+/**
+ * Twelfth fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_DRIFT_TRIBE = 'Drift';
+
+/**
+ * Thirteenth fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_ECHO_TRIBE = 'Echo';
+
+/**
+ * Fourteenth fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_SHADOW_TRIBE = 'Shadow';
+
+/**
+ * Oldest fading tribe ID.
+ *
+ * @type {string}
+ */
+const AFTERIMAGE_HUSK_TRIBE = 'Husk';
 
 /**
  * Afterimage preset.
@@ -85,43 +126,67 @@ export const AFTERIMAGE_PRESET: Preset = {
       DEAD_TRIBE,
       {
         id: AFTERIMAGE_SPARK_TRIBE,
-        color: '00D9FF'
-      },
-      {
-        id: AFTERIMAGE_GLOW_TRIBE,
-        color: '00C3E6'
+        color: '7EF2FF'
       },
       {
         id: AFTERIMAGE_FLASH_TRIBE,
-        color: '00AECC'
+        color: '62E8FA'
+      },
+      {
+        id: AFTERIMAGE_GLOW_TRIBE,
+        color: '48DDF1'
       },
       {
         id: AFTERIMAGE_GLIMMER_TRIBE,
-        color: '0098B3'
+        color: '31D1E8'
       },
       {
         id: AFTERIMAGE_FLICKER_TRIBE,
-        color: '008299'
+        color: '22C3DC'
       },
       {
         id: AFTERIMAGE_SHIMMER_TRIBE,
-        color: '006D80'
+        color: '18B4CE'
       },
       {
         id: AFTERIMAGE_FADE_TRIBE,
-        color: '005766'
+        color: '12A3BD'
       },
       {
         id: AFTERIMAGE_WISP_TRIBE,
-        color: '00414D'
+        color: '0E91AA'
       },
       {
         id: AFTERIMAGE_TRACE_TRIBE,
-        color: '002C33'
+        color: '0B7F96'
       },
       {
         id: AFTERIMAGE_REMNANT_TRIBE,
-        color: '00161A'
+        color: '096C81'
+      },
+      {
+        id: AFTERIMAGE_VEIL_TRIBE,
+        color: '075B6D'
+      },
+      {
+        id: AFTERIMAGE_HAZE_TRIBE,
+        color: '064A59'
+      },
+      {
+        id: AFTERIMAGE_DRIFT_TRIBE,
+        color: '053A46'
+      },
+      {
+        id: AFTERIMAGE_ECHO_TRIBE,
+        color: '042C35'
+      },
+      {
+        id: AFTERIMAGE_SHADOW_TRIBE,
+        color: '031F26'
+      },
+      {
+        id: AFTERIMAGE_HUSK_TRIBE,
+        color: '02151A'
       }
     ],
     rules: [
@@ -140,13 +205,22 @@ export const AFTERIMAGE_PRESET: Preset = {
                 AFTERIMAGE_SHIMMER_TRIBE,
                 AFTERIMAGE_FADE_TRIBE,
                 AFTERIMAGE_WISP_TRIBE,
-                AFTERIMAGE_TRACE_TRIBE
+                AFTERIMAGE_TRACE_TRIBE,
+                AFTERIMAGE_REMNANT_TRIBE,
+                AFTERIMAGE_VEIL_TRIBE,
+                AFTERIMAGE_HAZE_TRIBE,
+                AFTERIMAGE_DRIFT_TRIBE,
+                AFTERIMAGE_ECHO_TRIBE,
+                AFTERIMAGE_SHADOW_TRIBE
               ]
             },
             {
               kind: EXACTLY_CLAUSE_KIND,
-              value: 3,
-              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [AFTERIMAGE_SPARK_TRIBE]}
+              selector: {
+                kind: TRIBES_SELECTOR_KIND,
+                tribes: [AFTERIMAGE_SPARK_TRIBE]
+              },
+              value: 3
             }
           ]
         },
@@ -165,8 +239,11 @@ export const AFTERIMAGE_PRESET: Preset = {
             },
             {
               kind: COUNT_CLAUSE_KIND,
-              interval: [2, 3],
-              selector: {kind: TRIBES_SELECTOR_KIND, tribes: [AFTERIMAGE_SPARK_TRIBE]}
+              selector: {
+                kind: TRIBES_SELECTOR_KIND,
+                tribes: [AFTERIMAGE_SPARK_TRIBE]
+              },
+              interval: [2, 3]
             }
           ]
         },
@@ -175,16 +252,22 @@ export const AFTERIMAGE_PRESET: Preset = {
           tribe: AFTERIMAGE_SPARK_TRIBE
         }
       },
-      directRule(AFTERIMAGE_SPARK_TRIBE, AFTERIMAGE_GLOW_TRIBE),
-      directRule(AFTERIMAGE_GLOW_TRIBE, AFTERIMAGE_FLASH_TRIBE),
-      directRule(AFTERIMAGE_FLASH_TRIBE, AFTERIMAGE_GLIMMER_TRIBE),
+      directRule(AFTERIMAGE_SPARK_TRIBE, AFTERIMAGE_FLASH_TRIBE),
+      directRule(AFTERIMAGE_FLASH_TRIBE, AFTERIMAGE_GLOW_TRIBE),
+      directRule(AFTERIMAGE_GLOW_TRIBE, AFTERIMAGE_GLIMMER_TRIBE),
       directRule(AFTERIMAGE_GLIMMER_TRIBE, AFTERIMAGE_FLICKER_TRIBE),
       directRule(AFTERIMAGE_FLICKER_TRIBE, AFTERIMAGE_SHIMMER_TRIBE),
       directRule(AFTERIMAGE_SHIMMER_TRIBE, AFTERIMAGE_FADE_TRIBE),
       directRule(AFTERIMAGE_FADE_TRIBE, AFTERIMAGE_WISP_TRIBE),
       directRule(AFTERIMAGE_WISP_TRIBE, AFTERIMAGE_TRACE_TRIBE),
       directRule(AFTERIMAGE_TRACE_TRIBE, AFTERIMAGE_REMNANT_TRIBE),
-      directRule(AFTERIMAGE_REMNANT_TRIBE, DEAD_TRIBE_ID)
+      directRule(AFTERIMAGE_REMNANT_TRIBE, AFTERIMAGE_VEIL_TRIBE),
+      directRule(AFTERIMAGE_VEIL_TRIBE, AFTERIMAGE_HAZE_TRIBE),
+      directRule(AFTERIMAGE_HAZE_TRIBE, AFTERIMAGE_DRIFT_TRIBE),
+      directRule(AFTERIMAGE_DRIFT_TRIBE, AFTERIMAGE_ECHO_TRIBE),
+      directRule(AFTERIMAGE_ECHO_TRIBE, AFTERIMAGE_SHADOW_TRIBE),
+      directRule(AFTERIMAGE_SHADOW_TRIBE, AFTERIMAGE_HUSK_TRIBE),
+      directRule(AFTERIMAGE_HUSK_TRIBE, DEAD_TRIBE_ID)
     ]
   }
 };

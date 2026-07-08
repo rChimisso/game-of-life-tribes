@@ -447,17 +447,6 @@ export class RulesSection implements OnChanges {
   }
 
   /**
-   * Gets one rule key.
-   *
-   * @public
-   * @param {number} index rule index.
-   * @returns {string} rule key.
-   */
-  public ruleKey(index: number): string {
-    return this.rules.at(index).value.key ?? `rule-${index}`;
-  }
-
-  /**
    * Synchronizes editable rules from committed rules.
    *
    * @private

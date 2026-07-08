@@ -7,7 +7,7 @@
     </div>
   </div>
   <div cdkDropList cdkDropListOrientation="vertical" class="rules-list" [cdkDropListData]="rules.controls" [class.dragging-list]="draggingRuleIndex !== null" (cdkDropListDropped)="onRuleDropped($event)">
-    @for (ruleControl of rules.controls; track ruleKey(i); let i = $index) {
+    @for (ruleControl of rules.controls; track ruleControl.value.key; let i = $index) {
       <div cdkDrag cdkDragLockAxis="y" cdkDragPlaceholderClass="gol-rule-drag-placeholder" cdkDragPreviewClass="gol-rule-drag-preview" class="rule-list-item" [class.dragging-rule]="draggingRuleIndex === i" (cdkDragEnded)="onRuleDragEnded()" (cdkDragStarted)="onRuleDragStarted(i)">
         <gol-rule-card [baselineRule]="baselineRule(i)" [expanded]="expandedRuleIndex === i" [formControl]="ruleControl" [ruleIndex]="i" [tribes]="tribes" (dragHandlePointerDown)="onRuleDragHandlePointerDown(i)" (duplicateRule)="onDuplicateRule(i)" (removeRule)="onRemoveRule(i)" (toggleExpand)="onToggleRuleExpand(i)" />
       </div>

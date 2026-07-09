@@ -6,3 +6,8 @@
   <gol-label-value class="gol-cell-12" label="Max recording size" [tooltip]="frameInfo.tooltip" [type]="frameInfo.overRecordingLimit ? 'warn' : 'info'" [value]="frameInfo.labels.recording" />
   <gol-label-value class="gol-cell-12" label="Max supported size" [tooltip]="frameInfo.tooltip" [type]="frameInfo.overAllowedLimit ? 'error' : 'info'" [value]="frameInfo.labels.allowed" />
 </div>
+@if (maxLiveTribes !== null) {
+  <div class="max-tribes-label">
+    <span matTooltip="Live tribe capacity for the selected packing.">Max tribes: {{ maxLiveTribes }} + <code>dead</code></span>
+  </div>
+}

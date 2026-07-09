@@ -2,5 +2,5 @@
   <span class="input-label gol-cell-3" matTooltip="Bits used to represent a single cell state">Bits/cell</span>
   <gol-exclusive-button-group class="gol-cell-9" [options]="packingButtonOptions" [selectedValue]="pendingSimulationBitsPerCell" (selectedChange)="onPackingOptionChange($event)" />
 </div>
-<gol-frame-size-limits [frameBytes]="pendingPackingFrameByteSize" [maxBytes]="maxBytes" (overAllowedLimitChange)="pendingPackingOverAllowedFrameLimit = $event" />
+<gol-frame-size-limits [frameBytes]="pendingPackingFrameByteSize" [maxBytes]="maxBytes" [maxLiveTribes]="pendingPackingMaxLiveTribes" (overAllowedLimitChange)="pendingPackingOverAllowedFrameLimit = $event" />
 <gol-button-pair [leftDisabled]="running || downloading || !hasUnappliedPacking || pendingPackingOverAllowedFrameLimit" [rightDisabled]="downloading || !hasUnappliedPacking" (leftClick)="onApplyPacking()" (rightClick)="restorePacking()" />

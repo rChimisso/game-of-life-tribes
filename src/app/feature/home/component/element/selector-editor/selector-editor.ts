@@ -6,7 +6,7 @@ import {TribeSelectorKind} from './model/selector-editor';
 import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
-import {DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
@@ -96,8 +96,15 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    * @public
    * @type {TribeSelectorKind[]}
    */
+  /* eslint-disable indent */
   @Input()
-  public allowedKinds: TribeSelectorKind[] = [TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND];
+  public allowedKinds: TribeSelectorKind[] = [
+    TRIBES_SELECTOR_KIND,
+    SAME_TRIBE_SELECTOR_KIND,
+    DIFFERENT_TRIBE_SELECTOR_KIND,
+    DIFFERENT_IN_TRIBE_SELECTOR_KIND
+  ];
+  /* eslint-enable indent */
 
   /**
    * Compound CVA callback controller.
@@ -131,10 +138,28 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    */
   public get selectedTribes(): string[] {
     let selected: string[] = [];
-    if (this.selector.kind === TRIBES_SELECTOR_KIND) {
+    if (this.usesTribeSubset(this.selector)) {
       selected = [...this.selector.tribes];
     }
     return selected;
+  }
+
+  /**
+   * Maximum selector tribe swatches placed in one row.
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get selectorTribesPerRow(): number {
+    const tribeCount = this.tribes.length;
+    let perRow = Math.max(1, tribeCount);
+    if (tribeCount > 8) {
+      perRow = Math.ceil(tribeCount / 2);
+    } else if (tribeCount > 4) {
+      perRow = 4;
+    }
+    return perRow;
   }
 
   /**
@@ -179,6 +204,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
     let message: string | null = null;
     switch (this.selector.kind) {
       case TRIBES_SELECTOR_KIND:
+      case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
         if (this.selector.tribes.length === 0) {
           message = 'Choose at least one tribe.';
         } else if (this.selector.tribes.some(id => !knownIds.has(id))) {
@@ -267,7 +293,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
    * @param {string} tribeId tribe id to toggle.
    */
   public onToggleTribe(tribeId: string): void {
-    if (!this.disabled && this.selector.kind === TRIBES_SELECTOR_KIND) {
+    if (!this.disabled && this.usesTribeSubset(this.selector)) {
       this.selector = {
         ...this.selector,
         tribes: toggleExplicitTribeSelection(this.selector.tribes, tribeId, this.defaultTribeId())
@@ -299,9 +325,21 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
       [TRIBES_SELECTOR_KIND]: 'Specific tribes',
       [SAME_TRIBE_SELECTOR_KIND]: 'Same',
       [DIFFERENT_TRIBE_SELECTOR_KIND]: 'Different',
+      [DIFFERENT_IN_TRIBE_SELECTOR_KIND]: 'Different in',
       [TIE_SELECTOR_KIND]: 'Tie'
     };
     return labels[kind];
+  }
+
+  /**
+   * Whether a selector has an editable tribe subset.
+   *
+   * @public
+   * @param {TribeSelector<Tribe[]>} selector selector to inspect.
+   * @returns {boolean} whether the selector has tribe swatches.
+   */
+  public usesTribeSubset(selector: TribeSelector<Tribe[]>): selector is Extract<TribeSelector<Tribe[]>, {tribes: [string, ...string[]]}> {
+    return selector.kind === TRIBES_SELECTOR_KIND || selector.kind === DIFFERENT_IN_TRIBE_SELECTOR_KIND;
   }
 
   /**
@@ -326,6 +364,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
     let selector: TribeSelector<Tribe[]>;
     switch (kind) {
       case TRIBES_SELECTOR_KIND:
+      case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
         selector = {
           kind,
           tribes: [this.defaultTribeId()]

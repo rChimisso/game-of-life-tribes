@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {MatTooltipModule} from '@angular/material/tooltip';
 
 import {FrameSizeLimitInfo} from '../model/frame-size-limit';
 
@@ -16,7 +17,7 @@ import {LabelValue} from '~gol/shared/component/label-value/label-value';
 @Component({
   selector: 'gol-frame-size-limits',
   standalone: true,
-  imports: [LabelValue],
+  imports: [LabelValue, MatTooltipModule],
   templateUrl: './frame-size-limits.html',
   styleUrl: './frame-size-limits.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -39,6 +40,15 @@ export class FrameSizeLimits implements OnChanges {
    */
   @Input({required: true})
   public maxBytes = Infinity;
+
+  /**
+   * Maximum live tribes supported by the current packing.
+   *
+   * @public
+   * @type {(number | null)}
+   */
+  @Input()
+  public maxLiveTribes: number | null = null;
 
   /**
    * Emits whether the current pending frame size exceeds supported limits.

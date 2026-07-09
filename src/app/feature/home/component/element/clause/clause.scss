@@ -50,8 +50,7 @@
     .clause-tribes {
       display: flex;
       gap: 3px;
-      flex-wrap: nowrap;
-      min-width: max-content;
+      flex-wrap: wrap;
       padding: 2px 0;
 
       > gol-checkbox {

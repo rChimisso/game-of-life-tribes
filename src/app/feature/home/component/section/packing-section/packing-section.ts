@@ -4,8 +4,8 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {FrameSizeLimits} from '../../element/frame-size-limits/frame-size-limits';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {gridByteSize, gridFormatFromBits, validatePackingAgainstStateCount} from '~gol/feature/home/logic/grid-format';
-import {BitsPerCell, SUPPORTED_SIMULATION_BITS_PER_CELL} from '~gol/feature/home/model/grid-format';
+import {gridByteSize, gridFormatFromBits, maxStateCountForBits, validatePackingAgainstStateCount} from '~gol/feature/home/logic/grid-format';
+import {BitsPerCell, MAX_PACKING_LABEL_LIVE_TRIBES, SUPPORTED_SIMULATION_BITS_PER_CELL} from '~gol/feature/home/model/grid-format';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {ExclusiveButtonGroup} from '~gol/shared/component/exclusive-button-group/exclusive-button-group';
 import {ExclusiveButtonOption} from '~gol/shared/component/exclusive-button-group/model/exclusive-button-option';
@@ -153,6 +153,16 @@ export class PackingSection implements OnChanges {
    */
   public get pendingPackingFrameByteSize(): number {
     return gridByteSize({cols: this.gridCols, rows: this.gridRows}, gridFormatFromBits(this.pendingSimulationBitsPerCell));
+  }
+
+  /**
+   * Live tribe count supported by the pending packing, excluding dead.
+   *
+   * @public
+   * @type {number}
+   */
+  public get pendingPackingMaxLiveTribes(): number {
+    return Math.min(maxStateCountForBits(this.pendingSimulationBitsPerCell) - 1, MAX_PACKING_LABEL_LIVE_TRIBES);
   }
 
   /**

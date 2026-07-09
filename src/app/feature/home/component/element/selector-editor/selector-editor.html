@@ -1,7 +1,7 @@
 <div class="selector-editor" [class.invalid]="isInvalid">
   <gol-select class="selector-kind" [disabled]="disabled" [options]="selectorKindOptions" [tooltip]="tooltip || 'Choose how this tribe set is resolved'" [value]="selector.kind" (valueChange)="onSetSelectorKind($event)" />
-  @if (selector.kind === "tribes") {
-    <div class="selector-tribes">
+  @if (usesTribeSubset(selector)) {
+    <div class="selector-tribes" [style.--tribes-per-row]="selectorTribesPerRow">
       @for (tribe of tribes; track tribe.id) {
         <gol-tribe-swatch size="sm" [color]="tribe.color" [interactive]="!disabled" [selected]="isTribeSelected(tribe.id)" [tooltip]="tribe.id" (clicked)="onToggleTribe(tribe.id)" />
       }

@@ -1,7 +1,10 @@
 import {AFTERIMAGE_PRESET} from './afterimage';
 import {ANNEAL_PRESET} from './anneal';
 import {CONWAY_PRESET} from './conway';
+import {CULTURAL_DRIFT_PRESET} from './cultural-drift';
+import {CYCLIC_DOMINANCE_PRESET} from './cyclic-dominance';
 import {DAY_AND_NIGHT_PRESET} from './day-and-night';
+import {EPIDEMIC_PRESET} from './epidemic';
 import {REPLICATOR_PRESET} from './replicator';
 import {SENESCENCE_PRESET} from './senescence';
 import {SLIME_MOLD_PRESET} from './slime-mold';
@@ -87,6 +90,14 @@ export const PRESETS: readonly Preset[] = [
   ANNEAL_PRESET,
   AFTERIMAGE_PRESET,
   SENESCENCE_PRESET,
-  SLIME_MOLD_PRESET,
-  WILDFIRE_PRESET
+  CYCLIC_DOMINANCE_PRESET,
+  CULTURAL_DRIFT_PRESET,
+  EPIDEMIC_PRESET,
+  WILDFIRE_PRESET,
+  SLIME_MOLD_PRESET
+  // PROTO_LIFE_PRESET,
+  // COLOR_MIXING_PRESET,
+  // RESOURCE_BLOOM_PRESET,
+  // ECOSYSTEM_PRESET,
+  // EVOLUTION_PRESET
 ];

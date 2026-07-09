@@ -4,7 +4,7 @@ import {DispatchPlan2D} from '../model/dispatch-plan';
 import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeRandomSeed, normalizeRuleProbability, normalizeSelector, normalizeSelectorForSignature, probabilityThresholdU32, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Active rule metadata used by shader generation.
@@ -528,14 +528,19 @@ function buildNeighborCountExpr(selector: TribeSelector<readonly Tribe[]>, tribe
     case DIFFERENT_TRIBE_SELECTOR_KIND:
       expression = buildNeighborPredicateCountExpr(neighbor => `${neighbor} != selfTribe`);
       break;
-    case TIE_SELECTOR_KIND:
-      expression = buildNeighborCountExpr(normalized.source, tribes, tribeIndex);
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND: {
+      const ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
+      expression = ids.length === 0 ? '0u' : buildNeighborPredicateCountExpr(neighbor => `(${neighbor} != selfTribe && (${ids.map(id => `${neighbor} == ${id}u`).join(' || ')}))`);
       break;
+    }
     case TRIBES_SELECTOR_KIND: {
       const ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       expression = ids.length === 0 ? '0u' : buildNeighborPredicateCountExpr(neighbor => ids.map(id => `${neighbor} == ${id}u`).join(' || '));
       break;
     }
+    case TIE_SELECTOR_KIND:
+      expression = buildNeighborCountExpr(normalized.source, tribes, tribeIndex);
+      break;
   }
   return expression;
 }
@@ -645,11 +650,11 @@ function boundedExpr(varName: string, delta: number): string {
 /**
  * Resolves the numeric tribe IDs for a tribe selector list.
  *
- * @param {string[]} tribeNames tribe selector names.
+ * @param {readonly string[]} tribeNames tribe selector names.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {number[]} numeric tribe IDs.
  */
-function resolveTribeIds(tribeNames: string[], tribeIndex: ReadonlyMap<string, number>): number[] {
+function resolveTribeIds(tribeNames: readonly string[], tribeIndex: ReadonlyMap<string, number>): number[] {
   const ids: number[] = [];
   for (const name of tribeNames) {
     ids.push(resolveRuleTribeIndex(name, tribeIndex, 'selector'));
@@ -698,6 +703,7 @@ function selectorCandidateIds(selector: TribeSelector<readonly Tribe[]>, tribes:
   let ids: number[];
   switch (normalized.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       break;
     case TIE_SELECTOR_KIND:
@@ -728,14 +734,15 @@ function selectorCandidateEligibilityExpr(selector: TribeSelector<readonly Tribe
     case DIFFERENT_TRIBE_SELECTOR_KIND:
       expression = `selfTribe != ${candidateId}u`;
       break;
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
+      expression = resolveTribeIds(normalized.tribes as string[], tribeIndex).includes(candidateId) ? `selfTribe != ${candidateId}u` : 'false';
+      break;
+    case TRIBES_SELECTOR_KIND:
+      expression = resolveTribeIds(normalized.tribes as string[], tribeIndex).includes(candidateId) ? 'true' : 'false';
+      break;
     case TIE_SELECTOR_KIND:
       expression = selectorCandidateEligibilityExpr(normalized.source, candidateId, tribeIndex);
       break;
-    case TRIBES_SELECTOR_KIND: {
-      const explicit = resolveTribeIds(normalized.tribes as string[], tribeIndex);
-      expression = explicit.includes(candidateId) ? 'true' : 'false';
-      break;
-    }
   }
   return expression;
 }
@@ -837,7 +844,7 @@ function rowRequiresExplicitDead(entry: Readonly<{inputs: readonly TribeSelector
   const deadId = resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex);
   return entry.inputs.some(input => {
     const selector = normalizeSelector(input);
-    return selector.kind === TRIBES_SELECTOR_KIND && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
+    return (selector.kind === TRIBES_SELECTOR_KIND || selector.kind === DIFFERENT_IN_TRIBE_SELECTOR_KIND) && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
   });
 }
 

@@ -255,6 +255,13 @@ export const SAME_TRIBE_SELECTOR_KIND = 'same';
 export const DIFFERENT_TRIBE_SELECTOR_KIND = 'different';
 
 /**
+ * Different tribe within explicit set selector kind.
+ *
+ * @type {"different-in"}
+ */
+export const DIFFERENT_IN_TRIBE_SELECTOR_KIND = 'different-in';
+
+/**
  * Tie selector kind.
  *
  * @type {"tie"}
@@ -376,6 +383,27 @@ export interface DifferentTribeSelector {
 }
 
 /**
+ * Selector that targets neighbors different from the current cell tribe within an explicit set.
+ *
+ * @interface DifferentInTribeSelector<T extends readonly Tribe[]>
+ * @typedef {DifferentInTribeSelector<T extends readonly Tribe[]>}
+ */
+export interface DifferentInTribeSelector<T extends readonly Tribe[]> {
+  /**
+   * Selector type.
+   *
+   * @type {typeof DIFFERENT_IN_TRIBE_SELECTOR_KIND}
+   */
+  kind: typeof DIFFERENT_IN_TRIBE_SELECTOR_KIND;
+  /**
+   * Explicit tribes selected by this selector.
+   *
+   * @type {[TribeId<T>, ...TribeId<T>[]]}
+   */
+  tribes: [TribeId<T>, ...TribeId<T>[]];
+}
+
+/**
  * Selector that targets tied ranked candidates from another selector.
  *
  * @interface TieSelector<T extends readonly Tribe[]>
@@ -401,7 +429,7 @@ export interface TieSelector<T extends readonly Tribe[]> {
  *
  * @typedef {TribeSelector}
  */
-export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | TieSelector<T>;
+export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | DifferentInTribeSelector<T> | TieSelector<T>;
 
 /**
  * Fixed rule outcome.

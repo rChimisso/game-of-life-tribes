@@ -61,6 +61,13 @@ export interface GridFormat extends GridFormatMetadata {
 }
 
 /**
+ * Maximum live tribes addressable by render and metrics state buckets.
+ *
+ * @type {255}
+ */
+export const MAX_PACKING_LABEL_LIVE_TRIBES = 255;
+
+/**
  * Supported simulation packing sizes.
  *
  * @type {readonly BitsPerCell[]}

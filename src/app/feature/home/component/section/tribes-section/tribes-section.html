@@ -9,8 +9,11 @@
       <gol-tribe-entry [adder]="true" [basicColors]="basicColors" [form]="addForm" (add)="onAddTribe()" (cancelAdd)="cancelAddTribe()" />
     } @else {
       <gol-button icon="add" label="Add tribe" tooltip="Add a new tribe" type="button" variant="stroked" (clicked)="startAddTribe()" />
+      @if (tribePackingImpact.message) {
+        <span [class.error-message]="tribePackingImpact.level === 'error'" [class.warning-message]="tribePackingImpact.level === 'warning'" class="tribe-impact-message">{{ tribePackingImpact.message }}</span>
+      }
       @for (message of tribeApplyErrorMessages; track $index) {
-        <span class="error-message tribe-impact-error">{{ message }}</span>
+        <span class="error-message tribe-impact-message">{{ message }}</span>
       }
     }
   </div>

@@ -64,7 +64,7 @@ const SENESCENCE_REMNANT_TRIBE = 'Remnant';
  */
 export const SENESCENCE_PRESET: Preset = {
   name: 'Senescence',
-  description: 'Life where cells age',
+  description: 'Life where cells age and become nutrient',
   ruleset: {
     tribes: [
       DEAD_TRIBE,

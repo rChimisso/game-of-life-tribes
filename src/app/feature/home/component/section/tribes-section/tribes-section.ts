@@ -6,12 +6,13 @@ import {TribeEntry} from '../../element/tribe-entry/tribe-entry';
 import {resetControlInteractionState} from '~gol/core/function/form-control';
 import {FormBaselineController} from '~gol/core/model/form-baseline-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
-import {analyzeTribeApplyImpact} from '~gol/feature/home/logic/tribe-impact';
+import {analyzeTribeApplyImpact, analyzeTribePackingImpact} from '~gol/feature/home/logic/tribe-impact';
 import {GridTopology} from '~gol/feature/home/model/grid';
+import {BitsPerCell} from '~gol/feature/home/model/grid-format';
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, EditableTribe, Rule, TOROIDAL_GRID_TOPOLOGY, Tribe} from '~gol/feature/home/model/rule';
 import {UpdateTribesPayload} from '~gol/feature/home/model/sidebar-event';
 import {TribeFormControls, TribesFormControls, TribeFormValue} from '~gol/feature/home/model/tribe-form';
-import {TribeApplyImpact} from '~gol/feature/home/model/tribe-impact';
+import {TribeApplyImpact, TribePackingImpact} from '~gol/feature/home/model/tribe-impact';
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
 import {Button} from '~gol/shared/component/button/button';
 
@@ -71,6 +72,42 @@ export class TribesSection implements OnChanges {
    */
   @Input({required: true})
   public boundaryTribe = DEAD_TRIBE_ID;
+
+  /**
+   * Current grid columns.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public gridCols = 0;
+
+  /**
+   * Current grid rows.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public gridRows = 0;
+
+  /**
+   * Active simulation packing.
+   *
+   * @public
+   * @type {BitsPerCell}
+   */
+  @Input({required: true})
+  public simulationBitsPerCell: BitsPerCell = 8;
+
+  /**
+   * Maximum allowed frame bytes.
+   *
+   * @public
+   * @type {number}
+   */
+  @Input({required: true})
+  public maxBytes = Infinity;
 
   /**
    * Whether the simulation is running.
@@ -273,6 +310,17 @@ export class TribesSection implements OnChanges {
   }
 
   /**
+   * Impact of applying pending tribe changes on packing.
+   *
+   * @public
+   * @readonly
+   * @type {TribePackingImpact}
+   */
+  public get tribePackingImpact(): TribePackingImpact {
+    return analyzeTribePackingImpact(this.baselineTribes.baselineValue().length, this.currentEditableTribes().length, this.simulationBitsPerCell, {cols: this.gridCols, rows: this.gridRows}, this.maxBytes);
+  }
+
+  /**
    * Whether Apply is disabled.
    *
    * @public
@@ -285,6 +333,7 @@ export class TribesSection implements OnChanges {
       !this.hasUnappliedTribes ||
       this.tribes.length <= 1 ||
       this.tribeApplyBlocked ||
+      this.tribePackingImpact.blocked ||
       this.form.invalid ||
       this.editingKeys.size > 0;
   }

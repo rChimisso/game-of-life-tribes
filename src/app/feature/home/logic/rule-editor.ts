@@ -1,4 +1,4 @@
-import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NeighborCount, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, CountExpression, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, DIFFERENT_IN_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NeighborCount, NONE_CLAUSE_KIND, NormalizedRule, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, RULE_PROBABILITY_INPUT_SCALE, Rule, Ruleset, TIE_SELECTOR_KIND, Tribe, TribeId, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 import {ClauseDraft, RuleDraft} from '../model/rule-draft';
 
 /**
@@ -306,6 +306,7 @@ export function normalizeSelector<T extends readonly Tribe[]>(selector: TribeSel
   let result: TribeSelector<T>;
   switch (normalized.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       result = {
         ...normalized,
         tribes: [...normalized.tribes] as [TribeId<T>, ...TribeId<T>[]]
@@ -360,6 +361,7 @@ export function normalizeSelectorForSignature<T extends readonly Tribe[]>(select
   let normalized: TribeSelector<T>;
   switch (selector.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       normalized = {
         ...selector,
         tribes: [...new Set(selector.tribes)].sort() as [TribeId<T>, ...TribeId<T>[]]

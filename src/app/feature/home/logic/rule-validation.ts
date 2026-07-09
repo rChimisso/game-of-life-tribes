@@ -1,6 +1,6 @@
 import {normalizeCountExpression, normalizeSelector} from './rule-editor';
 
-import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Clause, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DIFFERENT_IN_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, IS_CLAUSE_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, TIE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {ClauseDraft} from '~gol/feature/home/model/rule-draft';
 
 /**
@@ -77,6 +77,7 @@ function isSelectorInvalid(selector: TribeSelector<Tribe[]>, tribes: readonly Tr
   let invalid = false;
   switch (selector.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       invalid = selector.tribes.length === 0 || selector.tribes.some(id => !knownIds.has(id));
       break;
     case TIE_SELECTOR_KIND:

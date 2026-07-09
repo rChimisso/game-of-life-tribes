@@ -2,104 +2,60 @@ import {directRule, Preset, staticRule} from '.';
 import {AND_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MIN_CLAUSE_KIND, NONE_CLAUSE_KIND, NeighborCount, Tribe, Rule} from '../model/rule';
 
 /**
- * Adds a small offset to a neighbor count.
- *
- * @param {NeighborCount} count base count.
- * @param {1 | 2} offset offset to add.
- * @returns {NeighborCount} resulting neighbor count.
- */
-function offsetNeighborCount(count: NeighborCount, offset: 1 | 2): NeighborCount {
-  const next = count + offset;
-  let result: NeighborCount;
-  switch (next) {
-    case 0:
-      result = 0;
-      break;
-    case 1:
-      result = 1;
-      break;
-    case 2:
-      result = 2;
-      break;
-    case 3:
-      result = 3;
-      break;
-    case 4:
-      result = 4;
-      break;
-    case 5:
-      result = 5;
-      break;
-    case 6:
-      result = 6;
-      break;
-    case 7:
-      result = 7;
-      break;
-    case 8:
-      result = 8;
-      break;
-    default:
-      throw new Error(`Invalid neighbor count ${next}`);
-  }
-  return result;
-}
-
-/**
  * Light vegetation tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_LIGHT_VEGETATION_TRIBE = 'Light Green';
+const WILDFIRE_LIGHT_VEGETATION_TRIBE = 'Grass';
 
 /**
  * Medium vegetation tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_MEDIUM_VEGETATION_TRIBE = 'Green';
+const WILDFIRE_MEDIUM_VEGETATION_TRIBE = 'Bush';
 
 /**
  * Dense vegetation tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_DARK_VEGETATION_TRIBE = 'Dark Green';
+const WILDFIRE_DARK_VEGETATION_TRIBE = 'Tree';
 
 /**
  * Ember tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_EMBER_TRIBE = 'Ember';
+const WILDFIRE_EMBER_TRIBE = 'Ember';
 
 /**
  * Fire tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_FIRE_TRIBE = 'Fire';
+const WILDFIRE_FIRE_TRIBE = 'Fire';
 
 /**
  * Blaze tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_BLAZE_TRIBE = 'Blaze';
+const WILDFIRE_BLAZE_TRIBE = 'Blaze';
 
 /**
  * Ash tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_ASH_TRIBE = 'Ash';
+const WILDFIRE_CHAR_TRIBE = 'Char';
 
 /**
  * Rock tribe ID.
  *
  * @type {string}
  */
-export const WILDFIRE_ROCK_TRIBE = 'Rock';
+const WILDFIRE_ROCK_TRIBE = 'Rock';
 
 /**
  * Builds rules for the burning of a vegetation tribe with a given fire resistance.
@@ -109,7 +65,7 @@ export const WILDFIRE_ROCK_TRIBE = 'Rock';
  * @param {NeighborCount} fireResistance minimum number of burning neighbors required for the tribe to catch fire.
  * @returns {Rule<T>[]} transition rules for the burning process.
  */
-export function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: NeighborCount): Rule<T>[] {
+function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResistance: NeighborCount): Rule<T>[] {
   return [
     {
       clause: {
@@ -121,7 +77,7 @@ export function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResist
           },
           {
             kind: MIN_CLAUSE_KIND,
-            value: offsetNeighborCount(fireResistance, 2),
+            value: fireResistance + 2 as NeighborCount,
             selector: {kind: TRIBES_SELECTOR_KIND, tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]}
           }
         ]
@@ -141,7 +97,7 @@ export function burnRules<T extends Tribe[]>(vegetationTribe: string, fireResist
           },
           {
             kind: MIN_CLAUSE_KIND,
-            value: offsetNeighborCount(fireResistance, 1),
+            value: fireResistance + 1 as NeighborCount,
             selector: {kind: TRIBES_SELECTOR_KIND, tribes: [WILDFIRE_EMBER_TRIBE, WILDFIRE_FIRE_TRIBE, WILDFIRE_BLAZE_TRIBE]}
           }
         ]
@@ -210,8 +166,8 @@ export const WILDFIRE_PRESET: Preset = {
         color: 'ff4d00'
       },
       {
-        id: WILDFIRE_ASH_TRIBE,
-        color: '6f6f6f'
+        id: WILDFIRE_CHAR_TRIBE,
+        color: '241000'
       },
       {
         id: WILDFIRE_ROCK_TRIBE,
@@ -221,19 +177,19 @@ export const WILDFIRE_PRESET: Preset = {
     rules: [
       directRule(WILDFIRE_BLAZE_TRIBE, WILDFIRE_FIRE_TRIBE),
       directRule(WILDFIRE_FIRE_TRIBE, WILDFIRE_EMBER_TRIBE),
-      directRule(WILDFIRE_EMBER_TRIBE, WILDFIRE_ASH_TRIBE),
-      staticRule(WILDFIRE_ROCK_TRIBE),
+      directRule(WILDFIRE_EMBER_TRIBE, WILDFIRE_CHAR_TRIBE),
       ...burnRules(WILDFIRE_LIGHT_VEGETATION_TRIBE, 1),
       ...burnRules(WILDFIRE_MEDIUM_VEGETATION_TRIBE, 2),
       ...burnRules(WILDFIRE_DARK_VEGETATION_TRIBE, 3),
-      staticRule(WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE),
+      staticRule(WILDFIRE_LIGHT_VEGETATION_TRIBE, WILDFIRE_MEDIUM_VEGETATION_TRIBE, WILDFIRE_DARK_VEGETATION_TRIBE, WILDFIRE_CHAR_TRIBE, WILDFIRE_ROCK_TRIBE),
       {
+        muted: true,
         clause: {
           kind: AND_CLAUSE_KIND,
           clauses: [
             {
               kind: IS_CLAUSE_KIND,
-              tribes: [DEAD_TRIBE_ID, WILDFIRE_ASH_TRIBE]
+              tribes: [DEAD_TRIBE_ID, WILDFIRE_CHAR_TRIBE]
             },
             {
               kind: NONE_CLAUSE_KIND,

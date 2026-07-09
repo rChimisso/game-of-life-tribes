@@ -1,7 +1,7 @@
 import {normalizeSelector, selectorSignature} from './rule-editor';
 
 import {DIFFERENT_INPUT_VALUE, RANK_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type BecomeValidationIssue, type RankedBecome} from '~gol/feature/home/model/become-validation';
-import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, TRIBES_SELECTOR_KIND} from '~gol/feature/home/model/rule';
+import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, TRIBES_SELECTOR_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Appends a field path segment.
@@ -62,6 +62,9 @@ export function combinationInputValue(input: TribeSelector<Tribe[]>): string {
     case DIFFERENT_TRIBE_SELECTOR_KIND:
       value = DIFFERENT_INPUT_VALUE;
       break;
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
+      value = selectorSignature(selector);
+      break;
     case TIE_SELECTOR_KIND:
       value = RANK_INPUT_VALUE;
       break;
@@ -80,7 +83,7 @@ export function combinationInputValue(input: TribeSelector<Tribe[]>): string {
  * @returns {string[]} selectable tribe IDs.
  */
 export function combinationTribeIds(tribes: readonly Tribe[], ranked: RankedBecome | null): string[] {
-  const allowedIds = ranked?.selector.kind === TRIBES_SELECTOR_KIND ? new Set(ranked.selector.tribes) : null;
+  const allowedIds = ranked?.selector.kind === TRIBES_SELECTOR_KIND || ranked?.selector.kind === DIFFERENT_IN_TRIBE_SELECTOR_KIND ? new Set(ranked.selector.tribes) : null;
   return tribes.filter(tribe => !allowedIds || allowedIds.has(tribe.id) || tribe.id === DEAD_TRIBE_ID).map(tribe => tribe.id);
 }
 
@@ -115,6 +118,7 @@ export function validateSelectorInContext(selector: TribeSelector<Tribe[]>, trib
   const issues: BecomeValidationIssue[] = [];
   switch (selector.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       if (selector.tribes.length === 0) {
         addIssue(issues, childPath(path, 'tribes'), 'Choose at least one tribe.');
       } else if (selector.tribes.some(id => !knownIds.has(id))) {

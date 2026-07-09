@@ -1,6 +1,10 @@
+import {gridByteSize, requiredGridFormatForStateCount, validatePackingAgainstStateCount} from './grid-format';
 import {normalizeBecome, normalizeCountExpression, normalizeRule, normalizeSelector} from './rule-editor';
-import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, EditableTribe, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
-import {TribeApplyImpact, TribeRenamePair} from '../model/tribe-impact';
+import {Grid} from '../model/grid';
+import {BitsPerCell} from '../model/grid-format';
+import {RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
+import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {TribeApplyImpact, TribePackingImpact, TribeRenamePair} from '../model/tribe-impact';
 
 /**
  * Collects every tribe id referenced by the provided rules and clauses.
@@ -97,6 +101,7 @@ function collectClauseSelectorTribeIds(clause: Clause<Tribe[]>, ids: Set<string>
 function collectSelectorTribeIds(selector: TribeSelector<Tribe[]>, ids: Set<string>): void {
   switch (selector.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       for (const id of selector.tribes) {
         ids.add(id);
       }
@@ -202,6 +207,7 @@ function renameClauseSelectorTribes(clause: Clause<Tribe[]>, renameMap: Readonly
 function renameSelectorTribes(selector: TribeSelector<Tribe[]>, renameMap: ReadonlyMap<string, string>): void {
   switch (selector.kind) {
     case TRIBES_SELECTOR_KIND:
+    case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       selector.tribes = selector.tribes.map(id => renameMap.get(id) ?? id) as [string, ...string[]];
       break;
     case TIE_SELECTOR_KIND:
@@ -286,6 +292,50 @@ export function analyzeTribeApplyImpact(committedTribes: readonly EditableTribe[
     blockingRemovedTribeIds: blockedIds,
     blockingBoundaryTribeIds: boundaryBlockedIds
   };
+}
+
+/**
+ * Computes the pending tribe impact on simulation packing.
+ *
+ * @param {number} committedTribeCount Active tribe count including dead.
+ * @param {number} pendingTribeCount Pending tribe count including dead.
+ * @param {BitsPerCell} simulationBitsPerCell Active simulation packing.
+ * @param {Grid} grid Active grid size.
+ * @param {number} maxBytes Maximum supported frame bytes.
+ * @returns {TribePackingImpact} Packing impact details.
+ */
+export function analyzeTribePackingImpact(committedTribeCount: number, pendingTribeCount: number, simulationBitsPerCell: BitsPerCell, grid: Grid, maxBytes: number): TribePackingImpact {
+  const requiredFormat = requiredGridFormatForStateCount(pendingTribeCount);
+  const requiredFrameBytes = gridByteSize(grid, requiredFormat);
+  const maxBytesFinite = Number.isFinite(maxBytes);
+  const recordingMaxBytes = maxBytesFinite ? Math.min(RECORDING_MAX_FRAME_BYTES, maxBytes) : RECORDING_MAX_FRAME_BYTES;
+  let impact: TribePackingImpact = {
+    level: 'none',
+    message: null,
+    blocked: false
+  };
+  if (pendingTribeCount > committedTribeCount && !validatePackingAgainstStateCount(simulationBitsPerCell, pendingTribeCount)) {
+    if (maxBytesFinite && requiredFrameBytes > maxBytes) {
+      impact = {
+        level: 'error',
+        message: `Cannot apply tribes: ${requiredFormat.bitsPerCell}-bit packing is required, but the current grid size exceeds the supported frame size limit.`,
+        blocked: true
+      };
+    } else if (requiredFrameBytes > recordingMaxBytes) {
+      impact = {
+        level: 'warning',
+        message: `Applying these tribes requires ${requiredFormat.bitsPerCell}-bit packing, but the current grid size exceeds the recording frame size limit.`,
+        blocked: false
+      };
+    } else {
+      impact = {
+        level: 'warning',
+        message: `Applying these tribes will increase packing to ${requiredFormat.bitsPerCell} bits per cell.`,
+        blocked: false
+      };
+    }
+  }
+  return impact;
 }
 
 /**

@@ -57,3 +57,37 @@ export interface TribeApplyImpact {
    */
   blockingBoundaryTribeIds: string[];
 }
+
+/**
+ * Severity of pending tribe packing impact.
+ *
+ * @typedef {TribePackingImpactLevel}
+ */
+export type TribePackingImpactLevel = 'none' | 'warning' | 'error';
+
+/**
+ * Result of checking whether pending tribe edits require tighter cell packing.
+ *
+ * @interface TribePackingImpact
+ * @typedef {TribePackingImpact}
+ */
+export interface TribePackingImpact {
+  /**
+   * Message severity.
+   *
+   * @type {TribePackingImpactLevel}
+   */
+  level: TribePackingImpactLevel;
+  /**
+   * User-facing packing impact message.
+   *
+   * @type {(string | null)}
+   */
+  message: string | null;
+  /**
+   * Whether applying the pending tribes must be blocked.
+   *
+   * @type {boolean}
+   */
+  blocked: boolean;
+}

@@ -302,7 +302,9 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled && this.isRankedBecome(this.become)) {
       this.become = {
         ...this.become,
-        selector
+        selector,
+        tie: this.become.tie ? this.syncRankInputSelectors(this.become.tie, selector) : undefined,
+        fallback: this.become.fallback ? this.syncRankInputSelectors(this.become.fallback, selector) : undefined
       };
       this.emitBecomeChange();
     }
@@ -799,6 +801,31 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   }
 
   /**
+   * Synchronizes rank-derived combine inputs with the active ranked selector.
+   *
+   * @private
+   * @param {Become<Tribe[]>} become nested outcome.
+   * @param {TribeSelector<Tribe[]>} sourceSelector active ranked source selector.
+   * @returns {Become<Tribe[]>} synchronized nested outcome.
+   */
+  private syncRankInputSelectors(become: Become<Tribe[]>, sourceSelector: TribeSelector<Tribe[]>): Become<Tribe[]> {
+    let synced: Become<Tribe[]> = become;
+    if (become.kind === COMBINE_BECOME_KIND) {
+      synced = {
+        ...become,
+        strategy: {
+          ...become.strategy,
+          entries: become.strategy.entries.map(entry => ({
+            ...entry,
+            inputs: entry.inputs.map(input => input.kind === TIE_SELECTOR_KIND ? this.rankSelector(sourceSelector) : input)
+          }))
+        }
+      };
+    }
+    return synced;
+  }
+
+  /**
    * Creates the default input for a combination target.
    *
    * @private
@@ -854,7 +881,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (ranked) {
       options.push({
         value: RANK_INPUT_VALUE,
-        label: ranked.kind === MAJORITY_BECOME_KIND ? 'Majority' : 'Minority'
+        label: `Tied ${ranked.kind === MAJORITY_BECOME_KIND ? 'Majority' : 'Minority'}`
       });
     }
     return options;

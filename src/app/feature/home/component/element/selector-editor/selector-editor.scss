@@ -9,15 +9,19 @@
     min-width: max-content;
 
     > .selector-kind {
-      width: 164px;
+      width: 132px;
       flex: 0 0 auto;
     }
 
     > .selector-tribes {
+      --tribes-per-row: 4;
+
       display: flex;
       gap: 3px;
-      flex-wrap: nowrap;
-      min-width: max-content;
+      flex-wrap: wrap;
+      align-items: center;
+      max-width: calc(18px * var(--tribes-per-row) + 3px * (var(--tribes-per-row) - 1));
+      min-width: calc(18px * var(--tribes-per-row) + 3px * (var(--tribes-per-row) - 1));
       padding: 2px 0;
     }
   }

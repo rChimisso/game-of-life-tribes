@@ -39,6 +39,7 @@ import {ParsedGoltState} from './worker/snapshot/model/golt-types';
 
 import {downloadBlob} from '~gol/core/redux/actions';
 import {PreferencesStore} from '~gol/core/service/preferences-store';
+import {SeoService} from '~gol/core/service/seo';
 import {ProgressStatusMode} from '~gol/shared/component/progress-status/model/progress-status';
 
 /**
@@ -653,9 +654,11 @@ export class HomePage implements OnDestroy {
    * @param {MatSnackBar} snackBar snackbar service.
    * @param {Store} store$ store.
    * @param {PreferencesStore} preferencesStore preference storage.
+   * @param {SeoService} seo document metadata service.
    */
-  public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar, private readonly store$: Store, private readonly preferencesStore: PreferencesStore) {
+  public constructor(private readonly cdr: ChangeDetectorRef, private readonly snackBar: MatSnackBar, private readonly store$: Store, private readonly preferencesStore: PreferencesStore, seo: SeoService) {
     console.log('[GOLT] Home page initialized');
+    seo.setDefault();
     this.restorePreferences();
     clearTempOpfsDirectory().catch(error => console.warn('[GOLT] Failed to clear temporary OPFS files on page init:', error));
     document.addEventListener('keydown', ev => this.handleKeydown(ev), {capture: true, signal: this.keydownListenerController.signal});

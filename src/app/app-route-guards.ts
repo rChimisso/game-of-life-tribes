@@ -1,4 +1,5 @@
-import {inject} from '@angular/core';
+import {isPlatformBrowser} from '@angular/common';
+import {inject, PLATFORM_ID} from '@angular/core';
 import {Router, UrlTree} from '@angular/router';
 
 /**
@@ -9,10 +10,13 @@ import {Router, UrlTree} from '@angular/router';
  */
 async function hasWebGpu(): Promise<boolean> {
   let supported = false;
-  try {
-    supported = !!await navigator?.gpu?.requestAdapter?.();
-  } catch (e) {
-    console.warn('WebGPU check failed:', e);
+  const platformId = inject(PLATFORM_ID);
+  if (isPlatformBrowser(platformId)) {
+    try {
+      supported = !!await navigator.gpu?.requestAdapter?.();
+    } catch (e) {
+      console.warn('WebGPU check failed:', e);
+    }
   }
   return supported;
 }

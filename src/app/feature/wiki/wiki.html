@@ -1,0 +1,45 @@
+<header class="wiki-header">
+  <a class="wiki-brand" routerLink="/">Game of Life: Tribes</a>
+  <nav aria-label="Project navigation">
+    <a routerLink="/">Simulation</a>
+    <a href="https://github.com/rChimisso/game-of-life-tribes" rel="noopener noreferrer" target="_blank">Repository</a>
+  </nav>
+</header>
+<details class="wiki-mobile-navigation">
+  <summary>Wiki navigation</summary>
+  <nav aria-label="Wiki navigation">
+    @for (section of navigation; track section.landing.slug) {
+      <section>
+        <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
+        @for (item of section.items; track item.slug) {
+          <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
+        }
+      </section>
+    }
+  </nav>
+</details>
+<div class="wiki-layout">
+  <aside>
+    <nav aria-label="Wiki navigation">
+      @for (section of navigation; track section.landing.slug) {
+        <section>
+          <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
+          @for (item of section.items; track item.slug) {
+            <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
+          }
+        </section>
+      }
+    </nav>
+  </aside>
+  <main>
+    @if (page !== null) {
+      <article class="wiki-markdown" [innerHTML]="html"></article>
+    } @else {
+      <article class="wiki-markdown wiki-not-found">
+        <h1>Wiki page not found</h1>
+        <p>The requested documentation page does not exist or has moved.</p>
+        <a routerLink="/wiki">Return to the Wiki home page</a>
+      </article>
+    }
+  </main>
+</div>

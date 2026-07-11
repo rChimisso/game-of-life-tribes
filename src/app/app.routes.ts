@@ -15,8 +15,15 @@ export const routes: Routes = [
   },
   {
     path: '404',
-    canActivate: [webGpuGuard],
     loadComponent: () => import('~gol/feature/error/error').then(m => m.ErrorPage)
+  },
+  {
+    path: 'wiki',
+    loadComponent: () => import('~gol/feature/wiki/wiki').then(m => m.WikiPage)
+  },
+  {
+    path: 'wiki/:page',
+    loadComponent: () => import('~gol/feature/wiki/wiki').then(m => m.WikiPage)
   },
   {
     path: 'unsupported',
@@ -25,6 +32,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: '404'
+    loadComponent: () => import('~gol/feature/error/error').then(m => m.ErrorPage)
   }
 ];

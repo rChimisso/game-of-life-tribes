@@ -2,6 +2,7 @@ import {Component} from '@angular/core';
 import {Store} from '@ngrx/store';
 
 import {openBlank} from '~gol/core/redux/actions';
+import {SeoService} from '~gol/core/service/seo';
 import {StatusAction} from '~gol/shared/component/status-page/model/status-page-action';
 import {StatusPage} from '~gol/shared/component/status-page/status-page';
 
@@ -48,6 +49,9 @@ export class UnsupportedPage {
    * @constructor
    * @public
    * @param {Store} store$
+   * @param {SeoService} seo document metadata service.
    */
-  public constructor(private readonly store$: Store) {}
+  public constructor(private readonly store$: Store, seo: SeoService) {
+    seo.setNoIndex('WebGPU unsupported', 'This browser or device does not support the WebGPU API required by Game of Life: Tribes.');
+  }
 }

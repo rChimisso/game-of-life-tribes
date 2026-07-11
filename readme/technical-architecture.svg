@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="870" viewBox="0 0 1200 870" role="img" aria-labelledby="title description">
+  <title id="title">Game of Life: Tribes technical architecture</title>
+  <desc id="description">The Angular main thread coordinates worker threads, WebGPU, OPFS storage, and browser downloads.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#8ab4f8"/></marker>
+    <style>
+      .group{fill:#0a0a1e;stroke:#666;stroke-width:2}.box{fill:#101024;stroke:#8ab4f8;stroke-width:2}.edge{fill:none;stroke:#8ab4f8;stroke-width:2;marker-end:url(#arrow)}.title{fill:#e0e0e0;font:600 22px Lexend,Arial,sans-serif}.label{fill:#e0e0e0;font:500 18px Lexend,Arial,sans-serif}.note{fill:#d0d0d0;font:400 13px Lexend,Arial,sans-serif}
+    </style>
+  </defs>
+  <rect width="1200" height="870" fill="#000"/>
+  <rect class="group" x="35" y="35" width="480" height="390" rx="12"/><text class="title" x="60" y="72">Angular main thread</text>
+  <rect class="box" x="85" y="105" width="380" height="65" rx="8"/><text class="label" x="275" y="145" text-anchor="middle">Sidebar controls</text>
+  <rect class="box" x="85" y="225" width="380" height="65" rx="8"/><text class="label" x="275" y="265" text-anchor="middle">Home page orchestration</text>
+  <rect class="box" x="85" y="345" width="380" height="65" rx="8"/><text class="label" x="275" y="385" text-anchor="middle">gol-engine component</text>
+  <rect class="group" x="685" y="35" width="480" height="390" rx="12"/><text class="title" x="710" y="72">Worker threads</text>
+  <rect class="box" x="735" y="135" width="380" height="65" rx="8"/><text class="label" x="925" y="175" text-anchor="middle">Webengine worker</text>
+  <rect class="box" x="735" y="305" width="380" height="65" rx="8"/><text class="label" x="925" y="345" text-anchor="middle">Home-started utility workers</text>
+  <rect class="box" x="80" y="690" width="270" height="75" rx="8"/><text class="label" x="215" y="735" text-anchor="middle">Browser downloads</text>
+  <rect class="box" x="465" y="690" width="270" height="75" rx="8"/><text class="label" x="600" y="735" text-anchor="middle">OPFS storage</text>
+  <rect class="box" x="850" y="690" width="270" height="75" rx="8"/><text class="label" x="985" y="735" text-anchor="middle">WebGPU device</text>
+  <path class="edge" d="M275 170V225"/><text class="note" x="285" y="203">user events</text>
+  <path class="edge" d="M250 225V170"/><text class="note" x="115" y="203">state and inputs</text>
+  <path class="edge" d="M275 290V345"/><text class="note" x="285" y="323">engine commands</text>
+  <path class="edge" d="M465 378C590 378 610 168 735 168"/><text class="note" x="535" y="270">worker protocol</text>
+  <path class="edge" d="M735 185C610 215 590 395 465 395"/><text class="note" x="525" y="340">metrics and status</text>
+  <path class="edge" d="M925 200C925 500 985 500 985 690"/><text class="note" x="945" y="535">simulation and rendering</text>
+  <path class="edge" d="M885 200C835 520 660 500 620 690"/><text class="note" x="700" y="540">recording chunks</text>
+  <path class="edge" d="M465 255C600 255 610 338 735 338"/><text class="note" x="530" y="285">export jobs</text>
+  <path class="edge" d="M735 355C600 410 590 290 465 275"/><text class="note" x="530" y="405">progress and files</text>
+  <path class="edge" d="M925 370C900 560 700 545 640 690"/><text class="note" x="760" y="585">temporary data</text>
+  <path class="edge" d="M220 290C150 500 215 520 215 690"/><text class="note" x="95" y="540">download action</text>
+</svg>

@@ -3,6 +3,7 @@ import {Router} from '@angular/router';
 import {Store} from '@ngrx/store';
 
 import {openIssue} from '~gol/core/redux/actions';
+import {SeoService} from '~gol/core/service/seo';
 import {StatusAction} from '~gol/shared/component/status-page/model/status-page-action';
 import {StatusPage} from '~gol/shared/component/status-page/status-page';
 
@@ -41,7 +42,7 @@ export class ErrorPage {
       id: 'home',
       icon: 'home',
       label: 'Homepage',
-      route: ''
+      route: '/'
     },
     {
       id: 'report',
@@ -59,6 +60,9 @@ export class ErrorPage {
    * @public
    * @param {Store} store$
    * @param {Router} router
+   * @param {SeoService} seo document metadata service.
    */
-  public constructor(private readonly store$: Store, private readonly router: Router) {}
+  public constructor(private readonly store$: Store, private readonly router: Router, seo: SeoService) {
+    seo.setNoIndex('Page not found', 'The requested Game of Life: Tribes page does not exist.');
+  }
 }

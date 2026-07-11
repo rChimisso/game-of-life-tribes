@@ -2,11 +2,12 @@
   "name": "Game of Life: Tribes",
   "short_name": "GoL: Tribes",
   "description": "A superset of the classic Game of Life that adds multiple cell tribes!\nExperiment, learn, and have fun with the provided UI editor!",
+  "id": "/game-of-life-tribes/",
   "theme_color": "#000000",
   "background_color": "#000000",
   "display": "standalone",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/game-of-life-tribes/",
+  "scope": "/game-of-life-tribes/",
   "icons": [
     {
       "src": "favicon/maskable.svg",
@@ -19,6 +20,11 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "favicon/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
     },
     {
       "src": "favicon/favicon.svg",

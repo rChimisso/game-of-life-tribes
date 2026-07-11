@@ -43,7 +43,7 @@ You can edit tribes and rules directly in the app. Add a tribe, give it a color,
 
 > Image slot: close-up of the rule editor with a few tribes and clauses visible.
 
-Very detailed rule syntax, file formats, metrics internals, and export details can be found in the [Wiki](https://github.com/rChimisso/game-of-life-tribes/wiki).
+Very detailed rule syntax, file formats, metrics internals, and export details can be found in the [Wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/).
 
 ## Built-In Presets
 
@@ -142,9 +142,9 @@ pnpm run build # Create the production build
 
 A detailed benchmark write-up is available in the wiki:
 
-- [Hardware, method, and grid coverage](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Hardware-Method-Coverage)
-- [Results](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Results)
-- [Conclusions](https://github.com/rChimisso/game-of-life-tribes/wiki/Benchmark-Conclusions)
+- [Hardware, method, and grid coverage](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage/)
+- [Results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results/)
+- [Conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions/)
 
 The normalized source data is stored in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv). The runs use the **Conway** preset with **Toroidal** topology on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
 

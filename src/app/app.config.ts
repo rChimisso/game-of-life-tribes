@@ -1,7 +1,7 @@
-import {HashLocationStrategy, LocationStrategy} from '@angular/common';
 import {ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection} from '@angular/core';
 import {MAT_RIPPLE_GLOBAL_OPTIONS} from '@angular/material/core';
 import {MAT_TOOLTIP_DEFAULT_OPTIONS} from '@angular/material/tooltip';
+import {provideClientHydration, withEventReplay} from '@angular/platform-browser';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 import {provideRouter, withInMemoryScrolling} from '@angular/router';
 import {provideEffects} from '@ngrx/effects';
@@ -22,6 +22,7 @@ export const appConfig: ApplicationConfig = {
     provideStore(),
     provideEffects(CoreEffects),
     provideAnimationsAsync(),
+    provideClientHydration(withEventReplay()),
     provideRouter(routes, withInMemoryScrolling({scrollPositionRestoration: 'top', anchorScrolling: 'enabled'})),
     {
       provide: MAT_RIPPLE_GLOBAL_OPTIONS,
@@ -39,10 +40,6 @@ export const appConfig: ApplicationConfig = {
         positionAtOrigin: false,
         disableTooltipInteractivity: true
       }
-    },
-    {
-      provide: LocationStrategy,
-      useClass: HashLocationStrategy
     }
   ]
 };

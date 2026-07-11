@@ -1,0 +1,367 @@
+<!DOCTYPE html><html lang="en" data-beasties-container><head>
+    <meta charset="utf-8">
+    <title>Rules | Game of Life: Tribes</title>
+    <base href="/game-of-life-tribes/">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <meta content="The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability rol..." name="description">
+    <meta content="#000000" name="theme-color">
+    <link href="favicon/favicon.svg" rel="icon" sizes="any" type="image/svg+xml">
+    <link href="favicon/favicon.png" rel="icon" sizes="512x512" type="image/png">
+    <link href="favicon/favicon.ico" rel="icon" sizes="48x48" type="image/x-icon">
+    <link href="favicon/apple-touch.png" rel="apple-touch-icon" type="image/png">
+    <link href="site.webmanifest" rel="manifest">
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <style>@font-face{font-family:'Material Icons';font-style:normal;font-weight:400;src:url(https://fonts.gstatic.com/s/materialicons/v145/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2) format('woff2');}.material-icons{font-family:'Material Icons';font-weight:normal;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased;}</style>
+    <style>@font-face{font-family:'Lexend';font-style:normal;font-weight:100 900;font-display:swap;src:url(https://fonts.gstatic.com/s/lexend/v26/wlpwgwvFAVdoq2_v9KQU4Wc.woff2) format('woff2');unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;}@font-face{font-family:'Lexend';font-style:normal;font-weight:100 900;font-display:swap;src:url(https://fonts.gstatic.com/s/lexend/v26/wlpwgwvFAVdoq2_v9aQU4Wc.woff2) format('woff2');unicode-range:U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;}@font-face{font-family:'Lexend';font-style:normal;font-weight:100 900;font-display:swap;src:url(https://fonts.gstatic.com/s/lexend/v26/wlpwgwvFAVdoq2_v-6QU.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}</style>
+  <style>:root{--mdc-layout-grid-margin-desktop: 24px;--mdc-layout-grid-gutter-desktop: 24px;--mdc-layout-grid-column-width-desktop: 72px;--mdc-layout-grid-margin-tablet: 16px;--mdc-layout-grid-gutter-tablet: 16px;--mdc-layout-grid-column-width-tablet: 72px;--mdc-layout-grid-margin-phone: 16px;--mdc-layout-grid-gutter-phone: 16px;--mdc-layout-grid-column-width-phone: 72px}:root{--gol-scrollbar-size: 4px;--gol-scrollbar-thumb: #d0d0d0;--gol-scrollbar-thumb-hover: #ededed}*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--gol-scrollbar-thumb) transparent}*::-webkit-scrollbar{width:var(--gol-scrollbar-size);height:var(--gol-scrollbar-size)}*::-webkit-scrollbar-thumb{background:var(--gol-scrollbar-thumb);border-radius:2px}*::-webkit-scrollbar-thumb:hover{background:var(--gol-scrollbar-thumb-hover)}html{height:100%;min-width:17.75rem}body{min-height:100%;min-width:17.75rem;display:flex;flex-direction:column;background-color:#000}html,body{width:100%;font-family:Lexend,Roboto,Helvetica Neue,sans-serif}p{margin-bottom:1rem}ul{list-style-position:outside}a{color:#68b0f3;text-decoration:none}a:hover{color:#86bfff;text-decoration:none}a:active{color:#95c5ff;text-decoration:none}
+</style><link rel="stylesheet" href="styles-74QWMKBE.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles-74QWMKBE.css"></noscript><style ng-app-id="ng">[_nghost-ng-c2650978074]{display:flex;flex:1}</style><style ng-app-id="ng">@font-face{font-display:block;font-family:KaTeX_AMS;font-style:normal;font-weight:400;src:url("./media/KaTeX_AMS-Regular-U6PRYMIZ.woff2") format("woff2"),url("./media/KaTeX_AMS-Regular-CYEKBG2K.woff") format("woff"),url("./media/KaTeX_AMS-Regular-JKX5W2C4.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:700;src:url("./media/KaTeX_Caligraphic-Bold-5QL5CMTE.woff2") format("woff2"),url("./media/KaTeX_Caligraphic-Bold-WZ3QSGD3.woff") format("woff"),url("./media/KaTeX_Caligraphic-Bold-ZTS3R3HK.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:400;src:url("./media/KaTeX_Caligraphic-Regular-KX5MEWCF.woff2") format("woff2"),url("./media/KaTeX_Caligraphic-Regular-3LKEU76G.woff") format("woff"),url("./media/KaTeX_Caligraphic-Regular-A7XRTZ5Q.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:700;src:url("./media/KaTeX_Fraktur-Bold-2QVFK6NQ.woff2") format("woff2"),url("./media/KaTeX_Fraktur-Bold-T4SWXBMT.woff") format("woff"),url("./media/KaTeX_Fraktur-Bold-WGHVTYOR.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:400;src:url("./media/KaTeX_Fraktur-Regular-2PEIFJSJ.woff2") format("woff2"),url("./media/KaTeX_Fraktur-Regular-PQMHCIK6.woff") format("woff"),url("./media/KaTeX_Fraktur-Regular-5U4OPH2X.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:700;src:url("./media/KaTeX_Main-Bold-YP5VVQRP.woff2") format("woff2"),url("./media/KaTeX_Main-Bold-2GA4IZIN.woff") format("woff"),url("./media/KaTeX_Main-Bold-W5FBVCZM.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:700;src:url("./media/KaTeX_Main-BoldItalic-N4V3DX7S.woff2") format("woff2"),url("./media/KaTeX_Main-BoldItalic-4P4C7HJH.woff") format("woff"),url("./media/KaTeX_Main-BoldItalic-ODMLBJJQ.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:400;src:url("./media/KaTeX_Main-Italic-RELBIK7M.woff2") format("woff2"),url("./media/KaTeX_Main-Italic-SASNQFN2.woff") format("woff"),url("./media/KaTeX_Main-Italic-I43T2HSR.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:400;src:url("./media/KaTeX_Main-Regular-ARRPAO67.woff2") format("woff2"),url("./media/KaTeX_Main-Regular-P5I74A2A.woff") format("woff"),url("./media/KaTeX_Main-Regular-W74P5G27.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:700;src:url("./media/KaTeX_Math-BoldItalic-K4WTGH3J.woff2") format("woff2"),url("./media/KaTeX_Math-BoldItalic-6EBV3DK5.woff") format("woff"),url("./media/KaTeX_Math-BoldItalic-VB447A4D.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:400;src:url("./media/KaTeX_Math-Italic-6KGCHLFN.woff2") format("woff2"),url("./media/KaTeX_Math-Italic-KKK3USB2.woff") format("woff"),url("./media/KaTeX_Math-Italic-SON4MRCA.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_SansSerif;font-style:normal;font-weight:700;src:url("./media/KaTeX_SansSerif-Bold-RRNVJFFW.woff2") format("woff2"),url("./media/KaTeX_SansSerif-Bold-X5M5EMOD.woff") format("woff"),url("./media/KaTeX_SansSerif-Bold-STQ6RXC7.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_SansSerif;font-style:italic;font-weight:400;src:url("./media/KaTeX_SansSerif-Italic-HMPFTM52.woff2") format("woff2"),url("./media/KaTeX_SansSerif-Italic-PSN4QKYX.woff") format("woff"),url("./media/KaTeX_SansSerif-Italic-WTBAZBGY.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_SansSerif;font-style:normal;font-weight:400;src:url("./media/KaTeX_SansSerif-Regular-XIQ62X4E.woff2") format("woff2"),url("./media/KaTeX_SansSerif-Regular-OQCII6EP.woff") format("woff"),url("./media/KaTeX_SansSerif-Regular-2TL3USAE.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Script;font-style:normal;font-weight:400;src:url("./media/KaTeX_Script-Regular-APUWIHLP.woff2") format("woff2"),url("./media/KaTeX_Script-Regular-A5IFOEBS.woff") format("woff"),url("./media/KaTeX_Script-Regular-72OLXYNA.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size1;font-style:normal;font-weight:400;src:url("./media/KaTeX_Size1-Regular-5LRUTBFT.woff2") format("woff2"),url("./media/KaTeX_Size1-Regular-4HRHTS65.woff") format("woff"),url("./media/KaTeX_Size1-Regular-7K6AASVL.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size2;font-style:normal;font-weight:400;src:url("./media/KaTeX_Size2-Regular-LELKET5D.woff2") format("woff2"),url("./media/KaTeX_Size2-Regular-K5ZHAIS6.woff") format("woff"),url("./media/KaTeX_Size2-Regular-222HN3GT.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size3;font-style:normal;font-weight:400;src:url("./media/KaTeX_Size3-Regular-WQRQ47UD.woff2") format("woff2"),url("./media/KaTeX_Size3-Regular-TLFPAHDE.woff") format("woff"),url("./media/KaTeX_Size3-Regular-UFCO6WCA.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Size4;font-style:normal;font-weight:400;src:url("./media/KaTeX_Size4-Regular-CDMV7U5C.woff2") format("woff2"),url("./media/KaTeX_Size4-Regular-PKMWZHNC.woff") format("woff"),url("./media/KaTeX_Size4-Regular-7PGNVPQK.ttf") format("truetype")}@font-face{font-display:block;font-family:KaTeX_Typewriter;font-style:normal;font-weight:400;src:url("./media/KaTeX_Typewriter-Regular-VBYJ4NRC.woff2") format("woff2"),url("./media/KaTeX_Typewriter-Regular-MJMFSK64.woff") format("woff"),url("./media/KaTeX_Typewriter-Regular-3F5K6SQ6.ttf") format("truetype")}.katex{font: 1.21em KaTeX_Main,Times New Roman,serif;line-height:1.2;position:relative;text-indent:0;text-rendering:auto}.katex *{-ms-high-contrast-adjust:none!important;border-color:currentColor}.katex .katex-version:after{content:"0.17.0"}.katex .katex-mathml{border:0;-webkit-clip-path:inset(50%);clip-path:inset(50%);height:1px;overflow:hidden;padding:0;position:absolute;width:1px}.katex .katex-html>.newline{display:block}.katex .base{position:relative;white-space:nowrap;width:-webkit-min-content;width:-moz-min-content;width:min-content}.katex .base,.katex .strut{display:inline-block}.katex .textbf{font-weight:700}.katex .textit{font-style:italic}.katex .textrm{font-family:KaTeX_Main}.katex .textsf{font-family:KaTeX_SansSerif}.katex .texttt{font-family:KaTeX_Typewriter}.katex .mathnormal{font-family:KaTeX_Math;font-style:italic}.katex .mathit{font-family:KaTeX_Main;font-style:italic}.katex .mathrm{font-style:normal}.katex .mathbf{font-family:KaTeX_Main;font-weight:700}.katex .boldsymbol{font-family:KaTeX_Math;font-style:italic;font-weight:700}.katex .amsrm,.katex .mathbb,.katex .textbb{font-family:KaTeX_AMS}.katex .mathcal{font-family:KaTeX_Caligraphic}.katex .mathfrak,.katex .textfrak{font-family:KaTeX_Fraktur}.katex .mathboldfrak,.katex .textboldfrak{font-family:KaTeX_Fraktur;font-weight:700}.katex .mathtt{font-family:KaTeX_Typewriter}.katex .mathscr,.katex .textscr{font-family:KaTeX_Script}.katex .mathsf,.katex .textsf{font-family:KaTeX_SansSerif}.katex .mathboldsf,.katex .textboldsf{font-family:KaTeX_SansSerif;font-weight:700}.katex .mathitsf,.katex .mathsfit,.katex .textitsf{font-family:KaTeX_SansSerif;font-style:italic}.katex .mainrm{font-family:KaTeX_Main;font-style:normal}.katex .vlist-t{border-collapse:collapse;display:inline-table;table-layout:fixed}.katex .vlist-r{display:table-row}.katex .vlist{display:table-cell;position:relative;vertical-align:bottom}.katex .vlist>span{display:block;height:0;position:relative}.katex .vlist>span>span{display:inline-block}.katex .vlist>span>.pstrut{overflow:hidden;width:0}.katex .vlist-t2{margin-right:-2px}.katex .vlist-s{display:table-cell;font-size:1px;min-width:2px;vertical-align:bottom;width:2px}.katex .vbox{align-items:baseline;display:inline-flex;flex-direction:column}.katex .hbox{width:100%}.katex .hbox,.katex .thinbox{display:inline-flex;flex-direction:row}.katex .thinbox{max-width:0;width:0}.katex .msupsub{text-align:left}.katex .mfrac>span>span{text-align:center}.katex .mfrac .frac-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline,.katex .hline,.katex .mfrac .frac-line,.katex .overline .overline-line,.katex .rule,.katex .underline .underline-line{min-height:1px}.katex .mspace{display:inline-block}.katex .smash{display:inline;line-height:0}.katex .clap,.katex .llap,.katex .rlap{position:relative;width:0}.katex .clap>.inner,.katex .llap>.inner,.katex .rlap>.inner{position:absolute}.katex .clap>.fix,.katex .llap>.fix,.katex .rlap>.fix{display:inline-block}.katex .llap>.inner{right:0}.katex .clap>.inner,.katex .rlap>.inner{left:0}.katex .clap>.inner>span{margin-left:-50%;margin-right:50%}.katex .rule{border:0 solid;display:inline-block;position:relative}.katex .hline,.katex .overline .overline-line,.katex .underline .underline-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline{border-bottom-style:dashed;display:inline-block;width:100%}.katex .sqrt>.root{margin-left:.2777777778em;margin-right:-.5555555556em}.katex .fontsize-ensurer.reset-size1.size1,.katex .sizing.reset-size1.size1{font-size:1em}.katex .fontsize-ensurer.reset-size1.size2,.katex .sizing.reset-size1.size2{font-size:1.2em}.katex .fontsize-ensurer.reset-size1.size3,.katex .sizing.reset-size1.size3{font-size:1.4em}.katex .fontsize-ensurer.reset-size1.size4,.katex .sizing.reset-size1.size4{font-size:1.6em}.katex .fontsize-ensurer.reset-size1.size5,.katex .sizing.reset-size1.size5{font-size:1.8em}.katex .fontsize-ensurer.reset-size1.size6,.katex .sizing.reset-size1.size6{font-size:2em}.katex .fontsize-ensurer.reset-size1.size7,.katex .sizing.reset-size1.size7{font-size:2.4em}.katex .fontsize-ensurer.reset-size1.size8,.katex .sizing.reset-size1.size8{font-size:2.88em}.katex .fontsize-ensurer.reset-size1.size9,.katex .sizing.reset-size1.size9{font-size:3.456em}.katex .fontsize-ensurer.reset-size1.size10,.katex .sizing.reset-size1.size10{font-size:4.148em}.katex .fontsize-ensurer.reset-size1.size11,.katex .sizing.reset-size1.size11{font-size:4.976em}.katex .fontsize-ensurer.reset-size2.size1,.katex .sizing.reset-size2.size1{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size2.size2,.katex .sizing.reset-size2.size2{font-size:1em}.katex .fontsize-ensurer.reset-size2.size3,.katex .sizing.reset-size2.size3{font-size:1.1666666667em}.katex .fontsize-ensurer.reset-size2.size4,.katex .sizing.reset-size2.size4{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size2.size5,.katex .sizing.reset-size2.size5{font-size:1.5em}.katex .fontsize-ensurer.reset-size2.size6,.katex .sizing.reset-size2.size6{font-size:1.6666666667em}.katex .fontsize-ensurer.reset-size2.size7,.katex .sizing.reset-size2.size7{font-size:2em}.katex .fontsize-ensurer.reset-size2.size8,.katex .sizing.reset-size2.size8{font-size:2.4em}.katex .fontsize-ensurer.reset-size2.size9,.katex .sizing.reset-size2.size9{font-size:2.88em}.katex .fontsize-ensurer.reset-size2.size10,.katex .sizing.reset-size2.size10{font-size:3.4566666667em}.katex .fontsize-ensurer.reset-size2.size11,.katex .sizing.reset-size2.size11{font-size:4.1466666667em}.katex .fontsize-ensurer.reset-size3.size1,.katex .sizing.reset-size3.size1{font-size:.7142857143em}.katex .fontsize-ensurer.reset-size3.size2,.katex .sizing.reset-size3.size2{font-size:.8571428571em}.katex .fontsize-ensurer.reset-size3.size3,.katex .sizing.reset-size3.size3{font-size:1em}.katex .fontsize-ensurer.reset-size3.size4,.katex .sizing.reset-size3.size4{font-size:1.1428571429em}.katex .fontsize-ensurer.reset-size3.size5,.katex .sizing.reset-size3.size5{font-size:1.2857142857em}.katex .fontsize-ensurer.reset-size3.size6,.katex .sizing.reset-size3.size6{font-size:1.4285714286em}.katex .fontsize-ensurer.reset-size3.size7,.katex .sizing.reset-size3.size7{font-size:1.7142857143em}.katex .fontsize-ensurer.reset-size3.size8,.katex .sizing.reset-size3.size8{font-size:2.0571428571em}.katex .fontsize-ensurer.reset-size3.size9,.katex .sizing.reset-size3.size9{font-size:2.4685714286em}.katex .fontsize-ensurer.reset-size3.size10,.katex .sizing.reset-size3.size10{font-size:2.9628571429em}.katex .fontsize-ensurer.reset-size3.size11,.katex .sizing.reset-size3.size11{font-size:3.5542857143em}.katex .fontsize-ensurer.reset-size4.size1,.katex .sizing.reset-size4.size1{font-size:.625em}.katex .fontsize-ensurer.reset-size4.size2,.katex .sizing.reset-size4.size2{font-size:.75em}.katex .fontsize-ensurer.reset-size4.size3,.katex .sizing.reset-size4.size3{font-size:.875em}.katex .fontsize-ensurer.reset-size4.size4,.katex .sizing.reset-size4.size4{font-size:1em}.katex .fontsize-ensurer.reset-size4.size5,.katex .sizing.reset-size4.size5{font-size:1.125em}.katex .fontsize-ensurer.reset-size4.size6,.katex .sizing.reset-size4.size6{font-size:1.25em}.katex .fontsize-ensurer.reset-size4.size7,.katex .sizing.reset-size4.size7{font-size:1.5em}.katex .fontsize-ensurer.reset-size4.size8,.katex .sizing.reset-size4.size8{font-size:1.8em}.katex .fontsize-ensurer.reset-size4.size9,.katex .sizing.reset-size4.size9{font-size:2.16em}.katex .fontsize-ensurer.reset-size4.size10,.katex .sizing.reset-size4.size10{font-size:2.5925em}.katex .fontsize-ensurer.reset-size4.size11,.katex .sizing.reset-size4.size11{font-size:3.11em}.katex .fontsize-ensurer.reset-size5.size1,.katex .sizing.reset-size5.size1{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size5.size2,.katex .sizing.reset-size5.size2{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size5.size3,.katex .sizing.reset-size5.size3{font-size:.7777777778em}.katex .fontsize-ensurer.reset-size5.size4,.katex .sizing.reset-size5.size4{font-size:.8888888889em}.katex .fontsize-ensurer.reset-size5.size5,.katex .sizing.reset-size5.size5{font-size:1em}.katex .fontsize-ensurer.reset-size5.size6,.katex .sizing.reset-size5.size6{font-size:1.1111111111em}.katex .fontsize-ensurer.reset-size5.size7,.katex .sizing.reset-size5.size7{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size5.size8,.katex .sizing.reset-size5.size8{font-size:1.6em}.katex .fontsize-ensurer.reset-size5.size9,.katex .sizing.reset-size5.size9{font-size:1.92em}.katex .fontsize-ensurer.reset-size5.size10,.katex .sizing.reset-size5.size10{font-size:2.3044444444em}.katex .fontsize-ensurer.reset-size5.size11,.katex .sizing.reset-size5.size11{font-size:2.7644444444em}.katex .fontsize-ensurer.reset-size6.size1,.katex .sizing.reset-size6.size1{font-size:.5em}.katex .fontsize-ensurer.reset-size6.size2,.katex .sizing.reset-size6.size2{font-size:.6em}.katex .fontsize-ensurer.reset-size6.size3,.katex .sizing.reset-size6.size3{font-size:.7em}.katex .fontsize-ensurer.reset-size6.size4,.katex .sizing.reset-size6.size4{font-size:.8em}.katex .fontsize-ensurer.reset-size6.size5,.katex .sizing.reset-size6.size5{font-size:.9em}.katex .fontsize-ensurer.reset-size6.size6,.katex .sizing.reset-size6.size6{font-size:1em}.katex .fontsize-ensurer.reset-size6.size7,.katex .sizing.reset-size6.size7{font-size:1.2em}.katex .fontsize-ensurer.reset-size6.size8,.katex .sizing.reset-size6.size8{font-size:1.44em}.katex .fontsize-ensurer.reset-size6.size9,.katex .sizing.reset-size6.size9{font-size:1.728em}.katex .fontsize-ensurer.reset-size6.size10,.katex .sizing.reset-size6.size10{font-size:2.074em}.katex .fontsize-ensurer.reset-size6.size11,.katex .sizing.reset-size6.size11{font-size:2.488em}.katex .fontsize-ensurer.reset-size7.size1,.katex .sizing.reset-size7.size1{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size7.size2,.katex .sizing.reset-size7.size2{font-size:.5em}.katex .fontsize-ensurer.reset-size7.size3,.katex .sizing.reset-size7.size3{font-size:.5833333333em}.katex .fontsize-ensurer.reset-size7.size4,.katex .sizing.reset-size7.size4{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size7.size5,.katex .sizing.reset-size7.size5{font-size:.75em}.katex .fontsize-ensurer.reset-size7.size6,.katex .sizing.reset-size7.size6{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size7.size7,.katex .sizing.reset-size7.size7{font-size:1em}.katex .fontsize-ensurer.reset-size7.size8,.katex .sizing.reset-size7.size8{font-size:1.2em}.katex .fontsize-ensurer.reset-size7.size9,.katex .sizing.reset-size7.size9{font-size:1.44em}.katex .fontsize-ensurer.reset-size7.size10,.katex .sizing.reset-size7.size10{font-size:1.7283333333em}.katex .fontsize-ensurer.reset-size7.size11,.katex .sizing.reset-size7.size11{font-size:2.0733333333em}.katex .fontsize-ensurer.reset-size8.size1,.katex .sizing.reset-size8.size1{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size8.size2,.katex .sizing.reset-size8.size2{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size8.size3,.katex .sizing.reset-size8.size3{font-size:.4861111111em}.katex .fontsize-ensurer.reset-size8.size4,.katex .sizing.reset-size8.size4{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size8.size5,.katex .sizing.reset-size8.size5{font-size:.625em}.katex .fontsize-ensurer.reset-size8.size6,.katex .sizing.reset-size8.size6{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size8.size7,.katex .sizing.reset-size8.size7{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size8.size8,.katex .sizing.reset-size8.size8{font-size:1em}.katex .fontsize-ensurer.reset-size8.size9,.katex .sizing.reset-size8.size9{font-size:1.2em}.katex .fontsize-ensurer.reset-size8.size10,.katex .sizing.reset-size8.size10{font-size:1.4402777778em}.katex .fontsize-ensurer.reset-size8.size11,.katex .sizing.reset-size8.size11{font-size:1.7277777778em}.katex .fontsize-ensurer.reset-size9.size1,.katex .sizing.reset-size9.size1{font-size:.2893518519em}.katex .fontsize-ensurer.reset-size9.size2,.katex .sizing.reset-size9.size2{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size9.size3,.katex .sizing.reset-size9.size3{font-size:.4050925926em}.katex .fontsize-ensurer.reset-size9.size4,.katex .sizing.reset-size9.size4{font-size:.462962963em}.katex .fontsize-ensurer.reset-size9.size5,.katex .sizing.reset-size9.size5{font-size:.5208333333em}.katex .fontsize-ensurer.reset-size9.size6,.katex .sizing.reset-size9.size6{font-size:.5787037037em}.katex .fontsize-ensurer.reset-size9.size7,.katex .sizing.reset-size9.size7{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size9.size8,.katex .sizing.reset-size9.size8{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size9.size9,.katex .sizing.reset-size9.size9{font-size:1em}.katex .fontsize-ensurer.reset-size9.size10,.katex .sizing.reset-size9.size10{font-size:1.2002314815em}.katex .fontsize-ensurer.reset-size9.size11,.katex .sizing.reset-size9.size11{font-size:1.4398148148em}.katex .fontsize-ensurer.reset-size10.size1,.katex .sizing.reset-size10.size1{font-size:.2410800386em}.katex .fontsize-ensurer.reset-size10.size2,.katex .sizing.reset-size10.size2{font-size:.2892960463em}.katex .fontsize-ensurer.reset-size10.size3,.katex .sizing.reset-size10.size3{font-size:.337512054em}.katex .fontsize-ensurer.reset-size10.size4,.katex .sizing.reset-size10.size4{font-size:.3857280617em}.katex .fontsize-ensurer.reset-size10.size5,.katex .sizing.reset-size10.size5{font-size:.4339440694em}.katex .fontsize-ensurer.reset-size10.size6,.katex .sizing.reset-size10.size6{font-size:.4821600771em}.katex .fontsize-ensurer.reset-size10.size7,.katex .sizing.reset-size10.size7{font-size:.5785920926em}.katex .fontsize-ensurer.reset-size10.size8,.katex .sizing.reset-size10.size8{font-size:.6943105111em}.katex .fontsize-ensurer.reset-size10.size9,.katex .sizing.reset-size10.size9{font-size:.8331726133em}.katex .fontsize-ensurer.reset-size10.size10,.katex .sizing.reset-size10.size10{font-size:1em}.katex .fontsize-ensurer.reset-size10.size11,.katex .sizing.reset-size10.size11{font-size:1.1996142719em}.katex .fontsize-ensurer.reset-size11.size1,.katex .sizing.reset-size11.size1{font-size:.2009646302em}.katex .fontsize-ensurer.reset-size11.size2,.katex .sizing.reset-size11.size2{font-size:.2411575563em}.katex .fontsize-ensurer.reset-size11.size3,.katex .sizing.reset-size11.size3{font-size:.2813504823em}.katex .fontsize-ensurer.reset-size11.size4,.katex .sizing.reset-size11.size4{font-size:.3215434084em}.katex .fontsize-ensurer.reset-size11.size5,.katex .sizing.reset-size11.size5{font-size:.3617363344em}.katex .fontsize-ensurer.reset-size11.size6,.katex .sizing.reset-size11.size6{font-size:.4019292605em}.katex .fontsize-ensurer.reset-size11.size7,.katex .sizing.reset-size11.size7{font-size:.4823151125em}.katex .fontsize-ensurer.reset-size11.size8,.katex .sizing.reset-size11.size8{font-size:.578778135em}.katex .fontsize-ensurer.reset-size11.size9,.katex .sizing.reset-size11.size9{font-size:.6945337621em}.katex .fontsize-ensurer.reset-size11.size10,.katex .sizing.reset-size11.size10{font-size:.8336012862em}.katex .fontsize-ensurer.reset-size11.size11,.katex .sizing.reset-size11.size11{font-size:1em}.katex .delimsizing.size1{font-family:KaTeX_Size1}.katex .delimsizing.size2{font-family:KaTeX_Size2}.katex .delimsizing.size3{font-family:KaTeX_Size3}.katex .delimsizing.size4{font-family:KaTeX_Size4}.katex .delimsizing.mult .delim-size1>span{font-family:KaTeX_Size1}.katex .delimsizing.mult .delim-size4>span{font-family:KaTeX_Size4}.katex .nulldelimiter{display:inline-block;width:.12em}.katex .delimcenter,.katex .op-symbol{position:relative}.katex .op-symbol.small-op{font-family:KaTeX_Size1}.katex .op-symbol.large-op{font-family:KaTeX_Size2}.katex .accent>.vlist-t,.katex .op-limits>.vlist-t{text-align:center}.katex .accent .accent-body{position:relative}.katex .accent .accent-body:not(.accent-full){width:0}.katex .overlay{display:block}.katex .mtable .vertical-separator{display:inline-block;min-width:1px}.katex .mtable .arraycolsep{display:inline-block}.katex .mtable .col-align-c>.vlist-t{text-align:center}.katex .mtable .col-align-l>.vlist-t{text-align:left}.katex .mtable .col-align-r>.vlist-t{text-align:right}.katex .svg-align{text-align:left}.katex svg{fill:currentColor;stroke:currentColor;display:block;height:inherit;position:absolute;width:100%}.katex svg path{stroke:none}.katex svg{fill-rule:nonzero;fill-opacity:1;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1}.katex img{border-style:none;max-height:none;max-width:none;min-height:0;min-width:0}.katex .stretchy{display:block;overflow:hidden;position:relative;width:100%}.katex .stretchy:after,.katex .stretchy:before{content:""}.katex .hide-tail{overflow:hidden;position:relative;width:100%}.katex .halfarrow-left{left:0;overflow:hidden;position:absolute;width:50.2%}.katex .halfarrow-right{overflow:hidden;position:absolute;right:0;width:50.2%}.katex .brace-left{left:0;overflow:hidden;position:absolute;width:25.1%}.katex .brace-center{left:25%;overflow:hidden;position:absolute;width:50%}.katex .brace-right{overflow:hidden;position:absolute;right:0;width:25.1%}.katex .x-arrow-pad{padding:0 .5em}.katex .cd-arrow-pad{padding:0 .55556em 0 .27778em}.katex .mover,.katex .munder,.katex .x-arrow{text-align:center}.katex .boxpad{padding:0 .3em}.katex .fbox,.katex .fcolorbox{border:.04em solid;box-sizing:border-box}.katex .cancel-pad{padding:0 .2em}.katex .cancel-lap{margin-left:-.2em;margin-right:-.2em}.katex .sout{border-bottom-style:solid;border-bottom-width:.08em}.katex .angl{border-right:.049em solid;border-top:.049em solid;box-sizing:border-box;margin-right:.03889em}.katex .anglpad{padding:0 .03889em}.katex .eqn-num:before{content:"(" counter(katexEqnNo) ")";counter-increment:katexEqnNo}.katex .mml-eqn-num:before{content:"(" counter(mmlEqnNo) ")";counter-increment:mmlEqnNo}.katex .mtr-glue{width:50%}.katex .cd-vert-arrow{display:inline-block;position:relative}.katex .cd-label-left{display:inline-block;position:absolute;right:calc(50% + .3em);text-align:left}.katex .cd-label-right{display:inline-block;left:calc(50% + .3em);position:absolute;text-align:right}.katex-display{display:block;margin:1em 0;text-align:center}.katex-display>.katex{display:block;text-align:center;white-space:nowrap}.katex-display>.katex>.katex-html{display:block;position:relative}.katex-display>.katex>.katex-html>.tag{position:absolute;right:0}.katex-display.leqno>.katex>.katex-html>.tag{left:0;right:auto}.katex-display.fleqn>.katex{padding-left:2em;text-align:left}body{counter-reset:katexEqnNo mmlEqnNo}gol-wiki{display:flex;flex:1;min-width:0;min-height:100vh;flex-direction:column;color:#e0e0e0;background:#000}gol-wiki>.wiki-header{position:sticky;z-index:5;top:0;display:flex;min-height:3.75rem;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1.5rem;border-bottom:1px solid #303044;background:#000000f0;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}gol-wiki>.wiki-header>.wiki-brand{color:#ededed;font-size:1.05rem;font-weight:650}gol-wiki>.wiki-header>nav{display:flex;align-items:center;gap:1.25rem;font-size:.85rem}@media(max-width:31.25rem){gol-wiki>.wiki-header{padding:.75rem 1rem}gol-wiki>.wiki-header>.wiki-brand{font-size:.9rem}gol-wiki>.wiki-header>nav{gap:.75rem;font-size:.75rem}}gol-wiki .wiki-mobile-navigation{display:none;margin:1rem 1rem 0;border:1px solid #303044;border-radius:6px;background:#0a0a1e}gol-wiki .wiki-mobile-navigation>summary{padding:.8rem 1rem;cursor:pointer;color:#ededed;font-size:.9rem;font-weight:600}gol-wiki .wiki-mobile-navigation>nav{max-height:min(65vh,36rem);overflow-y:auto;padding:0 1rem 1rem}gol-wiki .wiki-mobile-navigation>nav>section{display:flex;flex-direction:column;gap:.2rem;margin-top:.75rem}gol-wiki .wiki-mobile-navigation>nav>section>a{padding:.3rem .5rem;border-radius:4px;color:#b8b8c8;font-size:.82rem}gol-wiki .wiki-mobile-navigation>nav>section>a.wiki-section-link{color:#ededed;font-weight:650}gol-wiki .wiki-mobile-navigation>nav>section>a.active,gol-wiki .wiki-mobile-navigation>nav>section>a:hover{color:#fff;background:#161632}@media(max-width:53.75rem){gol-wiki .wiki-mobile-navigation{display:block}}gol-wiki>.wiki-layout{display:grid;width:100%;max-width:90rem;min-width:0;margin:0 auto;grid-template-columns:16rem minmax(0,1fr)}gol-wiki>.wiki-layout>aside{position:sticky;top:3.75rem;height:calc(100vh - 3.75rem);overflow-y:auto;padding:1.75rem 1.25rem 2rem 1.5rem;border-right:1px solid #252538}gol-wiki>.wiki-layout>aside>nav>section{display:flex;flex-direction:column;gap:.15rem;margin-bottom:1.25rem}gol-wiki>.wiki-layout>aside>nav>section>a{padding:.28rem .55rem;border-radius:4px;color:#9d9dad;font-size:.76rem;line-height:1.35}gol-wiki>.wiki-layout>aside>nav>section>a.wiki-section-link{margin-bottom:.15rem;color:#e0e0e0;font-size:.82rem;font-weight:650}gol-wiki>.wiki-layout>aside>nav>section>a.active{color:#fff;background:#161632}gol-wiki>.wiki-layout>aside>nav>section>a:hover{color:#fff;background:#101024}gol-wiki>.wiki-layout>main{min-width:0;padding:2.5rem clamp(1rem,4vw,4rem) 5rem}gol-wiki>.wiki-layout>main>.wiki-markdown{max-width:65rem;margin:0 auto;color:#d0d0d0;font-size:.93rem;line-height:1.65;overflow-wrap:anywhere}gol-wiki>.wiki-layout>main>.wiki-markdown>*:first-child{margin-top:0}gol-wiki>.wiki-layout>main>.wiki-markdown>*:last-child{margin-bottom:0}gol-wiki>.wiki-layout>main>.wiki-markdown h1,gol-wiki>.wiki-layout>main>.wiki-markdown h2,gol-wiki>.wiki-layout>main>.wiki-markdown h3,gol-wiki>.wiki-layout>main>.wiki-markdown h4,gol-wiki>.wiki-layout>main>.wiki-markdown h5,gol-wiki>.wiki-layout>main>.wiki-markdown h6{position:relative;margin-top:1.65em;margin-bottom:.75em;color:#ededed;font-weight:650;line-height:1.3}gol-wiki>.wiki-layout>main>.wiki-markdown h1>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h2>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h3>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h4>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h5>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h6>.heading-anchor{position:absolute;right:100%;width:1.4em;opacity:0;color:#68b0f3;font-weight:400;text-align:center}gol-wiki>.wiki-layout>main>.wiki-markdown h1:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h1>.heading-anchor:focus,gol-wiki>.wiki-layout>main>.wiki-markdown h2:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h2>.heading-anchor:focus,gol-wiki>.wiki-layout>main>.wiki-markdown h3:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h3>.heading-anchor:focus,gol-wiki>.wiki-layout>main>.wiki-markdown h4:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h4>.heading-anchor:focus,gol-wiki>.wiki-layout>main>.wiki-markdown h5:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h5>.heading-anchor:focus,gol-wiki>.wiki-layout>main>.wiki-markdown h6:hover>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h6>.heading-anchor:focus{opacity:1}gol-wiki>.wiki-layout>main>.wiki-markdown h1,gol-wiki>.wiki-layout>main>.wiki-markdown h2{padding-bottom:.3em;border-bottom:1px solid #303044}gol-wiki>.wiki-layout>main>.wiki-markdown h1{font-size:2em}gol-wiki>.wiki-layout>main>.wiki-markdown h2{font-size:1.5em}gol-wiki>.wiki-layout>main>.wiki-markdown h3{font-size:1.25em}gol-wiki>.wiki-layout>main>.wiki-markdown h4{font-size:1em}gol-wiki>.wiki-layout>main>.wiki-markdown p,gol-wiki>.wiki-layout>main>.wiki-markdown blockquote,gol-wiki>.wiki-layout>main>.wiki-markdown ul,gol-wiki>.wiki-layout>main>.wiki-markdown ol,gol-wiki>.wiki-layout>main>.wiki-markdown table,gol-wiki>.wiki-layout>main>.wiki-markdown pre,gol-wiki>.wiki-layout>main>.wiki-markdown details,gol-wiki>.wiki-layout>main>.wiki-markdown .katex-display{margin-top:0;margin-bottom:1rem}gol-wiki>.wiki-layout>main>.wiki-markdown ul,gol-wiki>.wiki-layout>main>.wiki-markdown ol{padding-left:2em}gol-wiki>.wiki-layout>main>.wiki-markdown ul ul,gol-wiki>.wiki-layout>main>.wiki-markdown ul ol,gol-wiki>.wiki-layout>main>.wiki-markdown ol ul,gol-wiki>.wiki-layout>main>.wiki-markdown ol ol{margin-top:.25rem;margin-bottom:0}gol-wiki>.wiki-layout>main>.wiki-markdown li+li{margin-top:.25em}gol-wiki>.wiki-layout>main>.wiki-markdown a{color:#68b0f3}gol-wiki>.wiki-layout>main>.wiki-markdown a:hover{color:#9ac9ff;text-decoration:underline}gol-wiki>.wiki-layout>main>.wiki-markdown blockquote{padding:0 1em;border-left:.25em solid #48485c;color:#a8a8b8}gol-wiki>.wiki-layout>main>.wiki-markdown blockquote>:last-child{margin-bottom:0}gol-wiki>.wiki-layout>main>.wiki-markdown code{padding:.18em .38em;border-radius:4px;color:#e5e5ee;background:#17172a;font-family:ui-monospace,SFMono-Regular,Consolas,Liberation Mono,monospace;font-size:.88em}gol-wiki>.wiki-layout>main>.wiki-markdown pre{max-width:100%;overflow:auto;padding:1rem;border:1px solid #29293d;border-radius:6px;background:#0a0a18}gol-wiki>.wiki-layout>main>.wiki-markdown pre>code{display:block;padding:0;color:#d8d8e4;background:transparent;line-height:1.5;overflow-wrap:normal}gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-keyword,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-selector-tag,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-literal{color:#ff7ab2}gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-string,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-attribute{color:#a5d6ff}gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-number,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-built_in,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-type{color:#d2a8ff}gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-comment,gol-wiki>.wiki-layout>main>.wiki-markdown .hljs-quote{color:#8b949e}gol-wiki>.wiki-layout>main>.wiki-markdown table{display:block;width:max-content;max-width:100%;overflow-x:auto;border-spacing:0;border-collapse:collapse}gol-wiki>.wiki-layout>main>.wiki-markdown table th,gol-wiki>.wiki-layout>main>.wiki-markdown table td{padding:.45rem .75rem;border:1px solid #38384c}gol-wiki>.wiki-layout>main>.wiki-markdown table th{color:#ededed;font-weight:650;background:#101024}gol-wiki>.wiki-layout>main>.wiki-markdown table tr:nth-child(2n){background:#080814}gol-wiki>.wiki-layout>main>.wiki-markdown img,gol-wiki>.wiki-layout>main>.wiki-markdown video,gol-wiki>.wiki-layout>main>.wiki-markdown svg{display:block;max-width:100%;height:auto;margin-right:auto;margin-left:auto;border-radius:4px}gol-wiki>.wiki-layout>main>.wiki-markdown video{min-width:min(14rem,70vw);background:#000}gol-wiki>.wiki-layout>main>.wiki-markdown details{padding:.75rem 1rem;border:1px solid #38384c;border-radius:6px;background:#080814}gol-wiki>.wiki-layout>main>.wiki-markdown details>summary{cursor:pointer;color:#ededed;font-weight:600}gol-wiki>.wiki-layout>main>.wiki-markdown details[open]>summary{margin-bottom:1rem}gol-wiki>.wiki-layout>main>.wiki-markdown hr{height:1px;margin:1.5rem 0;border:0;background:#303044}gol-wiki>.wiki-layout>main>.wiki-markdown .katex-display{max-width:100%;overflow-x:auto;overflow-y:hidden;padding:.25rem 0}gol-wiki>.wiki-layout>main>.wiki-markdown.wiki-not-found{min-height:50vh}@media(max-width:53.75rem){gol-wiki>.wiki-layout{display:block}gol-wiki>.wiki-layout>aside{display:none}gol-wiki>.wiki-layout>main{padding-top:1.75rem}}@media(max-width:31.25rem){gol-wiki>.wiki-layout>main{padding-right:1rem;padding-left:1rem}gol-wiki>.wiki-layout>main>.wiki-markdown{font-size:.86rem}gol-wiki>.wiki-layout>main>.wiki-markdown h1{font-size:1.65em}gol-wiki>.wiki-layout>main>.wiki-markdown h2{font-size:1.35em}gol-wiki>.wiki-layout>main>.wiki-markdown h1>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h2>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h3>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h4>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h5>.heading-anchor,gol-wiki>.wiki-layout>main>.wiki-markdown h6>.heading-anchor{position:static;display:inline-block;width:1em;opacity:.65;text-align:left}}
+</style><meta name="robots" content="index,follow"><meta property="og:title" content="Rules | Game of Life: Tribes"><meta property="og:description" content="The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability rol..."><meta property="og:type" content="article"><meta property="og:url" content="https://rchimisso.github.io/game-of-life-tribes/wiki/rules/"><link rel="canonical" href="https://rchimisso.github.io/game-of-life-tribes/wiki/rules/"></head>
+  <body><!--nghm--><script type="text/javascript" id="ng-event-dispatch-contract">(()=>{function p(t,n,r,o,e,i,f,m){return{eventType:t,event:n,targetElement:r,eic:o,timeStamp:e,eia:i,eirp:f,eiack:m}}function u(t){let n=[],r=e=>{n.push(e)};return{c:t,q:n,et:[],etc:[],d:r,h:e=>{r(p(e.type,e,e.target,t,Date.now()))}}}function s(t,n,r){for(let o=0;o<n.length;o++){let e=n[o];(r?t.etc:t.et).push(e),t.c.addEventListener(e,t.h,r)}}function c(t,n,r,o,e=window){let i=u(t);e._ejsas||(e._ejsas={}),e._ejsas[n]=i,s(i,r),s(i,o,!0)}window.__jsaction_bootstrap=c;})();
+</script><script>window.__jsaction_bootstrap(document.body,"ng",["click"],[]);</script>
+    <gol-root ng-version="20.3.19" _nghost-ng-c2650978074 ngh="1" ng-server-context="ssg"><router-outlet _ngcontent-ng-c2650978074></router-outlet><gol-wiki ngh="0"><header class="wiki-header">
+  <a routerlink="/" class="wiki-brand" href="/game-of-life-tribes/" jsaction="click:;">Game of Life: Tribes</a>
+  <nav aria-label="Project navigation">
+    <a routerlink="/" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
+    <a href="https://github.com/rChimisso/game-of-life-tribes" rel="noopener noreferrer" target="_blank">Repository</a>
+  </nav>
+</header>
+<details class="wiki-mobile-navigation">
+  <summary>Wiki navigation</summary>
+  <nav aria-label="Wiki navigation">
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki" jsaction="click:;">Home</a>
+        <!----></section>
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki/ui" jsaction="click:;">UI</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/playback" jsaction="click:;">Playback</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/speed" jsaction="click:;">Speed</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/draw-tribe" jsaction="click:;">Draw tribe</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/grid-size" jsaction="click:;">Grid size</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/packing" jsaction="click:;">Packing</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/presets" jsaction="click:;">Presets</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/tribes" jsaction="click:;">Tribes</a>
+        <!--ngtns-->
+          <a class="active" href="/game-of-life-tribes/wiki/rules" jsaction="click:;">Rules</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/metrics" jsaction="click:;">Metrics</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/download" jsaction="click:;">Download</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/snapshot" jsaction="click:;">Snapshot</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/shortcuts" jsaction="click:;">Shortcuts</a>
+        <!----></section>
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki/engine" jsaction="click:;">Engine</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/technical-architecture" jsaction="click:;">Technical architecture</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/webgpu-webengine" jsaction="click:;">WebGPU webengine</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/wgsl-shaders" jsaction="click:;">WGSL shaders</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/rule-expressions" jsaction="click:;">Rule expressions</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/recording-and-opfs" jsaction="click:;">Recording and OPFS</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/downloads-and-exports" jsaction="click:;">Downloads and exports</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/compressed-chunk-export" jsaction="click:;">Compressed chunk export</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/snapshot-format" jsaction="click:;">Snapshot format</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/metrics-internals" jsaction="click:;">Metrics internals</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/limits-and-performance" jsaction="click:;">Limits and performance</a>
+        <!----></section>
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki/benchmark" jsaction="click:;">Benchmark</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/benchmark-hardware-method-coverage" jsaction="click:;">Hardware, method, and coverage</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/benchmark-results" jsaction="click:;">Results</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/benchmark-conclusions" jsaction="click:;">Conclusions</a>
+        <!----></section>
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki/analysis" jsaction="click:;">Analysis</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/analysis-setup" jsaction="click:;">Setup and method</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/wildfire-analysis" jsaction="click:;">Wildfire analysis</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/wildfire-model-comparison" jsaction="click:;">Wildfire model comparison</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/epidemic-analysis" jsaction="click:;">Epidemic analysis</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/epidemic-model-comparison" jsaction="click:;">Epidemic model comparison</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/analysis-conclusions" jsaction="click:;">Conclusions</a>
+        <!----></section>
+    <!--ngtns-->
+      <section>
+        <a class="wiki-section-link" href="/game-of-life-tribes/wiki/limitations-and-extensions" jsaction="click:;">Limitations and extensions</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/analysis-limitations-and-extensions" jsaction="click:;">Analysis limitations and extensions</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/engine-limitations-and-extensions" jsaction="click:;">Engine limitations and extensions</a>
+        <!--ngtns-->
+          <a class href="/game-of-life-tribes/wiki/references" jsaction="click:;">References</a>
+        <!----></section>
+    <!----></nav>
+</details>
+<div class="wiki-layout">
+  <aside>
+    <nav aria-label="Wiki navigation">
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki" jsaction="click:;">Home</a>
+          <!----></section>
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki/ui" jsaction="click:;">UI</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/playback" jsaction="click:;">Playback</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/speed" jsaction="click:;">Speed</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/draw-tribe" jsaction="click:;">Draw tribe</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/grid-size" jsaction="click:;">Grid size</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/packing" jsaction="click:;">Packing</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/presets" jsaction="click:;">Presets</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/tribes" jsaction="click:;">Tribes</a>
+          <!--ngtns-->
+            <a class="active" href="/game-of-life-tribes/wiki/rules" jsaction="click:;">Rules</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/metrics" jsaction="click:;">Metrics</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/download" jsaction="click:;">Download</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/snapshot" jsaction="click:;">Snapshot</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/shortcuts" jsaction="click:;">Shortcuts</a>
+          <!----></section>
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki/engine" jsaction="click:;">Engine</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/technical-architecture" jsaction="click:;">Technical architecture</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/webgpu-webengine" jsaction="click:;">WebGPU webengine</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/wgsl-shaders" jsaction="click:;">WGSL shaders</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/rule-expressions" jsaction="click:;">Rule expressions</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/recording-and-opfs" jsaction="click:;">Recording and OPFS</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/downloads-and-exports" jsaction="click:;">Downloads and exports</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/compressed-chunk-export" jsaction="click:;">Compressed chunk export</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/snapshot-format" jsaction="click:;">Snapshot format</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/metrics-internals" jsaction="click:;">Metrics internals</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/limits-and-performance" jsaction="click:;">Limits and performance</a>
+          <!----></section>
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki/benchmark" jsaction="click:;">Benchmark</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/benchmark-hardware-method-coverage" jsaction="click:;">Hardware, method, and coverage</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/benchmark-results" jsaction="click:;">Results</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/benchmark-conclusions" jsaction="click:;">Conclusions</a>
+          <!----></section>
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki/analysis" jsaction="click:;">Analysis</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/analysis-setup" jsaction="click:;">Setup and method</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/wildfire-analysis" jsaction="click:;">Wildfire analysis</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/wildfire-model-comparison" jsaction="click:;">Wildfire model comparison</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/epidemic-analysis" jsaction="click:;">Epidemic analysis</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/epidemic-model-comparison" jsaction="click:;">Epidemic model comparison</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/analysis-conclusions" jsaction="click:;">Conclusions</a>
+          <!----></section>
+      <!--ngtns-->
+        <section>
+          <a class="wiki-section-link" href="/game-of-life-tribes/wiki/limitations-and-extensions" jsaction="click:;">Limitations and extensions</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/analysis-limitations-and-extensions" jsaction="click:;">Analysis limitations and extensions</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/engine-limitations-and-extensions" jsaction="click:;">Engine limitations and extensions</a>
+          <!--ngtns-->
+            <a class href="/game-of-life-tribes/wiki/references" jsaction="click:;">References</a>
+          <!----></section>
+      <!----></nav>
+  </aside>
+  <main>
+    <!--ngtns-->
+      <article class="wiki-markdown"><h1 id="rules"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#rules" aria-label="Link to this section">#</a>Rules</h1>
+<h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#purpose" aria-label="Link to this section">#</a>Purpose</h2>
+<p>The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes <code>dead</code>.</p>
+<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href="/game-of-life-tribes/wiki/rule-expressions/#rule-json">Rule JSON</a>.</p>
+<h2 id="rule-list-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#rule-list-controls" aria-label="Link to this section">#</a>Rule List Controls</h2>
+<ul>
+<li><strong>Random seed</strong>:<br>Deterministic seed used by per-rule probability rolls. Changing the seed changes future probabilistic rule outcomes while preserving deterministic replay for the same state, rules, seed, and generation.</li>
+<li><strong>Drag handle</strong>:<br>Reorder a rule. Rule order is part of behavior, so dragging can change the simulation outcome.</li>
+<li><strong>Expand / collapse</strong>:<br>Opens or closes the rule editor body.</li>
+<li><strong>Summary</strong>:<br>Compact description of the rule clause.</li>
+<li><strong>Output label or swatch</strong>:<br>Compact display of what the rule produces.</li>
+<li><strong>Duplicate rule</strong>:<br>Inserts a cloned rule below the current rule.</li>
+<li><strong>Mute / unmute</strong>:<br>Temporarily disables or enables the rule without deleting it. Muted rules are skipped by the runtime.</li>
+<li><strong>Delete rule</strong>:<br>Removes the rule from the list.</li>
+<li><strong>Add rule</strong>:<br>Creates a new expanded rule with an empty clause and a fixed output to the first non-dead tribe.</li>
+<li><strong>Apply</strong>:<br>Commits valid rule changes. Disabled while running, downloading, unchanged, or invalid.</li>
+<li><strong>Restore</strong>:<br>Discards rule edits and restores previously committed rules.</li>
+</ul>
+<h2 id="probability-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#probability-controls" aria-label="Link to this section">#</a>Probability Controls</h2>
+<p>Each expanded rule has a <strong>Probability %</strong> field at the top of the rule body. The field is a percentage with exactly three decimal digits.<br>When a rule has a probability below <code>100%</code>, the collapsed rule header shows a compact percentage badge. <code>0</code> effectively disables the rule, as if it was muted.</p>
+<p>At runtime, a rule must first match its clause. If it has a probability below <code>100%</code>, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.</p>
+<h2 id="clause-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#clause-controls" aria-label="Link to this section">#</a>Clause Controls</h2>
+<p>Each rule has one root clause. Logical clauses can contain nested clauses.</p>
+<ul>
+<li><strong>Clause type</strong>:<br>Select <code>IS</code>, <code>COUNT</code>, <code>NONE</code>, <code>EXACTLY</code>, <code>MIN</code>, <code>MAX</code>, <code>COMP</code>, <code>NOT</code>, <code>AND</code>, <code>OR</code>, or <code>XOR</code>.</li>
+<li><strong>Delete clause</strong>:<br>Replaces or removes the selected clause. If a logical group would have too few children, the removed child becomes an empty placeholder.</li>
+<li><strong>Group collapse</strong>:<br>Hides nested clauses and shows a summary for <code>AND</code>, <code>OR</code>, <code>XOR</code>, and <code>NOT</code> groups.</li>
+<li><strong>Add child</strong>:<br>Adds an empty child to <code>AND</code>, <code>OR</code>, or <code>XOR</code> groups.</li>
+<li><strong>Tribe swatches</strong>:<br>Used by <code>IS</code> and other explicit selector clauses to select tribes.</li>
+<li><strong>Selector editor</strong>:<br>Used by count-style clauses and comparison sides. It can target specific tribes, the same tribe as the current cell, tribes different from the current cell, or tribes different from the current cell within a selected subset.</li>
+<li><strong>Count inputs</strong>:<br>Neighbor values must be integers from 0 to 8 because the engine uses the eight-cell Moore neighborhood. Invalid edits stay visible and block Apply.</li>
+<li><strong>Comparison operator</strong>:<br>One of <code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, or <code>&lt;=</code>.</li>
+<li><strong>Comparison margin</strong>:<br>Integer from -8 to 8 added to the right-hand comparison count.</li>
+</ul>
+<p>Clause meanings:</p>
+<table>
+<thead>
+<tr>
+<th>Clause</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>IS</code></td>
+<td>Current cell is one of the selected tribes.</td>
+</tr>
+<tr>
+<td><code>COUNT</code></td>
+<td>Selected neighbor count is inside the specified inclusive range.</td>
+</tr>
+<tr>
+<td><code>NONE</code></td>
+<td>Selected neighbor count is <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>EXACTLY</code></td>
+<td>Selected neighbor count equals <code>N</code>.</td>
+</tr>
+<tr>
+<td><code>MIN</code></td>
+<td>Selected neighbor count is at least <code>N</code>.</td>
+</tr>
+<tr>
+<td><code>MAX</code></td>
+<td>Selected neighbor count is at most <code>N</code>.</td>
+</tr>
+<tr>
+<td><code>COMP</code></td>
+<td>One selected neighbor count is compared with another selected count plus an optional margin.</td>
+</tr>
+<tr>
+<td><code>NOT</code></td>
+<td>Inverts one child clause.</td>
+</tr>
+<tr>
+<td><code>AND</code></td>
+<td>All child clauses must match.</td>
+</tr>
+<tr>
+<td><code>OR</code></td>
+<td>At least one child clause must match.</td>
+</tr>
+<tr>
+<td><code>XOR</code></td>
+<td>An odd number of child clauses must match.</td>
+</tr>
+</tbody></table>
+<h2 id="outcome-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#outcome-controls" aria-label="Link to this section">#</a>Outcome Controls</h2>
+<p>The outcome editor starts with a <code>becomes</code> mode selector:</p>
+<ul>
+<li><strong>Fixed tribe</strong>:<br>Cell becomes one selected tribe.</li>
+<li><strong>Same</strong>:<br>Cell keeps its current tribe.</li>
+<li><strong>Majority</strong>:<br>Cell becomes the most common selected neighbor tribe.</li>
+<li><strong>Minority</strong>:<br>Cell becomes the least common selected neighbor tribe with a non-zero count.</li>
+<li><strong>Combine</strong>:<br>Cell uses a lookup table over selected inputs.</li>
+</ul>
+<p>Ranked outcomes have extra controls:</p>
+<ul>
+<li><strong>Majority of / Minority of</strong>:<br>Selector used to choose candidates.</li>
+<li><strong>Tie</strong>:<br>What happens when multiple candidates tie. Options are fixed tribe, same, or combine.</li>
+<li><strong>Fallback</strong>:<br>What happens when no ranked candidate exists. Options are fixed tribe, same, or combine.</li>
+</ul>
+<p>Combine outcomes use lookup rows:</p>
+<ul>
+<li><strong>Inputs</strong>:<br>One or more selectors in an unordered combination row. Inputs can be concrete tribes, Same, Different, and in tie contexts the active Majority or Minority candidates.</li>
+<li><strong>Add input / remove input</strong>:<br>Changes the inputs for one row. A row can have at most 8 inputs and cannot repeat the same input.</li>
+<li><strong>Output tribe</strong>:<br>Fixed tribe produced by that row.</li>
+<li><strong>Remove row</strong>:<br>Deletes the row.</li>
+<li><strong>Otherwise</strong>:<br>Default output when no row matches.</li>
+<li><strong>Add combination row</strong>:<br>Creates another lookup row.</li>
+</ul>
+<h2 id="error-outlines"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules/#error-outlines" aria-label="Link to this section">#</a>Error Outlines</h2>
+<p>Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.</p>
+<p>The editor marks invalid rule structures with red outlines so the blocking part can be traced from the rule card down to the specific nested clause or field:</p>
+<ul>
+<li>A rule with any invalid content gets a red outline around the rule card.</li>
+<li>A clause gets a red outline when that clause, one of its fields, or any descendant clause is invalid.</li>
+<li>A numeric clause field gets its own red outline when its value is invalid, for example when it is empty or outside the allowed count range.</li>
+<li><code>EMPTY</code> placeholder clauses are invalid and also mark their parent clauses and rule as invalid.</li>
+</ul>
+</article>
+    <!----><!----></main>
+</div>
+</gol-wiki><!---->
+</gol-root>
+  <link rel="modulepreload" href="chunk-MA5DV57I.js"><link rel="modulepreload" href="chunk-D36Z6FRL.js"><link rel="modulepreload" href="chunk-L557L3MM.js"><link rel="modulepreload" href="chunk-VWVITWSA.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-LRZ2TR5K.js" type="module"></script>
+<link rel="modulepreload" href="chunk-KHYUCS6O.js">
+<link rel="modulepreload" href="chunk-DOXJ5VAT.js">
+
+
+<script id="ng-state" type="application/json">{"__nghData__":[{"t":{"23":"t0","33":"t2","38":"t4","39":"t5"},"c":{"23":[{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[]}},{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[{"i":"t1","r":3,"x":12}]}},{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[{"i":"t1","r":3,"x":13}]}},{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[{"i":"t1","r":3,"x":3}]}},{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[{"i":"t1","r":3,"x":6}]}},{"i":"t0","r":3,"t":{"7":"t1"},"c":{"7":[{"i":"t1","r":3,"x":3}]}}],"33":[{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[]}},{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[{"i":"t3","r":3,"x":12}]}},{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[{"i":"t3","r":3,"x":13}]}},{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[{"i":"t3","r":3,"x":3}]}},{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[{"i":"t3","r":3,"x":6}]}},{"i":"t2","r":3,"t":{"7":"t3"},"c":{"7":[{"i":"t3","r":3,"x":3}]}}],"38":[{"i":"t4","r":3}],"39":[]}},{"c":{"0":[{"i":"c1700316425","r":1}]}}]}</script></body></html>

@@ -1,0 +1,28 @@
+flowchart TD
+  subgraph MainThread[Angular main thread]
+    Sidebar[Sidebar controls]
+    Home[Home page orchestration]
+    Engine[gol-engine component]
+  end
+
+  subgraph WorkerThreads[Worker threads]
+    Webengine[Webengine worker]
+    Utility[Home-started utility workers]
+  end
+
+  GPU[WebGPU device]
+  OPFS[OPFS storage]
+  Files[Browser downloads]
+
+  Sidebar -->|user events| Home
+  Home -->|state and inputs| Sidebar
+  Home -->|engine commands| Engine
+  Engine -->|worker protocol and OffscreenCanvas| Webengine
+  Webengine -->|metrics, status, snapshots, manifests| Engine
+  Engine -->|outputs| Home
+  Webengine -->|simulation and rendering| GPU
+  Webengine -->|recording chunks| OPFS
+  Home -->|snapshot, compression, export jobs| Utility
+  Utility -->|progress, parsed state, files, compressed chunks| Home
+  Utility -->|temporary export data| OPFS
+  Home -->|download blob action| Files

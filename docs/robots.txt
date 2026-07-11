@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://rchimisso.github.io/game-of-life-tribes/sitemap.xml

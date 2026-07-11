@@ -1,0 +1,4 @@
+requested_density,run,initial_population,initial_susceptible,final_susceptible,final_recovered,final_healthy_density,mortality_fraction,infection_episodes,infection_episodes_per_initial_population,peak_infectious,peak_prevalence,duration_generations,time_to_peak,wave_count,resurgence_count,transition_role
+41.0,6,107680.0,107668.0,107673.0,3.0,0.4107513427734375,3.714710252600297e-05,321.0,0.0029810549777117,68.0,0.000631500742942,264.0,90.0,0,0,low (nearest p10)
+41.0,4,107493.0,107481.0,107395.0,2.0,0.4096870422363281,0.0008930814099522,5296.0,0.0492683244490338,302.0,0.0028094852688082,1166.0,222.0,1,0,median (nearest p50)
+41.0,30,107422.0,107410.0,105956.0,3.0,0.4042015075683594,0.013619184152222,81129.0,0.7552363575431476,1700.0,0.0158254361304015,2358.0,636.0,1,0,high (nearest p90)

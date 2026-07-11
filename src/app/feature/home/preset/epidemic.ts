@@ -28,7 +28,7 @@ const EPIDEMIC_RECOVERED_TRIBE = 'Recovered';
  * @type {Preset}
  */
 export const EPIDEMIC_PRESET: Preset = {
-  name: 'SIRD Epidemic',
+  name: 'SIRSD Epidemic',
   description: 'Probabilistic infection, recovery, and mortality',
   ruleset: {
     tribes: [

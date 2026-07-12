@@ -13,14 +13,14 @@ Before the download worker starts, the home page pauses the simulation (if runni
 
 The download worker uses progress bands:
 
-- 0 to 10: preparation and ZIP opening.
-- 10 to 55: streaming save entries.
-- 55 to 85: recorded frame outputs.
-- 90 to 100: ZIP finalization.
+- $0$ to $10$: preparation and ZIP opening.
+- $10$ to $55$: streaming save entries.
+- $55$ to $85$: recorded frame outputs.
+- $90$ to $100$: ZIP finalization.
 
 ## Compressed Chunk Mode
 
-Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds 2 GiB. It exports compressed recording chunks instead of rendering the selected outputs. See [Compressed chunk export](Compressed-Chunk-Export) for the standalone file contract and a Python reader example.
+Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds $2$ GiB. It exports compressed recording chunks instead of rendering the selected outputs. See [Compressed chunk export](Compressed-Chunk-Export) for the standalone file contract and a Python reader example.
 
 The ZIP contains:
 
@@ -40,13 +40,13 @@ Bounded topology does not write virtual boundary cells into PNG, MP4, `.golt`, o
 
 MP4 export uses browser `VideoEncoder` support and Mediabunny output writing. Output dimensions are resolved from source grid size:
 
-- Small grids can be uniformly scaled toward a 1080 reference side.
-- Output width and height are clamped to 4096.
-- Minimum output dimension is 3 before codec-safe even adjustment.
+- Small grids can be uniformly scaled toward a $1080$ reference side.
+- Output width and height are clamped to $4096$.
+- Minimum output dimension is $3$ before codec-safe even adjustment.
 - AVC support is checked before writing, optionally changing the dimensions to support the requested FPS and Bitrate.
 
 The MP4 entry path inside the ZIP is `simulation.mp4`.
 
 ## Working Set Estimate
 
-The download estimator accounts for selected chunks, decompression footprint, previous-frame metrics memory, row buffers, metric entries, and estimated CSV output. Metrics switch to streaming output when retained metric-entry memory exceeds 512 MiB. Metrics CSV emits a large-output warning above 512 MiB.
+The download estimator accounts for selected chunks, decompression footprint, previous-frame metrics memory, row buffers, metric entries, and estimated CSV output. Metrics switch to streaming output when retained metric-entry memory exceeds $512$ MiB. Metrics CSV emits a large-output warning above $512$ MiB.

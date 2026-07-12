@@ -4,7 +4,7 @@
 
 Compressed chunk export is the fallback and advanced export format for large recordings. Instead of rendering PNG frames, MP4 video, or full metrics output in the browser, it writes the recorded packed-grid chunks directly into the ZIP with enough metadata to decode them later.
 
-Use this format when a normal export would be too large, when the Download section forces chunk mode because the estimated working set is above 2 GiB, or when you want to process the recording with your own tools.
+Use this format when a normal export would be too large, when the Download section forces chunk mode because the estimated working set is above $2$ GiB, or when you want to process the recording with your own tools.
 
 ## ZIP Layout
 
@@ -32,7 +32,7 @@ The manifest has this shape:
     "endFrame": 120,
     "startGen": 0,
     "endGen": 119,
-    "framesTotal": 120
+    "framesTotal": 120,
   },
   "chunks": [
     {
@@ -46,17 +46,17 @@ The manifest has this shape:
       "generationEnd": 3,
       "generations": [0, 1, 2, 3],
       "gridFormat": {
-        "bitsPerCell": 8
+        "bitsPerCell": 8,
       },
-      "source": "copied"
-    }
-  ]
+      "source": "copied",
+    },
+  ],
 }
 ```
 
 Important fields:
 
-- `selectedRange`: selected range from the Download UI. `startFrame` and `endFrame` are 1-based UI frame numbers; `startGen` and `endGen` are the zero-based simulation generation numbers for the first and last exported frames.
+- `selectedRange`: selected range from the Download UI. `startFrame` and `endFrame` are $1$-based UI frame numbers; `startGen` and `endGen` are the zero-based simulation generation numbers for the first and last exported frames.
 - `chunks`: ordered chunk payload list.
 - `chunk.filename`: file name under `chunks/`.
 - `chunk.codec`: payload codec. Current exported chunks use `deflate-raw`, `raw-packed`, or `stored-packed`.
@@ -79,15 +79,15 @@ Important fields:
   "boundaryTribe": "dead",
   "randomSeed": 42,
   "gridFormat": {
-    "bitsPerCell": 8
+    "bitsPerCell": 8,
   },
   "rules": [
     // ...
   ],
   "tribes": [
     { "id": "dead", "color": "000000" },
-    { "id": "Alive", "color": "ffffff" }
-  ]
+    { "id": "Alive", "color": "ffffff" },
+  ],
 }
 ```
 
@@ -101,7 +101,7 @@ Important fields:
 - `rules`: rules used by the simulation, using the same persisted shape as [Rule JSON](Rule-Expressions#rule-json).
 - `tribes`: tribe IDs and colors used to interpret packed cell values, using the same persisted shape as [Tribe JSON](Rule-Expressions#tribe-json).
 
-The packed cell values in chunk frames are numeric indexes into `tribes`. A value of `0` normally maps to `dead`, value `1` maps to the second tribe, and so on. Use the tribe list to convert cell values into tribe IDs or colors.
+The packed cell values in chunk frames are numeric indexes into `tribes`. A value of $0$ normally maps to `dead`, value $1$ maps to the second tribe, and so on. Use the tribe list to convert cell values into tribe IDs or colors.
 
 ## Chunk Payloads
 

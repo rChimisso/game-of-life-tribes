@@ -19,18 +19,18 @@ Presets can define their own random seed for probabilistic rules.
 
 ## Built-In Presets
 
-| Preset             | Description                                         |
-| ------------------ | --------------------------------------------------- |
-| Conway             | Classic Game of Life                                |
-| Replicator         | Replicates itself indefinitely                      |
-| Day & Night        | Symmetric under on-off reversal                     |
-| Anneal             | Converges to smooth blobs                           |
-| Afterimage         | Classic Life with fading cells                      |
-| Senescence         | Life where cells age                                |
-| Cyclic Dominance   | Rock-paper-scissors territory contest               |
-| [SIRSD Epidemic](Epidemic-Analysis) | Probabilistic infection, recovery, mortality, and waning immunity |
-| Slime Mold         | Slime body with explorer tendrils                   |
-| [Wildfire](Wildfire-Analysis) | Fire spreads through varied vegetation              |
+| Preset           | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| Conway           | Classic Game of Life                                              |
+| Replicator       | Replicates itself indefinitely                                    |
+| Day & Night      | Symmetric under on-off reversal                                   |
+| Anneal           | Converges to smooth blobs                                         |
+| Afterimage       | Classic Life with fading cells                                    |
+| Senescence       | Life where cells age                                              |
+| Cyclic Dominance | Rock-paper-scissors territory contest                             |
+| SIRSD Epidemic   | Probabilistic infection, recovery, mortality, and waning immunity |
+| Slime Mold       | Slime body with explorer tendrils                                 |
+| Wildfire         | Fire spreads through varied vegetation                            |
 
 The minimum packing shown on each button is derived from the number of tribes in that preset. For example, two-state presets can use 1-bit packing, while presets with many lifecycle or material states need a larger value.
 
@@ -39,6 +39,10 @@ The minimum packing shown on each button is derived from the number of tribes in
 TODO
 
 ### Senescence
+
+TODO
+
+### SIRSD Epidemic
 
 TODO
 

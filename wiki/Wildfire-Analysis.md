@@ -40,21 +40,21 @@ At low and intermediate densities, the seeded fire usually remains local. Median
 
 ![Wildfire outcome distribution across all sampled densities](images/analysis-wildfire-outcomes.png)
 
-The detailed sweep shows a sharp crossover around 90%:
+The detailed sweep shows a sharp crossover around $90\%$:
 
-| Density | Median burned |        Q25 |        Q75 |                IQR |
-| ------: | ------------: | ---------: | ---------: | -----------------: |
-|  $85\%$ |     $0.251\%$ |  $0.117\%$ |  $0.411\%$ |  $0.295\text{ pp}$ |
-|  $86\%$ |     $0.363\%$ |  $0.220\%$ |  $0.629\%$ |  $0.409\text{ pp}$ |
-|  $87\%$ |     $0.632\%$ |  $0.432\%$ |  $1.537\%$ |  $1.105\text{ pp}$ |
-|  $88\%$ |     $1.429\%$ |  $0.706\%$ |  $2.405\%$ |  $1.700\text{ pp}$ |
-|  $89\%$ |     $3.756\%$ |  $0.901\%$ | $11.439\%$ | $10.538\text{ pp}$ |
-|  $90\%$ |    $27.629\%$ |  $2.475\%$ | $39.797\%$ | $37.321\text{ pp}$ |
-|  $91\%$ |    $53.329\%$ | $52.187\%$ | $54.530\%$ |  $2.343\text{ pp}$ |
-|  $92\%$ |    $60.496\%$ | $59.043\%$ | $60.991\%$ |  $1.948\text{ pp}$ |
-|  $93\%$ |    $64.753\%$ | $64.201\%$ | $65.743\%$ |  $1.542\text{ pp}$ |
-|  $94\%$ |    $68.655\%$ | $68.100\%$ | $68.957\%$ |  $0.857\text{ pp}$ |
-|  $95\%$ |    $72.015\%$ | $71.628\%$ | $72.364\%$ |  $0.736\text{ pp}$ |
+| Density | Median burned | $\textbf{Q}\bf{25}$ | $\textbf{Q}\bf{75} |                IQR |
+| ------: | ------------: | ------------------: | -----------------: | -----------------: |
+|  $85\%$ |     $0.251\%$ |           $0.117\%$ |          $0.411\%$ |  $0.295\text{ pp}$ |
+|  $86\%$ |     $0.363\%$ |           $0.220\%$ |          $0.629\%$ |  $0.409\text{ pp}$ |
+|  $87\%$ |     $0.632\%$ |           $0.432\%$ |          $1.537\%$ |  $1.105\text{ pp}$ |
+|  $88\%$ |     $1.429\%$ |           $0.706\%$ |          $2.405\%$ |  $1.700\text{ pp}$ |
+|  $89\%$ |     $3.756\%$ |           $0.901\%$ |         $11.439\%$ | $10.538\text{ pp}$ |
+|  $90\%$ |    $27.629\%$ |           $2.475\%$ |         $39.797\%$ | $37.321\text{ pp}$ |
+|  $91\%$ |    $53.329\%$ |          $52.187\%$ |         $54.530\%$ |  $2.343\text{ pp}$ |
+|  $92\%$ |    $60.496\%$ |          $59.043\%$ |         $60.991\%$ |  $1.948\text{ pp}$ |
+|  $93\%$ |    $64.753\%$ |          $64.201\%$ |         $65.743\%$ |  $1.542\text{ pp}$ |
+|  $94\%$ |    $68.655\%$ |          $68.100\%$ |         $68.957\%$ |  $0.857\text{ pp}$ |
+|  $95\%$ |    $72.015\%$ |          $71.628\%$ |         $72.364\%$ |  $0.736\text{ pp}$ |
 
 The IQR peaks at $90\%$, where identical density settings produce both rapid fadeouts and large burns. It then collapses at $91\%$ as large connected burns become the dominant outcome.
 
@@ -108,19 +108,19 @@ Individual cumulative-burn trajectories separate into distinct fadeout and susta
 
 The three recordings below use the same $90\%$ density and correspond to the representative runs in the table and figure above. Together they show how randomized initial vegetation layouts produce rapid fadeout, intermediate spread, or a large burn even though the subsequent Wildfire evolution is deterministic.
 
-|                                                                                              Low outcome — Run $7$                                                                                              |                                                                                             Median outcome — Run $28$                                                                                              |                                                                                              High outcome — Run $5$                                                                                              |
-| :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                                         Low outcome – Run $\bf{7}$                                                                                         |                                                                                        Median outcome – Run $\bf{28}$                                                                                         |                                                                                         High outcome – Run $\bf{5}$                                                                                         |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/wildfire/wildfire-90-run-07-low.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/wildfire/wildfire-90-run-28-median.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/wildfire/wildfire-90-run-05-high.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
-|                                                                                      $0.678\%$ burned<br>$141$ generations                                                                                      |                                                                                       $27.324\%$ burned<br>$587$ generations                                                                                       |                                                                                      $43.984\%$ burned<br>$904$ generations                                                                                      |
+|                                                                                   $0.678\%$ burned<br>$141$ generations                                                                                    |                                                                                    $27.324\%$ burned<br>$587$ generations                                                                                     |                                                                                   $43.984\%$ burned<br>$904$ generations                                                                                    |
 
 ### Typical Runs Across Regimes
 
 The $50\%$ run is intentionally brief: its four-generation fadeout is representative of a regime in which fire cannot find a connected path through the fuel. The $100\%$ run shows the contrasting broad fire front and the survival of some resistant vegetation.
 
-|                                                                                              Typical $50\%$ — Run $24$                                                                                              |                                                                                              Typical $100\%$ — Run $6$                                                                                               |
-| :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                                      Typical $\bf{50\%}$ – Run $\bf{24}$                                                                                       |                                                                                       Typical $\bf{100\%}$ – Run $\bf{6}$                                                                                       |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/wildfire/wildfire-50-run-24-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/wildfire/wildfire-100-run-06-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
-|                                                                                        $0.0114\%$ burned<br>$4$ generations                                                                                         |                                                                                        $87.470\%$ burned<br>$381$ generations                                                                                        |
+|                                                                                      $0.0114\%$ burned<br>$4$ generations                                                                                      |                                                                                     $87.470\%$ burned<br>$381$ generations                                                                                      |
 
 ### Long-Lived Near-Transition Fire
 

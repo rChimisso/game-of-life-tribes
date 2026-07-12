@@ -20,19 +20,19 @@ Direct assignments and simple current-cell checks cost `1` unit.
 
 ## Cost Terms
 
-| Term | Meaning |
-| --- | --- |
-| `selectedTribeCount` | Number of explicit tribe IDs in a `tribes` or `different-in` selector. |
-| `countCost` | Cost of computing one selector's neighbor count. A one-tribe selector, `same`, or `different` costs `8` when not reused. |
-| `leftCountCost` | Count cost for the left side of a comparison. |
-| `rightCountCost` | Count cost for the right side of a comparison. |
-| `tribeCount` | Active tribe count, including `dead`. |
-| `candidateCount` | Candidate tribe IDs considered by a ranked outcome. |
-| `rankingOverhead` | `4 * candidateCount`. Per candidate: eligibility check, non-zero check, best-count comparison, and tie-count path. |
-| `selectedTieOrFallback` | Cost of the tie or fallback outcome path that actually runs after ranking. |
-| `nonDeadTribeCount` | Active tribe count excluding `dead`. |
-| `rowInputCost` | Cost of evaluating lookup-row input selectors in a combine outcome. |
-| `rowCount` | Number of lookup rows in a combine outcome. |
+| Term                    | Meaning                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `selectedTribeCount`    | Number of explicit tribe IDs in a `tribes` or `different-in` selector.                                                   |
+| `countCost`             | Cost of computing one selector's neighbor count. A one-tribe selector, `same`, or `different` costs `8` when not reused. |
+| `leftCountCost`         | Count cost for the left side of a comparison.                                                                            |
+| `rightCountCost`        | Count cost for the right side of a comparison.                                                                           |
+| `tribeCount`            | Active tribe count, including `dead`.                                                                                    |
+| `candidateCount`        | Candidate tribe IDs considered by a ranked outcome.                                                                      |
+| `rankingOverhead`       | `4 * candidateCount`. Per candidate: eligibility check, non-zero check, best-count comparison, and tie-count path.       |
+| `selectedTieOrFallback` | Cost of the tie or fallback outcome path that actually runs after ranking.                                               |
+| `nonDeadTribeCount`     | Active tribe count excluding `dead`.                                                                                     |
+| `rowInputCost`          | Cost of evaluating lookup-row input selectors in a combine outcome.                                                      |
+| `rowCount`              | Number of lookup rows in a combine outcome.                                                                              |
 
 ## Rule Branches
 
@@ -134,20 +134,20 @@ Outside a ranked tie branch, the compiler has no tie state and treats the select
 
 ## Clause Costs
 
-| Clause | Cost |
-| --- | --- |
-| `is` | `selectedTribeCount` |
-| `count` | `countCost + 2` |
-| `none` | `countCost + 1` |
-| `exactly` | `countCost + 1` |
-| `min` | `countCost + 1` |
-| `max` | `countCost + 1` |
-| `comparison` | `leftCountCost + rightCountCost + 1` |
-| `not` | `childClause + 1` |
-| `and` | `sum(childClauses) + (childCount - 1)` |
-| `or` | `sum(childClauses) + (childCount - 1)` |
-| `xor` | `sum(childClauses) + (2 * childCount) + 1` |
-| `empty` | `0` |
+| Clause       | Cost                                       |
+| ------------ | ------------------------------------------ |
+| `is`         | `selectedTribeCount`                       |
+| `count`      | `countCost + 2`                            |
+| `none`       | `countCost + 1`                            |
+| `exactly`    | `countCost + 1`                            |
+| `min`        | `countCost + 1`                            |
+| `max`        | `countCost + 1`                            |
+| `comparison` | `leftCountCost + rightCountCost + 1`       |
+| `not`        | `childClause + 1`                          |
+| `and`        | `sum(childClauses) + (childCount - 1)`     |
+| `or`         | `sum(childClauses) + (childCount - 1)`     |
+| `xor`        | `sum(childClauses) + (2 * childCount) + 1` |
+| `empty`      | `0`                                        |
 
 ### Simplified Constant Clauses
 
@@ -224,7 +224,7 @@ The terms are:
 
 ```text
 8 * nonDeadTribeCount    build the base non-dead input mask
-8                       detect whether any dead neighbor is present
+8                        detect whether any dead neighbor is present
 rowInputCost             8 units per non-dead candidate referenced by row inputs
 rowCount                 one mask comparison per lookup row
 ```

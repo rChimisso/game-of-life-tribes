@@ -36,7 +36,7 @@ The current conclusions do not show whether the $31$ runs with at least one resu
 
 ### Replication And Uncertainty
 
-- Increase repetitions near $89-91\%$ Wildfire and $40–42\%$ Epidemic density.
+- Increase repetitions near $89–91\%$ Wildfire and $40–42\%$ Epidemic density.
 - Report bootstrap confidence intervals for medians, IQRs, fadeout probability, and any-resurgence probability.
 - Predefine endpoints and analysis thresholds in a machine-readable experiment specification.
 

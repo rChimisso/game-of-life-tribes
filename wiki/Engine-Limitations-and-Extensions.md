@@ -6,7 +6,7 @@ The engine is a synchronous finite-state cellular automaton on a rectangular squ
 
 Current structural constraints are:
 
-- A fixed radius-1, eight-cell Moore neighborhood.
+- A fixed radius-$1$, eight-cell Moore neighborhood.
 - Toroidal topology or bounded topology with one virtual boundary tribe.
 - One discrete tribe value per cell.
 - Ordered rules in which the first matching rule whose probability roll succeeds determines the next state.
@@ -82,7 +82,7 @@ Frame exports nevertheless preserve the complete state history of the run, thus 
 
 ## Browser, GPU, And Storage Limits
 
-Grid and recording capacity depend on WebGPU adapter limits, VRAM, browser storage, and OPFS behavior. Important application caps include a $1$ GiB recording frame, $256$ MiB preferred recording chunks, pending-write and compression budgets, and device-specific maximum buffer and storage-binding sizes. See [Limits and performance](Limits-and-Performance) and [VRAM and packing](VRAM-and-Packing).
+Grid and recording capacity depend on WebGPU adapter limits, VRAM, browser storage, and OPFS behavior. Important application caps include a $1\text{ GiB}$ recording frame, $256\text{ MiB}$ preferred recording chunks, pending-write and compression budgets, and device-specific maximum buffer and storage-binding sizes. See [Limits and performance](Limits-and-Performance) and [VRAM and packing](VRAM-and-Packing).
 
 A possible useful extension could be to allow parallel, distributed, or server-side batch execution of runs or parameter sweeps.
 

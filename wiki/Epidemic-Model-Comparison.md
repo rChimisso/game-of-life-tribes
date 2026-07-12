@@ -2,11 +2,11 @@
 
 ## Scope Of The Comparison
 
-The GoLT preset has the same named flow structure as an **SIRSD** model - `S → I → R → S`, with `I → D` - but implements it as a local stochastic cellular automaton. This chapter compares structures, not outputs, as no external model was run and the GoLT probabilities are not calibrated to a particular disease or unit of time.
+The GoLT preset has the same named flow structure as an SIRSD model - `S → I → R → S`, with `I → D` - but implements it as a local stochastic cellular automaton. This chapter compares structures, not outputs, as no external model was run and the GoLT probabilities are not calibrated to a particular disease or unit of time.
 
 ## Compartmental SIR And SIRSD
 
-The classical Kermack-McKendrick tradition models aggregate _Susceptible_, _Infectious_, and _Removed_ populations with continuous equations and homogeneous or otherwise specified mixing. Hethcote's review describes the threshold concepts and model families built from that foundation. Wolff's **SIRSD** construction adds a separate disease-death compartment and loss of immunity from _Recovered_ back to _Susceptible_.
+The classical Kermack-McKendrick tradition models aggregate _Susceptible_, _Infectious_, and _Removed_ populations with continuous equations and homogeneous or otherwise specified mixing. Hethcote's review describes the threshold concepts and model families built from that foundation. Wolff's SIRSD construction adds a separate disease-death compartment and loss of immunity from _Recovered_ back to _Susceptible_.
 
 | Feature            | Compartmental SIRSD                                   | GoLT SIRSD Epidemic                                                      |
 | ------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -23,21 +23,21 @@ Changing occupied density therefore has a different meaning in GoLT. It changes 
 
 ## Spatial SIRS References
 
-Joo and Lebowitz studied a stochastic **SIRS** process on one- and two-dimensional lattices and showed that spatial correlations can make mean-field approximations inaccurate. Van Ballegooijen and Boerlijst used an eight-neighbor grid-structured **SIRS** model in which local outbreaks, turbulent waves, and recurring waves arise for different infection and resistance parameters.
+Joo and Lebowitz studied a stochastic SIRS process on one- and two-dimensional lattices and showed that spatial correlations can make mean-field approximations inaccurate. Van Ballegooijen and Boerlijst used an eight-neighbor grid-structured SIRS model in which local outbreaks, turbulent waves, and recurring waves arise for different infection and resistance parameters.
 
 Those studies are structurally closer to GoLT SIRSD Epidemic preset because local contact and spatial organization matter. Important differences remain:
 
 - Their infection hazards can depend on the number of _Infectious_ neighbors, whereas GoLT's preset saturates after one.
 - Some models use continuous-time or small-step dynamics instead of one synchronous generation.
 - Infectious and resistant periods may be fixed durations rather than geometric waiting times from per-step rolls.
-- The cited **SIRS** lattice models do not necessarily include GoLT's absorbing _Dead_ state.
+- The cited SIRS lattice models do not necessarily include GoLT's absorbing _Dead_ state.
 - GoLT's experiment varies occupied-site density while keeping its transition probabilities fixed.
 
 The local analysis's occasional resurgence events are qualitatively compatible with the possibility of recurring spatial waves under waning immunity.
 
 ## What A Direct Validation Would Require
 
-A direct numerical comparison with Wolff's **SIRSD** equations or another **SIRSD** implementation would require:
+A direct numerical comparison with Wolff's SIRSD equations or another SIRSD implementation would require:
 
 1. A common interpretation of one generation as physical time.
 2. Matched infection, recovery, death, and immunity-loss hazards.

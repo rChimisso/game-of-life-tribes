@@ -20,13 +20,13 @@ The payload is one packed frame, not a sequence of frames. For recorded multi-fr
 
 ## Preamble
 
-`.golt` files start with a 12-byte preamble:
+`.golt` files start with a $12$-byte preamble:
 
 | Offset | Size | Meaning                                   |
 | -----: | ---: | ----------------------------------------- |
-|      0 |    4 | Magic bytes `GoLT`                        |
-|      4 |    4 | Little-endian format version              |
-|      8 |    4 | Little-endian JSON header length in bytes |
+|    $0$ |  $4$ | Magic bytes `GoLT`                        |
+|    $4$ |  $4$ | Little-endian format version              |
+|    $8$ |  $4$ | Little-endian JSON header length in bytes |
 
 The current version is `1`.
 
@@ -43,22 +43,22 @@ The header is UTF-8 JSON immediately after the preamble. It has this shape:
   "boundaryTribe": "dead",
   "randomSeed": 42,
   "gridFormat": {
-    "bitsPerCell": 8
+    "bitsPerCell": 8,
   },
   "tribes": [
     {
       "id": "dead",
-      "color": "000000"
+      "color": "000000",
     },
     {
       "id": "Alive",
-      "color": "ffffff"
+      "color": "ffffff",
     },
     // ...
   ],
   "rules": [
     // ...
-  ]
+  ],
 }
 ```
 
@@ -133,8 +133,8 @@ Small snapshots are compressed or decompressed as one payload. Large snapshots u
 
 Current thresholds:
 
-- Snapshot streaming threshold: 256 MiB packed grid size.
-- Stream repack block target: 64 MiB.
+- Snapshot streaming threshold: $256$ MiB packed grid size.
+- Stream repack block target: $64$ MiB.
 
 This does not change the file format. It only changes how the browser produces or consumes the same layout.
 

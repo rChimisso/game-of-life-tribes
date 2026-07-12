@@ -6,7 +6,7 @@ Live metrics are computed in the WebGPU worker. They are planned by section and 
 
 Population and diversity depend on the histogram pass:
 
-- The histogram shader uses 256 atomic counters in workgroup memory and global storage.
+- The histogram shader uses $256$ atomic counters in workgroup memory and global storage.
 - Counts are by numeric tribe index.
 - Alive cells are total cells minus the dead tribe count.
 - Occupancy is alive cells divided by total cells.
@@ -32,7 +32,7 @@ Offline transition metrics include:
 
 ## Limits
 
-Live metrics rely on 32-bit unsigned GPU counters:
+Live metrics rely on $32$-bit unsigned GPU counters:
 
 - Population and diversity are available when `cols * rows <= 0xffffffff`.
 - Interfaces are available when `cols * rows * 2 <= 0xffffffff`.
@@ -41,9 +41,9 @@ If a section is enabled but not safe for counters, the UI marks it unavailable. 
 
 Download metric estimates use these constants:
 
-- Metric entry base: 512 bytes.
-- Metric entry per tribe: 160 bytes.
-- Metrics CSV row base: 384 bytes.
-- Metrics CSV row per tribe: 48 bytes.
-- Streaming metric-entry threshold: 512 MiB.
-- Large metrics CSV warning threshold: 512 MiB.
+- Metric entry base: $512$ bytes.
+- Metric entry per tribe: $160$ bytes.
+- Metrics CSV row base: $384$ bytes.
+- Metrics CSV row per tribe: $48$ bytes.
+- Streaming metric-entry threshold: $512$ MiB.
+- Large metrics CSV warning threshold: $512$ MiB.

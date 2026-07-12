@@ -34,7 +34,7 @@ gol-wiki {
     > nav {
       display: flex;
       align-items: center;
-      gap: 1.25rem;
+      gap: 0.5rem;
       font-size: 0.85rem;
     }
 
@@ -234,7 +234,6 @@ gol-wiki {
           background: #161632;
         }
       }
-
     }
 
     &.transitions-ready {
@@ -334,7 +333,6 @@ gol-wiki {
             background: #101024;
           }
         }
-
       }
     }
 

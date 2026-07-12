@@ -1,39 +1,83 @@
 <header class="wiki-header">
-  <a class="wiki-brand" routerLink="/">Game of Life: Tribes</a>
+  <a class="wiki-brand" rel="noopener noreferrer" routerLink="/" target="_blank">Game of Life: Tribes</a>
   <nav aria-label="Project navigation">
-    <a routerLink="/">Simulation</a>
+    <a rel="noopener noreferrer" routerLink="/" target="_blank">Simulation</a>
     <a href="https://github.com/rChimisso/game-of-life-tribes" rel="noopener noreferrer" target="_blank">Repository</a>
   </nav>
 </header>
-<details class="wiki-mobile-navigation">
-  <summary>Wiki navigation</summary>
-  <nav aria-label="Wiki navigation">
-    @for (section of navigation; track section.landing.slug) {
-      <section>
-        <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
-        @for (item of section.items; track item.slug) {
-          <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
+<section class="wiki-mobile-navigation" [class.transitions-ready]="navigationTransitionsReady">
+  <button type="button" [attr.aria-expanded]="mobileNavigationExpanded" (click)="toggleMobileNavigation()">
+    <span>Wiki navigation</span>
+    <mat-icon>{{ mobileNavigationExpanded ? "expand_more" : "chevron_right" }}</mat-icon>
+  </button>
+  <nav aria-label="Wiki navigation" class="wiki-navigation" [class.animating]="mobileNavigationAnimating" [class.expanded]="mobileNavigationExpanded" [class.preferences-ready]="preferencesReady" (transitionend)="onMobileNavigationTransitionEnd($event)">
+      @for (section of navigation; track section.landing.slug) {
+        @if (section.items.length > 0) {
+          <section class="wiki-navigation-section">
+            <div class="wiki-section-heading" [class.active]="currentSlug === section.landing.slug">
+              <button type="button" [attr.aria-expanded]="isSectionExpanded(section.landing.slug)" [attr.aria-label]="(isSectionExpanded(section.landing.slug) ? 'Collapse ' : 'Expand ') + section.landing.label" (click)="toggleSection(section.landing.slug)">
+                <mat-icon>{{ isSectionExpanded(section.landing.slug) ? "expand_more" : "chevron_right" }}</mat-icon>
+              </button>
+              <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
+            </div>
+            <div class="wiki-section-content" [class.expanded]="isSectionExpanded(section.landing.slug)">
+              <div>
+                @for (item of section.items; track item.slug) {
+                  <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
+                }
+              </div>
+            </div>
+          </section>
+        } @else {
+          <a class="wiki-leaf-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
         }
-      </section>
-    }
+      }
   </nav>
-</details>
+</section>
 <div class="wiki-layout">
   <aside>
-    <nav aria-label="Wiki navigation">
+    <nav aria-label="Wiki navigation" class="wiki-navigation" [class.preferences-ready]="preferencesReady">
       @for (section of navigation; track section.landing.slug) {
-        <section>
-          <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
-          @for (item of section.items; track item.slug) {
-            <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
-          }
-        </section>
+        @if (section.items.length > 0) {
+          <section class="wiki-navigation-section">
+            <div class="wiki-section-heading" [class.active]="currentSlug === section.landing.slug">
+              <button type="button" [attr.aria-expanded]="isSectionExpanded(section.landing.slug)" [attr.aria-label]="(isSectionExpanded(section.landing.slug) ? 'Collapse ' : 'Expand ') + section.landing.label" (click)="toggleSection(section.landing.slug)">
+                <mat-icon>{{ isSectionExpanded(section.landing.slug) ? "expand_more" : "chevron_right" }}</mat-icon>
+              </button>
+              <a class="wiki-section-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
+            </div>
+            <div class="wiki-section-content" [class.expanded]="isSectionExpanded(section.landing.slug)">
+              <div>
+                @for (item of section.items; track item.slug) {
+                  <a [class.active]="currentSlug === item.slug" [routerLink]="'/wiki/' + item.slug">{{ item.label }}</a>
+                }
+              </div>
+            </div>
+          </section>
+        } @else {
+          <a class="wiki-leaf-link" [class.active]="currentSlug === section.landing.slug" [routerLink]="section.landing.slug === 'home' ? '/wiki' : '/wiki/' + section.landing.slug">{{ section.landing.label }}</a>
+        }
       }
     </nav>
+    <gol-wiki-footer />
   </aside>
   <main>
     @if (page !== null) {
-      <article class="wiki-markdown" [innerHTML]="html"></article>
+      <article class="wiki-markdown" [innerHTML]="html" (click)="onArticleClick($event)"></article>
+      <nav aria-label="Article navigation" class="wiki-article-navigation">
+        @if (previousPage !== null) {
+          <a class="previous-page" [routerLink]="previousPage.slug === 'home' ? '/wiki' : '/wiki/' + previousPage.slug">
+            <mat-icon>arrow_back</mat-icon>
+            <span><small>Previous</small><strong>{{ previousPage.label }}</strong></span>
+          </a>
+        }
+        @if (nextPage !== null) {
+          <a class="next-page" [routerLink]="'/wiki/' + nextPage.slug">
+            <span><small>Next</small><strong>{{ nextPage.label }}</strong></span>
+            <mat-icon>arrow_forward</mat-icon>
+          </a>
+        }
+      </nav>
     } @else {
       <article class="wiki-markdown wiki-not-found">
         <h1>Wiki page not found</h1>
@@ -43,3 +87,4 @@
     }
   </main>
 </div>
+<gol-wiki-footer class="wiki-mobile-footer" />

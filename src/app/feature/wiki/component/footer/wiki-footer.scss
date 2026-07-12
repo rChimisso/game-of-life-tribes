@@ -1,0 +1,29 @@
+:host {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid #303044;
+  color: #777788;
+  background: #050510;
+  font-size: 0.68rem;
+  text-align: center;
+
+  > span {
+    > .github-icon {
+      width: 0.8rem;
+      height: 0.8rem;
+      margin-right: 0.15rem;
+      vertical-align: -0.12rem;
+    }
+
+    > a {
+      color: #8ab4f8;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}

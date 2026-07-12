@@ -183,7 +183,7 @@ function createRenderer(currentSlug, knownSlugs, headingIds, linkReferences) {
       const text = this.parser.parseInline(tokens);
       const id = slugger.slug(plainText(text));
       headingIds.add(id);
-      const anchor = `${siteBase}/wiki/${currentSlug === 'home' ? '' : `${currentSlug}/`}#${id}`;
+      const anchor = `${siteBase}/wiki/${currentSlug === 'home' ? '' : currentSlug}#${id}`;
       return `<h${depth} id="${escapeAttribute(id)}"><a class="heading-anchor" href="${escapeAttribute(anchor)}" aria-label="Link to this section">#</a>${text}</h${depth}>\n`;
   };
   renderer.code = function({text, lang}) {
@@ -223,7 +223,7 @@ function sanitizeWikiHtml(html) {
       '*': ['class', 'id', 'title', 'aria-hidden', 'aria-label', 'style'],
       a: ['href', 'target', 'rel', 'title', 'class', 'aria-label'],
       img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'decoding', 'align'],
-      video: ['controls', 'muted', 'loop', 'playsinline', 'preload', 'width'],
+      video: ['controls', 'muted', 'playsinline', 'preload', 'width'],
       source: ['src', 'type'],
       td: ['align'],
       th: ['align'],

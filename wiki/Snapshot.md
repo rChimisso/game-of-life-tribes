@@ -7,7 +7,7 @@ The Snapshot section saves or loads the current simulation state as a `.golt` fi
 ## Controls
 
 <p align="center">
-  <img src="images/packing.png" alt="Packing section">
+  <img src="images/snapshot.png" alt="Packing section">
 </p>
 
 - **Progress status**:  

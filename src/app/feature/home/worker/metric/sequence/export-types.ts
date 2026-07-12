@@ -1,6 +1,8 @@
 import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {RecordedGpuMetricBackend} from '../gpu/recorded-gpu-metrics';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
+
 /**
  * Text encoder for Metrics ZIP entries.
  *
@@ -43,6 +45,12 @@ export interface MetricsExportProgress {
  * @typedef {MetricsExportOptions}
  */
 export interface MetricsExportOptions {
+  /**
+   * Grid edge topology used for contact metrics.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
   /**
    * Throws or reports cancellation through the caller when true.
    *

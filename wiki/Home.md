@@ -29,3 +29,15 @@ The app has two main surfaces:
 ## Browser Requirements
 
 The simulation requires WebGPU. Recording, snapshots, downloads, MP4 generation, and large exports also depend on browser storage, OPFS, compression streams, and media APIs. Device and browser limits can affect the largest usable grid, whether recording is available, whether live metrics are available, and whether an export uses normal output or compressed chunk mode.
+
+## Versioning
+
+This Wiki is current for application version `v0.27.3`.
+
+**Game of Life: Tribes** follows [Semantic Versioning](https://semver.org/) using `MAJOR.MINOR.PATCH` version numbers:
+
+- **MAJOR** identifies incompatible changes to stable public application contracts after version `1.0.0`.
+- **MINOR** identifies new functionality. While the project remains in initial development under `0.y.z`, incompatible changes also increment this number because the public contracts are not yet considered stable.
+- **PATCH** identifies backward-compatible bug fixes and small implementation corrections.
+
+Wiki-only updates do not increment the application version because they do not change the released application behavior or its public contracts.

@@ -2,7 +2,9 @@ import {GPU_STATE_BUCKETS} from './recorded-gpu-metrics-model';
 import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {FrameMetricStats, OfflineMetricComputeOptions} from '../core/offline-compute-types';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
+import {BOUNDED_GRID_TOPOLOGY} from '~gol/feature/home/model/rule';
 
 /**
  * Creates the device-loss error used to retire the GPU Metrics backend.
@@ -22,9 +24,12 @@ export function createRecordedGpuMetricsDeviceLostError(info: GPUDeviceLostInfo)
  * @param {GridFormat} previousFormat previous frame packing format.
  * @param {number} tribeCount known state count.
  * @param {number} deadIndex dead tribe index.
+ * @param {GridTopology} topology grid edge topology.
  * @returns {string} wgsl shader source.
  */
-export function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): string {
+export function buildRecordedMetricWgsl(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number, topology: GridTopology): string {
+  const rightContactCondition = topology === BOUNDED_GRID_TOPOLOGY ? 'x + 1u < COLS' : 'true';
+  const bottomContactCondition = topology === BOUNDED_GRID_TOPOLOGY ? 'y + 1u < ROWS' : 'true';
   return `
 @group(0) @binding(0) var<storage, read> currentGrid: array<u32>;
 @group(0) @binding(1) var<storage, read> previousGrid: array<u32>;
@@ -104,15 +109,13 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_ind
       atomicAdd(&localCounts[state], 1u);
     }
 
-    let right = readCurrentCell((x + 1u) % COLS, y);
-    let bottom = readCurrentCell(x, (y + 1u) % ROWS);
-    if (right != state) {
+    if (${rightContactCondition} && readCurrentCell((x + 1u) % COLS, y) != state) {
       atomicAdd(&localCross, 1u);
       if (state < STATE_COUNT) {
         atomicAdd(&localFrontier[state], 1u);
       }
     }
-    if (bottom != state) {
+    if (${bottomContactCondition} && readCurrentCell(x, (y + 1u) % ROWS) != state) {
       atomicAdd(&localCross, 1u);
       if (state < STATE_COUNT) {
         atomicAdd(&localFrontier[state], 1u);

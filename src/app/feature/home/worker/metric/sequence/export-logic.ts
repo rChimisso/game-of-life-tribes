@@ -47,6 +47,7 @@ function retireGpuMetricBackend(gpuBackend: RecordedGpuMetricBackendState): void
  */
 export function createMetricComputeOptions(completedBeforeFrame: number, framesTotal: number, options: MetricsExportOptions, onProgress?: MetricsFrameProgressReporter): OfflineMetricComputeOptions {
   return {
+    topology: options.topology,
     shouldCancel: options.shouldCancel,
     onRowsProcessed: (rowsProcessed, rowsTotal) => {
       if (onProgress) {

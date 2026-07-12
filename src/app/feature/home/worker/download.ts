@@ -5,6 +5,7 @@ import {estimateDownloadWorkingSet, resolveDownloadMode} from '../logic/download
 import {alignPackedBytesToWords} from '../logic/grid-format';
 import {DownloadRequestPayload} from '../model/download';
 import {DownloadWorkingSetEstimate, METRICS_CSV_LARGE_OUTPUT_BYTES} from '../model/download-estimate';
+import {GridTopology} from '../model/grid';
 import {Recording} from '../model/recording';
 import {Rule, Tribe} from '../model/rule';
 import {DownloadCancelListener, DownloadRequest, DownloadWorkerEvent} from './download/model/download-worker-message';
@@ -151,7 +152,7 @@ async function handleDownload(message: DownloadRequest): Promise<void> {
         await writeSaveEntries(zip, opts, snapshot, recording, tribes, rules);
       }
       if (mode === 'normal' && (opts.metrics || opts.png || opts.mp4) && recording) {
-        await writeRecordedFrameOutputs(zip, opts, recording, tribes, estimate);
+        await writeRecordedFrameOutputs(zip, opts, recording, tribes, snapshot.topology, estimate);
       }
       throwIfCancelled();
       postProgress(90, 'Finalizing ZIP');
@@ -382,11 +383,12 @@ async function writeRecordedSaveEntries(zip: ZipWriter, opts: DownloadRequestPay
  * @param {DownloadRequestPayload} opts selected download options.
  * @param {Recording} recording recording manifest and dimensions.
  * @param {readonly Tribe[]} tribes snapshot tribe metadata.
+ * @param {GridTopology} topology recorded grid topology.
  * @param {DownloadWorkingSetEstimate} estimate download working-set estimate.
  */
-async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], estimate: DownloadWorkingSetEstimate): Promise<void> {
+async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPayload, recording: Recording, tribes: readonly Tribe[], topology: GridTopology, estimate: DownloadWorkingSetEstimate): Promise<void> {
   const selection = resolveRecordingFrameSelection(recording.manifest, opts.frameRange);
-  const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(estimate)) : null;
+  const metricsWriter = opts.metrics ? await createMetricsExportWriter(zip, recording, selection, tribes, createSharedMetricsOptions(topology, estimate)) : null;
   const pngWriter = opts.png ? new PngFrameExportWriter(tribes, selection.framesTotal, zip, {
     ...createDownloadStreamCancellationOptions(),
     exportFrameOrigin: opts.exportFrameOrigin ?? null
@@ -436,11 +438,13 @@ async function writeRecordedFrameOutputs(zip: ZipWriter, opts: DownloadRequestPa
 /**
  * Creates Metrics options for shared frame-output orchestration.
  *
+ * @param {GridTopology} topology recorded grid topology.
  * @param {DownloadWorkingSetEstimate} estimate download working-set estimate.
  * @returns {MetricsExportOptions} Metrics export options.
  */
-function createSharedMetricsOptions(estimate: DownloadWorkingSetEstimate): MetricsExportOptions {
+function createSharedMetricsOptions(topology: GridTopology, estimate: DownloadWorkingSetEstimate): MetricsExportOptions {
   return {
+    topology,
     shouldCancel: () => cancelRequested,
     onProgress: progress => {
       throwIfCancelled();

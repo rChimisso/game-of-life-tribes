@@ -5,8 +5,9 @@ import {PackedRecordedFrame} from '../../frame/recording-frame-types';
 import {decodePackedRow} from '../../snapshot/packing/packed-access';
 import {DecodedPackedRow} from '../../snapshot/packing/packed-access-types';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
+import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
 /**
  * Default row cadence for yielding during CPU-heavy metric scans.
@@ -48,8 +49,8 @@ async function collectFrameMetricStats(frame: PackedRecordedFrame, previous: Pre
     }
     for (let x = 0; x < frame.cols; x++) {
       const state = currentRow[x]!;
-      const right = currentRow[(x + 1) % frame.cols]!;
-      const bottom = nextRow[x]!;
+      const right = options.topology !== BOUNDED_GRID_TOPOLOGY || x + 1 < frame.cols ? currentRow[(x + 1) % frame.cols]! : null;
+      const bottom = options.topology !== BOUNDED_GRID_TOPOLOGY || y + 1 < frame.rows ? nextRow[x]! : null;
       crossStateContactEdges += countCrossStateEdges(frontierCounts, state, right, bottom);
       accumulateTransition(transition, previousRow, state, x, deadIndex);
     }
@@ -179,17 +180,17 @@ function createMetricRowBuffer(format: GridFormat, cols: number): DecodedPackedR
  *
  * @param {number[]} frontierCounts frontier counts.
  * @param {number} state current cell state.
- * @param {number} right right-neighbor state.
- * @param {number} bottom bottom-neighbor state.
+ * @param {(number | null)} right right-neighbor state, or null at a bounded edge.
+ * @param {(number | null)} bottom bottom-neighbor state, or null at a bounded edge.
  * @returns {number} number of cross-state edges.
  */
-function countCrossStateEdges(frontierCounts: number[], state: number, right: number, bottom: number): number {
+function countCrossStateEdges(frontierCounts: number[], state: number, right: number | null, bottom: number | null): number {
   let crossStateContactEdges = 0;
-  if (right !== state) {
+  if (right !== null && right !== state) {
     crossStateContactEdges++;
     incrementFrontier(frontierCounts, state);
   }
-  if (bottom !== state) {
+  if (bottom !== null && bottom !== state) {
     crossStateContactEdges++;
     incrementFrontier(frontierCounts, state);
   }
@@ -296,7 +297,7 @@ function buildFrontierRecord(tribes: readonly Tribe[], frontierCounts: number[],
 export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, options: OfflineMetricComputeOptions): Promise<OfflineMetricEntry> {
   const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
   const stats = await collectFrameMetricStats(frame, previous, deadIndex, tribes.length, options);
-  return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex);
+  return buildOfflineMetricEntry(frame, tribes, previous, stats, deadIndex, options.topology);
 }
 
 /**
@@ -307,15 +308,16 @@ export async function computeOfflineMetricEntryAsync(frame: PackedRecordedFrame,
  * @param {(PreviousOfflineMetricFrame | null)} previous previous frame state.
  * @param {FrameMetricStats} stats aggregate frame stats.
  * @param {number} deadIndex dead tribe index.
+ * @param {GridTopology} topology grid edge topology.
  * @returns {OfflineMetricEntry} metric row.
  */
-export function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number): OfflineMetricEntry {
+export function buildOfflineMetricEntry(frame: PackedRecordedFrame, tribes: readonly Tribe[], previous: PreviousOfflineMetricFrame | null, stats: FrameMetricStats, deadIndex: number, topology: GridTopology): OfflineMetricEntry {
   const totalCells = frame.cols * frame.rows;
   const population = buildPopulationRecord(tribes, stats.counts);
   const populationDelta = previous ? buildPopulationDelta(tribes, population, previous.metric.population) : undefined;
   const deadCells = deadIndex >= 0 ? stats.counts[deadIndex]! : 0;
   const aliveCells = Math.max(0, totalCells - deadCells);
-  const totalContactEdges = totalCells * 2;
+  const totalContactEdges = topology === BOUNDED_GRID_TOPOLOGY ? frame.rows * Math.max(0, frame.cols - 1) + frame.cols * Math.max(0, frame.rows - 1) : totalCells * 2;
   const sameStateContactEdges = Math.max(0, totalContactEdges - stats.crossStateContactEdges);
   const diversity = computeDiversity(stats.counts, deadIndex, aliveCells);
   return {

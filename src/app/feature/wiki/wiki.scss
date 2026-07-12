@@ -10,7 +10,7 @@ gol-wiki {
   color: #e0e0e0;
   background: #000000;
 
-  > .wiki-header {
+  .wiki-header {
     position: sticky;
     z-index: 5;
     top: 0;
@@ -124,13 +124,11 @@ gol-wiki {
       font-weight: 650;
     }
 
-    &:not(.preferences-ready) {
-      .wiki-section-content {
-        visibility: hidden;
-        opacity: 0;
-        grid-template-rows: 0fr;
-        transition: none;
-      }
+    &:not(.preferences-ready) .wiki-section-content {
+      visibility: hidden;
+      opacity: 0;
+      grid-template-rows: 0fr;
+      transition: none;
     }
   }
 
@@ -185,8 +183,7 @@ gol-wiki {
         > .wiki-section-heading {
           padding: 0.3rem 0.5rem;
 
-          &.active,
-          &:hover {
+          &:is(.active, :hover) {
             background: #161632;
           }
 
@@ -213,8 +210,7 @@ gol-wiki {
                 margin-top: 0.2rem;
               }
 
-              &.active,
-              &:hover {
+              &:is(.active, :hover) {
                 color: #ffffff;
                 background: #161632;
               }
@@ -228,8 +224,7 @@ gol-wiki {
         margin-top: 0.75rem;
         color: #ededed;
 
-        &.active,
-        &:hover {
+        &:is(.active, :hover) {
           color: #ffffff;
           background: #161632;
         }
@@ -279,8 +274,7 @@ gol-wiki {
           > .wiki-section-heading {
             padding: 0.28rem 0.55rem;
 
-            &.active,
-            &:hover {
+            &:is(.active, :hover) {
               background: #101024;
             }
 
@@ -327,8 +321,7 @@ gol-wiki {
           margin-bottom: 1.25rem;
           color: #e0e0e0;
 
-          &.active,
-          &:hover {
+          &:is(.active, :hover) {
             color: #ffffff;
             background: #101024;
           }
@@ -415,12 +408,7 @@ gol-wiki {
           margin-bottom: 0;
         }
 
-        h1,
-        h2,
-        h3,
-        h4,
-        h5,
-        h6 {
+        :is(h1, h2, h3, h4, h5, h6) {
           position: relative;
           scroll-margin-top: 4.75rem;
           margin-top: 1.65em;
@@ -445,8 +433,7 @@ gol-wiki {
           }
         }
 
-        h1,
-        h2 {
+        :is(h1, h2) {
           padding-bottom: 0.3em;
           border-bottom: 1px solid #303044;
         }
@@ -467,24 +454,16 @@ gol-wiki {
           font-size: 1em;
         }
 
-        p,
-        blockquote,
-        ul,
-        ol,
-        table,
-        pre,
-        details,
+        :is(p, blockquote, ul, ol, table, pre, details),
         .katex-display {
           margin-top: 0;
           margin-bottom: 1rem;
         }
 
-        ul,
-        ol {
+        :is(ul, ol) {
           padding-left: 2em;
 
-          ul,
-          ol {
+          :is(ul, ol) {
             margin-top: 0.25rem;
             margin-bottom: 0;
           }
@@ -500,6 +479,10 @@ gol-wiki {
           &:hover {
             color: #9ac9ff;
             text-decoration: underline;
+          }
+
+          > code {
+            color: inherit;
           }
         }
 
@@ -540,25 +523,19 @@ gol-wiki {
           }
         }
 
-        .hljs-keyword,
-        .hljs-selector-tag,
-        .hljs-literal {
+        :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal) {
           color: #ff7ab2;
         }
 
-        .hljs-string,
-        .hljs-attribute {
+        :is(.hljs-string, .hljs-attribute) {
           color: #a5d6ff;
         }
 
-        .hljs-number,
-        .hljs-built_in,
-        .hljs-type {
+        :is(.hljs-number, .hljs-built_in, .hljs-type) {
           color: #d2a8ff;
         }
 
-        .hljs-comment,
-        .hljs-quote {
+        :is(.hljs-comment, .hljs-quote) {
           color: #8b949e;
         }
 
@@ -570,8 +547,7 @@ gol-wiki {
           border-spacing: 0;
           border-collapse: collapse;
 
-          th,
-          td {
+          :is(th, td) {
             padding: 0.45rem 0.75rem;
             border: 1px solid #38384c;
           }
@@ -587,14 +563,11 @@ gol-wiki {
           }
         }
 
-        img,
-        video,
-        svg {
+        :is(img, video, svg) {
           display: block;
           max-width: 100%;
           height: auto;
-          margin-right: auto;
-          margin-left: auto;
+          margin-inline: auto;
           border-radius: 4px;
         }
 
@@ -604,19 +577,38 @@ gol-wiki {
         }
 
         details {
+          interpolate-size: allow-keywords;
           padding: 0.75rem 1rem;
           border: 1px solid #38384c;
           border-radius: 6px;
           background: #080814;
 
+          &::details-content {
+            height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition:
+              height 250ms ease,
+              opacity 180ms ease,
+              content-visibility 250ms allow-discrete;
+          }
+
           > summary {
             cursor: pointer;
             color: #ededed;
             font-weight: 600;
+            transition: margin-bottom 250ms ease;
           }
 
-          &[open] > summary {
-            margin-bottom: 1rem;
+          &[open] {
+            &::details-content {
+              height: auto;
+              opacity: 1;
+            }
+
+            > summary {
+              margin-bottom: 1rem;
+            }
           }
         }
 
@@ -654,8 +646,7 @@ gol-wiki {
 
     @media (max-width: $mobile) {
       > main {
-        padding-right: 1rem;
-        padding-left: 1rem;
+        padding-inline: 1rem;
 
         > .wiki-markdown {
           font-size: 0.86rem;
@@ -668,19 +659,12 @@ gol-wiki {
             font-size: 1.35em;
           }
 
-          h1,
-          h2,
-          h3,
-          h4,
-          h5,
-          h6 {
-            > .heading-anchor {
-              position: static;
-              display: inline-block;
-              width: 1em;
-              opacity: 0.65;
-              text-align: left;
-            }
+          :is(h1, h2, h3, h4, h5, h6) > .heading-anchor {
+            position: static;
+            display: inline-block;
+            width: 1em;
+            opacity: 0.65;
+            text-align: left;
           }
         }
 
@@ -697,10 +681,8 @@ gol-wiki {
               font-size: 1.1rem;
             }
 
-            > span {
-              > strong {
-                font-size: 0.75rem;
-              }
+            > span > strong {
+              font-size: 0.75rem;
             }
           }
         }
@@ -718,9 +700,7 @@ gol-wiki {
     > .wiki-mobile-footer {
       position: fixed;
       z-index: 6;
-      right: 0;
-      bottom: 0;
-      left: 0;
+      inset: auto 0 0;
       display: flex;
       min-height: 3.8rem;
       justify-content: center;

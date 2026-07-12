@@ -1,3 +1,4 @@
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 import {LiveMetricSectionSettings, MetricAvailability} from '~gol/feature/home/model/metrics';
 import {Tribe} from '~gol/feature/home/model/rule';
@@ -132,6 +133,12 @@ export interface CreateInteractiveMetricsResourcesRequest {
    * @type {number}
    */
   rows: number;
+  /**
+   * Grid edge topology.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
   /**
    * Runtime grid packing format.
    *
@@ -294,6 +301,12 @@ export interface BuildMetricMessageRequest {
    * @type {number}
    */
   rows: number;
+  /**
+   * Grid edge topology.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
   /**
    * Total recorded frames.
    *

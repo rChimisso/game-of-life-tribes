@@ -4,6 +4,7 @@ import {BOUNDARY_BUFFER_SIZE, BuildMetricMessageRequest, CreateInteractiveMetric
 import {GPU_LABELS} from '../../gpu/gpu-labels';
 
 import {LiveInterfaceMetrics} from '~gol/feature/home/model/metrics';
+import {BOUNDED_GRID_TOPOLOGY} from '~gol/feature/home/model/rule';
 import {MetricMessage} from '~gol/feature/home/model/worker-message';
 
 /**
@@ -109,7 +110,9 @@ ${metricsCoordinateWgsl(dispatchPlan)}
  * @returns {string} WGSL shader source.
  */
 function generateBoundaryWgsl(request: CreateInteractiveMetricsResourcesRequest): string {
-  const {cols, rows, gridFormat, dispatchPlan} = request;
+  const {cols, rows, topology, gridFormat, dispatchPlan} = request;
+  const rightContactCondition = topology === BOUNDED_GRID_TOPOLOGY ? 'x + 1u < COLS' : 'true';
+  const bottomContactCondition = topology === BOUNDED_GRID_TOPOLOGY ? 'y + 1u < ROWS' : 'true';
   return `
 @group(0) @binding(0) var<storage, read> grid: array<u32>;
 @group(0) @binding(1) var<storage, read_write> boundary: atomic<u32>;
@@ -144,11 +147,11 @@ ${metricsCoordinateWgsl(dispatchPlan)}
     var edges = 0u;
     let self_tribe = readCell(x, y);
 
-    if (readCell((x + 1u) % COLS, y) != self_tribe) {
+    if (${rightContactCondition} && readCell((x + 1u) % COLS, y) != self_tribe) {
       edges += 1u;
     }
 
-    if (readCell(x, (y + 1u) % ROWS) != self_tribe) {
+    if (${bottomContactCondition} && readCell(x, (y + 1u) % ROWS) != self_tribe) {
       edges += 1u;
     }
 
@@ -237,7 +240,7 @@ function computeLiveDiversityStats(request: BuildMetricMessageRequest, diversity
  * @returns {LiveInterfaceMetrics} interface metrics.
  */
 function buildLiveInterfaceMetrics(request: BuildMetricMessageRequest, interfacesEnabled: boolean): LiveInterfaceMetrics {
-  const totalContactEdges = request.cols * request.rows * 2;
+  const totalContactEdges = request.topology === BOUNDED_GRID_TOPOLOGY ? request.rows * Math.max(0, request.cols - 1) + request.cols * Math.max(0, request.rows - 1) : request.cols * request.rows * 2;
   const crossStateContactEdges = interfacesEnabled ? request.readback.crossStateContactEdges : 0;
   const sameStateContactEdges = interfacesEnabled ? Math.max(0, totalContactEdges - crossStateContactEdges) : 0;
   return {

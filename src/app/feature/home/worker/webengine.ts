@@ -1073,6 +1073,7 @@ function createMetricsPipelines(): void {
     cols,
     rows,
     gridFormat,
+    topology: ruleset.topology,
     dispatchPlan: metricsDispatchPlan
   });
 }
@@ -1782,6 +1783,7 @@ function readMetricsAndPost(): void {
         liveMetricSettings: liveMetrics.sections,
         cols,
         rows,
+        topology: ruleset.topology,
         totalFrames,
         fps: currentFps,
         canStepBack: totalFrames > 1,

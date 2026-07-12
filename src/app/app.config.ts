@@ -23,7 +23,7 @@ export const appConfig: ApplicationConfig = {
     provideEffects(CoreEffects),
     provideAnimationsAsync(),
     provideClientHydration(withEventReplay()),
-    provideRouter(routes, withInMemoryScrolling({scrollPositionRestoration: 'top', anchorScrolling: 'enabled'})),
+    provideRouter(routes, withInMemoryScrolling({scrollPositionRestoration: 'enabled', anchorScrolling: 'enabled'})),
     {
       provide: MAT_RIPPLE_GLOBAL_OPTIONS,
       useValue: {

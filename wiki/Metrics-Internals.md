@@ -15,13 +15,14 @@ Population and diversity depend on the histogram pass:
 Interfaces use a boundary pass:
 
 - Each cell checks only right and bottom neighbors.
-- Total contact edges are `cols * rows * 2`.
+- Toroidal grids wrap those checks and have $\text{cols }\cdot\text{ rows}\cdot2$ total contact edges.
+- Bounded grids skip checks beyond the right and bottom edges and have $\text{rows }\cdot(\text{cols}-1)+\text{cols }\cdot(\text{rows}-1)$ total contact edges.
 - Cross-state edges are counted directly.
 - Same-state edges are total contact edges minus cross-state edges.
 
 ## Offline Metrics
 
-Download metrics scan recorded frames in the download worker. They decode packed rows, update population histograms, count frontier/contact edges, and compare with the previous frame when generations are consecutive.
+Download metrics scan recorded frames in the download worker. They decode packed rows, update population histograms, count frontier/contact edges using the recorded grid topology, and compare with the previous frame when generations are consecutive. Toroidal exports wrap edge contacts; bounded exports count only contacts between stored cells and do not include virtual boundary cells.
 
 Offline transition metrics include:
 
@@ -34,8 +35,8 @@ Offline transition metrics include:
 
 Live metrics rely on $32$-bit unsigned GPU counters:
 
-- Population and diversity are available when `cols * rows <= 0xffffffff`.
-- Interfaces are available when `cols * rows * 2 <= 0xffffffff`.
+- Population and diversity are available when $\text{cols }\cdot\text{ rows}\leq\texttt{0xffffffff}$.
+- Interfaces are available when $\text{cols }\cdot\text{ rows}\cdot2\leq\texttt{0xffffffff}$.
 
 If a section is enabled but not safe for counters, the UI marks it unavailable. If disabled globally or per section, it is marked disabled.
 

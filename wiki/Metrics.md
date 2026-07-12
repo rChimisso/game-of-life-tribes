@@ -48,3 +48,5 @@ If a live metric section is disabled, values display as `disabled`. If a section
   Same-state edges divided by total contact edges.
 - **Cross-state fraction**:  
   Cross-state edges divided by total contact edges.
+
+Toroidal grids include wrapped contacts across opposite edges. Bounded grids count only contacts between cells inside the finite grid; virtual boundary cells and opposite-edge wrapping are excluded.

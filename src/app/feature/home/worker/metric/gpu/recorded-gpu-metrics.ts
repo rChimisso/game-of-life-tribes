@@ -7,6 +7,7 @@ import {buildOfflineMetricEntry} from '../core/offline';
 import {PreviousOfflineMetricFrame, OfflineMetricComputeOptions} from '../core/offline-compute-types';
 import {OfflineMetricEntry} from '../core/offline-types';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 import {DEAD_TRIBE_ID, Tribe} from '~gol/feature/home/model/rule';
 
@@ -151,10 +152,10 @@ export class RecordedGpuMetricBackend {
     }
     const exactTransition = previous !== null && frame.generation - previous.generation === 1;
     const deadIndex = tribes.findIndex(tribe => tribe.id === DEAD_TRIBE_ID);
-    this.context ??= this.createContext(frame, previous?.format ?? frame.format, tribes.length, deadIndex);
+    this.context ??= this.createContext(frame, previous?.format ?? frame.format, tribes.length, deadIndex, options.topology);
     const readback = await this.runMetricPass(this.context, frame, previous, exactTransition);
     assertNotCancelled(options);
-    return buildOfflineMetricEntry(frame, tribes, previous, buildGpuFrameMetricStats(readback, tribes.length, exactTransition), deadIndex);
+    return buildOfflineMetricEntry(frame, tribes, previous, buildGpuFrameMetricStats(readback, tribes.length, exactTransition), deadIndex, options.topology);
   }
 
   /**
@@ -176,13 +177,14 @@ export class RecordedGpuMetricBackend {
    * @param {GridFormat} previousFormat previous-frame packing format.
    * @param {number} tribeCount known state count.
    * @param {number} deadIndex dead tribe index.
+   * @param {GridTopology} topology grid edge topology.
    * @returns {RecordedGpuMetricsContext} reusable GPU context.
    */
-  private createContext(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number): RecordedGpuMetricsContext {
+  private createContext(frame: PackedRecordedFrame, previousFormat: GridFormat, tribeCount: number, deadIndex: number, topology: GridTopology): RecordedGpuMetricsContext {
     const frameByteSize = Math.max(Uint32Array.BYTES_PER_ELEMENT, frame.words.byteLength);
     const shader = this.device.createShaderModule({
       label: 'recorded metric shader',
-      code: buildRecordedMetricWgsl(frame, previousFormat, tribeCount, deadIndex)
+      code: buildRecordedMetricWgsl(frame, previousFormat, tribeCount, deadIndex, topology)
     });
     const pipeline = this.device.createComputePipeline({
       label: 'recorded metric pipeline',

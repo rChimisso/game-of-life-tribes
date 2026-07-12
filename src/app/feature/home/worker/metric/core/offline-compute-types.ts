@@ -1,5 +1,6 @@
 import {OfflineMetricEntry} from './offline-types';
 
+import {GridTopology} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
 
 /**
@@ -42,6 +43,12 @@ export interface PreviousOfflineMetricFrame {
  * @typedef {OfflineMetricComputeOptions}
  */
 export interface OfflineMetricComputeOptions {
+  /**
+   * Grid edge topology used for contact metrics.
+   *
+   * @type {GridTopology}
+   */
+  topology: GridTopology;
   /**
    * Returns whether Metrics computation should stop.
    *

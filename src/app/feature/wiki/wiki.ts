@@ -4,6 +4,7 @@ import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {MatIcon} from '@angular/material/icon';
 import {DomSanitizer, SafeHtml} from '@angular/platform-browser';
 import {ActivatedRoute, Router, RouterLink} from '@angular/router';
+import {fromEvent} from 'rxjs';
 
 import {WikiFooter} from './component/footer/wiki-footer';
 import {WikiContent, WikiContentPage, WikiNavigationItem, WikiNavigationSection} from './model/wiki-content';
@@ -258,8 +259,12 @@ export class WikiPage {
       this.preferencesReady = true;
     }
     afterNextRender(() => {
+      const window = this.document.defaultView;
       if (this.navigationState.preferences === null) {
         this.restorePreferences();
+      }
+      if (window !== null) {
+        fromEvent<PopStateEvent>(window, 'popstate').pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.synchronizeBrowserLocation());
       }
       this.cdr.detectChanges();
       requestAnimationFrame(() => {
@@ -367,14 +372,33 @@ export class WikiPage {
     const basePath = new URL(this.document.baseURI).pathname.replace(/\/$/, '');
     const targetPath = url.pathname.replace(/\/$/, '');
     const currentPath = location.pathname.replace(/\/$/, '');
-    if (targetPath === currentPath && url.search === location.search && url.hash.length > 1) {
-      const fragment = decodeURIComponent(url.hash.slice(1));
-      const history = this.document.defaultView?.history;
-      history?.pushState(history.state, '', `${location.pathname}${location.search}${url.hash}`);
-      this.viewportScroller.scrollToAnchor(fragment);
-    } else {
-      const applicationUrl = `${targetPath.slice(basePath.length)}${url.search}${url.hash}`;
-      this.router.navigateByUrl(applicationUrl).catch(error => console.error('Failed to navigate to Wiki link:', error));
+    const samePageFragment = targetPath === currentPath && url.search === location.search && url.hash.length > 1;
+    const applicationUrl = `${targetPath.slice(basePath.length)}${url.search}${url.hash}`;
+    this.router.navigateByUrl(applicationUrl)
+      .then(() => {
+        if (samePageFragment) {
+          this.viewportScroller.scrollToAnchor(decodeURIComponent(url.hash.slice(1)));
+        }
+      })
+      .catch(error => console.error('Failed to navigate to Wiki link:', error));
+  }
+
+  /**
+   * Synchronizes Wiki content and fragment scrolling after browser history navigation.
+   *
+   * @private
+   */
+  private synchronizeBrowserLocation(): void {
+    const {location} = this.document;
+    const basePath = new URL(this.document.baseURI).pathname.replace(/\/$/, '');
+    const applicationPath = location.pathname.slice(basePath.length).replace(/^\/|\/$/g, '');
+    const segments = applicationPath.split('/');
+    if (segments[0] === 'wiki') {
+      this.updatePage(segments[1] ?? null);
+      const fragment = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : '';
+      if (fragment.length > 0) {
+        setTimeout(() => this.viewportScroller.scrollToAnchor(fragment), 0);
+      }
     }
   }
 

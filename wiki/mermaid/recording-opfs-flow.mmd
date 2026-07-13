@@ -14,7 +14,7 @@ flowchart TB
     Step --> Copy --> Full
     Full -- ⠀No⠀ --> Step
     Full -- ⠀Yes⠀ --> Capacity
-    Backpressure -. "⠀wait⠀" .-> Capacity
+    Backpressure -. "⠀Wait⠀" .-> Capacity
     Capacity -- ⠀Yes⠀ --> Submit --> Reset --> Step
     Capacity -- ⠀No⠀ --> Backpressure
   end

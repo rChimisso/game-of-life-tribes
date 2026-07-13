@@ -7,7 +7,7 @@ The Playback section manages time in the simulation. It starts and stops the sim
 ## Controls
 
 <p align="center">
-  <img src="images/playback.png" alt="Playback section">
+  <img src="../readme/playback.png" alt="Playback section">
 </p>
 
 - **Run / Pause**:  
@@ -15,7 +15,7 @@ The Playback section manages time in the simulation. It starts and stops the sim
 - **Step back**:  
   Moves backward by the current skip amount. This depends on recorded history, so it is disabled when no step-back data is available. Disabled also while the simulation is running.
 - **Skip amount**:  
-  Positive integer number of generations used by both step buttons. The value is persisted in local preferences and is clamped to at least `1`.  
+  Positive integer number of generations used by both step buttons. The value is persisted in local preferences and is clamped to at least $1$.  
   _This field is persisted across sessions._
 - **Step forward**:  
   Advances by the current skip amount at max speed. Disabled while the simulation is running.

@@ -5,20 +5,20 @@
 The Shortcuts section lists keyboard and pointer controls, available for desktop-mode only. Keyboard shortcuts are ignored while a text input, select, or textarea owns focus, and most shortcuts are blocked while a GPU error, rebuild, or backpressure overlay is active.
 
 <p align="center">
-  <img src="images/shortcuts.png" alt="Shortcuts section">
+  <img src="../readme/shortcuts.png" alt="Shortcuts section">
 </p>
 
 ## Playback Shortcuts
 
-| Shortcut     | Action                                                             |
-| ------------ | ------------------------------------------------------------------ |
-| Space        | Play / pause. During a step operation, Space cancels stepping.     |
-| R            | Restart the simulation.                                            |
-| Up / Down    | Increase or decrease fixed target speed. Down clamps at `1` gen/s. |
-| Left / Right | Step backward or forward by one generation.                        |
-| M            | Toggle max speed.                                                  |
-| E            | Toggle recording when recording is available.                      |
-| W            | Toggle live metrics globally.                                      |
+| Shortcut     | Action                                                                    |
+| ------------ | ------------------------------------------------------------------------- |
+| Space        | Play / pause. During a step operation, Space cancels stepping.            |
+| R            | Restart the simulation.                                                   |
+| Up / Down    | Increase or decrease fixed target speed. Down clamps at $1\text{ gen/s}$. |
+| Left / Right | Step backward or forward by $1$ generation.                               |
+| M            | Toggle max speed.                                                         |
+| E            | Toggle recording when recording is available.                             |
+| W            | Toggle live metrics globally.                                             |
 
 ## Drawing Shortcuts
 

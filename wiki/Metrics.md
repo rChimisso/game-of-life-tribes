@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Metrics section displays live measurements from the simulation. Live metrics refresh about once per second, or every generation below `1` gen/s. They are useful for watching population balance, diversity, and boundaries while a simulation runs.
+The Metrics section displays live measurements from the simulation. Live metrics refresh about once per second, or every generation below $1\text{ gen/s}$. They are useful for watching population balance, diversity, and boundaries while a simulation runs.
 
 ## Controls
 
@@ -36,7 +36,7 @@ If a live metric section is disabled, values display as `disabled`. If a section
 - **Shannon entropy**:  
   How evenly alive cells are distributed across tribes. Higher values mean more even distribution.
 - **Simpson index**:  
-  Probability that two randomly selected alive cells belong to different tribes.
+  Probability that $2$ randomly selected alive cells belong to different tribes.
 
 ### Interfaces
 

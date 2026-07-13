@@ -5,10 +5,10 @@ These benchmarks are measured on a laptop using the **Conway** preset and **Toro
 ## Hardware:
 
 - **CPU**: Intel Core i7-12700H
-- **GPU**: NVIDIA RTX 3070 Ti Laptop GPU, $150$ W, $8$ GB GDDR6 VRAM
-- **WebGPU `maxBufferSize`**: $2\,147\,483\,648$ bytes
-- **WebGPU `maxStorageBufferBindingSize`**: $2\,147\,483\,644$ bytes
-- **RAM**: $64$ GB DDR5 SODIMM Corsair $4\,800$ MHz, $2 \times 32$ GB
+- **GPU**: NVIDIA RTX 3070 Ti Laptop GPU, 150 W, 8 GB GDDR6 VRAM
+- **WebGPU `maxBufferSize`**: 2 147 483 648 bytes
+- **WebGPU `maxStorageBufferBindingSize`**: 2 147 483 644 bytes
+- **RAM**: 64 GB DDR5 SODIMM Corsair 4 800 MHz, 2 × 32 GB
 - **Storage**: Samsung SSD 980 PRO 1 TB
 - **Browser**: Opera GX 131.0.5877.111, based on Chromium 147.0.7727.56
 - **OS**: Windows 10 22H2

@@ -10,27 +10,7 @@ For the `.golt` container layout, header bytes, and packed grid payload, see [Sn
 
 A rule has a **clause**, which decides whether the rule matches, and an **outcome**, which decides the next tribe:
 
-```text
-Rule
-├─ Clause
-│  ├─ current-cell test
-│  ├─ neighbor-count test
-│  ├─ count comparison
-│  └─ logical composition
-│
-└─ Outcome
-   ├─ fixed / same
-   ├─ ranked selection
-   └─ combination lookup
-
-Selectors
-├─ explicit tribes
-├─ same as the current cell
-├─ different from the current cell
-└─ candidates in the current ranked tie
-```
-
-All neighbor-count expressions use the eight-cell Moore neighborhood.
+All neighbor-count expressions use the $8$-cell Moore neighborhood.
 
 ## Rule Structure
 
@@ -45,10 +25,10 @@ Each tribe is a named cell state:
 }
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `id` | Tribe ID used by cells, selectors, outcomes, and `boundaryTribe`. |
-| `color` | Six-digit RGB hex color without `#`. |
+| Field   | Meaning                                                           |
+| ------- | ----------------------------------------------------------------- |
+| `id`    | Tribe ID used by cells, selectors, outcomes, and `boundaryTribe`. |
+| `color` | Six-digit RGB hex color without `#`.                              |
 
 The `tribes` array is ordered. Packed grid values are numeric indexes into that array: `0` maps to `tribes[0]`, `1` maps to `tribes[1]`, and so on.
 
@@ -69,25 +49,29 @@ Rules are persisted in this normalized shape:
 
 ```jsonc
 {
-  "clause": { /* ... */ },
-  "become": { /* ... */ },
+  "clause": {
+    /* ... */
+  },
+  "become": {
+    /* ... */
+  },
   "probability": 100,
   "muted": false
 }
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `clause` | Required [clause expression](#clauses). Decides whether the rule matches. |
-| `become` | Required [outcome expression](#outcomes). Decides the next tribe when the rule applies. |
-| `probability` | Application percentage from `0` through `100`, with up to three decimals. Missing values load as `100`. |
-| `muted` | Disables the rule when `true`. Missing values load as `false`. |
+| Field         | Meaning                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `clause`      | Required [clause expression](#clauses). Decides whether the rule matches.                               |
+| `become`      | Required [outcome expression](#outcomes). Decides the next tribe when the rule applies.                 |
+| `probability` | Application percentage from $0$ through $100$, with up to three decimals. Missing values load as $100$. |
+| `muted`       | Disables the rule when `true`. Missing values load as `false`.                                          |
 
 Rules are evaluated in array order and use **first-match-wins** semantics.
 
-1. Muted rules and rules with probability `0` are skipped.
-2. A matching `100%` rule applies immediately.
-3. A matching rule between `0%` and `100%` performs a deterministic roll using the ruleset `randomSeed`.
+1. Muted rules and rules with probability $0$ are skipped.
+2. A matching $100\%$ rule applies immediately.
+3. A matching rule between $0\%$ and $100\%$ performs a deterministic roll using the ruleset `randomSeed`.
 4. A failed roll continues to later rules.
 5. If no rule applies, the result remains `dead`.
 
@@ -101,13 +85,13 @@ A fixed-`dead` outcome often adds work without changing the result. It is mainly
 
 Selectors define which tribes a clause or dynamic outcome considers.
 
-| `kind` | Selects | Fields | Notes |
-| --- | --- | --- | --- |
-| `tribes` | An explicit set of tribe IDs | `tribes` | The list must be non-empty. |
-| `same` | Neighbors matching the current cell tribe | — | Relative to the current cell. |
-| `different` | Neighbors not matching the current cell tribe | — | Includes `dead`. |
-| `different-in` | Neighbors not matching the current cell tribe within an explicit set of tribe IDs | `tribes` | The list must be non-empty. |
-| `tie` | Candidates tied in the current ranked outcome | `source` | Only has special meaning during ranked tie handling. |
+| `kind`         | Selects                                                                           | Fields   | Notes                                                |
+| -------------- | --------------------------------------------------------------------------------- | -------- | ---------------------------------------------------- |
+| `tribes`       | An explicit set of tribe IDs                                                      | `tribes` | The list must be non-empty.                          |
+| `same`         | Neighbors matching the current cell tribe                                         | —        | Relative to the current cell.                        |
+| `different`    | Neighbors not matching the current cell tribe                                     | —        | Includes `dead`.                                     |
+| `different-in` | Neighbors not matching the current cell tribe within an explicit set of tribe IDs | `tribes` | The list must be non-empty.                          |
+| `tie`          | Candidates tied in the current ranked outcome                                     | `source` | Only has special meaning during ranked tie handling. |
 
 An explicit selector is written as:
 
@@ -151,20 +135,20 @@ Outside an actual ranked tie branch, there is no tie state. The compiler then tr
 
 Clauses decide whether a rule is eligible to apply to the current cell.
 
-| `kind` | Meaning | Fields |
-| --- | --- | --- |
-| `is` | The current cell tribe is selected | `tribes` |
-| `count` | The selected neighbor count is inside an inclusive interval | `selector`, `interval` |
-| `none` | The selected neighbor count is `0` | `selector` |
-| `exactly` | The selected neighbor count equals `value` | `selector`, `value` |
-| `min` | The selected neighbor count is at least `value` | `selector`, `value` |
-| `max` | The selected neighbor count is at most `value` | `selector`, `value` |
-| `comparison` | Compare two neighbor counts | `left`, `right`, `operator`, `margin` |
-| `not` | Negate one child clause | `clause` |
-| `and` | Every child clause matches | `clauses` |
-| `or` | At least one child clause matches | `clauses` |
-| `xor` | An odd number of child clauses match | `clauses` |
-| `empty` | Editor placeholder that never matches | — |
+| `kind`       | Meaning                                                     | Fields                                |
+| ------------ | ----------------------------------------------------------- | ------------------------------------- |
+| `is`         | The current cell tribe is selected                          | `tribes`                              |
+| `count`      | The selected neighbor count is inside an inclusive interval | `selector`, `interval`                |
+| `none`       | The selected neighbor count is $0$                          | `selector`                            |
+| `exactly`    | The selected neighbor count equals `value`                  | `selector`, `value`                   |
+| `min`        | The selected neighbor count is at least `value`             | `selector`, `value`                   |
+| `max`        | The selected neighbor count is at most `value`              | `selector`, `value`                   |
+| `comparison` | Compare two neighbor counts                                 | `left`, `right`, `operator`, `margin` |
+| `not`        | Negate one child clause                                     | `clause`                              |
+| `and`        | Every child clause matches                                  | `clauses`                             |
+| `or`         | At least one child clause matches                           | `clauses`                             |
+| `xor`        | An odd number of child clauses match                        | `clauses`                             |
+| `empty`      | Editor placeholder that never matches                       | —                                     |
 
 ### Current-Cell Tests
 
@@ -183,7 +167,7 @@ If the selected list covers every known tribe, the clause is always true. If no 
 
 ### Count Tests
 
-Count clauses operate on one selector over the eight Moore neighbors.
+Count clauses operate on $1$ selector over the $8$ Moore neighbors.
 
 For example:
 
@@ -198,17 +182,19 @@ For example:
 }
 ```
 
-This matches when exactly three `Alive` neighbors are present.
+This matches when exactly $3$ `Alive` neighbors are present.
 
 The count forms are equivalent to:
 
-```text
-count      min <= count(selector) <= max
-none       count(selector) = 0
-exactly    count(selector) = value
-min        count(selector) >= value
-max        count(selector) <= value
-```
+$$
+\begin{aligned}
+\texttt{count}:&\quad \texttt{min}\leq\texttt{count(selector)}\leq\texttt{max} \\
+\texttt{none}:&\quad \texttt{count(selector)}=0 \\
+\texttt{exactly}:&\quad \texttt{count(selector)}=\texttt{value} \\
+\texttt{min}:&\quad \texttt{count(selector)}\geq\texttt{value} \\
+\texttt{max}:&\quad \texttt{count(selector)}\leq\texttt{value}
+\end{aligned}
+$$
 
 `count` intervals are inclusive. A full `[0, 8]` interval always matches. Likewise, `min 0` and `max 8` always match.
 
@@ -216,7 +202,7 @@ The compiler precomputes each unique selector count once and reuses it across cl
 
 ### Count Comparisons
 
-`comparison` compares two count expressions. `margin` is added to the right side before comparison:
+`comparison` compares $2$ count expressions. `margin` is added to the right side before comparison:
 
 ```jsonc
 {
@@ -240,11 +226,7 @@ The compiler precomputes each unique selector count once and reuses it across cl
 }
 ```
 
-This means:
-
-```text
-count(Red) > count(Blue) + 1
-```
+This means: $\texttt{count(Red)}>\texttt{count(Blue)}+1$.
 
 Persisted operators are `"="`, `"≠"`, `">"`, `"<"`, `"≥"`, and `"≤"`. `margin` is clamped to `-8..8`.
 
@@ -252,7 +234,7 @@ Persisted operators are `"="`, `"≠"`, `">"`, `"<"`, `"≥"`, and `"≤"`. `mar
 
 Logical clauses are recursive.
 
-For example, Conway birth requires both a dead current cell and exactly three live neighbors:
+For example, Conway birth requires both a `dead` current cell and exactly $3$ `Alive` neighbors:
 
 ```jsonc
 {
@@ -283,7 +265,7 @@ or     at least one child is true
 xor    an odd number of children are true
 ```
 
-`xor` uses parity semantics: with two children it behaves like ordinary exclusive-or, while with more children it matches whenever the number of matching children is odd.
+`xor` uses parity semantics: with $2$ children it behaves like ordinary exclusive-or, while with more children it matches whenever the number of matching children is odd.
 
 ### `empty`
 
@@ -303,17 +285,17 @@ It always evaluates to false. Rules containing empty placeholders are invalid fo
 
 Outcomes decide which tribe a matched rule writes.
 
-| `kind` | Result | Fields |
-| --- | --- | --- |
-| `fixed` | Write one tribe | `tribe` |
-| `same` | Keep the current cell tribe | — |
-| `majority` | Choose the most common eligible neighbor tribe | `selector`, `tie`, `fallback` |
+| `kind`     | Result                                                                | Fields                        |
+| ---------- | --------------------------------------------------------------------- | ----------------------------- |
+| `fixed`    | Write one tribe                                                       | `tribe`                       |
+| `same`     | Keep the current cell tribe                                           | —                             |
+| `majority` | Choose the most common eligible neighbor tribe                        | `selector`, `tie`, `fallback` |
 | `minority` | Choose the least common eligible neighbor tribe with a non-zero count | `selector`, `tie`, `fallback` |
-| `combine` | Resolve an exact set of present inputs through a lookup table | `strategy` |
+| `combine`  | Resolve an exact set of present inputs through a lookup table         | `strategy`                    |
 
 ### Fixed and Same Outcomes
 
-A fixed outcome writes one tribe ID:
+A fixed outcome writes $1$ tribe ID:
 
 ```jsonc
 {
@@ -358,16 +340,16 @@ Only candidates with a non-zero neighbor count participate.
 
 - `majority` chooses the highest count.
 - `minority` chooses the lowest non-zero count.
-- exactly one winning candidate writes that candidate;
+- exactly $1$ winning candidate writes that candidate;
 - multiple winning candidates evaluate `tie`;
 - no candidate evaluates `fallback`.
 
-A no-candidate case occurs when every eligible candidate has count `0`, the selector resolves to no valid candidates, or selector eligibility excludes every candidate for the current cell.
+A no-candidate case occurs when every eligible candidate has count $0$, the selector resolves to no valid candidates, or selector eligibility excludes every candidate for the current cell.
 
 For example:
 
 - `same` has no candidate when there are no same-tribe neighbors;
-- `["Red", "Blue"]` has no candidate when neither Red nor Blue is present.
+- `["Red", "Blue"]` has no candidate when neither `Red` nor `Blue` is present.
 
 Missing `tie` or `fallback` outcomes fall back to `dead` during shader generation. The editor requires explicit valid outcomes for applied ranked rules.
 
@@ -413,7 +395,7 @@ A row containing `[Red, Blue]` is equivalent to `[Blue, Red]`. The editor reject
 
 A lookup row is not a subset test.
 
-A row for `[Red]` does not match when both Red and Blue are present. The runtime input set must exactly match the row's input set.
+A row for `[Red]` does not match when both `Red` and `Blue` are present. The runtime input set must exactly match the row's input set.
 
 #### `dead` Is Handled Separately
 
@@ -459,7 +441,7 @@ The snippets in this wiki are representative rather than exact generated output;
 
 ### Conway's Game of Life
 
-Conway's Game of Life can be represented with one birth rule and one survival rule.
+Conway's Game of Life can be represented with $1$ birth rule and $1$ survival rule.
 
 #### Birth
 
@@ -491,7 +473,7 @@ Conway's Game of Life can be represented with one birth rule and one survival ru
 }
 ```
 
-A dead cell becomes `Alive` when exactly three `Alive` neighbors surround it.
+A `dead` cell becomes `Alive` when exactly $3$ `Alive` neighbors surround it.
 
 #### Survival
 
@@ -522,7 +504,7 @@ A dead cell becomes `Alive` when exactly three `Alive` neighbors surround it.
 }
 ```
 
-An `Alive` cell remains `Alive` with two or three `Alive` neighbors. Otherwise no rule applies and the default result is `dead`.
+An `Alive` cell remains `Alive` with $2$ or $3$ `Alive` neighbors. Otherwise no rule applies and the default result is `dead`.
 
 Both rules use the same `Alive` neighbor selector, so the generated shader computes that count once and reuses it.
 
@@ -554,7 +536,7 @@ Both rules use the same `Alive` neighbor selector, so the generated shader compu
 }
 ```
 
-Any cell with at least one different neighbor adopts the most common different neighboring tribe.
+Any cell with at least $1$ different neighbor adopts the most common different neighboring tribe.
 
 A unique winner is written directly. If multiple candidates tie, or no candidate can be selected, the cell keeps its current tribe.
 
@@ -598,22 +580,22 @@ A unique winner is written directly. If multiple candidates tie, or no candidate
 }
 ```
 
-A dead cell becomes `Ash` when Red, Blue, and dead neighbors are all present.
+A `dead` cell becomes `Ash` when `Red`, `Blue`, and `dead` neighbors are all present.
 
-If Red and Blue are present but no dead neighbor is present, it becomes `Purple`.
+If `Red` and `Blue` are present but no `dead` neighbor is present, it becomes `Purple`.
 
-Any other input set reaches the default outcome and remains dead.
+Any other input set reaches the default outcome and remains `dead`.
 
-The explicit-dead row is checked first because both rows share the same non-dead mask.
+The explicit-`dead` row is checked first because both rows share the same non-dead mask.
 
 ## Performance Notes
 
 The main costs come from neighbor counting and dynamic outcome selection.
 
 - `is`, `fixed`, and `same` are cheap.
-- Count clauses evaluate a selector over the eight neighbors.
+- Count clauses evaluate a selector over the $8$ neighbors.
 - Identical selector counts are precomputed once and reused.
-- Comparisons may require two distinct counts.
+- Comparisons may require $2$ distinct counts.
 - `majority` and `minority` count neighbors for each candidate tribe.
 - `combine` builds an input mask and checks lookup rows.
 - More active rules add branch work and shader size.

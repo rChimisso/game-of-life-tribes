@@ -3,7 +3,7 @@
 **Game of Life: Tribes** is a browser-based cellular automata playground built around a WebGPU simulation engine.  
 It is a superset of Conway's Game of Life, extending it with multiple named tribes, more powerful rules, recording, and specialized export tools.
 
-The app has two main surfaces:
+The app has $2$ main surfaces:
 
 - A full-screen canvas where the simulation is rendered and can be panned, zoomed, and edited with brush strokes.
 - A controls sidebar with sections for playback, speed, drawing, grid and packing setup, presets, tribes, rules, metrics, downloads, snapshots, and shortcuts.

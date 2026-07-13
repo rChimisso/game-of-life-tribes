@@ -1,0 +1,22 @@
+flowchart TD
+  Zip[golt-export.zip]
+  Manifest[manifest.json]
+  Metadata[metadata.json]
+  Chunk[chunks/chunk-NNNNNN.bin]
+  Codec{chunk.codec}
+  Inflate[Inflate raw DEFLATE]
+  Packed[Use stored packed bytes]
+  Split[⠀Split payload into ⠀frame-sized ranges]
+  Words[Read little-endian u32 words]
+  Cells[Unpack numeric cell values]
+  Tribes[Map values through metadata tribes]
+
+  Zip --> Manifest
+  Zip --> Metadata
+  Zip --> Chunk
+  Manifest -->|ordering, generations, codec, packing| Chunk
+  Metadata -->|rows, columns, default packing, tribes| Split
+  Chunk --> Codec
+  Codec -- ⠀deflate-raw⠀ --> Inflate --> Split
+  Codec -- raw-packed or stored-packed --> Packed --> Split
+  Split --> Words --> Cells --> Tribes

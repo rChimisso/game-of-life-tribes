@@ -1,0 +1,6 @@
+stateDiagram-v2
+  Susceptible --> Infectious: at least 1 Infectious neighbor, 50 percent
+  Infectious --> Recovered: ⠀5 percent⠀
+  Infectious --> Dead: ⠀⠀⠀recovery fails,⠀⠀⠀then 0.1 percent
+  Recovered --> Susceptible: ⠀1 percent⠀
+  Dead --> Dead: ⠀no active transition⠀

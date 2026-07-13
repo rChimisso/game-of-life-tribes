@@ -1,5 +1,5 @@
 import {existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync} from 'node:fs';
-import {basename, extname, join, resolve} from 'node:path';
+import {basename, extname, isAbsolute, join, relative, resolve} from 'node:path';
 
 import GithubSlugger from 'github-slugger';
 import hljs from 'highlight.js';
@@ -13,43 +13,6 @@ const generatedFile = join(root, 'src', 'app', 'feature', 'wiki', 'model', 'wiki
 const buildMetadataFile = join(root, '.angular', 'wiki-pages.json');
 const siteBase = '/game-of-life-tribes';
 const rawBase = 'https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/';
-
-const mediaMappings = {
-  'images/analysis-epidemic-composition-41.png': 'analysis/epidemic_res/plots/05_representative_population_composition/41.png',
-  'images/analysis-epidemic-iqr.png': 'analysis/epidemic_res/plots/01_infectious_duration_iqr.png',
-  'images/analysis-epidemic-mortality-health.png': 'analysis/epidemic_res/plots/02_mortality_and_final_healthy_density.png',
-  'images/analysis-epidemic-outcomes.png': 'analysis/epidemic_res/plots/01_epidemic_outcomes.png',
-  'images/analysis-epidemic-resurgences.png': 'analysis/epidemic_res/plots/04_detected_wave_peaks.png',
-  'images/analysis-epidemic-trajectories.png': 'analysis/epidemic_res/plots/03_infectious_prevalence_spaghetti_by_density.png',
-  'images/analysis-epidemic-transition-runs.png': 'analysis/epidemic_res/plots/07_transition_runs_41.png',
-  'images/analysis-wildfire-fire-metrics.png': 'analysis/wildfire_res/plots/03_fire_metrics.png',
-  'images/analysis-wildfire-iqr.png': 'analysis/wildfire_res/plots/01_total_burn_iqr.png',
-  'images/analysis-wildfire-outcomes.png': 'analysis/wildfire_res/plots/01_total_burn_boxplot.png',
-  'images/analysis-wildfire-regime-change.png': 'analysis/wildfire_res/plots/06_regime_change_highlight_85_to_95.png',
-  'images/analysis-wildfire-trajectories.png': 'analysis/wildfire_res/plots/04_cumulative_burn_spaghetti_by_density.png',
-  'images/analysis-wildfire-transition-runs.png': 'analysis/wildfire_res/plots/05_transition_runs_90.png',
-  'images/analysis-wildfire-vegetation.png': 'analysis/wildfire_res/plots/02_burn_fraction_by_vegetation_type.png',
-  'images/draw-tribe.png': 'readme/draw-tribe.png',
-  'images/grid-size.png': 'readme/grid-size.png',
-  'images/packing.png': 'readme/packing.png',
-  'images/playback.png': 'readme/playback.png',
-  'images/shortcuts.png': 'readme/shortcuts.png',
-  'images/snapshot.png': 'readme/snapshot.png',
-  'images/speed.png': 'readme/speed.png',
-  'images/technical-architecture.svg': 'readme/technical-architecture.svg',
-  'videos/analysis/epidemic/epidemic-30-run-20-typical.mp4': 'analysis/epidemic_res/videos/epidemic-30-run-20-typical.mp4',
-  'videos/analysis/epidemic/epidemic-40-run-17-two-resurgences.mp4': 'analysis/epidemic_res/videos/epidemic-40-run-17-two-resurgences.mp4',
-  'videos/analysis/epidemic/epidemic-41-run-04-median.mp4': 'analysis/epidemic_res/videos/epidemic-41-run-04-median.mp4',
-  'videos/analysis/epidemic/epidemic-41-run-06-low.mp4': 'analysis/epidemic_res/videos/epidemic-41-run-06-low.mp4',
-  'videos/analysis/epidemic/epidemic-41-run-30-high.mp4': 'analysis/epidemic_res/videos/epidemic-41-run-30-high.mp4',
-  'videos/analysis/epidemic/epidemic-60-run-14-typical.mp4': 'analysis/epidemic_res/videos/epidemic-60-run-14-typical.mp4',
-  'videos/analysis/wildfire/wildfire-100-run-06-typical.mp4': 'analysis/wildfire_res/videos/wildfire-100-run-06-typical.mp4',
-  'videos/analysis/wildfire/wildfire-50-run-24-typical.mp4': 'analysis/wildfire_res/videos/wildfire-50-run-24-typical.mp4',
-  'videos/analysis/wildfire/wildfire-89-run-05-long-lived.mp4': 'analysis/wildfire_res/videos/wildfire-89-run-05-long-lived.mp4',
-  'videos/analysis/wildfire/wildfire-90-run-05-high.mp4': 'analysis/wildfire_res/videos/wildfire-90-run-05-high.mp4',
-  'videos/analysis/wildfire/wildfire-90-run-07-low.mp4': 'analysis/wildfire_res/videos/wildfire-90-run-07-low.mp4',
-  'videos/analysis/wildfire/wildfire-90-run-28-median.mp4': 'analysis/wildfire_res/videos/wildfire-90-run-28-median.mp4'
-};
 
 marked.use(markedKatex({nonStandard: true, strict: false, throwOnError: false}));
 
@@ -119,16 +82,22 @@ function extractDescription(markdown) {
  */
 function resolveMedia(href) {
   let resolved = href;
-  if (Object.hasOwn(mediaMappings, href)) {
-    resolved = `${rawBase}${mediaMappings[href]}`;
-  } else if (href.startsWith(rawBase)) {
+  if (href.startsWith(rawBase)) {
     const repositoryPath = href.slice(rawBase.length);
     if (!existsSync(join(root, repositoryPath))) {
       throw new Error(`Raw repository media is missing: ${repositoryPath}`);
     }
     resolved = href;
   } else if (!/^(https?:|data:)/.test(href)) {
-    throw new Error(`Unmapped Wiki media reference: ${href}`);
+    const mediaPath = resolve(wikiDirectory, href);
+    const repositoryPath = relative(root, mediaPath);
+    if (repositoryPath.startsWith('..') || isAbsolute(repositoryPath)) {
+      throw new Error(`Wiki media resolves outside the repository: ${href}`);
+    }
+    if (!existsSync(mediaPath)) {
+      throw new Error(`Wiki media is missing: ${repositoryPath}`);
+    }
+    resolved = `${rawBase}${repositoryPath.replaceAll('\\', '/')}`;
   }
   return resolved;
 }
@@ -263,12 +232,6 @@ function parseNavigation(markdown, knownSlugs) {
     }
   }
   return sections;
-}
-
-for (const repositoryPath of Object.values(mediaMappings)) {
-  if (!existsSync(join(root, repositoryPath))) {
-    throw new Error(`Mapped Wiki media is missing: ${repositoryPath}`);
-  }
 }
 
 const sourceFiles = readdirSync(wikiDirectory)

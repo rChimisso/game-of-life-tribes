@@ -33,14 +33,14 @@ This page explains the editor controls. For runtime behavior and shader generati
 
 ## Probability Controls
 
-Each expanded rule has a **Probability %** field at the top of the rule body. The field is a percentage with exactly three decimal digits.  
-When a rule has a probability below `100%`, the collapsed rule header shows a compact percentage badge. `0` effectively disables the rule, as if it was muted.
+Each expanded rule has a **Probability %** field at the top of the rule body. The field is a percentage with exactly $3$ decimal digits.  
+When a rule has a probability below $100\%$, the collapsed rule header shows a compact percentage badge. $0$ effectively disables the rule, as if it was muted.
 
-At runtime, a rule must first match its clause. If it has a probability below `100%`, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.
+At runtime, a rule must first match its clause. If it has a probability below $100\%$, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.
 
 ## Clause Controls
 
-Each rule has one root clause. Logical clauses can contain nested clauses.
+Each rule has $1$ root clause. Logical clauses can contain nested clauses.
 
 - **Clause type**:  
   Select `IS`, `COUNT`, `NONE`, `EXACTLY`, `MIN`, `MAX`, `COMP`, `NOT`, `AND`, `OR`, or `XOR`.
@@ -55,34 +55,34 @@ Each rule has one root clause. Logical clauses can contain nested clauses.
 - **Selector editor**:  
   Used by count-style clauses and comparison sides. It can target specific tribes, the same tribe as the current cell, tribes different from the current cell, or tribes different from the current cell within a selected subset.
 - **Count inputs**:  
-  Neighbor values must be integers from 0 to 8 because the engine uses the eight-cell Moore neighborhood. Invalid edits stay visible and block Apply.
+  Neighbor values must be integers from $0$ to $8$ because the engine uses the $8$-cell Moore neighborhood. Invalid edits stay visible and block Apply.
 - **Comparison operator**:  
   One of `=`, `!=`, `>`, `<`, `>=`, or `<=`.
 - **Comparison margin**:  
-  Integer from -8 to 8 added to the right-hand comparison count.
+  Integer from $-8$ to $8$ added to the right-hand comparison count.
 
 Clause meanings:
 
-| Clause    | Meaning                                                                            |
-| --------- | ---------------------------------------------------------------------------------- |
-| `IS`      | Current cell is one of the selected tribes.                                        |
-| `COUNT`   | Selected neighbor count is inside the specified inclusive range.                              |
-| `NONE`    | Selected neighbor count is `0`.                                                      |
-| `EXACTLY` | Selected neighbor count equals `N`.                                                  |
-| `MIN`     | Selected neighbor count is at least `N`.                                             |
-| `MAX`     | Selected neighbor count is at most `N`.                                              |
+| Clause    | Meaning                                                                                      |
+| --------- | -------------------------------------------------------------------------------------------- |
+| `IS`      | Current cell is one of the selected tribes.                                                  |
+| `COUNT`   | Selected neighbor count is inside the specified inclusive range.                             |
+| `NONE`    | Selected neighbor count is $0$.                                                              |
+| `EXACTLY` | Selected neighbor count equals `N`.                                                          |
+| `MIN`     | Selected neighbor count is at least `N`.                                                     |
+| `MAX`     | Selected neighbor count is at most `N`.                                                      |
 | `COMP`    | One selected neighbor count is compared with another selected count plus an optional margin. |
-| `NOT`     | Inverts one child clause.                                                          |
-| `AND`     | All child clauses must match.                                                      |
-| `OR`      | At least one child clause must match.                                              |
-| `XOR`     | An odd number of child clauses must match.                                         |
+| `NOT`     | Inverts one child clause.                                                                    |
+| `AND`     | All child clauses must match.                                                                |
+| `OR`      | At least one child clause must match.                                                        |
+| `XOR`     | An odd number of child clauses must match.                                                   |
 
 ## Outcome Controls
 
 The outcome editor starts with a `becomes` mode selector:
 
 - **Fixed tribe**:  
-  Cell becomes one selected tribe.
+  Cell becomes $1$ selected tribe.
 - **Same**:  
   Cell keeps its current tribe.
 - **Majority**:  
@@ -106,7 +106,7 @@ Combine outcomes use lookup rows:
 - **Inputs**:  
   One or more selectors in an unordered combination row. Inputs can be concrete tribes, Same, Different, and in tie contexts the active Majority or Minority candidates.
 - **Add input / remove input**:  
-  Changes the inputs for one row. A row can have at most 8 inputs and cannot repeat the same input.
+  Changes the inputs for one row. A row can have at most $8$ inputs and cannot repeat the same input.
 - **Output tribe**:  
   Fixed tribe produced by that row.
 - **Remove row**:  

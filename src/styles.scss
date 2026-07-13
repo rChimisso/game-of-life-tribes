@@ -662,3 +662,8 @@ mat-expansion-panel {
     padding-bottom: 2px;
   }
 }
+
+.mat-mdc-tooltip-trigger {
+  touch-action: auto !important;
+  -webkit-user-drag: auto !important;
+}

@@ -23,7 +23,7 @@ Main pieces:
 
 ## Architecture Diagram
 
-![Technical architecture](images/technical-architecture.svg)
+![Technical architecture](mermaid/technical-architecture.svg)
 
 The engine component creates the webengine worker. The home page and home-side helper classes create the utility workers: the snapshot runner starts `snapshot.ts`, the compression scheduler starts `compress.ts`, and the download runner starts `download.ts`. Compression is coordinated by the home page: sealed chunks come back from the engine as messages, home-side compression workers process them, and the home page tells the engine to update the stored chunk codec.
 
@@ -59,4 +59,4 @@ The project uses workers to keep expensive work off the UI thread:
 - `download.ts`:  
   ZIP export and selected output generation.
 
-The app uses OPFS for large temporary and recording data. The browser-reported storage quota estimate is monitored and reported to the UI, with warnings at 25%, 50%, 75%, and 100% effective usage. Effective usage is pending raw recording bytes plus compressed recording bytes plus reserved recording headroom. Recording is disabled when the remaining quota is smaller than one frame. The quota estimate is approximate and may change as the browser manages storage.
+The app uses OPFS for large temporary and recording data. The browser-reported storage quota estimate is monitored and reported to the UI, with warnings at $25\%$, $50\%$, $75\%$, and $100\%$ effective usage. Effective usage is pending raw recording bytes plus compressed recording bytes plus reserved recording headroom. Recording is disabled when the remaining quota is smaller than $1$ frame. The quota estimate is approximate and may change as the browser manages storage.

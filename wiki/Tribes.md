@@ -39,7 +39,7 @@ The Tribes section edits the named cell states used by drawing, rules, bounded-g
 
 ## Validation
 
-A tribe ID must be non-empty, unique, alphanumeric, and cannot be `dead`. Colors must be six hex characters.
+A tribe ID must be non-empty, unique, alphanumeric, and cannot be `dead`. Colors must be $6$ hex characters.
 
 Removing a tribe can be blocked if committed rules still reference it, or if it is the active boundary tribe while the grid topology is bounded. If both conditions apply, the UI shows separate boundary and rule messages.
 

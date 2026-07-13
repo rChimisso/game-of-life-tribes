@@ -35,7 +35,7 @@ Topology is compiled into generated simulation, brush, and render shader behavio
 The worker has a render loop and an active run pump.
 
 - Fixed speed uses a target step duration derived from `gen/s`.
-- Non-recording high-throughput runs use adaptive batching seeded from grid-size tiers, then adjusted from measured GPU queue drain times. Max-speed and multi-generation step-forward runs target 500 ms drains; fixed-speed catch-up targets 33 ms drains.
+- Non-recording high-throughput runs use adaptive batching seeded from grid-size tiers, then adjusted from measured GPU queue drain times. Max-speed and multi-generation step-forward runs target $500\text{ ms}$ drains; fixed-speed catch-up targets $33\text{ ms}$ drains.
 - Multi-generation step-forward runs use the same non-recording max-speed target-generation path, so they inherit adaptive batching.
 - Recording runs use different pacing because recording must preserve every captured frame and honor recording backpressure. During active recording runs, the worker batches ordered simulation-step and frame-copy command pairs so each generation is copied before the next generation can overwrite the ping-pong buffer.
 - Non-recording max speed can skip rendering until max speed is disabled.
@@ -45,4 +45,4 @@ The run loop also applies pending brush input, updates FPS, emits generation upd
 
 ## Device Limits
 
-The worker derives the maximum simulation frame bytes from the minimum of `device.limits.maxBufferSize` and `device.limits.maxStorageBufferBindingSize`. Recording availability is then capped by the app's 1 GiB recording-frame limit. These values are posted to the UI and shown in Grid size, Packing, and the VRAM/storage displays.
+The worker derives the maximum simulation frame bytes from the minimum of `device.limits.maxBufferSize` and `device.limits.maxStorageBufferBindingSize`. Recording availability is then capped by the app's $1\text{ GiB}$ recording-frame limit. These values are posted to the UI and shown in Grid size, Packing, and the VRAM/storage displays.

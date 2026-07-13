@@ -10,10 +10,10 @@ The [NetLogo Fire model](https://ccl.northwestern.edu/netlogo/models/Fire) is a 
 
 | Feature                           | NetLogo Fire                                        | GoLT Wildfire experiment                                                  |
 | --------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| Fuel states                       | Tree or empty                                       | Grass, Bush, Tree, Char, and empty (`dead`)                               |
+| Fuel states                       | Tree or empty                                       | `Grass`, `Bush`, `Tree`, `Char`, and `dead`                               |
 | Neighborhood                      | Default to Four orthogonal neighbors                | Eight Moore neighbors                                                     |
-| Ignition                          | Any adjacent burning tree                           | Vegetation-specific thresholds from 1 to 5 burning neighbors              |
-| Fire lifecycle                    | Fire front becomes ember/burned                     | Blaze → Fire → Ember → Char                                               |
+| Ignition                          | Any adjacent burning tree                           | Vegetation-specific thresholds from $1$ to $5$ burning neighbors          |
+| Fire lifecycle                    | Fire front becomes ember/burned                     | `Blaze → Fire → Ember → Char`                                             |
 | Ignition geometry                 | Fire starts along the left edge                     | $12$ seeded active cells                                                  |
 | Topology in documented experiment | Finite world used to test left-to-right crossing    | $512\times512$ torus                                                      |
 | Primary question                  | Whether fire reaches the right edge; percent burned | Fraction burned, type-specific loss, duration, intensity, and variability |
@@ -23,8 +23,8 @@ The NetLogo documentation reports a sharp transition around $59\%$ tree density 
 
 The most important reasons are:
 
-- Four-neighbor and eight-neighbor connectivity have different percolation behavior.
-- NetLogo uses one combustible tree state; GoLT mixes three resistance classes.
+- $4$-neighbor and $8$-neighbor connectivity have different percolation behavior.
+- NetLogo uses $1$ combustible tree state; GoLT mixes $3$ resistance classes.
 - NetLogo ignites a boundary, while GoLT uses a small seed.
 - Reaching the opposite boundary is not the same endpoint as total fraction burned.
 - A finite boundary and a torus create different long paths and edge effects.

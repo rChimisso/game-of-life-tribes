@@ -1,0 +1,18 @@
+stateDiagram-v2
+  direction LR
+
+  Grass --> Ember: ⠀≥ 1 burning neighbour⠀
+  Grass --> Fire: ⠀≥ 2 burning neighbours⠀
+  Grass --> Blaze: ⠀≥ 3 burning neighbours⠀
+
+  Bush --> Ember: ⠀≥ 2 burning neighbours⠀
+  Bush --> Fire: ⠀≥ 3 burning neighbours⠀
+  Bush --> Blaze: ⠀≥ 4 burning neighbours⠀
+
+  Tree --> Ember: ⠀≥ 3 burning neighbours⠀
+  Tree --> Fire: ⠀≥ 4 burning neighbours⠀
+  Tree --> Blaze: ⠀≥ 5 burning neighbours⠀
+
+  Blaze --> Fire
+  Fire --> Ember
+  Ember --> Char

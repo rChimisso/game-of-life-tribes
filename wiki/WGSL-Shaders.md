@@ -9,23 +9,23 @@ For the persisted rule, selector, clause, outcome, and tribe JSON shapes that fe
 Key properties:
 
 - It reads from `gridIn` and writes to `gridOut`.
-- Workgroup size is `16 x 16`.
-- Each invocation processes one packed word column and one row.
+- Workgroup size is $16\times16$.
+- Each invocation processes $1$ packed word column and $1$ row.
 - Inside the invocation, it loops over the cells packed into that word.
-- It reads the eight Moore-neighborhood cells according to the compiled topology.
+- It reads the $8$ Moore-neighborhood cells according to the compiled topology.
 - Toroidal shaders keep the fast wrapping neighbor reads.
 - Bounded shaders return the selected boundary tribe for off-grid neighbor reads.
 - Bounded shaders use a packed-word interior fast path when every valid cell in the word is away from the edge. Edge-containing words fall back to per-cell interior checks and virtual boundary-aware reads.
 - It precomputes unique neighbor count selectors used by non-trivial rule predicates.
 - It reduces count-clause predicates to the smallest equivalent check: equality for exact counts, one-sided comparisons for `min` and `max`, two-sided ranges only for partial intervals, and `true` for always-true ranges such as `count 0..8`, `min 0`, and `max 8`.
 - It evaluates active unmuted rules as a first-match-wins `if` / `else if` chain.
-- It wraps probabilistic rules in deterministic hash/threshold checks. Rules with probability `100%` skip the hash check and apply directly when their clause matches. Failed probability rolls continue to later rule branches.
-- It starts each cell result as the `dead` tribe, so no matching rule means dead.
+- It wraps probabilistic rules in deterministic hash/threshold checks. Rules with probability $100\%$ skip the hash check and apply directly when their clause matches. Failed probability rolls continue to later rule branches.
+- It starts each cell result as the `dead` tribe, so no matching rule means `dead`.
 - It packs each resulting cell back into the output word with the active cell mask and shift.
 
 The shader emits packing constants such as `CELLS_PER_WORD`, `WORD_SHIFT`, `CELL_SHIFT`, `CELL_INDEX_MASK`, and `CELL_MASK`. This avoids generic bit math branches at runtime.
 
-When at least one active rule has probability between `0%` and `100%`, the generated shader also emits a `RANDOM_SEED` constant and a probability hash helper. Fully deterministic rules do not need that extra probability branch. In mixed rule chains, only rules whose probability is greater than `0%` and less than `100%` call the hash helper; active `100%` rules use the direct assignment fast path, and `0%` rules are filtered out before code generation.
+When at least $1$ active rule has probability between $0\%$ and $100\%$, the generated shader also emits a `RANDOM_SEED` constant and a probability hash helper. Fully deterministic rules do not need that extra probability branch. In mixed rule chains, only rules whose probability is $>0\%$ and $<100\%$ call the hash helper; active $100\%$ rules use the direct assignment fast path, and $0\%$ rules are filtered out before code generation.
 
 If the logical dispatch dimensions exceed the device per-dimension limit, `plan2DDispatch` remaps logical workgroups into a flattened dispatch grid and reconstructs logical coordinates inside WGSL.
 
@@ -62,7 +62,7 @@ Key properties:
 - In `Spray`, cells skipped by density are written as the `dead` tribe.
 - Multiple selected tribes are selected by hashing into the `tribeIds` array for cells selected by density.
 
-The brush uniform carries the active density percentage and reserves 32 selected tribe IDs.
+The brush uniform carries the active density percentage and reserves $32$ selected tribe IDs.
 
 ## Metric Shaders
 
@@ -71,4 +71,4 @@ Live metrics generate separate WGSL compute shaders:
 - Histogram metrics count cells by tribe into $256$ atomic counters.
 - Boundary metrics count right and bottom cross-state edges into an atomic counter. Toroidal metrics wrap those reads, while bounded metrics skip reads beyond the finite grid edge.
 
-Both use `16 x 16` workgroups and the same dispatch remapping strategy as simulation when needed. Histogram results feed population and diversity metrics. Boundary results feed interface metrics.
+Both use $16\times16$ workgroups and the same dispatch remapping strategy as simulation when needed. Histogram results feed population and diversity metrics. Boundary results feed interface metrics.

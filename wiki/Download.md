@@ -27,14 +27,14 @@ The Download section exports recorded simulation data. Downloads depend on recor
 - **All**:  
   Selects all recorded frames.
 - **Start frame**:  
-  First selected 1-based frame.
+  First selected $1$-based frame.
 - **End frame**:  
-  Last selected 1-based frame.
+  Last selected $1$-based frame.
 - **MP4 FPS**:  
-  Output frames per second. Persisted values are normalized between 1 and 240.  
+  Output frames per second. Persisted values are normalized between $1$ and $240$.  
   _This field is persisted across sessions._
 - **MP4 Bitrate**:  
-  Output bitrate in Mbps. Persisted values are normalized between 1 and 60.  
+  Output bitrate in $\text{Mbps}$. Persisted values are normalized between $1$ and $60$.  
   _This field is persisted across sessions._
 - **Force chunk download**:  
   Exports compressed recording chunks instead of selected rendered outputs.  
@@ -55,7 +55,7 @@ The Download storage bar uses the same binary byte units as frame-size and VRAM 
 - **Reserved**: storage headroom kept aside so recording can stop before browser storage is exhausted.
 - **Quota estimate**: the browser-reported storage quota for the current origin.
 
-The quota estimate is not device capacity, free disk space, or a guaranteed reservation. Browsers may round, cap, pad, or dynamically adjust it for privacy and storage-management reasons. Recording is disabled when quota minus pending, compressed, and reserved bytes is smaller than one frame.
+The quota estimate is not device capacity, free disk space, or a guaranteed reservation. Browsers may round, cap, pad, or dynamically adjust it for privacy and storage-management reasons. Recording is disabled when quota minus pending, compressed, and reserved bytes is smaller than $1$ frame.
 
 ## Output Modes
 
@@ -65,6 +65,6 @@ When Frames or MP4 are selected at the moment Download is clicked, the app captu
 
 Saves, snapshots, metrics, and compressed chunk exports use the recorded grid data directly and are not shifted by the visual export framing. Bounded topology does not add stored boundary cells to any export; the boundary tribe remains virtual metadata.
 
-Compressed chunk mode writes a chunk export instead of rendering selected outputs. It is selected when Force chunk download is enabled or when the estimated working set exceeds 2 GiB. This mode copies whole selected chunks where possible and rebuilds boundary chunks when the selected frame range cuts through a chunk. The exported format is documented in [Compressed chunk export](Compressed-Chunk-Export).
+Compressed chunk mode writes a chunk export instead of rendering selected outputs. It is selected when Force chunk download is enabled or when the estimated working set exceeds $2\text{ GiB}$. This mode copies whole selected chunks where possible and rebuilds boundary chunks when the selected frame range cuts through a chunk. The exported format is documented in [Compressed chunk export](Compressed-Chunk-Export).
 
 The output file name is `golt-export.zip`.

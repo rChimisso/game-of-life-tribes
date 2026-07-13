@@ -4,7 +4,7 @@
 
 Compressed chunk export is the fallback and advanced export format for large recordings. Instead of rendering PNG frames, MP4 video, or full metrics output in the browser, it writes the recorded packed-grid chunks directly into the ZIP with enough metadata to decode them later.
 
-Use this format when a normal export would be too large, when the Download section forces chunk mode because the estimated working set is above $2$ GiB, or when you want to process the recording with your own tools.
+Use this format when a normal export would be too large, when the Download section forces chunk mode because the estimated working set is above $2\text{ GiB}$, or when you want to process the recording with your own tools.
 
 ## ZIP Layout
 
@@ -59,7 +59,7 @@ Important fields:
 - `selectedRange`: selected range from the Download UI. `startFrame` and `endFrame` are $1$-based UI frame numbers; `startGen` and `endGen` are the zero-based simulation generation numbers for the first and last exported frames.
 - `chunks`: ordered chunk payload list.
 - `chunk.filename`: file name under `chunks/`.
-- `chunk.codec`: payload codec. Current exported chunks use `deflate-raw`, `raw-packed`, or `stored-packed`.
+- `chunk.codec`: payload codec. `raw-packed` is an original simulation-packed chunk awaiting storage optimization; `stored-packed` is an optimized, uncompressed packed chunk; `deflate-raw` is an optimized packed chunk compressed with raw DEFLATE. Compression is retained only when it saves more than $10\%$, and payloads smaller than $4\text{ KiB}$ are kept as `stored-packed` without attempting compression.
 - `chunk.storedBytes`: bytes stored in the ZIP entry before decoding.
 - `chunk.uncompressedBytes`: bytes after decoding to packed frames.
 - `chunk.blockCount`: number of frames in this chunk.
@@ -118,22 +118,28 @@ To decode a chunk:
 7. Unpack each cell from its word using the bit layout.
 8. Map numeric values to `metadata.json` tribes.
 
+![Compressed chunk decoding flow](mermaid/compressed-chunk-decoding.svg)
+
 Frame size formula:
 
-```text
-cellsPerWord = 32 / bitsPerCell
-packedCols = ceil(cols / cellsPerWord)
-frameBytes = packedCols * rows * 4
-```
+$$
+\begin{aligned}
+\texttt{cellsPerWord} &= \frac{32}{\texttt{bitsPerCell}} \\[1.5em]
+\texttt{packedCols} &= \left\lceil\frac{\texttt{cols}}{\texttt{cellsPerWord}}\right\rceil \\[1.5em]
+\texttt{frameBytes} &= \texttt{packedCols}\cdot\texttt{rows}\cdot4
+\end{aligned}
+$$
 
 Cell unpacking formula:
 
-```text
-wordIndex = y * packedCols + floor(x / cellsPerWord)
-cellIndex = x % cellsPerWord
-shift = cellIndex * bitsPerCell
-value = (word >> shift) & ((1 << bitsPerCell) - 1)
-```
+$$
+\begin{aligned}
+\texttt{wordIndex} &= y\cdot\texttt{packedCols}+\left\lfloor\frac{x}{\texttt{cellsPerWord}}\right\rfloor \\[1.5em]
+\texttt{cellIndex} &= x\bmod\texttt{cellsPerWord} \\[1.5em]
+\texttt{shift} &= \texttt{cellIndex}\cdot\texttt{bitsPerCell} \\[1.5em]
+\texttt{value} &= (\texttt{word}\gg\texttt{shift})\mathbin{\&}\left((1\ll\texttt{bitsPerCell})-1\right)
+\end{aligned}
+$$
 
 The grid is stored row-major. Cells beyond `cols` in the final packed word of a row are padding and should be ignored.
 
@@ -335,4 +341,4 @@ Once decoded, each frame is a grid of numeric tribe indexes. You can use it to:
 - Reconstruct generation-by-generation state for offline experiments.
 - Feed frames into Python, NumPy, image tools, or another cellular automata engine.
 
-When processing long exports, stream one chunk at a time instead of loading all chunks into memory.
+When processing long exports, stream $1$ chunk at a time instead of loading all chunks into memory.

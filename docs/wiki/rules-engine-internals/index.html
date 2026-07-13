@@ -360,7 +360,8 @@
 <li>The first matching rule whose probability roll passes assigns the next state.</li>
 <li>If no rule matches, or if matching probabilistic rules all fail their rolls, the cell becomes <code>dead</code>.</li>
 </ol>
-<p>A rule has three behavioral parts:</p>
+<p><img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/mermaid/rule-evaluation-flow.svg" alt="Rule evaluation flow" loading="lazy" decoding="async"></p>
+<p>A rule has <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> behavioral parts:</p>
 <ul>
 <li>Clause: boolean expression over the current cell and its neighbors.</li>
 <li>Probability: percentage chance that a matched rule applies.</li>
@@ -372,7 +373,7 @@
 <p>Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.</p>
 <ul>
 <li>Explicit tribe selector signatures sort and deduplicate selected tribe IDs for stable lookup keys.</li>
-<li>Count-style clauses operate on the eight Moore neighbors, and count values are clamped to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>.</li>
+<li>Count-style clauses operate on the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors, and count values are clamped to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>.</li>
 <li>Count-style clause bounds compile to the smallest equivalent boolean expression: <code>none</code> and <code>exactly</code> use equality, <code>min</code> uses only a lower-bound check, <code>max</code> uses only an upper-bound check, partial <code>count</code> intervals use a two-sided range, and always-true ranges such as <code>count 0..8</code>, <code>min 0</code>, and <code>max 8</code> compile to <code>true</code>.</li>
 <li>Empty clauses are editor placeholders. They compile as false, and the editor rejects applied rules that still contain empty placeholders.</li>
 </ul>
@@ -426,8 +427,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-2IHV5V6A.js" type="module"></script>
-<link rel="modulepreload" href="chunk-DEYYQHAU.js">
+  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-2JHK7JVW.js" type="module"></script>
+<link rel="modulepreload" href="chunk-TH56LDCW.js">
 <link rel="modulepreload" href="chunk-HQFJDXIS.js">
 <link rel="modulepreload" href="chunk-ZYODDBYK.js">
 

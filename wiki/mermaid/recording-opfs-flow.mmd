@@ -1,0 +1,38 @@
+flowchart TB
+
+  subgraph Simulation["Simulation and GPU recording"]
+    direction LR
+
+    Step["Simulation<br/>step"]
+    Copy["Copy frame into<br/>open GPU chunk"]
+    Full{"Open chunk<br/>full?"}
+    Capacity{"Free staging slot<br/>and write capacity?"}
+    Backpressure["Pause for<br/>backpressure"]
+    Submit["Seal and<br/>submit chunk"]
+    Reset["Reset<br/>open chunk"]
+
+    Step --> Copy --> Full
+    Full -- ⠀No⠀ --> Step
+    Full -- ⠀Yes⠀ --> Capacity
+    Backpressure -. "⠀wait⠀" .-> Capacity
+    Capacity -- ⠀Yes⠀ --> Submit --> Reset --> Step
+    Capacity -- ⠀No⠀ --> Backpressure
+  end
+
+  subgraph Persistence["Asynchronous readback and persistence"]
+    direction LR
+
+    Readback["Map staging<br/>slot"]
+    Payload["Copy payload to CPU<br/>and release slot"]
+    Raw["Persist raw-packed<br/>chunk in OPFS"]
+    Optimize["Tighten packing and<br/>try raw deflate"]
+    Worthwhile{"Worthwhile?"}
+    Deflated["Store<br/>deflate-raw"]
+    Packed["Store<br/>packed"]
+
+    Readback --> Payload --> Raw --> Optimize --> Worthwhile
+    Worthwhile -- ⠀No⠀ --> Packed
+    Worthwhile -- ⠀Yes⠀ --> Deflated
+  end
+
+  Simulation -. "asynchronous staging handoff on submit" .-> Persistence

@@ -2,12 +2,12 @@
 
 ## Purpose
 
-The Grid size section changes the number of columns, rows, and edge topology used by the simulation. It also shows how large one packed frame will be and whether the chosen size fits the current device and recording constraints.
+The Grid size section changes the number of columns, rows, and edge topology used by the simulation. It also shows how large $1$ packed frame will be and whether the chosen size fits the current device and recording constraints.
 
 ## Controls
 
 <p align="center">
-  <img src="images/grid-size.png" alt="Grid Size section">
+  <img src="../readme/grid-size.png" alt="Grid Size section">
 </p>
 
 - **VRAM usage bar**:  
@@ -19,11 +19,11 @@ The Grid size section changes the number of columns, rows, and edge topology use
   Selects the virtual tribe returned by off-grid neighbor reads in bounded mode. The select is disabled when topology is `Toroidal`.  
   _This field is persisted across sessions._
 - **Cols**:  
-  Column count. Minimum accepted value is `3`.
+  Column count. Minimum accepted value is $3$.
 - **Rows**:  
-  Row count. Minimum accepted value is `3`.
+  Row count. Minimum accepted value is $3$.
 - **Frame size**:  
-  Read-only estimate for one packed grid frame using the current packing value.
+  Read-only estimate for $1$ packed grid frame using the current packing value.
 - **Bytes**:  
   Exact frame byte count.
 - **Max recording size**:  

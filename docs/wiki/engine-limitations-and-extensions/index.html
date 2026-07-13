@@ -350,17 +350,17 @@
 <p>The engine is a synchronous finite-state cellular automaton on a rectangular square lattice. Every generation reads the complete current grid and writes a separate next grid, then swaps the buffers.</p>
 <p>Current structural constraints are:</p>
 <ul>
-<li>A fixed radius-<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>, eight-cell Moore neighborhood.</li>
-<li>Toroidal topology or bounded topology with one virtual boundary tribe.</li>
+<li>A fixed radius-<span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>-cell Moore neighborhood.</li>
+<li>Toroidal topology or bounded topology with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> virtual boundary tribe.</li>
 <li>One discrete tribe value per cell.</li>
 <li>Ordered rules in which the first matching rule whose probability roll succeeds determines the next state.</li>
-<li>Unmatched cells become Dead.</li>
+<li>Unmatched cells become <code>dead</code>.</li>
 <li>Probability rolls are deterministic hashes of cell coordinates, generation, original rule index, and ruleset random seed.</li>
 </ul>
-<p>This design is well suited to Life-like rules, multi-state local automata, Wildfire, and lattice epidemics. It does not natively represent continuous fields, arbitrary contact networks, mobile agents, or multiple independent attributes attached to one cell.</p>
+<p>This design is well suited to Life-like rules, multi-state local automata, Wildfire, and lattice epidemics. It does not natively represent continuous fields, arbitrary contact networks, mobile agents, or multiple independent attributes attached to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> cell.</p>
 <p>These constraints keep the engine a powerful, well-defined superset of Life-like cellular automata rather than a universal cellular-automaton framework. The project began as an extension of Game of Life for multiple tribes with potentially different behavior; later features were chosen to improve expressivity without straying too far from that original idea.</p>
 <h2 id="neighborhood-and-space"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#neighborhood-and-space" aria-label="Link to this section">#</a>Neighborhood And Space</h2>
-<p>The fixed Moore neighborhood prevents exact expression of models that use four-neighbor von Neumann contact, larger radii, weighted distance, or direction-specific influence. For example, the standard NetLogo Fire model spreads through four orthogonal neighbors, so it cannot currently be reproduced exactly.</p>
+<p>The fixed Moore neighborhood prevents exact expression of models that use <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-neighbor von Neumann contact, larger radii, weighted distance, or direction-specific influence. For example, the standard NetLogo Fire model spreads through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span> orthogonal neighbors, so it cannot be reproduced exactly.</p>
 <p>Useful extensions would include:</p>
 <ul>
 <li>selectable Moore and von Neumann neighborhoods;</li>
@@ -435,8 +435,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-2IHV5V6A.js" type="module"></script>
-<link rel="modulepreload" href="chunk-DEYYQHAU.js">
+  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-2JHK7JVW.js" type="module"></script>
+<link rel="modulepreload" href="chunk-TH56LDCW.js">
 <link rel="modulepreload" href="chunk-HQFJDXIS.js">
 <link rel="modulepreload" href="chunk-ZYODDBYK.js">
 

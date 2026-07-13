@@ -2,36 +2,38 @@
 
 ## Preset Dynamics
 
-The SIRSD Epidemic preset has four cell states: _Dead_, _Susceptible_, _Infectious_, and _Recovered_. Its ordered rules are:
+The SIRSD Epidemic preset has $4$ cell states: `Dead`, `Susceptible`, `Infectious`, and `Recovered`. Its ordered rules are:
 
 | Current state and condition                           | Next state    | Rule probability |
 | ----------------------------------------------------- | ------------- | ---------------: |
-| _Susceptible_ with at least one _Infectious_ neighbor | _Infectious_  |           $50\%$ |
-| _Infectious_                                          | _Recovered_   |            $5\%$ |
-| _Infectious_, if the recovery roll did not apply      | _Dead_        |          $0.1\%$ |
-| _Recovered_                                           | _Susceptible_ |            $1\%$ |
+| `Susceptible` with at least $1$ `Infectious` neighbor | `Infectious`  |           $50\%$ |
+| `Infectious`                                          | `Recovered`   |            $5\%$ |
+| `Infectious`, if the recovery roll did not apply      | `Dead`        |          $0.1\%$ |
+| `Recovered`                                           | `Susceptible` |            $1\%$ |
 
-Infection probability saturates at one _Infectious_ neighbor: having two through eight _Infectious_ neighbors does not increase the $50\%$ roll. Because rules are evaluated in order, the death roll is attempted only after the recovery roll fails. Given that rolls are independent, that makes the unconditional one-generation death probability approximately $0.95 \cdot 0.1\% = 0.095\%$ for an _Infectious_ cell.
+![Epidemic state transitions](mermaid/epidemic-state-transitions.svg)
 
-Recovered cells can become _Susceptible_ again, so reinfection and multiple waves are possible. _Dead_ cells remain _Dead_. There are no births, movement, or incubation state.
+Infection probability saturates at $1$ `Infectious` neighbor: having $2$ through $8$ `Infectious` neighbors does not increase the $50\%$ roll. Because rules are evaluated in order, the death roll is attempted only after the recovery roll fails. Given that rolls are independent, that makes the unconditional $1$-generation death probability approximately $0.95\cdot0.1\%=0.095\%$ for an `Infectious` cell.
+
+`Recovered` cells can become `Susceptible` again, so reinfection and multiple waves are possible. `Dead` cells remain `Dead`. There are no births, movement, or incubation state.
 
 ## Derived Metrics
 
 Initial population, written as $N_0$, is the first recorded `Susceptible + Infectious + Recovered` count. Empty grid cells are not included.
 
-- **Prevalence**: current _Infectious_ cells divided by fixed $N_0$.
+- **Prevalence**: current `Infectious` cells divided by fixed $N_0$.
 - **Peak prevalence**: maximum unsmoothed prevalence during the run.
 - **Mortality fraction**: deaths occurring during the run divided by $N_0$.
-- **Final healthy grid density**: final $\frac{\text{Susceptible }+\text{ Recovered}}{512^2}$. This uses the whole grid as its denominator.
-- **Infectious duration**: final _Infectious_ generation minus first recorded generation.
-- **Time to peak**: peak-_Infectious_ generation minus first recorded generation.
+- **Final healthy grid density**: final $\frac{\texttt{Susceptible}+\texttt{Recovered}}{512^2}$. This uses the whole grid as its denominator.
+- **Infectious duration**: final `Infectious` generation minus first recorded generation.
+- **Time to peak**: peak-`Infectious` generation minus first recorded generation.
 
 Using fixed $N_0$ for prevalence prevents deaths from shrinking the denominator and artificially inflating late prevalence.
 
 ### Infection Episodes
 
-An infection episode is one reconstructed `Susceptible → Infectious` transition. The initial $12$ seeded _Infectious_ cells are not counted.  
-With the preset's only four possible transitions, the population deltas and `changed_cells` identify the aggregate flows exactly for consecutive generations.
+An infection episode is $1$ reconstructed `Susceptible → Infectious` transition. The initial $12$ seeded `Infectious` cells are not counted.  
+With the preset's only $4$ possible transitions, the population deltas and `changed_cells` identify the aggregate flows exactly for consecutive generations.
 
 If $C$ is `changed_cells`, the reconstruction is:
 
@@ -73,9 +75,9 @@ The clearest observed change is between $41\%$ and $42\%$: median episodes per i
 
 Run-to-run variation in infectious duration is greatest at $41\%$: its IQR is $1\,566.25$ generations, compared with $669.25$ at $40\%$ and $914.5$ at $42\%$.
 
-![Infectious-duration IQR by density](images/analysis-epidemic-iqr.png)
+![Infectious-duration IQR by density](../analysis/epidemic_res/plots/01_infectious_duration_iqr.png)
 
-![Epidemic outcomes by density](images/analysis-epidemic-outcomes.png)
+![Epidemic outcomes by density](../analysis/epidemic_res/plots/01_epidemic_outcomes.png)
 
 Resurgence count is explained [below](#resurgence-count).
 
@@ -85,48 +87,48 @@ Above the transition, increased initial density supports many cycles of infectio
 
 Median final healthy grid density nevertheless stays in a narrow band from $40.521\%$ at $42\%$ to $41.493\%$ at $60\%$. This convergence is consistent with the regime transition observed between $41\%$ and $42\%$: at initial densities of $40\%$ or below, infection usually becomes extinct before spreading through enough of the population to cause substantial mortality, so final healthy density remains close to initial density. Above the transition, infection reaches a much larger part of the population and deaths progressively reduce occupancy. The epidemic therefore appears to prune densely populated grids toward a density at which continued transmission becomes difficult.
 
-![Mortality and final healthy density](images/analysis-epidemic-mortality-health.png)
+![Mortality and final healthy density](../analysis/epidemic_res/plots/02_mortality_and_final_healthy_density.png)
 
 ## Timing And Trajectories
 
-Median duration increases throughout the sustained-epidemic regime, reaching $6\,877.5$ generations at $60\%$. Time to peak behaves differently: it is largest at $42\%$ with a median of $1\,010$ generations, then falls to $733$ at $43\%$, $535.5$ at $45\%$, $409$ at $50\%$, and 334 at $60\%$. Once dense local connectivity supports sustained spread, higher density produces an earlier, larger peak but a longer period of repeated circulation.
+Median duration increases throughout the sustained-epidemic regime, reaching $6\,877.5$ generations at $60\%$. Time to peak behaves differently: it is largest at $42\%$ with a median of $1\,010$ generations, then falls to $733$ at $43\%$, $535.5$ at $45\%$, $409$ at $50\%$, and $334$ at $60\%$. Once dense local connectivity supports sustained spread, higher density produces an earlier, larger peak but a longer period of repeated circulation.
 
 The spaghetti plots show all $30$ prevalence trajectories per density. Colour denotes final mortality and the black curve is the per-generation median.
 
-![Infectious-prevalence trajectories](images/analysis-epidemic-trajectories.png)
+![Infectious-prevalence trajectories](../analysis/epidemic_res/plots/03_infectious_prevalence_spaghetti_by_density.png)
 
 ## Resurgence Count
 
 Resurgence is a retrospective event definition applied to prevalence, not a native engine metric.
 
-1. Smooth prevalence with an $11$-generation centred mean. The window suppresses short cell-level fluctuations while keeping five generations of context on either side.
+1. Smooth prevalence with an $11$-generation centred mean. The window suppresses short cell-level fluctuations while keeping $5$ generations of context on either side.
 2. Start a candidate wave when smoothed prevalence reaches $0.15\%$.
 3. End it after smoothed prevalence remains at or below $0.05\%$ for $25$ consecutive generations.
 4. Treat the first candidate as the initial outbreak.
-5. Count a later candidate as a resurgence only if its smoothed peak is at least $8$ times the preceding smoothed trough, it spends at least $10$ generations at or above $0.15\%$, and the trough is above zero.
+5. Count a later candidate as a resurgence only if its smoothed peak is at least $8$ times the preceding smoothed trough, it spends at least $10$ generations at or above $0.15\%$, and the trough is above $0$.
 
 The event's reported peak prevalence is the unsmoothed maximum inside its interval. Because the smoother is centred, this is an offline detector that uses future and past values; it is not suitable for real-time alerts.
 
 Across all $330$ runs:
 
 - $300$ runs have no resurgence.
-- $25$ have one.
-- $4$ have two.
-- $1$ has three.
-- $30$ runs, or $9.09\%$, have at least one, for $36$ qualifying resurgence events in total.
+- $25$ have $1$.
+- $4$ have $2$.
+- $1$ has $3$.
+- $30$ runs, or $9.09\%$, have at least $1$, for $36$ qualifying resurgence events in total.
 - No qualifying resurgence occurs at $30\%$ or $35\%$.
 
 Counts are sparse and non-monotonic, so they support occasional post-outbreak resurgence but not a density-dependent resurgence law.
 
-![Detected resurgence peaks](images/analysis-epidemic-resurgences.png)
+![Detected resurgence peaks](../analysis/epidemic_res/plots/04_detected_wave_peaks.png)
 
 ### Three-Resurgence Example
 
-At $40\%$ density, run $17$ contains three qualifying resurgences after its initial outbreak. In the recording, rendered at $30$ generations per second, the first occurs at generation $660$ ($\sim00{:}22$), the second at generation $1\,700$ ($\sim00{:}57$), and the third at generation $2\,400$ ($\sim01{:}20$). They subsequently peak at generations $980$ ($\sim00{:}32$), $1\,956$ ($\sim01{:}05$), and $2\,720$ ($\sim01{:}30$), with unsmoothed peak prevalences of approximately $0.345\%$, $0.567\%$, and $0.776\%$, respectively.  
+At $40\%$ density, run $17$ contains $3$ qualifying resurgences after its initial outbreak. In the recording, rendered at $30\text{ generations/s}$, the first occurs at generation $660$ ($\sim00{:}22$), the second at generation $1\,700$ ($\sim00{:}57$), and the third at generation $2\,400$ ($\sim01{:}20$). They subsequently peak at generations $980$ ($\sim00{:}32$), $1\,956$ ($\sim01{:}05$), and $2\,720$ ($\sim01{:}30$), with unsmoothed peak prevalences of approximately $0.345\%$, $0.567\%$, and $0.776\%$, respectively.  
 The recording provides a concrete example of the retrospective event definition above.
 
 <video controls muted playsinline preload="metadata" width="100%">
-  <source src="videos/analysis/epidemic/epidemic-40-run-17-two-resurgences.mp4" type="video/mp4">
+  <source src="../analysis/epidemic_res/videos/epidemic-40-run-17-two-resurgences.mp4" type="video/mp4">
   Your browser does not support embedded video.
 </video>
 
@@ -134,28 +136,28 @@ The recording provides a concrete example of the retrospective event definition 
 
 The transition figure uses $41\%$, where the infection-episode IQR is largest, and selects actual runs nearest the $10\text{th}$, $50\text{th}$, and $90\text{th}$ episode percentiles:
 
-| Representative role  |  Run | $\frac{\textbf{Episodes}}{N_0}$ | Peak prevalence |  Mortality | Duration |
-| -------------------- | ---: | ------------------------------: | --------------: | ---------: | -------: |
-| Nearest $\text{p}10$ |  $6$ |                       $0.00298$ |      $0.0632\%$ | $0.0037\%$ |    $264$ |
-| Nearest $\text{p}50$ |  $4$ |                       $0.04927$ |      $0.2809\%$ | $0.0893\%$ | $1\,166$ |
-| Nearest $\text{p}90$ | $30$ |                       $0.75524$ |      $1.5825\%$ | $1.3619\%$ | $2\,358$ |
+| Representative role       |  Run | $\frac{\textbf{Episodes}}{N_0}$ | Peak prevalence |  Mortality | Duration |
+| ------------------------- | ---: | ------------------------------: | --------------: | ---------: | -------: |
+| Nearest $\mathrm{p}_{10}$ |  $6$ |                       $0.00298$ |      $0.0632\%$ | $0.0037\%$ |    $264$ |
+| Nearest $\mathrm{p}_{50}$ |  $4$ |                       $0.04927$ |      $0.2809\%$ | $0.0893\%$ | $1\,166$ |
+| Nearest $\mathrm{p}_{90}$ | $30$ |                       $0.75524$ |      $1.5825\%$ | $1.3619\%$ | $2\,358$ |
 
-![Representative Epidemic transition runs](images/analysis-epidemic-transition-runs.png)
+![Representative Epidemic transition runs](../analysis/epidemic_res/plots/07_transition_runs_41.png)
 
 ### Transition Runs In Motion
 
 These recordings use the same $41\%$ initial density and correspond to the low-, median-, and high-outcome representatives above. They expose the run-to-run variation hidden by a density-level median.
 
-|                                                                                         Low outcome – Run $\bf{6}$                                                                                         |                                                                                         Median outcome – Run $\bf{4}$                                                                                         |                                                                                        High outcome – Run $\bf{30}$                                                                                         |
+|                                                                                       Low outcome – Run $\mathbf{6}$                                                                                       |                                                                                       Median outcome – Run $\mathbf{4}$                                                                                       |                                                                                      High outcome – Run $\mathbf{30}$                                                                                       |
 | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/epidemic/epidemic-41-run-06-low.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/epidemic/epidemic-41-run-04-median.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/epidemic/epidemic-41-run-30-high.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
+| <video controls muted playsinline preload="metadata" width="100%"><source src="../analysis/epidemic_res/videos/epidemic-41-run-06-low.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="../analysis/epidemic_res/videos/epidemic-41-run-04-median.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="../analysis/epidemic_res/videos/epidemic-41-run-30-high.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
 |                                                                              $0.0632\%$ peak prevalence<br>$264$ generations                                                                               |                                                                              $0.2809\%$ peak prevalence<br>$1\,166$ generations                                                                               |                                                                             $1.5825\%$ peak prevalence<br>$2\,358$ generations                                                                              |
 
 ## Typical Runs Across Regimes
 
-The following median-like runs contrast rapid extinction at $30\%$ with sustained circulation and extensive mortality at $60\%$. To keep the long $60\%$ recording practical to view, it is rendered at $120$ generations per second, or $4\times$ the $30$ generations per second used for the other videos. Its accelerated playback is a presentation choice made to reduce size and length and should not be used to compare visual propagation speed directly with other recordings.
+The following median-like runs contrast rapid extinction at $30\%$ with sustained circulation and extensive mortality at $60\%$. To keep the long $60\%$ recording practical to view, it is rendered at $120\text{ generations/s}$, or $4\times$ the $30\text{ generations/s}$ used for the other videos. Its accelerated playback is a presentation choice made to reduce size and length and should not be used to compare visual propagation speed directly with other recordings.
 
-|                                                                                      Typical $\bf{30\%}$ – Run $\bf{20}$                                                                                       |                                                                                      Typical $\bf{60\%}$ – Run $\bf{14}$                                                                                       |
+|                                                                                  Typical $\mathbf{30\%}$ – Run $\mathbf{20}$                                                                                   |                                                                                  Typical $\mathbf{60\%}$ – Run $\mathbf{14}$                                                                                   |
 | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/epidemic/epidemic-30-run-20-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="videos/analysis/epidemic/epidemic-60-run-14-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
+| <video controls muted playsinline preload="metadata" width="100%"><source src="../analysis/epidemic_res/videos/epidemic-30-run-20-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> | <video controls muted playsinline preload="metadata" width="100%"><source src="../analysis/epidemic_res/videos/epidemic-60-run-14-typical.mp4" type="video/mp4">Your browser does not support embedded video.</video> |
 |                                                                    $0.0344\%$ peak prevalence<br>$0.0013\%$ mortality<br>$152$ generations                                                                     |                                                                   $15.327\%$ peak prevalence<br>$30.735\%$ mortality<br>$6\,273$ generations                                                                   |

@@ -2,10 +2,10 @@
 
 ## Study Question
 
-The experiments ask how changing initial occupied-cell density changes the evolution and final outcome of two presets:
+The experiments ask how changing initial occupied-cell density changes the evolution and final outcome of $2$ presets:
 
-- In [Wildfire](Presets#wildfire), occupied cells are combustible Grass, Bush, or Tree cells.
-- In [SIRSD Epidemic](Presets#sirsd-epidemic), occupied cells are living population cells, initially all Susceptible.
+- In [Wildfire](Presets#wildfire), occupied cells are combustible `Grass`, `Bush`, or `Tree` cells.
+- In [SIRSD Epidemic](Presets#sirsd-epidemic), occupied cells are living population cells, initially all `Susceptible`.
 
 The target density was varied while the preset rules, grid, topology, random seed, and initial active cells were kept fixed.
 
@@ -13,11 +13,11 @@ The target density was varied while the preset rules, grid, topology, random see
 
 For each requested density:
 
-1. Set the brush density and generate the initial vegetation or susceptible population.
-2. Place $12$ active cells: burning cells for Wildfire or _Infectious_ cells for Epidemic.
-3. Run until active fire (`Ember + Fire + Blaze`) or _Infectious_ reaches zero.
+1. Set the brush density and generate the initial vegetation or `Susceptible` population.
+2. Place $12$ active cells: burning cells for Wildfire or `Infectious` cells for Epidemic.
+3. Run until active fire (`Ember + Fire + Blaze`) or `Infectious` reaches $0$.
 4. Download the recorded run and its metrics.
-5. Restart and repeat until 30 runs have been collected, then move to the next density.
+5. Restart and repeat until $30$ runs have been collected, then move to the next density.
 
 This sweep was automated using the scripts under [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/blob/main/analysis/) in the repository while the project was served locally.
 
@@ -46,7 +46,7 @@ The analysis contains $570$ runs across $19$ densities percentages:
 | Dense | $85,\,86,\,87,\,88,\,89,\,90,\,91,\,92,\,93,\,94,\,95$ |
 | High  | $100$                                                  |
 
-The dense $85–95\%$ sweep contains $330$ runs and was added to resolve the observed regime change from the initial sweep.
+The dense $85\text{–}95\%$ sweep contains $330$ runs and was added to resolve the observed regime change from the initial sweep.
 
 ### Epidemic
 
@@ -58,4 +58,4 @@ The analysis contains $330$ runs across $11$ densities:
 | Dense | $40,\,41,\,42,\,43,\,44,\,45$ |
 | High  | $50,\,55,\,60$                |
 
-The dense $40–45\%$ sweep contains $180$ runs and was added to resolve the observed regime change from the initial sweep.
+The dense $40\text{–}45\%$ sweep contains $180$ runs and was added to resolve the observed regime change from the initial sweep.

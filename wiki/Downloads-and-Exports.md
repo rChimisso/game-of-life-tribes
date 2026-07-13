@@ -20,7 +20,7 @@ The download worker uses progress bands:
 
 ## Compressed Chunk Mode
 
-Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds $2$ GiB. It exports compressed recording chunks instead of rendering the selected outputs. See [Compressed chunk export](Compressed-Chunk-Export) for the standalone file contract and a Python reader example.
+Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds $2\text{ GiB}$. It exports compressed recording chunks instead of rendering the selected outputs. See [Compressed chunk export](Compressed-Chunk-Export) for the standalone file contract and a Python reader example.
 
 The ZIP contains:
 
@@ -49,4 +49,4 @@ The MP4 entry path inside the ZIP is `simulation.mp4`.
 
 ## Working Set Estimate
 
-The download estimator accounts for selected chunks, decompression footprint, previous-frame metrics memory, row buffers, metric entries, and estimated CSV output. Metrics switch to streaming output when retained metric-entry memory exceeds $512$ MiB. Metrics CSV emits a large-output warning above $512$ MiB.
+The download estimator accounts for selected chunks, decompression footprint, previous-frame metrics memory, row buffers, metric entries, and estimated CSV output. Metrics switch to streaming output when retained metric-entry memory exceeds $512\text{ MiB}$. Metrics CSV emits a large-output warning above $512\text{ MiB}$.

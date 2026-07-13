@@ -1,0 +1,22 @@
+flowchart TD
+  Start[Start with result set to dead]
+  NextRule{Another rule?}
+  Active{Rule active and probability above zero?}
+  Matches{Clause matches?}
+  Deterministic{Probability is 100 percent?}
+  Roll{Deterministic probability roll passes?}
+  Outcome[Evaluate outcome and assign next state]
+  Default[Keep dead result]
+  Finish[Finish cell evaluation]
+
+  Start --> NextRule
+  NextRule -- ⠀No⠀ --> Default --> Finish
+  NextRule -- ⠀Yes⠀ --> Active
+  Active -- ⠀No⠀ --> NextRule
+  Active -- ⠀Yes⠀ --> Matches
+  Matches -- ⠀No⠀ --> NextRule
+  Matches -- ⠀Yes⠀ --> Deterministic
+  Deterministic -- ⠀Yes⠀ --> Outcome --> Finish
+  Deterministic -- ⠀No⠀ --> Roll
+  Roll -- ⠀Yes⠀ --> Outcome
+  Roll -- ⠀No⠀ --> NextRule

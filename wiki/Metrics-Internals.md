@@ -15,8 +15,8 @@ Population and diversity depend on the histogram pass:
 Interfaces use a boundary pass:
 
 - Each cell checks only right and bottom neighbors.
-- Toroidal grids wrap those checks and have $\text{cols }\cdot\text{ rows}\cdot2$ total contact edges.
-- Bounded grids skip checks beyond the right and bottom edges and have $\text{rows }\cdot(\text{cols}-1)+\text{cols }\cdot(\text{rows}-1)$ total contact edges.
+- Toroidal grids wrap those checks and have $\texttt{cols}\cdot\texttt{rows}\cdot2$ total contact edges.
+- Bounded grids skip checks beyond the right and bottom edges and have $\texttt{rows}\cdot(\texttt{cols}-1)+\texttt{cols}\cdot(\texttt{rows}-1)$ total contact edges.
 - Cross-state edges are counted directly.
 - Same-state edges are total contact edges minus cross-state edges.
 
@@ -35,16 +35,16 @@ Offline transition metrics include:
 
 Live metrics rely on $32$-bit unsigned GPU counters:
 
-- Population and diversity are available when $\text{cols }\cdot\text{ rows}\leq\texttt{0xffffffff}$.
-- Interfaces are available when $\text{cols }\cdot\text{ rows}\cdot2\leq\texttt{0xffffffff}$.
+- Population and diversity are available when $\texttt{cols}\cdot\texttt{rows}\leq\texttt{0xffffffff}$.
+- Interfaces are available when $\texttt{cols}\cdot\texttt{rows}\cdot2\leq\texttt{0xffffffff}$.
 
 If a section is enabled but not safe for counters, the UI marks it unavailable. If disabled globally or per section, it is marked disabled.
 
 Download metric estimates use these constants:
 
-- Metric entry base: $512$ bytes.
-- Metric entry per tribe: $160$ bytes.
-- Metrics CSV row base: $384$ bytes.
-- Metrics CSV row per tribe: $48$ bytes.
-- Streaming metric-entry threshold: $512$ MiB.
-- Large metrics CSV warning threshold: $512$ MiB.
+- Metric entry base: $512\text{ bytes}$.
+- Metric entry per tribe: $160\text{ bytes}$.
+- Metrics CSV row base: $384\text{ bytes}$.
+- Metrics CSV row per tribe: $48\text{ bytes}$.
+- Streaming metric-entry threshold: $512\text{ MiB}$.
+- Large metrics CSV warning threshold: $512\text{ MiB}$.

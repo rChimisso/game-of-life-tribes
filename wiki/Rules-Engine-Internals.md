@@ -11,12 +11,14 @@ Bounded boundary cells are virtual. They are not stored in the frame and are not
 
 Rules are evaluated in order:
 
-1. Muted rules or rules with probability `0` are skipped.
+1. Muted rules or rules with probability $0$ are skipped.
 2. A rule whose clause matches performs its probability roll.
 3. The first matching rule whose probability roll passes assigns the next state.
 4. If no rule matches, or if matching probabilistic rules all fail their rolls, the cell becomes `dead`.
 
-A rule has three behavioral parts:
+![Rule evaluation flow](mermaid/rule-evaluation-flow.svg)
+
+A rule has $3$ behavioral parts:
 
 - Clause: boolean expression over the current cell and its neighbors.
 - Probability: percentage chance that a matched rule applies.
@@ -24,14 +26,14 @@ A rule has three behavioral parts:
 
 For the full selector, clause, outcome, tribe, and rule JSON reference, see [Rule expressions](Rule-Expressions). This page focuses on evaluation behavior and shader generation.
 
-Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability `100%` do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.
+Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability $100\%$ do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.
 
 ## Expression Handling
 
 Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.
 
 - Explicit tribe selector signatures sort and deduplicate selected tribe IDs for stable lookup keys.
-- Count-style clauses operate on the eight Moore neighbors, and count values are clamped to `0` through `8`.
+- Count-style clauses operate on the $8$ Moore neighbors, and count values are clamped to $0$ through $8$.
 - Count-style clause bounds compile to the smallest equivalent boolean expression: `none` and `exactly` use equality, `min` uses only a lower-bound check, `max` uses only an upper-bound check, partial `count` intervals use a two-sided range, and always-true ranges such as `count 0..8`, `min 0`, and `max 8` compile to `true`.
 - Empty clauses are editor placeholders. They compile as false, and the editor rejects applied rules that still contain empty placeholders.
 
@@ -60,7 +62,7 @@ Combine outcomes build a bit mask of participating inputs. Lookup rows are sorte
 - It emits clause expressions as optimized WGSL boolean expressions, including direct equality or one-sided comparisons for count clauses when a full two-sided range is unnecessary.
 - It emits outcomes as assignments to `result`.
 - It emits one first-match-wins branch chain over active rules, with deterministic probability guards where needed.
-- It emits direct assignment branches for `100%` rules, even when other active rules in the same shader are probabilistic.
+- It emits direct assignment branches for $100\%$ rules, even when other active rules in the same shader are probabilistic.
 - It emits a random-seed constant and hash helper only when active probabilistic rules require probability rolls.
 
 Unknown rule tribe references log an error and fall back to the `dead` tribe index. The editor tries to prevent those cases before rules are applied.

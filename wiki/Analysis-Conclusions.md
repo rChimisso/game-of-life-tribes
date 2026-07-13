@@ -18,8 +18,8 @@ These transitions arise in different mechanisms:
 Wildfire and Epidemic diverge after sustained spread becomes typical.
 
 - Wildfire intensity continues to increase with density, but duration falls above its transition because broad connected fronts consume available fuel faster.
-- Epidemic duration continues to increase because recovered cells can become susceptible and be infected again. At the same time, the first major peak occurs earlier as density increases above $42\%$.
-- Wildfire fuel resistance produces a consistent Grass, Bush, Tree loss ordering.
+- Epidemic duration continues to increase because `Recovered` cells can become `Susceptible` and be infected again. At the same time, the first major peak occurs earlier as density increases above $42\%$.
+- Wildfire fuel resistance produces a consistent `Grass`, `Bush`, `Tree` loss ordering.
 - Epidemic infection episodes can greatly exceed the initial population, demonstrating repeated transitions rather than a unique-person attack fraction.
 
 ## Resurgence Evidence

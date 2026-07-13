@@ -2,19 +2,19 @@
 
 The normalized source data for these tables is stored in [`benchmark/benchmark-results.csv`](https://github.com/rChimisso/game-of-life-tribes/blob/main/benchmark/benchmark-results.csv), where the full benchmark values can be checked directly.
 
-The tables report the best observed run out of three repeats. For this kind of benchmark, the best run is often the most useful estimate of how fast the device can execute the workload when background interference is lowest. Slower repeats can still be useful to inspect, but they often include unrelated scheduling, browser, or system activity rather than a slower simulation engine. Since this table reports throughput, the selected value is the highest $\text{Gen/s}$ observed for that row.
+The tables report the best observed run out of $3$ repeats. For this kind of benchmark, the best run is often the most useful estimate of how fast the device can execute the workload when background interference is lowest. Slower repeats can still be useful to inspect, but they often include unrelated scheduling, browser, or system activity rather than a slower simulation engine. Since this table reports throughput, the selected value is the highest $\texttt{Gen/s}$ observed for that row.
 
 Columns:
 
 - **Bit packing**: bits used to store each cell in the simulation frame.
-- **Frame size**: recording-only raw size of one simulation frame at that grid size and packing.
+- **Frame size**: recording-only raw size of $1$ simulation frame at that grid size and packing.
 - **Gen/s**: best observed generations per second during the post-warm-up max-speed window.
-- **Cell updates/s**: $\text{Gen/s}$ multiplied by the number of cells in the actual measured grid.
-- **Data volume/s**: recording-only raw frame volume, computed as $\text{Gen/s}\cdot\text{frame size}$.
+- **Cell updates/s**: $\texttt{Gen/s}$ multiplied by the number of cells in the actual measured grid.
+- **Data volume/s**: recording-only raw frame volume, computed as $\texttt{Gen/s}\cdot\texttt{frame size}$.
 
 ## 128 × 128
 
-The full grid contains **$\bf{16\,384}$ cells**.
+The full grid contains **$\mathbf{16\,384}$ cells**.
 
 ### Baseline
 
@@ -40,7 +40,7 @@ The full grid contains **$\bf{16\,384}$ cells**.
 
 ## 256 × 256
 
-The full grid contains **$\bf{65\,536}$ cells**.
+The full grid contains **$\mathbf{65\,536}$ cells**.
 
 ### Baseline
 
@@ -66,7 +66,7 @@ The full grid contains **$\bf{65\,536}$ cells**.
 
 ## 512 × 512
 
-The full grid contains **$\bf{262\,144}$ cells**.
+The full grid contains **$\mathbf{262\,144}$ cells**.
 
 ### Baseline
 
@@ -92,7 +92,7 @@ The full grid contains **$\bf{262\,144}$ cells**.
 
 ## 1024 × 1024
 
-The full grid contains **$\bf{1\,048\,576}$ cells**.
+The full grid contains **$\mathbf{1\,048\,576}$ cells**.
 
 ### Baseline
 
@@ -118,7 +118,7 @@ The full grid contains **$\bf{1\,048\,576}$ cells**.
 
 ## 2048 × 2048
 
-The full grid contains **$\bf{4\,194\,304}$ cells**.
+The full grid contains **$\mathbf{4\,194\,304}$ cells**.
 
 ### Baseline
 
@@ -144,7 +144,7 @@ The full grid contains **$\bf{4\,194\,304}$ cells**.
 
 ## 4096 × 4096
 
-The full grid contains **$\bf{16\,777\,216}$ cells**.
+The full grid contains **$\mathbf{16\,777\,216}$ cells**.
 
 ### Baseline
 
@@ -170,7 +170,7 @@ The full grid contains **$\bf{16\,777\,216}$ cells**.
 
 ## 8192 × 8192
 
-The full grid contains **$\bf{67\,108\,864}$ cells**.
+The full grid contains **$\mathbf{67\,108\,864}$ cells**.
 
 ### Baseline
 
@@ -196,7 +196,7 @@ The full grid contains **$\bf{67\,108\,864}$ cells**.
 
 ## 16384 × 16384
 
-The full grid contains **$\bf{268\,435\,456}$ cells**.
+The full grid contains **$\mathbf{268\,435\,456}$ cells**.
 
 ### Baseline
 
@@ -222,8 +222,8 @@ The full grid contains **$\bf{268\,435\,456}$ cells**.
 
 ## 32768 × 32768
 
-The full grid contains **$\bf{1\,073\,741\,824}$ cells**.  
-$16$-bit packing uses $\bf{32\,768\times32\,767}$ instead, for **$\bf{1\,073\,709\,056}$ cells**.
+The full grid contains **$\mathbf{1\,073\,741\,824}$ cells**.  
+$16$-bit packing uses $\mathbf{32\,768\times32\,767}$ instead, for **$\mathbf{1\,073\,709\,056}$ cells**.
 
 ### Baseline
 
@@ -246,8 +246,8 @@ $16$-bit packing uses $\bf{32\,768\times32\,767}$ instead, for **$\bf{1\,073\,70
 
 ## 65536 × 65536
 
-The full grid contains **$\bf{4\,294\,967\,296}$ cells**.  
-$4$-bit packing uses $\bf{65\,536\times65\,535}$ instead, for **$\bf{4\,294\,901\,760}$ cells**.
+The full grid contains **$\mathbf{4\,294\,967\,296}$ cells**.  
+$4$-bit packing uses $\mathbf{65\,536\times65\,535}$ instead, for **$\mathbf{4\,294\,901\,760}$ cells**.
 
 ### Baseline
 
@@ -266,8 +266,8 @@ $4$-bit packing uses $\bf{65\,536\times65\,535}$ instead, for **$\bf{4\,294\,901
 
 ## 131072 × 131072
 
-The full grid contains **$\bf{17\,179\,869\,184}$ cells**.  
-$1$-bit packing uses $\bf{131\,072\times131\,071}$ instead, for **$\bf{17\,179\,738\,112}$ cells**.
+The full grid contains **$\mathbf{17\,179\,869\,184}$ cells**.  
+$1$-bit packing uses $\mathbf{131\,072\times131\,071}$ instead, for **$\mathbf{17\,179\,738\,112}$ cells**.
 
 ### Baseline
 

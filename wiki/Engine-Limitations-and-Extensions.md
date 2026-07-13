@@ -6,20 +6,20 @@ The engine is a synchronous finite-state cellular automaton on a rectangular squ
 
 Current structural constraints are:
 
-- A fixed radius-$1$, eight-cell Moore neighborhood.
-- Toroidal topology or bounded topology with one virtual boundary tribe.
+- A fixed radius-$1$, $8$-cell Moore neighborhood.
+- Toroidal topology or bounded topology with $1$ virtual boundary tribe.
 - One discrete tribe value per cell.
 - Ordered rules in which the first matching rule whose probability roll succeeds determines the next state.
-- Unmatched cells become Dead.
+- Unmatched cells become `dead`.
 - Probability rolls are deterministic hashes of cell coordinates, generation, original rule index, and ruleset random seed.
 
-This design is well suited to Life-like rules, multi-state local automata, Wildfire, and lattice epidemics. It does not natively represent continuous fields, arbitrary contact networks, mobile agents, or multiple independent attributes attached to one cell.
+This design is well suited to Life-like rules, multi-state local automata, Wildfire, and lattice epidemics. It does not natively represent continuous fields, arbitrary contact networks, mobile agents, or multiple independent attributes attached to $1$ cell.
 
 These constraints keep the engine a powerful, well-defined superset of Life-like cellular automata rather than a universal cellular-automaton framework. The project began as an extension of Game of Life for multiple tribes with potentially different behavior; later features were chosen to improve expressivity without straying too far from that original idea.
 
 ## Neighborhood And Space
 
-The fixed Moore neighborhood prevents exact expression of models that use four-neighbor von Neumann contact, larger radii, weighted distance, or direction-specific influence. For example, the standard NetLogo Fire model spreads through four orthogonal neighbors, so it cannot currently be reproduced exactly.
+The fixed Moore neighborhood prevents exact expression of models that use $4$-neighbor von Neumann contact, larger radii, weighted distance, or direction-specific influence. For example, the standard NetLogo Fire model spreads through $4$ orthogonal neighbors, so it cannot be reproduced exactly.
 
 Useful extensions would include:
 

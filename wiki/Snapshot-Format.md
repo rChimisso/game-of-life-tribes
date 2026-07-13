@@ -8,7 +8,7 @@ Use this page when you want to inspect, convert, generate, or modify snapshots o
 
 ## File Layout
 
-A `.golt` file has three parts:
+A `.golt` file has $3$ parts:
 
 ```text
 12-byte preamble
@@ -16,7 +16,7 @@ UTF-8 JSON header
 raw-deflate compressed packed grid payload
 ```
 
-The payload is one packed frame, not a sequence of frames. For recorded multi-frame data, see [Compressed chunk export](Compressed-Chunk-Export).
+The payload is $1$ packed frame, not a sequence of frames. For recorded multi-frame data, see [Compressed chunk export](Compressed-Chunk-Export).
 
 ## Preamble
 
@@ -96,26 +96,30 @@ When saving, the app repacks the current grid to the tightest storage format tha
 
 The expected uncompressed payload size is:
 
-```text
-cellsPerWord = 32 / bitsPerCell
-packedCols = ceil(cols / cellsPerWord)
-payloadBytes = packedCols * rows * 4
-```
+$$
+\begin{aligned}
+\texttt{cellsPerWord} &= \frac{32}{\texttt{bitsPerCell}} \\[1.5em]
+\texttt{packedCols} &= \left\lceil\frac{\texttt{cols}}{\texttt{cellsPerWord}}\right\rceil \\[1.5em]
+\texttt{payloadBytes} &= \texttt{packedCols}\cdot\texttt{rows}\cdot4
+\end{aligned}
+$$
 
 If decompression produces anything other than exactly `payloadBytes`, the app rejects the snapshot.
 
 ## Cell Packing
 
-The uncompressed payload is a row-major array of little-endian `u32` words. Each word stores one or more cell values.
+The uncompressed payload is a row-major array of little-endian `u32` words. Each word stores $1$ or more cell values.
 
-To read one cell:
+To read $1$ cell:
 
-```text
-wordIndex = y * packedCols + floor(x / cellsPerWord)
-cellIndex = x % cellsPerWord
-shift = cellIndex * bitsPerCell
-value = (word >> shift) & ((1 << bitsPerCell) - 1)
-```
+$$
+\begin{aligned}
+\texttt{wordIndex} &= y\cdot\texttt{packedCols}+\left\lfloor\frac{x}{\texttt{cellsPerWord}}\right\rfloor \\[1.5em]
+\texttt{cellIndex} &= x\bmod\texttt{cellsPerWord} \\[1.5em]
+\texttt{shift} &= \texttt{cellIndex}\cdot\texttt{bitsPerCell} \\[1.5em]
+\texttt{value} &= (\texttt{word}\gg\texttt{shift})\mathbin{\&}\left((1\ll\texttt{bitsPerCell})-1\right)
+\end{aligned}
+$$
 
 Ignore padding cells beyond `cols` in the final packed word of each row.
 
@@ -129,12 +133,12 @@ tribe.color  -> RGB hex color without '#'
 
 ## Streaming Path
 
-Small snapshots are compressed or decompressed as one payload. Large snapshots use a streaming-shaped path so the browser does not need one extra full packed-grid copy during save/load.
+Small snapshots are compressed or decompressed as $1$ payload. Large snapshots use a streaming-shaped path so the browser does not need $1$ extra full packed-grid copy during save/load.
 
 Current thresholds:
 
-- Snapshot streaming threshold: $256$ MiB packed grid size.
-- Stream repack block target: $64$ MiB.
+- Snapshot streaming threshold: $256\text{ MiB}$ packed grid size.
+- Stream repack block target: $64\text{ MiB}$.
 
 This does not change the file format. It only changes how the browser produces or consumes the same layout.
 

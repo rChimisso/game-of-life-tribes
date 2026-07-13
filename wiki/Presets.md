@@ -32,7 +32,7 @@ Presets can define their own random seed for probabilistic rules.
 | Slime Mold       | Slime body with explorer tendrils                                 |
 | Wildfire         | Fire spreads through varied vegetation                            |
 
-The minimum packing shown on each button is derived from the number of tribes in that preset. For example, two-state presets can use 1-bit packing, while presets with many lifecycle or material states need a larger value.
+The minimum packing shown on each button is derived from the number of tribes in that preset. For example, $2$-state presets can use $1$-bit packing, while presets with many lifecycle or material states need a larger value.
 
 ### Afterimage
 

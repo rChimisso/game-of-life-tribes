@@ -2,7 +2,7 @@
 
 ## Evidence Boundary
 
-The Wildfire and Epidemic results are descriptive experiments on one $512 \times 512$ toroidal grid, using one version of each preset, one 12-cell seeding protocol, a fixed ruleset random seed ($42$), and $30$ runs per density. They locate strong finite-grid crossovers but do not estimate universal critical points.
+The Wildfire and Epidemic results are descriptive experiments on one $512\times512$ toroidal grid, using one version of each preset, one $12$-cell seeding protocol, a fixed ruleset random seed ($42$), and $30$ runs per density. They locate strong finite-grid crossovers but do not estimate universal critical points.
 
 The main sources of uncertainty are:
 
@@ -23,20 +23,20 @@ Consequences include:
 
 - Wildfire burn fraction does not identify connected fuel components, front perimeter, crossing probability, or unburned-island geometry.
 - Epidemic episodes reconstruct the total number of `S → I` events but do not identify how those events are distributed among cells.
-- Aggregate prevalence cannot distinguish one coherent wave from several simultaneous local outbreaks.
+- Aggregate prevalence cannot distinguish $1$ coherent wave from several simultaneous local outbreaks.
 - Final-state summaries do not measure spatial clustering, correlation length, or front velocity.
 
 ## Resurgence Sensitivity
 
 The resurgence definition uses an $11$-generation centred smoother, $0.15\%$ start threshold, $0.05\%$ end threshold held for $25$ generations, $8\times$ trough-to-peak rebound, and $10$-generation persistence requirement. These are explicit, arbitrary analysis choices rather than preset, derived, or standard parameters.
 
-The current conclusions do not show whether the $31$ runs with at least one resurgence remain the same under nearby settings. The centred mean also uses future values, making it appropriate for retrospective analysis but unsuitable as an online detector.
+The current conclusions do not show whether the $31$ runs with at least $1$ resurgence remain the same under nearby settings. The centred mean also uses future values, making it appropriate for retrospective analysis but unsuitable as an online detector.
 
 ## Possible Analysis Extensions
 
 ### Replication And Uncertainty
 
-- Increase repetitions near $89–91\%$ Wildfire and $40–42\%$ Epidemic density.
+- Increase repetitions near $89\text{–}91\%$ Wildfire and $40\text{–}42\%$ Epidemic density.
 - Report bootstrap confidence intervals for medians, IQRs, fadeout probability, and any-resurgence probability.
 - Predefine endpoints and analysis thresholds in a machine-readable experiment specification.
 

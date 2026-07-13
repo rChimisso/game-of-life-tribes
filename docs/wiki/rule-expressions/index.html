@@ -97,7 +97,7 @@
               <!--ngtns-->
                 <a class href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
               <!--ngtns-->
-                <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+                <a class href="/game-of-life-tribes/wiki/rule-engine-internals" jsaction="click:;">Rule engine internals</a>
               <!--ngtns-->
                 <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
               <!--ngtns-->
@@ -249,7 +249,7 @@
                 <!--ngtns-->
                   <a class href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
                 <!--ngtns-->
-                  <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+                  <a class href="/game-of-life-tribes/wiki/rule-engine-internals" jsaction="click:;">Rule engine internals</a>
                 <!--ngtns-->
                   <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
                 <!--ngtns-->
@@ -340,7 +340,7 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.28.0 · Open source</span>
 </gol-wiki-footer>
   </aside>
   <main>
@@ -348,16 +348,16 @@
       <article class="wiki-markdown" jsaction="click:;"><h1 id="rule-expressions"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-expressions" aria-label="Link to this section">#</a>Rule Expressions</h1>
 <h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>This page is the canonical reference for persisted tribe and rule expressions. Use it when writing snapshots, reading compressed chunk metadata, or understanding the expression language used by rules.</p>
-<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a href="/game-of-life-tribes/wiki/snapshot-format/">Snapshot format</a>. For evaluation order and WGSL generation, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>. For detailed cost formulas, see <a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a>.</p>
+<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a href="/game-of-life-tribes/wiki/snapshot-format/">Snapshot format</a>. For evaluation order and WGSL generation, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>. For detailed cost formulas, see <a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a>.</p>
 <h2 id="language-at-a-glance"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#language-at-a-glance" aria-label="Link to this section">#</a>Language at a Glance</h2>
-<p>A rule has a <strong>clause</strong>, which decides whether the rule matches, and an <strong>outcome</strong>, which decides the next tribe:</p>
+<p>A rule has a <strong>clause</strong>, which may contain other clauses and decides whether the rule matches, and an <strong>outcome</strong>, which decides the tribe change.</p>
 <p>All neighbor-count expressions use the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>-cell Moore neighborhood.</p>
 <h2 id="rule-structure"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-structure" aria-label="Link to this section">#</a>Rule Structure</h2>
 <h3 id="tribe-json"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#tribe-json" aria-label="Link to this section">#</a>Tribe JSON</h3>
 <p>Each tribe is a named cell state:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Alive"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"ffffff"</span>
+  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"ffffff"</span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <table>
 <thead>
@@ -379,7 +379,7 @@
 <p>Compatible rulesets include the special <code>dead</code> tribe, normally:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"000000"</span>
+  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"000000"</span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Rule and boundary references should point to existing tribe IDs.</p>
 <h3 id="rule-json"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-json" aria-label="Link to this section">#</a>Rule JSON</h3>
@@ -392,7 +392,7 @@
     <span class="hljs-comment">/* ... */</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"probability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <table>
 <thead>
@@ -464,12 +464,6 @@
 <td><code>tribes</code></td>
 <td>The list must be non-empty.</td>
 </tr>
-<tr>
-<td><code>tie</code></td>
-<td>Candidates tied in the current ranked outcome</td>
-<td><code>source</code></td>
-<td>Only has special meaning during ranked tie handling.</td>
-</tr>
 </tbody></table>
 <p>An explicit selector is written as:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
@@ -481,21 +475,8 @@
 <li>count clauses count matching neighbors;</li>
 <li>ranked outcomes treat matching tribes as candidate results;</li>
 <li>combine inputs test whether matching tribes are present;</li>
-<li><code>tie</code> refers to ranked candidates tied at the winning count.</li>
 </ul>
 <p>Explicit tribe selector signatures are sorted and deduplicated for stable reuse during compilation.</p>
-<h3 id="tie"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#tie" aria-label="Link to this section">#</a><code>tie</code></h3>
-<p>A <code>tie</code> selector refers to the tied candidates from another selector:</p>
-<pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tie"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"Blue"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"Green"</span><span class="hljs-punctuation">]</span>
-  <span class="hljs-punctuation">}</span>
-<span class="hljs-punctuation">}</span></code></pre>
-<p>In a <code>majority</code> outcome, these are the candidates tied for the highest non-zero count. In a <code>minority</code> outcome, they are the candidates tied for the lowest non-zero count.</p>
-<p>The selector is most useful inside a nested <code>combine</code> outcome that resolves a ranked tie by inspecting which tied candidates are present.</p>
-<p>Outside an actual ranked tie branch, there is no tie state. The compiler then treats <code>tie</code> like its <code>source</code>; generated rules should avoid relying on that fallback behavior.</p>
 <h2 id="clauses"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#clauses" aria-label="Link to this section">#</a>Clauses</h2>
 <p>Clauses decide whether a rule is eligible to apply to the current cell.</p>
 <table>
@@ -606,14 +587,14 @@
     <span class="hljs-attr">"selector"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
       <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">]</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"right"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"count"</span><span class="hljs-punctuation">,</span>
     <span class="hljs-attr">"selector"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
       <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Blue"</span><span class="hljs-punctuation">]</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"operator"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&gt;"</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"margin"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
@@ -685,8 +666,8 @@ xor    an odd number of children are true</code></pre>
 </tr>
 <tr>
 <td><code>combine</code></td>
-<td>Resolve an exact set of present inputs through a lookup table</td>
-<td><code>strategy</code></td>
+<td>Resolve an exact set of present inputs through lookup rows</td>
+<td><code>entries</code> and <code>default</code></td>
 </tr>
 </tbody></table>
 <h3 id="fixed-and-same-outcomes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#fixed-and-same-outcomes" aria-label="Link to this section">#</a>Fixed and Same Outcomes</h3>
@@ -725,6 +706,7 @@ xor    an odd number of children are true</code></pre>
 <li>multiple winning candidates evaluate <code>tie</code>;</li>
 <li>no candidate evaluates <code>fallback</code>.</li>
 </ul>
+<p>Both <code>tie</code> and <code>fallback</code> may independently be a <code>same</code> outcome, a fixed tribe, or another <code>combine</code> outcome.</p>
 <p>A no-candidate case occurs when every eligible candidate has count <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span>, the selector resolves to no valid candidates, or selector eligibility excludes every candidate for the current cell.</p>
 <p>For example:</p>
 <ul>
@@ -736,9 +718,7 @@ xor    an odd number of children are true</code></pre>
 <p><code>combine</code> uses unordered lookup rows over selector inputs:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"combine"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"strategy"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"lookup"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
       <span class="hljs-punctuation">{</span>
         <span class="hljs-attr">"inputs"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
           <span class="hljs-punctuation">{</span>
@@ -752,17 +732,16 @@ xor    an odd number of children are true</code></pre>
         <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
         <span class="hljs-attr">"output"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Purple"</span>
       <span class="hljs-punctuation">}</span>
-    <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
-    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Each row describes the <strong>exact set of participating inputs</strong> and the tribe to write.</p>
 <h4 id="input-order-does-not-matter"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#input-order-does-not-matter" aria-label="Link to this section">#</a>Input Order Does Not Matter</h4>
 <p>A row containing <code>[Red, Blue]</code> is equivalent to <code>[Blue, Red]</code>. The editor rejects duplicate rows after normalizing input order.</p>
-<h4 id="matching-is-exact"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#matching-is-exact" aria-label="Link to this section">#</a>Matching Is Exact</h4>
+<h4 id="matching-is-strict"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#matching-is-strict" aria-label="Link to this section">#</a>Matching Is Strict</h4>
 <p>A lookup row is not a subset test.</p>
 <p>A row for <code>[Red]</code> does not match when both <code>Red</code> and <code>Blue</code> are present. The runtime input set must exactly match the row's input set.</p>
 <h4 id="dead-is-handled-separately"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#dead-is-handled-separately" aria-label="Link to this section">#</a><code>dead</code> Is Handled Separately</h4>
@@ -772,8 +751,8 @@ xor    an odd number of children are true</code></pre>
 <pre><code class="hljs language-text">[Red, Blue, dead]
 [Red, Blue]</code></pre>
 <p>Both rows have the same non-dead mask. The row that explicitly requires <code>dead</code> must therefore be checked first.</p>
-<p>If no row matches, the combine <code>default</code> outcome is evaluated.</p>
-<p>Inside a ranked tie branch, a nested combine can use a <code>tie</code> selector to distinguish which tied candidates are present.</p>
+<p>If no row matches, the combine <code>default</code> outcome is evaluated. It can be <code>same</code>, so an unmatched combination can leave the current cell unchanged.</p>
+<p>For example, a table with rows <code>[Seed, Water] → Sprout</code> and <code>[Seed, Rock] → Root</code> matches the first row only when <code>Seed</code> and <code>Water</code> are present and no other non-dead tribe is present; it matches the second under the equivalent <code>Seed</code>/<code>Rock</code> condition. <code>dead</code> neighbors may be present in either case. Every other non-dead neighborhood combination, like <code>[Seed, Water, Rock]</code>, reaches the <code>default</code> outcome because matching is strict.</p>
 <h2 id="compilation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#compilation" aria-label="Link to this section">#</a>Compilation</h2>
 <p>Rule expressions are compiled to WGSL. The compiler:</p>
 <ul>
@@ -782,12 +761,11 @@ xor    an odd number of children are true</code></pre>
 <li>emits outcomes as assignments to <code>result</code>;</li>
 <li>emits active rules as one first-match-wins branch chain.</li>
 </ul>
-<p>See <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a> for the compiler pipeline and generated shader structure.</p>
+<p>See <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a> for the compiler pipeline and generated shader structure.</p>
 <p>For example, the Conway birth rule can reduce to:</p>
 <pre><code class="hljs language-plaintext">if (selfTribe == deadIndex &amp;&amp; aliveCount == 3u) {
   result = aliveIndex;
 }</code></pre>
-<p>The snippets in this wiki are representative rather than exact generated output; generated local names and numeric tribe indexes may differ.</p>
 <h2 id="complete-examples"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#complete-examples" aria-label="Link to this section">#</a>Complete Examples</h2>
 <h3 id="conway39s-game-of-life"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#conway39s-game-of-life" aria-label="Link to this section">#</a>Conway's Game of Life</h3>
 <p>Conway's Game of Life can be represented with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> birth rule and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> survival rule.</p>
@@ -879,9 +857,7 @@ xor    an odd number of children are true</code></pre>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"become"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"combine"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"strategy"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"lookup"</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
         <span class="hljs-punctuation">{</span>
           <span class="hljs-attr">"inputs"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
             <span class="hljs-punctuation">{</span> <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">]</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
@@ -897,12 +873,11 @@ xor    an odd number of children are true</code></pre>
           <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
           <span class="hljs-attr">"output"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Purple"</span>
         <span class="hljs-punctuation">}</span>
-      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-        <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
-        <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
-      <span class="hljs-punctuation">}</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"probability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
@@ -947,13 +922,13 @@ xor    an odd number of children are true</code></pre>
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.28.0 · Open source</span>
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BSRQHKPZ.js" type="module"></script>
-<link rel="modulepreload" href="chunk-GNJOO6EX.js">
-<link rel="modulepreload" href="chunk-XB2PTZZW.js">
+  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BFXKQWEK.js" type="module"></script>
+<link rel="modulepreload" href="chunk-4EVLBJ2V.js">
+<link rel="modulepreload" href="chunk-KOMTDJ3Y.js">
 <link rel="modulepreload" href="chunk-ZYODDBYK.js">
 
 

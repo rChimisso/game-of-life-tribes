@@ -1,5 +1,5 @@
 import {directRule, Preset, staticRule} from '.';
-import {AND_CLAUSE_KIND, COMBINE_BECOME_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, COMBINE_BECOME_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, OR_CLAUSE_KIND, EXACTLY_CLAUSE_KIND} from '../model/rule';
 
 /**
  * Newborn living cell tribe ID for the Senescence preset.
@@ -197,53 +197,50 @@ export const SENESCENCE_PRESET: Preset = {
           },
           tie: {
             kind: COMBINE_BECOME_KIND,
-            strategy: {
-              kind: LOOKUP_STRATEGY_KIND,
-              entries: [
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_AFTERGLOW_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_GLOW_TRIBE]
-                    }
-                  ],
-                  output: SENESCENCE_TRAIL_TRIBE
-                },
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_GLOW_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_TRAIL_TRIBE]
-                    }
-                  ],
-                  output: SENESCENCE_ECHO_TRIBE
-                },
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_AFTERGLOW_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [SENESCENCE_TRAIL_TRIBE]
-                    }
-                  ],
-                  output: SENESCENCE_DIM_TRIBE
-                }
-              ],
-              default: {
-                kind: FIXED_BECOME_KIND,
-                tribe: SENESCENCE_TRAIL_TRIBE
+            entries: [
+              {
+                inputs: [
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_AFTERGLOW_TRIBE]
+                  },
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_GLOW_TRIBE]
+                  }
+                ],
+                output: SENESCENCE_TRAIL_TRIBE
+              },
+              {
+                inputs: [
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_GLOW_TRIBE]
+                  },
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_TRAIL_TRIBE]
+                  }
+                ],
+                output: SENESCENCE_ECHO_TRIBE
+              },
+              {
+                inputs: [
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_AFTERGLOW_TRIBE]
+                  },
+                  {
+                    kind: TRIBES_SELECTOR_KIND,
+                    tribes: [SENESCENCE_TRAIL_TRIBE]
+                  }
+                ],
+                output: SENESCENCE_DIM_TRIBE
               }
+            ],
+            default: {
+              kind: FIXED_BECOME_KIND,
+              tribe: SENESCENCE_TRAIL_TRIBE
             }
           },
           fallback: {

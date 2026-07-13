@@ -6,7 +6,7 @@ import {TribeSelectorKind} from './model/selector-editor';
 import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {normalizeSelector, selectorSignature, toggleExplicitTribeSelection} from '~gol/feature/home/logic/rule-editor';
-import {DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
 import {TribeSwatch} from '~gol/shared/component/tribe-swatch/tribe-swatch';
@@ -209,9 +209,6 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
           message = 'Choose only existing tribes.';
         }
         break;
-      case TIE_SELECTOR_KIND:
-        message = 'Tie selectors are only available in ranked tie handling.';
-        break;
     }
     return message;
   }
@@ -323,8 +320,7 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
       [TRIBES_SELECTOR_KIND]: 'Specific tribes',
       [SAME_TRIBE_SELECTOR_KIND]: 'Same',
       [DIFFERENT_TRIBE_SELECTOR_KIND]: 'Different',
-      [DIFFERENT_IN_TRIBE_SELECTOR_KIND]: 'Different in',
-      [TIE_SELECTOR_KIND]: 'Tie'
+      [DIFFERENT_IN_TRIBE_SELECTOR_KIND]: 'Different in'
     };
     return labels[kind];
   }
@@ -366,15 +362,6 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
         selector = {
           kind,
           tribes: [this.defaultTribeId()]
-        };
-        break;
-      case TIE_SELECTOR_KIND:
-        selector = {
-          kind,
-          source: {
-            kind: TRIBES_SELECTOR_KIND,
-            tribes: [this.defaultTribeId()]
-          }
         };
         break;
       default:

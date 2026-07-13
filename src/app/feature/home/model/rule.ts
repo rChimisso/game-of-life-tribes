@@ -262,13 +262,6 @@ export const DIFFERENT_TRIBE_SELECTOR_KIND = 'different';
 export const DIFFERENT_IN_TRIBE_SELECTOR_KIND = 'different-in';
 
 /**
- * Tie selector kind.
- *
- * @type {"tie"}
- */
-export const TIE_SELECTOR_KIND = 'tie';
-
-/**
  * Fixed outcome kind.
  *
  * @type {"fixed"}
@@ -295,13 +288,6 @@ export const MAJORITY_BECOME_KIND = 'majority';
  * @type {"minority"}
  */
 export const MINORITY_BECOME_KIND = 'minority';
-
-/**
- * Lookup combine strategy kind.
- *
- * @type {"lookup"}
- */
-export const LOOKUP_STRATEGY_KIND = 'lookup';
 
 /**
  * Combine outcome kind.
@@ -404,32 +390,11 @@ export interface DifferentInTribeSelector<T extends readonly Tribe[]> {
 }
 
 /**
- * Selector that targets tied ranked candidates from another selector.
- *
- * @interface TieSelector<T extends readonly Tribe[]>
- * @typedef {TieSelector<T extends readonly Tribe[]>}
- */
-export interface TieSelector<T extends readonly Tribe[]> {
-  /**
-   * Selector type.
-   *
-   * @type {typeof TIE_SELECTOR_KIND}
-   */
-  kind: typeof TIE_SELECTOR_KIND;
-  /**
-   * Source selector used to find ranked ties.
-   *
-   * @type {TribeSelector<T>}
-   */
-  source: TribeSelector<T>;
-}
-
-/**
  * Rule tribe selector expression.
  *
  * @typedef {TribeSelector}
  */
-export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | DifferentInTribeSelector<T> | TieSelector<T>;
+export type TribeSelector<T extends readonly Tribe[]> = ExplicitTribesSelector<T> | SameTribeSelector | DifferentTribeSelector | DifferentInTribeSelector<T>;
 
 /**
  * Fixed rule outcome.
@@ -534,40 +499,6 @@ export interface MinorityBecome<T extends readonly Tribe[]> {
 }
 
 /**
- * Lookup-table combination strategy.
- *
- * @interface LookupCombineStrategy<T extends readonly Tribe[]>
- * @typedef {LookupCombineStrategy<T extends readonly Tribe[]>}
- */
-export interface LookupCombineStrategy<T extends readonly Tribe[]> {
-  /**
-   * Strategy type.
-   *
-   * @type {typeof LOOKUP_STRATEGY_KIND}
-   */
-  kind: typeof LOOKUP_STRATEGY_KIND;
-  /**
-   * Lookup rows.
-   *
-   * @type {readonly CombinationEntry<T>[]}
-   */
-  entries: readonly CombinationEntry<T>[];
-  /**
-   * Default outcome for unmatched input sets.
-   *
-   * @type {?Become<T>}
-   */
-  default?: Become<T>;
-}
-
-/**
- * Combine strategy expression.
- *
- * @typedef {CombineStrategy}
- */
-export type CombineStrategy<T extends readonly Tribe[]> = LookupCombineStrategy<T>;
-
-/**
  * One unordered combination lookup row.
  *
  * @interface CombinationEntry<T extends readonly Tribe[]>
@@ -589,7 +520,7 @@ export interface CombinationEntry<T extends readonly Tribe[]> {
 }
 
 /**
- * Rule outcome that combines selected tribes with a declared strategy.
+ * Rule outcome that resolves selected tribes with lookup rows.
  *
  * @interface CombineBecome<T extends readonly Tribe[]>
  * @typedef {CombineBecome<T extends readonly Tribe[]>}
@@ -602,11 +533,17 @@ export interface CombineBecome<T extends readonly Tribe[]> {
    */
   kind: typeof COMBINE_BECOME_KIND;
   /**
-   * Combination strategy.
+   * Lookup rows.
    *
-   * @type {CombineStrategy<T>}
+   * @type {readonly CombinationEntry<T>[]}
    */
-  strategy: CombineStrategy<T>;
+  entries: readonly CombinationEntry<T>[];
+  /**
+   * Default outcome for unmatched input sets.
+   *
+   * @type {?Become<T>}
+   */
+  default?: Become<T>;
 }
 
 /**

@@ -1,6 +1,6 @@
 import {validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
 import {isSupportedBitsPerCell, validatePackingAgainstStateCount} from '~gol/feature/home/logic/grid-format';
-import {AND_CLAUSE_KIND, Become, BOUNDED_GRID_TOPOLOGY, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, GRID_TOPOLOGY_VALUES, IS_CLAUSE_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, TOROIDAL_GRID_TOPOLOGY, Tribe, TRIBES_SELECTOR_KIND, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, Become, BOUNDED_GRID_TOPOLOGY, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, DEFAULT_RULE_PROBABILITY, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, GRID_TOPOLOGY_VALUES, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MAX_RANDOM_SEED, MAX_RULE_PROBABILITY, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, MIN_RANDOM_SEED, MIN_RULE_PROBABILITY, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TOROIDAL_GRID_TOPOLOGY, Tribe, TRIBES_SELECTOR_KIND, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 import {EXPECTED_KNOWN_TRIBE_ID_ERROR, INVALID_SNAPSHOT_PAYLOAD_MESSAGE, OPERATORS, type SanitizerContext, type UnknownRecord} from '~gol/feature/home/worker/snapshot/model/golt-header-sanitizer';
 import {GoltHeader} from '~gol/feature/home/worker/snapshot/model/golt-types';
 
@@ -218,10 +218,9 @@ function sanitizeGridFormat(value: unknown, tribeCount: number, context: Sanitiz
  * @param {string} path selector path.
  * @param {ReadonlySet<string>} tribeIds known tribe IDs.
  * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowTieSelector whether rank-derived tie selectors are valid here.
  * @returns {unknown} sanitized selector.
  */
-function sanitizeOptionalSelector(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowTieSelector = false): unknown {
+function sanitizeOptionalSelector(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext): unknown {
   let selector: unknown;
   if (value === undefined) {
     selector = {
@@ -229,7 +228,7 @@ function sanitizeOptionalSelector(value: unknown, path: string, tribeIds: Readon
       tribes: [DEAD_TRIBE_ID]
     };
   } else {
-    selector = sanitizeSelector(value, path, tribeIds, context, allowTieSelector);
+    selector = sanitizeSelector(value, path, tribeIds, context);
   }
   return selector;
 }
@@ -241,10 +240,9 @@ function sanitizeOptionalSelector(value: unknown, path: string, tribeIds: Readon
  * @param {string} path selector path.
  * @param {ReadonlySet<string>} tribeIds known tribe IDs.
  * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowTieSelector whether rank-derived tie selectors are valid here.
  * @returns {unknown} sanitized selector.
  */
-function sanitizeSelector(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowTieSelector = false): unknown {
+function sanitizeSelector(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext): unknown {
   let selector: unknown = {kind: TRIBES_SELECTOR_KIND, tribes: [DEAD_TRIBE_ID]};
   if (isRecord(value)) {
     const {kind} = value;
@@ -261,19 +259,6 @@ function sanitizeSelector(value: unknown, path: string, tribeIds: ReadonlySet<st
       case DIFFERENT_TRIBE_SELECTOR_KIND:
         stripUnsupportedFields(value, path, ['kind'], context);
         selector = {kind};
-        break;
-      case TIE_SELECTOR_KIND:
-        stripUnsupportedFields(value, path, ['kind', 'source'], context);
-        if (!allowTieSelector) {
-          addError(context, path, 'tie selectors are not valid in this selector context');
-        }
-        if (value['source'] === undefined) {
-          addError(context, fieldPath(path, 'source'), 'missing required selector');
-        }
-        selector = {
-          kind,
-          source: sanitizeSelector(value['source'], fieldPath(path, 'source'), tribeIds, context)
-        };
         break;
       default:
         addError(context, fieldPath(path, 'kind'), 'unsupported selector kind');
@@ -561,10 +546,9 @@ function sanitizeLogicalClause(value: UnknownRecord, path: string, tribeIds: Rea
  * @param {string} path outcome path.
  * @param {ReadonlySet<string>} tribeIds known tribe IDs.
  * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowRankInputs whether nested combination rows may use rank-derived inputs.
  * @returns {unknown} sanitized become expression.
  */
-function sanitizeBecome(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowRankInputs = false): unknown {
+function sanitizeBecome(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext): unknown {
   let become: unknown = {kind: FIXED_BECOME_KIND, tribe: DEAD_TRIBE_ID};
   if (value === undefined) {
     become = {kind: FIXED_BECOME_KIND, tribe: DEAD_TRIBE_ID};
@@ -593,15 +577,16 @@ function sanitizeBecome(value: unknown, path: string, tribeIds: ReadonlySet<stri
         become = {
           kind,
           selector: sanitizeOptionalSelector(value['selector'], fieldPath(path, 'selector'), tribeIds, context),
-          tie: value['tie'] === undefined ? undefined : sanitizeBecome(value['tie'], fieldPath(path, 'tie'), tribeIds, context, true),
-          fallback: value['fallback'] === undefined ? undefined : sanitizeBecome(value['fallback'], fieldPath(path, 'fallback'), tribeIds, context, true)
+          tie: value['tie'] === undefined ? undefined : sanitizeBecome(value['tie'], fieldPath(path, 'tie'), tribeIds, context),
+          fallback: value['fallback'] === undefined ? undefined : sanitizeBecome(value['fallback'], fieldPath(path, 'fallback'), tribeIds, context)
         };
         break;
       case COMBINE_BECOME_KIND:
-        stripUnsupportedFields(value, path, ['kind', 'strategy'], context);
+        stripUnsupportedFields(value, path, ['kind', 'entries', 'default'], context);
         become = {
           kind,
-          strategy: sanitizeCombineStrategy(value['strategy'], fieldPath(path, 'strategy'), tribeIds, context, allowRankInputs)
+          entries: sanitizeCombinationEntries(value['entries'], fieldPath(path, 'entries'), tribeIds, context),
+          default: value['default'] === undefined ? undefined : sanitizeBecome(value['default'], fieldPath(path, 'default'), tribeIds, context)
         };
         break;
       default:
@@ -634,49 +619,19 @@ function sanitizeTribeReference(value: unknown, path: string, tribeIds: Readonly
 }
 
 /**
- * Sanitizes a combine strategy discriminated union.
- *
- * @param {unknown} value raw strategy.
- * @param {string} path strategy path.
- * @param {ReadonlySet<string>} tribeIds known tribe IDs.
- * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowRankInputs whether lookup rows may use rank-derived inputs.
- * @returns {unknown} sanitized strategy.
- */
-function sanitizeCombineStrategy(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowRankInputs: boolean): unknown {
-  let strategy: unknown = {kind: LOOKUP_STRATEGY_KIND, entries: []};
-  if (isRecord(value)) {
-    if (value['kind'] === LOOKUP_STRATEGY_KIND) {
-      stripUnsupportedFields(value, path, ['kind', 'entries', 'default'], context);
-      strategy = {
-        kind: LOOKUP_STRATEGY_KIND,
-        entries: sanitizeCombinationEntries(value['entries'], fieldPath(path, 'entries'), tribeIds, context, allowRankInputs),
-        default: value['default'] === undefined ? undefined : sanitizeBecome(value['default'], fieldPath(path, 'default'), tribeIds, context)
-      };
-    } else {
-      addError(context, fieldPath(path, 'kind'), 'unsupported combine strategy kind');
-    }
-  } else {
-    addError(context, path, 'expected combine strategy object');
-  }
-  return strategy;
-}
-
-/**
  * Sanitizes lookup combination entries.
  *
  * @param {unknown} value raw entries.
  * @param {string} path entries path.
  * @param {ReadonlySet<string>} tribeIds known tribe IDs.
  * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowRankInputs whether lookup rows may use rank-derived inputs.
  * @returns {unknown[]} sanitized entries.
  */
-function sanitizeCombinationEntries(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowRankInputs: boolean): unknown[] {
+function sanitizeCombinationEntries(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext): unknown[] {
   const entries: unknown[] = [];
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index++) {
-      entries.push(sanitizeCombinationEntry(value[index], indexPath(path, index), tribeIds, context, allowRankInputs));
+      entries.push(sanitizeCombinationEntry(value[index], indexPath(path, index), tribeIds, context));
     }
   } else {
     addError(context, path, 'expected combination entry array');
@@ -691,16 +646,15 @@ function sanitizeCombinationEntries(value: unknown, path: string, tribeIds: Read
  * @param {string} path entry path.
  * @param {ReadonlySet<string>} tribeIds known tribe IDs.
  * @param {SanitizerContext} context sanitizer context.
- * @param {boolean} allowRankInputs whether the row may use rank-derived inputs.
  * @returns {unknown} sanitized entry.
  */
-function sanitizeCombinationEntry(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext, allowRankInputs: boolean): unknown {
+function sanitizeCombinationEntry(value: unknown, path: string, tribeIds: ReadonlySet<string>, context: SanitizerContext): unknown {
   const entry: {inputs: unknown[]; output: string} = {inputs: [], output: DEAD_TRIBE_ID};
   if (isRecord(value)) {
     stripUnsupportedFields(value, path, ['inputs', 'output'], context);
     if (Array.isArray(value['inputs'])) {
       for (let index = 0; index < value['inputs'].length; index++) {
-        entry.inputs.push(sanitizeSelector(value['inputs'][index], indexPath(fieldPath(path, 'inputs'), index), tribeIds, context, allowRankInputs));
+        entry.inputs.push(sanitizeSelector(value['inputs'][index], indexPath(fieldPath(path, 'inputs'), index), tribeIds, context));
       }
     } else {
       addError(context, fieldPath(path, 'inputs'), 'expected selector array');

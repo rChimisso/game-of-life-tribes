@@ -44,7 +44,7 @@ Ranked outcomes evaluate eligible neighbor tribes selected by the outcome select
 - `majority` chooses the most common eligible neighbor tribe.
 - `minority` chooses the least common eligible neighbor tribe with a non-zero count.
 
-The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome with the `tie` selector bound to the tied candidates. If no candidate exists, the fallback outcome is evaluated.
+The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome. If no candidate exists, the fallback outcome is evaluated. Either branch may keep the current tribe, write a fixed tribe, or use a Combine lookup.
 
 Combine outcomes build a bit mask of participating inputs. Lookup rows are sorted so rows explicitly requiring `dead` are checked before less specific rows. If no row matches, the default outcome is evaluated.
 

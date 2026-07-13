@@ -4,7 +4,7 @@ import {DispatchPlan2D} from '../model/dispatch-plan';
 import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeRandomSeed, normalizeRuleProbability, normalizeSelector, normalizeSelectorForSignature, probabilityThresholdU32, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
+import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Active rule metadata used by shader generation.
@@ -452,7 +452,7 @@ function pushCombineBecomeAssignment(
   const deadPresentVar = `${label}_dead_present`;
   const deadCountExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u`);
   lines.push(`${indent}let ${deadPresentVar} = ${deadCountExpr} > 0u;`);
-  const entries = [...become.strategy.entries].sort((left, right) => Number(rowRequiresExplicitDead(right, tribeIndex)) - Number(rowRequiresExplicitDead(left, tribeIndex)));
+  const entries = [...become.entries].sort((left, right) => Number(rowRequiresExplicitDead(right, tribeIndex)) - Number(rowRequiresExplicitDead(left, tribeIndex)));
   entries.forEach((entry, index) => {
     const rowMask = combineRowMaskExpr(entry.inputs, tribes, tribeIndex, tieContext);
     const deadCondition = rowRequiresExplicitDead(entry, tribeIndex) ? ` && ${deadPresentVar}` : '';
@@ -462,10 +462,10 @@ function pushCombineBecomeAssignment(
   });
   if (entries.length > 0) {
     lines.push(`${indent}} else {`);
-    pushFallbackBecomeAssignment(lines, become.strategy.default, tribes, tribeIndex, `${label}_fallback`, `${indent}  `);
+    pushFallbackBecomeAssignment(lines, become.default, tribes, tribeIndex, `${label}_fallback`, `${indent}  `);
     lines.push(`${indent}}`);
   } else {
-    pushFallbackBecomeAssignment(lines, become.strategy.default, tribes, tribeIndex, `${label}_fallback`, indent);
+    pushFallbackBecomeAssignment(lines, become.default, tribes, tribeIndex, `${label}_fallback`, indent);
   }
 }
 
@@ -514,11 +514,11 @@ function pushNeighborReadAssignments(lines: string[], mode: 'toroidal' | 'bounde
  * Builds the WGSL sum expression for one selector.
  *
  * @param {TribeSelector<readonly Tribe[]>} selector selector to count.
- * @param {readonly Tribe[]} tribes active tribe list.
+ * @param {readonly Tribe[]} _tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  * @returns {string} WGSL sum expression.
  */
-function buildNeighborCountExpr(selector: TribeSelector<readonly Tribe[]>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
+function buildNeighborCountExpr(selector: TribeSelector<readonly Tribe[]>, _tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
   const normalized = normalizeSelectorForSignature(selector);
   let expression: string;
   switch (normalized.kind) {
@@ -538,9 +538,6 @@ function buildNeighborCountExpr(selector: TribeSelector<readonly Tribe[]>, tribe
       expression = ids.length === 0 ? '0u' : buildNeighborPredicateCountExpr(neighbor => ids.map(id => `${neighbor} == ${id}u`).join(' || '));
       break;
     }
-    case TIE_SELECTOR_KIND:
-      expression = buildNeighborCountExpr(normalized.source, tribes, tribeIndex);
-      break;
   }
   return expression;
 }
@@ -706,9 +703,6 @@ function selectorCandidateIds(selector: TribeSelector<readonly Tribe[]>, tribes:
     case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       ids = resolveTribeIds(normalized.tribes as string[], tribeIndex);
       break;
-    case TIE_SELECTOR_KIND:
-      ids = selectorCandidateIds(normalized.source, tribes, tribeIndex);
-      break;
     default:
       ids = tribes.map(tribe => resolveRuleTribeIndex(tribe.id, tribeIndex, 'selector'));
       break;
@@ -740,9 +734,6 @@ function selectorCandidateEligibilityExpr(selector: TribeSelector<readonly Tribe
     case TRIBES_SELECTOR_KIND:
       expression = resolveTribeIds(normalized.tribes as string[], tribeIndex).includes(candidateId) ? 'true' : 'false';
       break;
-    case TIE_SELECTOR_KIND:
-      expression = selectorCandidateEligibilityExpr(normalized.source, candidateId, tribeIndex);
-      break;
   }
   return expression;
 }
@@ -753,22 +744,13 @@ function selectorCandidateEligibilityExpr(selector: TribeSelector<readonly Tribe
  * @param {TribeSelector<readonly Tribe[]>} selector selector expression.
  * @param {number} candidateId runtime candidate id.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL boolean expression.
  */
-function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
+function selectorParticipationExpr(selector: TribeSelector<readonly Tribe[]>, candidateId: number, tribeIndex: ReadonlyMap<string, number>): string {
   const normalized = normalizeSelectorForSignature(selector);
-  let expression: string;
-  if (normalized.kind === TIE_SELECTOR_KIND && tieContext) {
-    const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
-    const eligibleExpr = selectorCandidateEligibilityExpr(tieContext.selector, candidateId, tribeIndex);
-    expression = `(${tieContext.tieCountVar} > 1u && ${tieContext.bestCountVar} > 0u && ${eligibleExpr} && ${countExpr} == ${tieContext.bestCountVar})`;
-  } else {
-    const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
-    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === TIE_SELECTOR_KIND ? normalized.source : normalized, candidateId, tribeIndex);
-    expression = `(${eligibleExpr} && ${countExpr} > 0u)`;
-  }
-  return expression;
+  const countExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${candidateId}u`);
+  const eligibleExpr = selectorCandidateEligibilityExpr(normalized, candidateId, tribeIndex);
+  return `(${eligibleExpr} && ${countExpr} > 0u)`;
 }
 
 /**
@@ -862,10 +844,10 @@ function combineRowSelectorParticipationExpr(selector: TribeSelector<readonly Tr
   let expression: string;
   if (tieContext) {
     const baseExpr = combineBaseParticipationExpr(candidateId, tribeIndex, tieContext);
-    const eligibleExpr = selectorCandidateEligibilityExpr(normalized.kind === TIE_SELECTOR_KIND ? normalized.source : normalized, candidateId, tribeIndex);
+    const eligibleExpr = selectorCandidateEligibilityExpr(normalized, candidateId, tribeIndex);
     expression = `(${baseExpr} && ${eligibleExpr})`;
   } else {
-    expression = selectorParticipationExpr(normalized, candidateId, tribeIndex, null);
+    expression = selectorParticipationExpr(normalized, candidateId, tribeIndex);
   }
   return expression;
 }

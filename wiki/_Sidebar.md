@@ -38,7 +38,7 @@
 
 [Rule cost model](Rule-Cost-Model)
 
-[Rules engine internals](Rules-Engine-Internals)
+[Rule engine internals](Rule-Engine-Internals)
 
 [VRAM and packing](VRAM-and-Packing)
 

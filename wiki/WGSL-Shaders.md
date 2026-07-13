@@ -4,7 +4,7 @@
 
 The simulation shader is generated at runtime by `generateComputeWgsl`. It specializes the shader for the current ruleset, rule probabilities, random seed, tribe order, grid dimensions, grid topology, virtual boundary tribe, packed grid format, and dispatch plan.
 
-For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see [Rule expressions](Rule-Expressions). For runtime evaluation order and normalization before shader generation, see [Rules engine internals](Rules-Engine-Internals).
+For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see [Rule expressions](Rule-Expressions). For runtime evaluation order and normalization before shader generation, see [Rule engine internals](Rule-Engine-Internals).
 
 Key properties:
 

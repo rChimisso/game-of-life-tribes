@@ -1,12 +1,5 @@
-import {Preset} from '.';
-import {COMBINE_BECOME_KIND,
-  DEAD_TRIBE,
-  DEAD_TRIBE_ID,
-  IS_CLAUSE_KIND,
-  LOOKUP_STRATEGY_KIND,
-  MAJORITY_BECOME_KIND,
-  SAME_BECOME_KIND,
-  TRIBES_SELECTOR_KIND} from '../model/rule';
+import {Preset, staticRule} from '.';
+import {AND_CLAUSE_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, FIXED_BECOME_KIND, MIN_CLAUSE_KIND, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Red primary pigment tribe ID.
@@ -64,7 +57,7 @@ const COLOR_MIXING_BROWN_TRIBE = 'Brown';
  */
 export const COLOR_MIXING_PRESET: Preset = {
   name: 'Color Mixing',
-  description: 'Dominant pigments spread while balanced colors blend',
+  description: 'Neighboring pigments combine into local color mixtures',
   ruleset: {
     tribes: [
       DEAD_TRIBE,
@@ -100,96 +93,499 @@ export const COLOR_MIXING_PRESET: Preset = {
     rules: [
       {
         clause: {
-          kind: IS_CLAUSE_KIND,
-          tribes: [
-            DEAD_TRIBE_ID,
-            COLOR_MIXING_RED_TRIBE,
-            COLOR_MIXING_YELLOW_TRIBE,
-            COLOR_MIXING_BLUE_TRIBE,
-            COLOR_MIXING_ORANGE_TRIBE,
-            COLOR_MIXING_GREEN_TRIBE,
-            COLOR_MIXING_VIOLET_TRIBE,
-            COLOR_MIXING_BROWN_TRIBE
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
           ]
         },
         become: {
-          kind: MAJORITY_BECOME_KIND,
-          selector: {
-            kind: TRIBES_SELECTOR_KIND,
-            tribes: [COLOR_MIXING_RED_TRIBE, COLOR_MIXING_YELLOW_TRIBE, COLOR_MIXING_BLUE_TRIBE]
-          },
-          tie: {
-            kind: COMBINE_BECOME_KIND,
-            strategy: {
-              kind: LOOKUP_STRATEGY_KIND,
-              entries: [
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_RED_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_YELLOW_TRIBE]
-                    }
-                  ],
-                  output: COLOR_MIXING_ORANGE_TRIBE
-                },
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_YELLOW_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_BLUE_TRIBE]
-                    }
-                  ],
-                  output: COLOR_MIXING_GREEN_TRIBE
-                },
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_BLUE_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_RED_TRIBE]
-                    }
-                  ],
-                  output: COLOR_MIXING_VIOLET_TRIBE
-                },
-                {
-                  inputs: [
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_RED_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_YELLOW_TRIBE]
-                    },
-                    {
-                      kind: TRIBES_SELECTOR_KIND,
-                      tribes: [COLOR_MIXING_BLUE_TRIBE]
-                    }
-                  ],
-                  output: COLOR_MIXING_BROWN_TRIBE
-                }
-              ],
-              default: {
-                kind: SAME_BECOME_KIND
-              }
-            }
-          },
-          fallback: {
-            kind: SAME_BECOME_KIND
-          }
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_RED_TRIBE
         }
-      }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_YELLOW_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_BLUE_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '='
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_ORANGE_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '='
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_GREEN_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '='
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '>'
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_VIOLET_TRIBE
+        }
+      },
+      {
+        clause: {
+          kind: AND_CLAUSE_KIND,
+          clauses: [
+            {
+              kind: MIN_CLAUSE_KIND,
+              selector: {
+                kind: TRIBES_SELECTOR_KIND,
+                tribes: [
+                  COLOR_MIXING_RED_TRIBE,
+                  COLOR_MIXING_YELLOW_TRIBE,
+                  COLOR_MIXING_BLUE_TRIBE,
+                  COLOR_MIXING_ORANGE_TRIBE,
+                  COLOR_MIXING_GREEN_TRIBE,
+                  COLOR_MIXING_VIOLET_TRIBE,
+                  COLOR_MIXING_BROWN_TRIBE
+                ]
+              },
+              value: 1
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_RED_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '='
+            },
+            {
+              kind: COMPARISON_CLAUSE_KIND,
+              left: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_YELLOW_TRIBE,
+                    COLOR_MIXING_ORANGE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              right: {
+                kind: COUNT_CLAUSE_KIND,
+                selector: {
+                  kind: TRIBES_SELECTOR_KIND,
+                  tribes: [
+                    COLOR_MIXING_BLUE_TRIBE,
+                    COLOR_MIXING_GREEN_TRIBE,
+                    COLOR_MIXING_VIOLET_TRIBE,
+                    COLOR_MIXING_BROWN_TRIBE
+                  ]
+                }
+              },
+              operator: '='
+            }
+          ]
+        },
+        become: {
+          kind: FIXED_BECOME_KIND,
+          tribe: COLOR_MIXING_BROWN_TRIBE
+        }
+      },
+      staticRule(
+        DEAD_TRIBE_ID,
+        COLOR_MIXING_RED_TRIBE,
+        COLOR_MIXING_YELLOW_TRIBE,
+        COLOR_MIXING_BLUE_TRIBE,
+        COLOR_MIXING_ORANGE_TRIBE,
+        COLOR_MIXING_GREEN_TRIBE,
+        COLOR_MIXING_VIOLET_TRIBE,
+        COLOR_MIXING_BROWN_TRIBE
+      )
     ]
   }
 };

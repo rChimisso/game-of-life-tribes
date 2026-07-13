@@ -1,6 +1,6 @@
-import{a as $,b as ss}from"./chunk-XB2PTZZW.js";import{a as Y,c as as,d as ns,e as ts}from"./chunk-ZYODDBYK.js";import{Y as I,h as L,i as H,o as J,r as Q,t as Z,u as C}from"./chunk-MX3UQY3Y.js";import{A as E,Jb as M,Kb as u,Lb as k,Lc as V,Ob as f,Pa as O,Pb as v,Qb as d,Rb as t,Sb as e,Tb as j,Yb as _,ac as b,bc as m,db as K,eb as U,ha as G,hb as p,ma as h,nc as c,ob as q,pc as s,qc as g,rc as X,sa as B,ta as T,ua as D,va as F,xa as W,ya as N,yb as S}from"./chunk-JDYZ45GB.js";var w=class w{constructor(){this.appVersion=ss.version;this.repositoryUrl="https://github.com/rChimisso/game-of-life-tribes"}};w.\u0275fac=function(a){return new(a||w)},w.\u0275cmp=S({type:w,selectors:[["gol-wiki-footer"]],decls:15,vars:2,consts:[["fill","currentColor","viewBox","0 0 16 16",1,"github-icon"],["d","M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"],["rel","noopener noreferrer","target","_blank",3,"href"],["rel","noopener noreferrer","routerLink","/","target","_blank"]],template:function(a,i){a&1&&(t(0,"span"),s(1,`
-  `),D(),t(2,"svg",0),j(3,"path",1),e(),s(4,`
-  `),F(),t(5,"a",2),s(6,"Game of Life: Tribes"),e(),s(7,`
+import{a as $,b as ss}from"./chunk-KOMTDJ3Y.js";import{a as Y,c as as,d as ns,e as ts}from"./chunk-ZYODDBYK.js";import{Y as I,h as L,i as H,o as J,r as Q,t as Z,u as C}from"./chunk-MX3UQY3Y.js";import{A as E,Jb as M,Kb as u,Lb as k,Lc as V,Ob as f,Pa as O,Pb as v,Qb as d,Rb as t,Sb as e,Tb as j,Yb as _,ac as b,bc as m,db as K,eb as U,ha as G,hb as p,ma as h,nc as c,ob as q,pc as s,qc as g,rc as X,sa as B,ta as T,ua as F,va as D,xa as W,ya as N,yb as S}from"./chunk-JDYZ45GB.js";var w=class w{constructor(){this.appVersion=ss.version;this.repositoryUrl="https://github.com/rChimisso/game-of-life-tribes"}};w.\u0275fac=function(a){return new(a||w)},w.\u0275cmp=S({type:w,selectors:[["gol-wiki-footer"]],decls:15,vars:2,consts:[["fill","currentColor","viewBox","0 0 16 16",1,"github-icon"],["d","M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"],["rel","noopener noreferrer","target","_blank",3,"href"],["rel","noopener noreferrer","routerLink","/","target","_blank"]],template:function(a,i){a&1&&(t(0,"span"),s(1,`
+  `),F(),t(2,"svg",0),j(3,"path",1),e(),s(4,`
+  `),D(),t(5,"a",2),s(6,"Game of Life: Tribes"),e(),s(7,`
   \xB7
   `),t(8,"a",3),s(9,"Simulation"),e(),s(10,`
 `),e(),s(11,`
@@ -1713,7 +1713,7 @@ GridFormat = <span class="hljs-built_in">dict</span>[<span class="hljs-built_in"
 <li><a href="/game-of-life-tribes/wiki/wgsl-shaders/">WGSL shaders</a>: generated compute WGSL, render WGSL, brush WGSL, and metrics WGSL.</li>
 <li><a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>: canonical selector, clause, outcome, tribe, and rule JSON reference.</li>
 <li><a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a>: rough per-cell cost formulas, shared count reuse, and worked rule examples.</li>
-<li><a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>: how rule clauses, selectors, outcomes, ordering, and muted rules become shader code.</li>
+<li><a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>: how rule clauses, selectors, outcomes, ordering, and muted rules become shader code.</li>
 <li><a href="/game-of-life-tribes/wiki/vram-and-packing/">VRAM and packing</a>: packed grid formats, frame byte formulas, WebGPU limits, and estimated VRAM budgeting.</li>
 <li><a href="/game-of-life-tribes/wiki/recording-and-opfs/">Recording and OPFS</a>: recording buffers, chunks, staging, compression, backpressure, and browser storage.</li>
 <li><a href="/game-of-life-tribes/wiki/downloads-and-exports/">Downloads and exports</a>: ZIP output, <code>.golt</code> saves, metrics, PNG frames, MP4, and chunk export.</li>
@@ -2684,7 +2684,7 @@ submit the encoded command buffer</code></pre>
 <p>This page defines the rough per-cell worst-case cost model used to compare rule shapes.</p>
 <p>The units are comparative estimates for generated shader work, not timing guarantees. <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> unit represents <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> simple comparison, boolean operation, arithmetic operation, branch test, or assignment.</p>
 <p>Costs are worst-case estimates for a cell that evaluates the expression or reaches the rule branch being described. They are not necessarily paid by every cell in the whole ruleset: first-match-wins rule ordering can skip later branches, and some outcome paths such as ranked tie/fallback handling or combine rows only run when their branch reaches that path.</p>
-<p>For selector, clause, and outcome semantics, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For the WGSL generation pipeline, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>.</p>
+<p>For selector, clause, and outcome semantics, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For the WGSL generation pipeline, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>.</p>
 <h2 id="shared-work"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-cost-model#shared-work" aria-label="Link to this section">#</a>Shared Work</h2>
 <p>A <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-condition count over the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors costs <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> units.</p>
 <p>Clause count selectors are precomputed once per unique selector and reused by every clause that needs the same count. Cost estimates for a standalone expression include the count unless otherwise stated; when a count is already available, only the expression-specific check is additional.</p>
@@ -3055,19 +3055,76 @@ default           \u2192 dead</code></pre>
 </tbody></table>
 <p>The base mask adds <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn><mo>\u22C5</mo><mtext>nonDeadTribeCount</mtext></mrow><annotation encoding="application/x-tex">8\\cdot\\texttt{nonDeadTribeCount}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span><span class="mspace" style="margin-right:0.2222em"></span><span class="mbin">\u22C5</span><span class="mspace" style="margin-right:0.2222em"></span></span><span class="base"><span class="strut" style="height:0.6111em"></span><span class="mord text"><span class="mord texttt">nonDeadTribeCount</span></span></span></span></span>.</p>
 <p>The explicit-<code>dead</code> row must be checked first because it has the same non-dead mask as the <code>Red</code> + <code>Blue</code> row.</p>
+`},"rule-engine-internals":{slug:"rule-engine-internals",title:"Rules Engine Internals",description:"Each generation evaluates every real grid cell independently against the current grid. Edge behavior depends on the selected topology:",html:`<h1 id="rules-engine-internals"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#rules-engine-internals" aria-label="Link to this section">#</a>Rules Engine Internals</h1>
+<h2 id="rule-semantics"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#rule-semantics" aria-label="Link to this section">#</a>Rule Semantics</h2>
+<p>Each generation evaluates every real grid cell independently against the current grid. Edge behavior depends on the selected topology:</p>
+<ul>
+<li><code>Toroidal</code>: neighbor reads wrap across opposite edges.</li>
+<li><code>Bounded</code>: neighbor positions outside the grid resolve to the selected virtual boundary tribe.</li>
+</ul>
+<p>Bounded boundary cells are virtual. They are not stored in the frame and are not evaluated as cells; they only affect off-grid neighbor reads.</p>
+<p>Rules are evaluated in order:</p>
+<ol>
+<li>Muted rules or rules with probability <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> are skipped.</li>
+<li>A rule whose clause matches performs its probability roll.</li>
+<li>The first matching rule whose probability roll passes assigns the next state.</li>
+<li>If no rule matches, or if matching probabilistic rules all fail their rolls, the cell becomes <code>dead</code>.</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/mermaid/rule-evaluation-flow.svg" alt="Rule evaluation flow" loading="lazy" decoding="async" /></p>
+<p>A rule has <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> behavioral parts:</p>
+<ul>
+<li>Clause: boolean expression over the current cell and its neighbors.</li>
+<li>Probability: percentage chance that a matched rule applies.</li>
+<li>Outcome: expression that computes the next tribe id.</li>
+</ul>
+<p>For the full selector, clause, outcome, tribe, and rule JSON reference, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. This page focuses on evaluation behavior and shader generation.</p>
+<p>Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.</p>
+<h2 id="expression-handling"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#expression-handling" aria-label="Link to this section">#</a>Expression Handling</h2>
+<p>Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.</p>
+<ul>
+<li>Explicit tribe selector signatures sort and deduplicate selected tribe IDs for stable lookup keys.</li>
+<li>Count-style clauses operate on the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors, and count values are clamped to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>.</li>
+<li>Count-style clause bounds compile to the smallest equivalent boolean expression: <code>none</code> and <code>exactly</code> use equality, <code>min</code> uses only a lower-bound check, <code>max</code> uses only an upper-bound check, partial <code>count</code> intervals use a two-sided range, and always-true ranges such as <code>count 0..8</code>, <code>min 0</code>, and <code>max 8</code> compile to <code>true</code>.</li>
+<li>Empty clauses are editor placeholders. They compile as false, and the editor rejects applied rules that still contain empty placeholders.</li>
+</ul>
+<h2 id="dynamic-outcomes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#dynamic-outcomes" aria-label="Link to this section">#</a>Dynamic Outcomes</h2>
+<p>Ranked outcomes evaluate eligible neighbor tribes selected by the outcome selector:</p>
+<ul>
+<li><code>majority</code> chooses the most common eligible neighbor tribe.</li>
+<li><code>minority</code> chooses the least common eligible neighbor tribe with a non-zero count.</li>
+</ul>
+<p>The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome. If no candidate exists, the fallback outcome is evaluated. Either branch may keep the current tribe, write a fixed tribe, or use a Combine lookup.</p>
+<p>Combine outcomes build a bit mask of participating inputs. Lookup rows are sorted so rows explicitly requiring <code>dead</code> are checked before less specific rows. If no row matches, the default outcome is evaluated.</p>
+<h2 id="shader-generation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#shader-generation" aria-label="Link to this section">#</a>Shader Generation</h2>
+<p><code>generateComputeWgsl</code> converts the normalized rule list and grid topology into WGSL:</p>
+<ul>
+<li>It specializes neighbor reads for toroidal or bounded topology.</li>
+<li>In toroidal topology, it emits the fast wrapping reads.</li>
+<li>In bounded topology, it emits virtual off-grid reads that return the selected boundary tribe.</li>
+<li>In bounded topology, packed words whose valid cells are all interior use direct neighbor reads for every lane. Edge-containing words keep per-cell interior checks and use boundary-aware reads only where needed.</li>
+<li>It collects unique count selectors to avoid repeating the same neighbor-count expression. Always-true count clauses do not collect a selector unless another clause needs the same count.</li>
+<li>It collects comparison selectors and reuses count variables when possible.</li>
+<li>It emits a local variable for each unique count selector.</li>
+<li>It emits clause expressions as optimized WGSL boolean expressions, including direct equality or one-sided comparisons for count clauses when a full two-sided range is unnecessary.</li>
+<li>It emits outcomes as assignments to <code>result</code>.</li>
+<li>It emits one first-match-wins branch chain over active rules, with deterministic probability guards where needed.</li>
+<li>It emits direct assignment branches for <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> rules, even when other active rules in the same shader are probabilistic.</li>
+<li>It emits a random-seed constant and hash helper only when active probabilistic rules require probability rolls.</li>
+</ul>
+<p>Unknown rule tribe references log an error and fall back to the <code>dead</code> tribe index. The editor tries to prevent those cases before rules are applied.</p>
 `},"rule-expressions":{slug:"rule-expressions",title:"Rule Expressions",description:"This page is the canonical reference for persisted tribe and rule expressions. Use it when writing snapshots, reading compressed chunk metadata, or understan...",html:`<h1 id="rule-expressions"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-expressions" aria-label="Link to this section">#</a>Rule Expressions</h1>
 <h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>This page is the canonical reference for persisted tribe and rule expressions. Use it when writing snapshots, reading compressed chunk metadata, or understanding the expression language used by rules.</p>
-<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a href="/game-of-life-tribes/wiki/snapshot-format/">Snapshot format</a>. For evaluation order and WGSL generation, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>. For detailed cost formulas, see <a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a>.</p>
+<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a href="/game-of-life-tribes/wiki/snapshot-format/">Snapshot format</a>. For evaluation order and WGSL generation, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>. For detailed cost formulas, see <a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a>.</p>
 <h2 id="language-at-a-glance"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#language-at-a-glance" aria-label="Link to this section">#</a>Language at a Glance</h2>
-<p>A rule has a <strong>clause</strong>, which decides whether the rule matches, and an <strong>outcome</strong>, which decides the next tribe:</p>
+<p>A rule has a <strong>clause</strong>, which may contain other clauses and decides whether the rule matches, and an <strong>outcome</strong>, which decides the tribe change.</p>
 <p>All neighbor-count expressions use the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>-cell Moore neighborhood.</p>
 <h2 id="rule-structure"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-structure" aria-label="Link to this section">#</a>Rule Structure</h2>
 <h3 id="tribe-json"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#tribe-json" aria-label="Link to this section">#</a>Tribe JSON</h3>
 <p>Each tribe is a named cell state:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Alive"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"ffffff"</span>
+  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"ffffff"</span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <table>
 <thead>
@@ -3089,7 +3146,7 @@ default           \u2192 dead</code></pre>
 <p>Compatible rulesets include the special <code>dead</code> tribe, normally:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"000000"</span>
+  <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"000000"</span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Rule and boundary references should point to existing tribe IDs.</p>
 <h3 id="rule-json"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#rule-json" aria-label="Link to this section">#</a>Rule JSON</h3>
@@ -3102,7 +3159,7 @@ default           \u2192 dead</code></pre>
     <span class="hljs-comment">/* ... */</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"probability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <table>
 <thead>
@@ -3174,12 +3231,6 @@ default           \u2192 dead</code></pre>
 <td><code>tribes</code></td>
 <td>The list must be non-empty.</td>
 </tr>
-<tr>
-<td><code>tie</code></td>
-<td>Candidates tied in the current ranked outcome</td>
-<td><code>source</code></td>
-<td>Only has special meaning during ranked tie handling.</td>
-</tr>
 </tbody></table>
 <p>An explicit selector is written as:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
@@ -3191,21 +3242,8 @@ default           \u2192 dead</code></pre>
 <li>count clauses count matching neighbors;</li>
 <li>ranked outcomes treat matching tribes as candidate results;</li>
 <li>combine inputs test whether matching tribes are present;</li>
-<li><code>tie</code> refers to ranked candidates tied at the winning count.</li>
 </ul>
 <p>Explicit tribe selector signatures are sorted and deduplicated for stable reuse during compilation.</p>
-<h3 id="tie"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#tie" aria-label="Link to this section">#</a><code>tie</code></h3>
-<p>A <code>tie</code> selector refers to the tied candidates from another selector:</p>
-<pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tie"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"source"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"Blue"</span><span class="hljs-punctuation">,</span> <span class="hljs-string">"Green"</span><span class="hljs-punctuation">]</span>
-  <span class="hljs-punctuation">}</span>
-<span class="hljs-punctuation">}</span></code></pre>
-<p>In a <code>majority</code> outcome, these are the candidates tied for the highest non-zero count. In a <code>minority</code> outcome, they are the candidates tied for the lowest non-zero count.</p>
-<p>The selector is most useful inside a nested <code>combine</code> outcome that resolves a ranked tie by inspecting which tied candidates are present.</p>
-<p>Outside an actual ranked tie branch, there is no tie state. The compiler then treats <code>tie</code> like its <code>source</code>; generated rules should avoid relying on that fallback behavior.</p>
 <h2 id="clauses"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#clauses" aria-label="Link to this section">#</a>Clauses</h2>
 <p>Clauses decide whether a rule is eligible to apply to the current cell.</p>
 <table>
@@ -3316,14 +3354,14 @@ default           \u2192 dead</code></pre>
     <span class="hljs-attr">"selector"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
       <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">]</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"right"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"count"</span><span class="hljs-punctuation">,</span>
     <span class="hljs-attr">"selector"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
       <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span>
       <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Blue"</span><span class="hljs-punctuation">]</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"operator"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&gt;"</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"margin"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span>
@@ -3395,8 +3433,8 @@ xor    an odd number of children are true</code></pre>
 </tr>
 <tr>
 <td><code>combine</code></td>
-<td>Resolve an exact set of present inputs through a lookup table</td>
-<td><code>strategy</code></td>
+<td>Resolve an exact set of present inputs through lookup rows</td>
+<td><code>entries</code> and <code>default</code></td>
 </tr>
 </tbody></table>
 <h3 id="fixed-and-same-outcomes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#fixed-and-same-outcomes" aria-label="Link to this section">#</a>Fixed and Same Outcomes</h3>
@@ -3435,6 +3473,7 @@ xor    an odd number of children are true</code></pre>
 <li>multiple winning candidates evaluate <code>tie</code>;</li>
 <li>no candidate evaluates <code>fallback</code>.</li>
 </ul>
+<p>Both <code>tie</code> and <code>fallback</code> may independently be a <code>same</code> outcome, a fixed tribe, or another <code>combine</code> outcome.</p>
 <p>A no-candidate case occurs when every eligible candidate has count <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span>, the selector resolves to no valid candidates, or selector eligibility excludes every candidate for the current cell.</p>
 <p>For example:</p>
 <ul>
@@ -3446,9 +3485,7 @@ xor    an odd number of children are true</code></pre>
 <p><code>combine</code> uses unordered lookup rows over selector inputs:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"combine"</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">"strategy"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"lookup"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+  <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
       <span class="hljs-punctuation">{</span>
         <span class="hljs-attr">"inputs"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
           <span class="hljs-punctuation">{</span>
@@ -3462,17 +3499,16 @@ xor    an odd number of children are true</code></pre>
         <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
         <span class="hljs-attr">"output"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Purple"</span>
       <span class="hljs-punctuation">}</span>
-    <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
-    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Each row describes the <strong>exact set of participating inputs</strong> and the tribe to write.</p>
 <h4 id="input-order-does-not-matter"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#input-order-does-not-matter" aria-label="Link to this section">#</a>Input Order Does Not Matter</h4>
 <p>A row containing <code>[Red, Blue]</code> is equivalent to <code>[Blue, Red]</code>. The editor rejects duplicate rows after normalizing input order.</p>
-<h4 id="matching-is-exact"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#matching-is-exact" aria-label="Link to this section">#</a>Matching Is Exact</h4>
+<h4 id="matching-is-strict"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#matching-is-strict" aria-label="Link to this section">#</a>Matching Is Strict</h4>
 <p>A lookup row is not a subset test.</p>
 <p>A row for <code>[Red]</code> does not match when both <code>Red</code> and <code>Blue</code> are present. The runtime input set must exactly match the row's input set.</p>
 <h4 id="dead-is-handled-separately"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#dead-is-handled-separately" aria-label="Link to this section">#</a><code>dead</code> Is Handled Separately</h4>
@@ -3482,8 +3518,8 @@ xor    an odd number of children are true</code></pre>
 <pre><code class="hljs language-text">[Red, Blue, dead]
 [Red, Blue]</code></pre>
 <p>Both rows have the same non-dead mask. The row that explicitly requires <code>dead</code> must therefore be checked first.</p>
-<p>If no row matches, the combine <code>default</code> outcome is evaluated.</p>
-<p>Inside a ranked tie branch, a nested combine can use a <code>tie</code> selector to distinguish which tied candidates are present.</p>
+<p>If no row matches, the combine <code>default</code> outcome is evaluated. It can be <code>same</code>, so an unmatched combination can leave the current cell unchanged.</p>
+<p>For example, a table with rows <code>[Seed, Water] \u2192 Sprout</code> and <code>[Seed, Rock] \u2192 Root</code> matches the first row only when <code>Seed</code> and <code>Water</code> are present and no other non-dead tribe is present; it matches the second under the equivalent <code>Seed</code>/<code>Rock</code> condition. <code>dead</code> neighbors may be present in either case. Every other non-dead neighborhood combination, like <code>[Seed, Water, Rock]</code>, reaches the <code>default</code> outcome because matching is strict.</p>
 <h2 id="compilation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#compilation" aria-label="Link to this section">#</a>Compilation</h2>
 <p>Rule expressions are compiled to WGSL. The compiler:</p>
 <ul>
@@ -3492,12 +3528,11 @@ xor    an odd number of children are true</code></pre>
 <li>emits outcomes as assignments to <code>result</code>;</li>
 <li>emits active rules as one first-match-wins branch chain.</li>
 </ul>
-<p>See <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a> for the compiler pipeline and generated shader structure.</p>
+<p>See <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a> for the compiler pipeline and generated shader structure.</p>
 <p>For example, the Conway birth rule can reduce to:</p>
 <pre><code class="hljs language-plaintext">if (selfTribe == deadIndex &amp;&amp; aliveCount == 3u) {
   result = aliveIndex;
 }</code></pre>
-<p>The snippets in this wiki are representative rather than exact generated output; generated local names and numeric tribe indexes may differ.</p>
 <h2 id="complete-examples"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#complete-examples" aria-label="Link to this section">#</a>Complete Examples</h2>
 <h3 id="conway39s-game-of-life"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-expressions#conway39s-game-of-life" aria-label="Link to this section">#</a>Conway's Game of Life</h3>
 <p>Conway's Game of Life can be represented with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> birth rule and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> survival rule.</p>
@@ -3589,9 +3624,7 @@ xor    an odd number of children are true</code></pre>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"become"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"combine"</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">"strategy"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"lookup"</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-attr">"entries"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
         <span class="hljs-punctuation">{</span>
           <span class="hljs-attr">"inputs"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
             <span class="hljs-punctuation">{</span> <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"tribes"</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">"tribes"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"Red"</span><span class="hljs-punctuation">]</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
@@ -3607,12 +3640,11 @@ xor    an odd number of children are true</code></pre>
           <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
           <span class="hljs-attr">"output"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Purple"</span>
         <span class="hljs-punctuation">}</span>
-      <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
-      <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-        <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
-        <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
-      <span class="hljs-punctuation">}</span>
-    <span class="hljs-punctuation">}</span>
+    <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"default"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"tribe"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"dead"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"probability"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">100</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
@@ -3636,67 +3668,10 @@ xor    an odd number of children are true</code></pre>
 <li>Bounded topology can add edge-specific overhead because off-grid reads resolve to the virtual boundary tribe.</li>
 </ul>
 <p>See <a href="/game-of-life-tribes/wiki/rule-cost-model/">Rule cost model</a> for detailed formulas and worked cost examples.</p>
-`},"rules-engine-internals":{slug:"rules-engine-internals",title:"Rules Engine Internals",description:"Each generation evaluates every real grid cell independently against the current grid. Edge behavior depends on the selected topology:",html:`<h1 id="rules-engine-internals"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules-engine-internals#rules-engine-internals" aria-label="Link to this section">#</a>Rules Engine Internals</h1>
-<h2 id="rule-semantics"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules-engine-internals#rule-semantics" aria-label="Link to this section">#</a>Rule Semantics</h2>
-<p>Each generation evaluates every real grid cell independently against the current grid. Edge behavior depends on the selected topology:</p>
-<ul>
-<li><code>Toroidal</code>: neighbor reads wrap across opposite edges.</li>
-<li><code>Bounded</code>: neighbor positions outside the grid resolve to the selected virtual boundary tribe.</li>
-</ul>
-<p>Bounded boundary cells are virtual. They are not stored in the frame and are not evaluated as cells; they only affect off-grid neighbor reads.</p>
-<p>Rules are evaluated in order:</p>
-<ol>
-<li>Muted rules or rules with probability <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> are skipped.</li>
-<li>A rule whose clause matches performs its probability roll.</li>
-<li>The first matching rule whose probability roll passes assigns the next state.</li>
-<li>If no rule matches, or if matching probabilistic rules all fail their rolls, the cell becomes <code>dead</code>.</li>
-</ol>
-<p><img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/mermaid/rule-evaluation-flow.svg" alt="Rule evaluation flow" loading="lazy" decoding="async" /></p>
-<p>A rule has <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> behavioral parts:</p>
-<ul>
-<li>Clause: boolean expression over the current cell and its neighbors.</li>
-<li>Probability: percentage chance that a matched rule applies.</li>
-<li>Outcome: expression that computes the next tribe id.</li>
-</ul>
-<p>For the full selector, clause, outcome, tribe, and rule JSON reference, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. This page focuses on evaluation behavior and shader generation.</p>
-<p>Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.</p>
-<h2 id="expression-handling"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules-engine-internals#expression-handling" aria-label="Link to this section">#</a>Expression Handling</h2>
-<p>Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.</p>
-<ul>
-<li>Explicit tribe selector signatures sort and deduplicate selected tribe IDs for stable lookup keys.</li>
-<li>Count-style clauses operate on the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors, and count values are clamped to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>.</li>
-<li>Count-style clause bounds compile to the smallest equivalent boolean expression: <code>none</code> and <code>exactly</code> use equality, <code>min</code> uses only a lower-bound check, <code>max</code> uses only an upper-bound check, partial <code>count</code> intervals use a two-sided range, and always-true ranges such as <code>count 0..8</code>, <code>min 0</code>, and <code>max 8</code> compile to <code>true</code>.</li>
-<li>Empty clauses are editor placeholders. They compile as false, and the editor rejects applied rules that still contain empty placeholders.</li>
-</ul>
-<h2 id="dynamic-outcomes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules-engine-internals#dynamic-outcomes" aria-label="Link to this section">#</a>Dynamic Outcomes</h2>
-<p>Ranked outcomes evaluate eligible neighbor tribes selected by the outcome selector:</p>
-<ul>
-<li><code>majority</code> chooses the most common eligible neighbor tribe.</li>
-<li><code>minority</code> chooses the least common eligible neighbor tribe with a non-zero count.</li>
-</ul>
-<p>The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome with the <code>tie</code> selector bound to the tied candidates. If no candidate exists, the fallback outcome is evaluated.</p>
-<p>Combine outcomes build a bit mask of participating inputs. Lookup rows are sorted so rows explicitly requiring <code>dead</code> are checked before less specific rows. If no row matches, the default outcome is evaluated.</p>
-<h2 id="shader-generation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules-engine-internals#shader-generation" aria-label="Link to this section">#</a>Shader Generation</h2>
-<p><code>generateComputeWgsl</code> converts the normalized rule list and grid topology into WGSL:</p>
-<ul>
-<li>It specializes neighbor reads for toroidal or bounded topology.</li>
-<li>In toroidal topology, it emits the fast wrapping reads.</li>
-<li>In bounded topology, it emits virtual off-grid reads that return the selected boundary tribe.</li>
-<li>In bounded topology, packed words whose valid cells are all interior use direct neighbor reads for every lane. Edge-containing words keep per-cell interior checks and use boundary-aware reads only where needed.</li>
-<li>It collects unique count selectors to avoid repeating the same neighbor-count expression. Always-true count clauses do not collect a selector unless another clause needs the same count.</li>
-<li>It collects comparison selectors and reuses count variables when possible.</li>
-<li>It emits a local variable for each unique count selector.</li>
-<li>It emits clause expressions as optimized WGSL boolean expressions, including direct equality or one-sided comparisons for count clauses when a full two-sided range is unnecessary.</li>
-<li>It emits outcomes as assignments to <code>result</code>.</li>
-<li>It emits one first-match-wins branch chain over active rules, with deterministic probability guards where needed.</li>
-<li>It emits direct assignment branches for <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> rules, even when other active rules in the same shader are probabilistic.</li>
-<li>It emits a random-seed constant and hash helper only when active probabilistic rules require probability rolls.</li>
-</ul>
-<p>Unknown rule tribe references log an error and fall back to the <code>dead</code> tribe index. The editor tries to prevent those cases before rules are applied.</p>
 `},rules:{slug:"rules",title:"Rules",description:"The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability rol...",html:`<h1 id="rules"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules#rules" aria-label="Link to this section">#</a>Rules</h1>
 <h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes <code>dead</code>.</p>
-<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href="/game-of-life-tribes/wiki/rule-expressions/#rule-json">Rule JSON</a>.</p>
+<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href="/game-of-life-tribes/wiki/rule-expressions/#rule-json">Rule JSON</a>.</p>
 <h2 id="rule-list-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rules#rule-list-controls" aria-label="Link to this section">#</a>Rule List Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules.png" alt="Rules section" />
@@ -4565,7 +4540,7 @@ GridValues = <span class="hljs-built_in">list</span>[<span class="hljs-built_in"
 `},"wgsl-shaders":{slug:"wgsl-shaders",title:"WGSL Shaders",description:"The simulation shader is generated at runtime by generateComputeWgsl. It specializes the shader for the current ruleset, rule probabilities, random seed, tri...",html:`<h1 id="wgsl-shaders"><a class="heading-anchor" href="/game-of-life-tribes/wiki/wgsl-shaders#wgsl-shaders" aria-label="Link to this section">#</a>WGSL Shaders</h1>
 <h2 id="simulation-compute-shader"><a class="heading-anchor" href="/game-of-life-tribes/wiki/wgsl-shaders#simulation-compute-shader" aria-label="Link to this section">#</a>Simulation Compute Shader</h2>
 <p>The simulation shader is generated at runtime by <code>generateComputeWgsl</code>. It specializes the shader for the current ruleset, rule probabilities, random seed, tribe order, grid dimensions, grid topology, virtual boundary tribe, packed grid format, and dispatch plan.</p>
-<p>For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For runtime evaluation order and normalization before shader generation, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>.</p>
+<p>For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For runtime evaluation order and normalization before shader generation, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>.</p>
 <p>Key properties:</p>
 <ul>
 <li>It reads from <code>gridIn</code> and writes to <code>gridOut</code>.</li>
@@ -4969,7 +4944,7 @@ GridValues = <span class="hljs-built_in">list</span>[<span class="hljs-built_in"
 <li>Density values, random seeds, and repetition count.</li>
 <li>Stopping rule and endpoint, including a common crossing or burn-fraction definition.</li>
 </ol>
-`}},navigation:[{landing:{label:"Home",slug:"home"},items:[]},{landing:{label:"UI",slug:"ui"},items:[{label:"Playback",slug:"playback"},{label:"Speed",slug:"speed"},{label:"Draw tribe",slug:"draw-tribe"},{label:"Grid size",slug:"grid-size"},{label:"Packing",slug:"packing"},{label:"Presets",slug:"presets"},{label:"Tribes",slug:"tribes"},{label:"Rules",slug:"rules"},{label:"Metrics",slug:"metrics"},{label:"Download",slug:"download"},{label:"Snapshot",slug:"snapshot"},{label:"Shortcuts",slug:"shortcuts"}]},{landing:{label:"Engine",slug:"engine"},items:[{label:"Technical architecture",slug:"technical-architecture"},{label:"WebGPU webengine",slug:"webgpu-webengine"},{label:"WGSL shaders",slug:"wgsl-shaders"},{label:"Rule expressions",slug:"rule-expressions"},{label:"Rule cost model",slug:"rule-cost-model"},{label:"Rules engine internals",slug:"rules-engine-internals"},{label:"VRAM and packing",slug:"vram-and-packing"},{label:"Recording and OPFS",slug:"recording-and-opfs"},{label:"Downloads and exports",slug:"downloads-and-exports"},{label:"Compressed chunk export",slug:"compressed-chunk-export"},{label:"Snapshot format",slug:"snapshot-format"},{label:"Metrics internals",slug:"metrics-internals"},{label:"Limits and performance",slug:"limits-and-performance"}]},{landing:{label:"Benchmark",slug:"benchmark"},items:[{label:"Hardware, method, and coverage",slug:"benchmark-hardware-method-coverage"},{label:"Results",slug:"benchmark-results"},{label:"Conclusions",slug:"benchmark-conclusions"}]},{landing:{label:"Analysis",slug:"analysis"},items:[{label:"Setup and method",slug:"analysis-setup"},{label:"Wildfire analysis",slug:"wildfire-analysis"},{label:"Wildfire model comparison",slug:"wildfire-model-comparison"},{label:"Epidemic analysis",slug:"epidemic-analysis"},{label:"Epidemic model comparison",slug:"epidemic-model-comparison"},{label:"Conclusions",slug:"analysis-conclusions"}]},{landing:{label:"Limitations and extensions",slug:"limitations-and-extensions"},items:[{label:"Analysis limitations and extensions",slug:"analysis-limitations-and-extensions"},{label:"Engine limitations and extensions",slug:"engine-limitations-and-extensions"},{label:"References",slug:"references"}]}],slugs:["home","analysis-conclusions","analysis-limitations-and-extensions","analysis-setup","analysis","benchmark-conclusions","benchmark-hardware-method-coverage","benchmark-results","benchmark","compressed-chunk-export","download","downloads-and-exports","draw-tribe","engine-limitations-and-extensions","engine","epidemic-analysis","epidemic-model-comparison","grid-size","limitations-and-extensions","limits-and-performance","metrics-internals","metrics","packing","playback","presets","recording-and-opfs","references","rule-cost-model","rule-expressions","rules-engine-internals","rules","shortcuts","snapshot-format","snapshot","speed","technical-architecture","tribes","ui","vram-and-packing","webgpu-webengine","wgsl-shaders","wildfire-analysis","wildfire-model-comparison"]};var A="golt-wiki-prefs",ps={collapsedSections:[],mobileNavigationExpanded:!1};var x=class x{constructor(){this.preferences=null}};x.\u0275fac=function(a){return new(a||x)},x.\u0275prov=G({token:x,factory:x.\u0275fac,providedIn:"root"});var P=x;var ls=(l,n)=>n.landing.slug,os=(l,n)=>n.slug;function gs(l,n){if(l&1&&(s(0,`
+`}},navigation:[{landing:{label:"Home",slug:"home"},items:[]},{landing:{label:"UI",slug:"ui"},items:[{label:"Playback",slug:"playback"},{label:"Speed",slug:"speed"},{label:"Draw tribe",slug:"draw-tribe"},{label:"Grid size",slug:"grid-size"},{label:"Packing",slug:"packing"},{label:"Presets",slug:"presets"},{label:"Tribes",slug:"tribes"},{label:"Rules",slug:"rules"},{label:"Metrics",slug:"metrics"},{label:"Download",slug:"download"},{label:"Snapshot",slug:"snapshot"},{label:"Shortcuts",slug:"shortcuts"}]},{landing:{label:"Engine",slug:"engine"},items:[{label:"Technical architecture",slug:"technical-architecture"},{label:"WebGPU webengine",slug:"webgpu-webengine"},{label:"WGSL shaders",slug:"wgsl-shaders"},{label:"Rule expressions",slug:"rule-expressions"},{label:"Rule cost model",slug:"rule-cost-model"},{label:"Rule engine internals",slug:"rule-engine-internals"},{label:"VRAM and packing",slug:"vram-and-packing"},{label:"Recording and OPFS",slug:"recording-and-opfs"},{label:"Downloads and exports",slug:"downloads-and-exports"},{label:"Compressed chunk export",slug:"compressed-chunk-export"},{label:"Snapshot format",slug:"snapshot-format"},{label:"Metrics internals",slug:"metrics-internals"},{label:"Limits and performance",slug:"limits-and-performance"}]},{landing:{label:"Benchmark",slug:"benchmark"},items:[{label:"Hardware, method, and coverage",slug:"benchmark-hardware-method-coverage"},{label:"Results",slug:"benchmark-results"},{label:"Conclusions",slug:"benchmark-conclusions"}]},{landing:{label:"Analysis",slug:"analysis"},items:[{label:"Setup and method",slug:"analysis-setup"},{label:"Wildfire analysis",slug:"wildfire-analysis"},{label:"Wildfire model comparison",slug:"wildfire-model-comparison"},{label:"Epidemic analysis",slug:"epidemic-analysis"},{label:"Epidemic model comparison",slug:"epidemic-model-comparison"},{label:"Conclusions",slug:"analysis-conclusions"}]},{landing:{label:"Limitations and extensions",slug:"limitations-and-extensions"},items:[{label:"Analysis limitations and extensions",slug:"analysis-limitations-and-extensions"},{label:"Engine limitations and extensions",slug:"engine-limitations-and-extensions"},{label:"References",slug:"references"}]}],slugs:["home","analysis-conclusions","analysis-limitations-and-extensions","analysis-setup","analysis","benchmark-conclusions","benchmark-hardware-method-coverage","benchmark-results","benchmark","compressed-chunk-export","download","downloads-and-exports","draw-tribe","engine-limitations-and-extensions","engine","epidemic-analysis","epidemic-model-comparison","grid-size","limitations-and-extensions","limits-and-performance","metrics-internals","metrics","packing","playback","presets","recording-and-opfs","references","rule-cost-model","rule-engine-internals","rule-expressions","rules","shortcuts","snapshot-format","snapshot","speed","technical-architecture","tribes","ui","vram-and-packing","webgpu-webengine","wgsl-shaders","wildfire-analysis","wildfire-model-comparison"]};var A="golt-wiki-prefs",ps={collapsedSections:[],mobileNavigationExpanded:!1};var x=class x{constructor(){this.preferences=null}};x.\u0275fac=function(a){return new(a||x)},x.\u0275prov=G({token:x,factory:x.\u0275fac,providedIn:"root"});var P=x;var ls=(l,n)=>n.landing.slug,os=(l,n)=>n.slug;function gs(l,n){if(l&1&&(s(0,`
                 `),t(1,"a",15),s(2),e(),s(3,`
               `)),l&2){let a=n.$implicit,i=m(3);p(),c("active",i.currentSlug===a.slug),d("routerLink","/wiki/"+a.slug),p(),g(a.label)}}function xs(l,n){if(l&1){let a=_();s(0,`
         `),t(1,"section",11),s(2,`

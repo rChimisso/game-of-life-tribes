@@ -9,9 +9,8 @@ import {setControlDisabled} from '~gol/core/function/form-control';
 import {CvaController} from '~gol/core/model/cva-controller';
 import {TypedChanges} from '~gol/core/model/typed-change';
 import {combinationInputValue, combinationTribeIds, isRankedBecome, validateBecomeSemantics} from '~gol/feature/home/logic/become-validation';
-import {normalizeSelector} from '~gol/feature/home/logic/rule-editor';
-import {DIFFERENT_INPUT_VALUE, RANK_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type RankedBecome} from '~gol/feature/home/model/become-validation';
-import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, LOOKUP_STRATEGY_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
+import {DIFFERENT_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type RankedBecome} from '~gol/feature/home/model/become-validation';
+import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_TRIBE_SELECTOR_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector} from '~gol/feature/home/model/rule';
 import {Button} from '~gol/shared/component/button/button';
 import {SelectOption, SelectValue} from '~gol/shared/component/select/model/select';
 import {SelectComponent} from '~gol/shared/component/select/select';
@@ -127,6 +126,15 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * @type {SelectOption[]}
    */
   public readonly nestedOptions: SelectOption[] = [{value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL}, {value: SAME_BECOME_KIND, label: 'Same'}, {value: COMBINE_BECOME_KIND, label: 'Combine'}];
+
+  /**
+   * Combine default behavior options.
+   *
+   * @public
+   * @readonly
+   * @type {SelectOption[]}
+   */
+  public readonly lookupDefaultOptions: SelectOption[] = [{value: FIXED_BECOME_KIND, label: FIXED_TRIBE_LABEL}, {value: SAME_BECOME_KIND, label: 'Same'}];
 
   /**
    * Compound CVA callback controller.
@@ -302,9 +310,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled && this.isRankedBecome(this.become)) {
       this.become = {
         ...this.become,
-        selector,
-        tie: this.become.tie ? this.syncRankInputSelectors(this.become.tie, selector) : undefined,
-        fallback: this.become.fallback ? this.syncRankInputSelectors(this.become.fallback, selector) : undefined
+        selector
       };
       this.emitBecomeChange();
     }
@@ -320,7 +326,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled && this.isRankedBecome(this.become) && typeof value === 'string') {
       this.become = {
         ...this.become,
-        tie: this.createNestedBecome(value as NestedBecomeMode, this.become.selector)
+        tie: this.createNestedBecome(value as NestedBecomeMode)
       };
       this.emitBecomeChange();
     }
@@ -336,7 +342,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled && this.isRankedBecome(this.become) && typeof value === 'string') {
       this.become = {
         ...this.become,
-        fallback: this.createNestedBecome(value as NestedBecomeMode, this.become.selector)
+        fallback: this.createNestedBecome(value as NestedBecomeMode)
       };
       this.emitBecomeChange();
     }
@@ -363,6 +369,27 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   }
 
   /**
+   * Sets combine lookup default behavior.
+   *
+   * @public
+   * @param {CombineTarget} target combine target.
+   * @param {SelectValue} value selected behavior.
+   */
+  public onSetLookupDefaultMode(target: CombineTarget, value: SelectValue): void {
+    if (!this.disabled && value === SAME_BECOME_KIND) {
+      this.updateCombine(target, combine => ({...combine, default: {kind: SAME_BECOME_KIND} }));
+    } else if (!this.disabled && value === FIXED_BECOME_KIND) {
+      this.updateCombine(target, combine => ({
+        ...combine,
+        default: {
+          kind: FIXED_BECOME_KIND,
+          tribe: DEAD_TRIBE_ID
+        }
+      }));
+    }
+  }
+
+  /**
    * Sets combine lookup default fixed tribe.
    *
    * @public
@@ -373,12 +400,9 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled && typeof value === 'string') {
       this.updateCombine(target, combine => ({
         ...combine,
-        strategy: {
-          ...combine.strategy,
-          default: {
-            kind: FIXED_BECOME_KIND,
-            tribe: value
-          }
+        default: {
+          kind: FIXED_BECOME_KIND,
+          tribe: value
         }
       }));
     }
@@ -399,16 +423,13 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
       });
       this.updateCombine(target, combine => ({
         ...combine,
-        strategy: {
-          ...combine.strategy,
-          entries: [
-            ...combine.strategy.entries,
-            {
-              inputs: [defaultInput ?? this.defaultCombinationInput(target)],
-              output: defaultOutputId
-            }
-          ]
-        }
+        entries: [
+          ...combine.entries,
+          {
+            inputs: [defaultInput ?? this.defaultCombinationInput(target)],
+            output: defaultOutputId
+          }
+        ]
       }));
     }
   }
@@ -424,10 +445,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
     if (!this.disabled) {
       this.updateCombine(target, combine => ({
         ...combine,
-        strategy: {
-          ...combine.strategy,
-          entries: combine.strategy.entries.filter((_, rowIndex) => rowIndex !== index)
-        }
+        entries: combine.entries.filter((_, rowIndex) => rowIndex !== index)
       }));
     }
   }
@@ -602,10 +620,21 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    */
   public lookupDefaultTribe(combine: CombineBecome): string {
     let tribe = DEAD_TRIBE_ID;
-    if (combine.strategy.default?.kind === FIXED_BECOME_KIND) {
-      tribe = combine.strategy.default.tribe;
+    if (combine.default?.kind === FIXED_BECOME_KIND) {
+      tribe = combine.default.tribe;
     }
     return tribe;
+  }
+
+  /**
+   * Returns the mode represented by a combine default.
+   *
+   * @public
+   * @param {CombineBecome} combine combine outcome.
+   * @returns {typeof FIXED_BECOME_KIND | typeof SAME_BECOME_KIND} default mode.
+   */
+  public lookupDefaultMode(combine: CombineBecome): typeof FIXED_BECOME_KIND | typeof SAME_BECOME_KIND {
+    return combine.default?.kind === SAME_BECOME_KIND ? SAME_BECOME_KIND : FIXED_BECOME_KIND;
   }
 
   /**
@@ -673,7 +702,10 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
         become = {
           kind: mode,
           selector: defaultSelector,
-          tie: this.createNestedBecome(COMBINE_BECOME_KIND, defaultSelector),
+          tie: {
+            kind: FIXED_BECOME_KIND,
+            tribe: DEAD_TRIBE_ID
+          },
           fallback: {
             kind: FIXED_BECOME_KIND,
             tribe: DEAD_TRIBE_ID
@@ -698,17 +730,16 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    *
    * @private
    * @param {NestedBecomeMode} mode nested mode.
-   * @param {TribeSelector<Tribe[]>} sourceSelector source selector.
    * @returns {Become<Tribe[]>} nested outcome.
    */
-  private createNestedBecome(mode: NestedBecomeMode, sourceSelector: TribeSelector<Tribe[]>): Become<Tribe[]> {
+  private createNestedBecome(mode: NestedBecomeMode): Become<Tribe[]> {
     let become: Become<Tribe[]>;
     switch (mode) {
       case SAME_BECOME_KIND:
         become = {kind: SAME_BECOME_KIND};
         break;
       case COMBINE_BECOME_KIND:
-        become = this.createCombineBecome(sourceSelector);
+        become = this.createCombineBecome();
         break;
       case FIXED_BECOME_KIND:
         become = {
@@ -724,26 +755,16 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
    * Creates a combine outcome.
    *
    * @private
-   * @param {TribeSelector<Tribe[]>} sourceSelector source selector.
    * @returns {CombineBecome} combine outcome.
    */
-  private createCombineBecome(sourceSelector?: TribeSelector<Tribe[]>): CombineBecome {
+  private createCombineBecome(): CombineBecome {
     const entries: CombinationEntry<Tribe[]>[] = [];
-    if (sourceSelector) {
-      entries.push({
-        inputs: [this.rankSelector(sourceSelector)],
-        output: this.firstOutputTribeId()
-      });
-    }
     return {
       kind: COMBINE_BECOME_KIND,
-      strategy: {
-        kind: LOOKUP_STRATEGY_KIND,
-        entries,
-        default: {
-          kind: FIXED_BECOME_KIND,
-          tribe: DEAD_TRIBE_ID
-        }
+      entries,
+      default: {
+        kind: FIXED_BECOME_KIND,
+        tribe: DEAD_TRIBE_ID
       }
     };
   }
@@ -763,20 +784,6 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   }
 
   /**
-   * Creates a selector for the active ranked candidates.
-   *
-   * @private
-   * @param {TribeSelector<Tribe[]>} sourceSelector ranked source selector.
-   * @returns {TribeSelector<Tribe[]>} ranked selector.
-   */
-  private rankSelector(sourceSelector: TribeSelector<Tribe[]>): TribeSelector<Tribe[]> {
-    return {
-      kind: TIE_SELECTOR_KIND,
-      source: normalizeSelector(sourceSelector)
-    };
-  }
-
-  /**
    * Creates a combination input selector from a select value.
    *
    * @private
@@ -790,8 +797,6 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
       selector = {kind: SAME_TRIBE_SELECTOR_KIND};
     } else if (value === DIFFERENT_INPUT_VALUE) {
       selector = {kind: DIFFERENT_TRIBE_SELECTOR_KIND};
-    } else if (value === RANK_INPUT_VALUE && this.rankedContext(target)) {
-      selector = this.rankSelector(this.rankedContext(target)!.selector);
     } else if (value.startsWith(TRIBE_INPUT_PREFIX)) {
       selector = this.explicitSelector(value.slice(TRIBE_INPUT_PREFIX.length));
     } else {
@@ -801,46 +806,14 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   }
 
   /**
-   * Synchronizes rank-derived combine inputs with the active ranked selector.
-   *
-   * @private
-   * @param {Become<Tribe[]>} become nested outcome.
-   * @param {TribeSelector<Tribe[]>} sourceSelector active ranked source selector.
-   * @returns {Become<Tribe[]>} synchronized nested outcome.
-   */
-  private syncRankInputSelectors(become: Become<Tribe[]>, sourceSelector: TribeSelector<Tribe[]>): Become<Tribe[]> {
-    let synced: Become<Tribe[]> = become;
-    if (become.kind === COMBINE_BECOME_KIND) {
-      synced = {
-        ...become,
-        strategy: {
-          ...become.strategy,
-          entries: become.strategy.entries.map(entry => ({
-            ...entry,
-            inputs: entry.inputs.map(input => input.kind === TIE_SELECTOR_KIND ? this.rankSelector(sourceSelector) : input)
-          }))
-        }
-      };
-    }
-    return synced;
-  }
-
-  /**
    * Creates the default input for a combination target.
    *
    * @private
-   * @param {CombineTarget} target combine target.
+   * @param {CombineTarget} _target combine target.
    * @returns {TribeSelector<Tribe[]>} default input selector.
    */
-  private defaultCombinationInput(target: CombineTarget): TribeSelector<Tribe[]> {
-    const ranked = this.rankedContext(target);
-    let selector: TribeSelector<Tribe[]>;
-    if (ranked) {
-      selector = this.rankSelector(ranked.selector);
-    } else {
-      selector = this.explicitSelector(this.defaultTribeId());
-    }
-    return selector;
+  private defaultCombinationInput(_target: CombineTarget): TribeSelector<Tribe[]> {
+    return this.explicitSelector(this.defaultTribeId());
   }
 
   /**
@@ -878,12 +851,6 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
       {value: SAME_INPUT_VALUE, label: 'Same'},
       {value: DIFFERENT_INPUT_VALUE, label: 'Different'}
     );
-    if (ranked) {
-      options.push({
-        value: RANK_INPUT_VALUE,
-        label: `Tied ${ranked.kind === MAJORITY_BECOME_KIND ? 'Majority' : 'Minority'}`
-      });
-    }
     return options;
   }
 
@@ -913,10 +880,7 @@ export class BecomeEditor implements OnChanges, ControlValueAccessor, Validator 
   private updateCombinationEntry(target: CombineTarget, rowIndex: number, mutator: (entry: CombinationEntry<Tribe[]>) => CombinationEntry<Tribe[]>): void {
     this.updateCombine(target, combine => ({
       ...combine,
-      strategy: {
-        ...combine.strategy,
-        entries: combine.strategy.entries.map((entry, index) => index === rowIndex ? mutator(entry) : entry)
-      }
+      entries: combine.entries.map((entry, index) => index === rowIndex ? mutator(entry) : entry)
     }));
   }
 

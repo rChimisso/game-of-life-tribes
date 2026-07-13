@@ -1,7 +1,7 @@
 import {normalizeSelector, selectorSignature} from './rule-editor';
 
-import {DIFFERENT_INPUT_VALUE, RANK_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type BecomeValidationIssue, type RankedBecome} from '~gol/feature/home/model/become-validation';
-import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, TIE_SELECTOR_KIND, Tribe, TribeSelector, TRIBES_SELECTOR_KIND} from '~gol/feature/home/model/rule';
+import {DIFFERENT_INPUT_VALUE, SAME_INPUT_VALUE, TRIBE_INPUT_PREFIX, type BecomeValidationIssue, type RankedBecome} from '~gol/feature/home/model/become-validation';
+import {Become, COMBINE_BECOME_KIND, CombinationEntry, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, FIXED_BECOME_KIND, MAJORITY_BECOME_KIND, MAX_COMBINATION_INPUTS, MINORITY_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector, TRIBES_SELECTOR_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Appends a field path segment.
@@ -65,9 +65,6 @@ export function combinationInputValue(input: TribeSelector<Tribe[]>): string {
     case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       value = selectorSignature(selector);
       break;
-    case TIE_SELECTOR_KIND:
-      value = RANK_INPUT_VALUE;
-      break;
     case TRIBES_SELECTOR_KIND:
       value = `${TRIBE_INPUT_PREFIX}${selector.tribes[0]}`;
       break;
@@ -98,9 +95,6 @@ export function availableCombinationInputValues(tribes: readonly Tribe[], ranked
   const values = new Set(combinationTribeIds(tribes, ranked).map(id => `${TRIBE_INPUT_PREFIX}${id}`));
   values.add(SAME_INPUT_VALUE);
   values.add(DIFFERENT_INPUT_VALUE);
-  if (ranked) {
-    values.add(RANK_INPUT_VALUE);
-  }
   return values;
 }
 
@@ -110,10 +104,10 @@ export function availableCombinationInputValues(tribes: readonly Tribe[], ranked
  * @param {TribeSelector<Tribe[]>} selector selector expression.
  * @param {readonly Tribe[]} tribes known tribes.
  * @param {string} path selector path.
- * @param {(RankedBecome | null)} ranked ranked input context, when rank inputs are valid.
+ * @param {(RankedBecome | null)} _ranked ranked input context.
  * @returns {BecomeValidationIssue[]} validation issues.
  */
-export function validateSelectorInContext(selector: TribeSelector<Tribe[]>, tribes: readonly Tribe[], path: string, ranked: RankedBecome | null = null): BecomeValidationIssue[] {
+export function validateSelectorInContext(selector: TribeSelector<Tribe[]>, tribes: readonly Tribe[], path: string, _ranked: RankedBecome | null = null): BecomeValidationIssue[] {
   const knownIds = new Set(tribes.map(tribe => tribe.id));
   const issues: BecomeValidationIssue[] = [];
   switch (selector.kind) {
@@ -123,16 +117,6 @@ export function validateSelectorInContext(selector: TribeSelector<Tribe[]>, trib
         addIssue(issues, childPath(path, 'tribes'), 'Choose at least one tribe.');
       } else if (selector.tribes.some(id => !knownIds.has(id))) {
         addIssue(issues, childPath(path, 'tribes'), 'Choose only existing tribes.');
-      }
-      break;
-    case TIE_SELECTOR_KIND:
-      if (ranked) {
-        issues.push(...validateSelectorInContext(selector.source, tribes, childPath(path, 'source')));
-        if (selectorSignature(selector.source) !== selectorSignature(ranked.selector)) {
-          addIssue(issues, childPath(path, 'source'), 'Rank inputs must use the active ranked selector.');
-        }
-      } else {
-        addIssue(issues, path, 'Tie selectors are only available in ranked tie handling.');
       }
       break;
   }
@@ -225,13 +209,13 @@ export function validateBecomeSemantics(become: Become<Tribe[]>, tribes: readonl
       break;
     case COMBINE_BECOME_KIND: {
       const seenRows = new Set<string>();
-      for (let index = 0; index < become.strategy.entries.length; index++) {
-        issues.push(...validateCombinationEntry(become.strategy.entries[index]!, tribes, ranked, seenRows, indexedPath(childPath(childPath(path, 'strategy'), 'entries'), index)));
+      for (let index = 0; index < become.entries.length; index++) {
+        issues.push(...validateCombinationEntry(become.entries[index]!, tribes, ranked, seenRows, indexedPath(childPath(path, 'entries'), index)));
       }
-      if (become.strategy.default) {
-        issues.push(...validateBecomeSemantics(become.strategy.default, tribes, childPath(childPath(path, 'strategy'), 'default')));
+      if (become.default) {
+        issues.push(...validateBecomeSemantics(become.default, tribes, childPath(path, 'default')));
       } else {
-        addIssue(issues, childPath(childPath(path, 'strategy'), 'default'), 'Choose a combination default.');
+        addIssue(issues, childPath(path, 'default'), 'Choose a combination default.');
       }
       break;
     }

@@ -3,7 +3,7 @@ import {normalizeBecome, normalizeCountExpression, normalizeRule, normalizeSelec
 import {Grid} from '../model/grid';
 import {BitsPerCell} from '../model/grid-format';
 import {RECORDING_MAX_FRAME_BYTES} from '../model/recording-limits';
-import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, TIE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, EditableTribe, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '../model/rule';
 import {TribeApplyImpact, TribePackingImpact, TribeRenamePair} from '../model/tribe-impact';
 
 /**
@@ -106,9 +106,6 @@ function collectSelectorTribeIds(selector: TribeSelector<Tribe[]>, ids: Set<stri
         ids.add(id);
       }
       break;
-    case TIE_SELECTOR_KIND:
-      collectSelectorTribeIds(selector.source, ids);
-      break;
   }
 }
 
@@ -134,14 +131,14 @@ function collectBecomeTribeIds(become: Become<Tribe[]>, ids: Set<string>): void 
       }
       break;
     case COMBINE_BECOME_KIND:
-      for (const entry of become.strategy.entries) {
+      for (const entry of become.entries) {
         for (const selector of entry.inputs) {
           collectSelectorTribeIds(selector, ids);
         }
         ids.add(entry.output);
       }
-      if (become.strategy.default) {
-        collectBecomeTribeIds(become.strategy.default, ids);
+      if (become.default) {
+        collectBecomeTribeIds(become.default, ids);
       }
       break;
   }
@@ -210,9 +207,6 @@ function renameSelectorTribes(selector: TribeSelector<Tribe[]>, renameMap: Reado
     case DIFFERENT_IN_TRIBE_SELECTOR_KIND:
       selector.tribes = selector.tribes.map(id => renameMap.get(id) ?? id) as [string, ...string[]];
       break;
-    case TIE_SELECTOR_KIND:
-      renameSelectorTribes(selector.source, renameMap);
-      break;
   }
 }
 
@@ -238,7 +232,7 @@ function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<stri
       }
       break;
     case COMBINE_BECOME_KIND:
-      for (const entry of become.strategy.entries) {
+      for (const entry of become.entries) {
         entry.inputs = entry.inputs.map(selector => {
           const renamedSelector = structuredClone(selector);
           renameSelectorTribes(renamedSelector, renameMap);
@@ -246,8 +240,8 @@ function renameBecomeTribes(become: Become<Tribe[]>, renameMap: ReadonlyMap<stri
         });
         entry.output = renameMap.get(entry.output) ?? entry.output;
       }
-      if (become.strategy.default) {
-        renameBecomeTribes(become.strategy.default, renameMap);
+      if (become.default) {
+        renameBecomeTribes(become.default, renameMap);
       }
       break;
   }

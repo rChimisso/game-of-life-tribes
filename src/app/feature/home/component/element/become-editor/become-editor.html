@@ -58,7 +58,7 @@
 
 <ng-template #combineRows let-combine="combine" let-target="target">
   <div class="lookup-table">
-    @for (entry of combine.strategy.entries; track $index; let rowIndex = $index) {
+    @for (entry of combine.entries; track $index; let rowIndex = $index) {
       <div class="lookup-row">
         <div class="lookup-inputs">
           @for (input of entry.inputs; track $index; let inputIndex = $index) {
@@ -79,7 +79,10 @@
     }
     <div class="lookup-row">
       <span class="field-label">Otherwise</span>
-      <gol-select class="tribe-select" tooltip="Choose the default output tribe when no combination row matches" [disabled]="disabled" [options]="tribeSelectOptions" [value]="lookupDefaultTribe(combine)" (valueChange)="onSetLookupDefaultTribe(target, $event)" />
+      <gol-select class="mode-select" tooltip="Choose what happens when no combination row matches" [disabled]="disabled" [options]="lookupDefaultOptions" [value]="lookupDefaultMode(combine)" (valueChange)="onSetLookupDefaultMode(target, $event)" />
+      @if (lookupDefaultMode(combine) === "fixed") {
+        <gol-select class="tribe-select" tooltip="Choose the default output tribe when no combination row matches" [disabled]="disabled" [options]="tribeSelectOptions" [value]="lookupDefaultTribe(combine)" (valueChange)="onSetLookupDefaultTribe(target, $event)" />
+      }
       <gol-button class="lookup-add-row" icon="add" label="Add combination row" size="sm" tooltip="Add combination row" variant="icon" [disabled]="disabled" (clicked)="onAddCombinationRow(target)" />
     </div>
   </div>

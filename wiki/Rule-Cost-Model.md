@@ -8,7 +8,7 @@ The units are comparative estimates for generated shader work, not timing guaran
 
 Costs are worst-case estimates for a cell that evaluates the expression or reaches the rule branch being described. They are not necessarily paid by every cell in the whole ruleset: first-match-wins rule ordering can skip later branches, and some outcome paths such as ranked tie/fallback handling or combine rows only run when their branch reaches that path.
 
-For selector, clause, and outcome semantics, see [Rule expressions](Rule-Expressions). For the WGSL generation pipeline, see [Rules engine internals](Rules-Engine-Internals).
+For selector, clause, and outcome semantics, see [Rule expressions](Rule-Expressions). For the WGSL generation pipeline, see [Rule engine internals](Rule-Engine-Internals).
 
 ## Shared Work
 

@@ -4,7 +4,7 @@
 
 The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes `dead`.
 
-This page explains the editor controls. For runtime behavior and shader generation, see [Rules engine internals](Rules-Engine-Internals). For the persisted rule JSON shape used by snapshots and exports, see [Rule JSON](Rule-Expressions#rule-json).
+This page explains the editor controls. For runtime behavior and shader generation, see [Rule engine internals](Rule-Engine-Internals). For the persisted rule JSON shape used by snapshots and exports, see [Rule JSON](Rule-Expressions#rule-json).
 
 ## Rule List Controls
 
@@ -90,6 +90,10 @@ Clause meanings:
 | `XOR`     | An odd number of child clauses must match.                                                   |
 
 ## Outcome Controls
+
+<p align="center">
+  <img src="images/rules-outcome.png" alt="Rule combine outcome">
+</p>
 
 The outcome editor starts with a `becomes` mode selector:
 

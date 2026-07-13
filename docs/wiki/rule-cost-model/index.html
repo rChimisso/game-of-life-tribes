@@ -97,7 +97,7 @@
               <!--ngtns-->
                 <a class="active" href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
               <!--ngtns-->
-                <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+                <a class href="/game-of-life-tribes/wiki/rule-engine-internals" jsaction="click:;">Rule engine internals</a>
               <!--ngtns-->
                 <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
               <!--ngtns-->
@@ -249,7 +249,7 @@
                 <!--ngtns-->
                   <a class="active" href="/game-of-life-tribes/wiki/rule-cost-model" jsaction="click:;">Rule cost model</a>
                 <!--ngtns-->
-                  <a class href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">Rules engine internals</a>
+                  <a class href="/game-of-life-tribes/wiki/rule-engine-internals" jsaction="click:;">Rule engine internals</a>
                 <!--ngtns-->
                   <a class href="/game-of-life-tribes/wiki/vram-and-packing" jsaction="click:;">VRAM and packing</a>
                 <!--ngtns-->
@@ -340,7 +340,7 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.28.0 · Open source</span>
 </gol-wiki-footer>
   </aside>
   <main>
@@ -350,7 +350,7 @@
 <p>This page defines the rough per-cell worst-case cost model used to compare rule shapes.</p>
 <p>The units are comparative estimates for generated shader work, not timing guarantees. <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> unit represents <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> simple comparison, boolean operation, arithmetic operation, branch test, or assignment.</p>
 <p>Costs are worst-case estimates for a cell that evaluates the expression or reaches the rule branch being described. They are not necessarily paid by every cell in the whole ruleset: first-match-wins rule ordering can skip later branches, and some outcome paths such as ranked tie/fallback handling or combine rows only run when their branch reaches that path.</p>
-<p>For selector, clause, and outcome semantics, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For the WGSL generation pipeline, see <a href="/game-of-life-tribes/wiki/rules-engine-internals/">Rules engine internals</a>.</p>
+<p>For selector, clause, and outcome semantics, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. For the WGSL generation pipeline, see <a href="/game-of-life-tribes/wiki/rule-engine-internals/">Rule engine internals</a>.</p>
 <h2 id="shared-work"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-cost-model#shared-work" aria-label="Link to this section">#</a>Shared Work</h2>
 <p>A <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-condition count over the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors costs <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> units.</p>
 <p>Clause count selectors are precomputed once per unique selector and reused by every clause that needs the same count. Cost estimates for a standalone expression include the count unless otherwise stated; when a count is already available, only the expression-specific check is additional.</p>
@@ -729,8 +729,8 @@ default           → dead</code></pre>
             <span><small>Previous</small><strong>Rule expressions</strong></span>
           </a>
         <!---->
-          <a class="next-page" href="/game-of-life-tribes/wiki/rules-engine-internals" jsaction="click:;">
-            <span><small>Next</small><strong>Rules engine internals</strong></span>
+          <a class="next-page" href="/game-of-life-tribes/wiki/rule-engine-internals" jsaction="click:;">
+            <span><small>Next</small><strong>Rule engine internals</strong></span>
             <mat-icon role="img" class="mat-icon notranslate material-icons mat-ligature-font mat-icon-no-color" aria-hidden="true" data-mat-icon-type="font" ngh="0">arrow_forward</mat-icon>
           </a>
         <!----></nav>
@@ -742,13 +742,13 @@ default           → dead</code></pre>
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.28.0 · Open source</span>
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BSRQHKPZ.js" type="module"></script>
-<link rel="modulepreload" href="chunk-GNJOO6EX.js">
-<link rel="modulepreload" href="chunk-XB2PTZZW.js">
+  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BFXKQWEK.js" type="module"></script>
+<link rel="modulepreload" href="chunk-4EVLBJ2V.js">
+<link rel="modulepreload" href="chunk-KOMTDJ3Y.js">
 <link rel="modulepreload" href="chunk-ZYODDBYK.js">
 
 

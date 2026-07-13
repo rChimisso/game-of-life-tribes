@@ -4,11 +4,11 @@
 
 This page is the canonical reference for persisted tribe and rule expressions. Use it when writing snapshots, reading compressed chunk metadata, or understanding the expression language used by rules.
 
-For the `.golt` container layout, header bytes, and packed grid payload, see [Snapshot format](Snapshot-Format). For evaluation order and WGSL generation, see [Rules engine internals](Rules-Engine-Internals). For detailed cost formulas, see [Rule cost model](Rule-Cost-Model).
+For the `.golt` container layout, header bytes, and packed grid payload, see [Snapshot format](Snapshot-Format). For evaluation order and WGSL generation, see [Rule engine internals](Rule-Engine-Internals). For detailed cost formulas, see [Rule cost model](Rule-Cost-Model).
 
 ## Language at a Glance
 
-A rule has a **clause**, which decides whether the rule matches, and an **outcome**, which decides the next tribe:
+A rule has a **clause**, which may contain other clauses and decides whether the rule matches, and an **outcome**, which decides the tribe change.
 
 All neighbor-count expressions use the $8$-cell Moore neighborhood.
 
@@ -21,7 +21,7 @@ Each tribe is a named cell state:
 ```jsonc
 {
   "id": "Alive",
-  "color": "ffffff"
+  "color": "ffffff",
 }
 ```
 
@@ -37,7 +37,7 @@ Compatible rulesets include the special `dead` tribe, normally:
 ```jsonc
 {
   "id": "dead",
-  "color": "000000"
+  "color": "000000",
 }
 ```
 
@@ -56,7 +56,7 @@ Rules are persisted in this normalized shape:
     /* ... */
   },
   "probability": 100,
-  "muted": false
+  "muted": false,
 }
 ```
 
@@ -91,7 +91,6 @@ Selectors define which tribes a clause or dynamic outcome considers.
 | `same`         | Neighbors matching the current cell tribe                                         | —        | Relative to the current cell.                        |
 | `different`    | Neighbors not matching the current cell tribe                                     | —        | Includes `dead`.                                     |
 | `different-in` | Neighbors not matching the current cell tribe within an explicit set of tribe IDs | `tribes` | The list must be non-empty.                          |
-| `tie`          | Candidates tied in the current ranked outcome                                     | `source` | Only has special meaning during ranked tie handling. |
 
 An explicit selector is written as:
 
@@ -107,29 +106,8 @@ Selector meaning depends on context:
 - count clauses count matching neighbors;
 - ranked outcomes treat matching tribes as candidate results;
 - combine inputs test whether matching tribes are present;
-- `tie` refers to ranked candidates tied at the winning count.
 
 Explicit tribe selector signatures are sorted and deduplicated for stable reuse during compilation.
-
-### `tie`
-
-A `tie` selector refers to the tied candidates from another selector:
-
-```jsonc
-{
-  "kind": "tie",
-  "source": {
-    "kind": "tribes",
-    "tribes": ["Red", "Blue", "Green"]
-  }
-}
-```
-
-In a `majority` outcome, these are the candidates tied for the highest non-zero count. In a `minority` outcome, they are the candidates tied for the lowest non-zero count.
-
-The selector is most useful inside a nested `combine` outcome that resolves a ranked tie by inspecting which tied candidates are present.
-
-Outside an actual ranked tie branch, there is no tie state. The compiler then treats `tie` like its `source`; generated rules should avoid relying on that fallback behavior.
 
 ## Clauses
 
@@ -212,14 +190,14 @@ The compiler precomputes each unique selector count once and reuses it across cl
     "selector": {
       "kind": "tribes",
       "tribes": ["Red"]
-    }
+    },
   },
   "right": {
     "kind": "count",
     "selector": {
       "kind": "tribes",
       "tribes": ["Blue"]
-    }
+    },
   },
   "operator": ">",
   "margin": 1
@@ -291,7 +269,7 @@ Outcomes decide which tribe a matched rule writes.
 | `same`     | Keep the current cell tribe                                           | —                             |
 | `majority` | Choose the most common eligible neighbor tribe                        | `selector`, `tie`, `fallback` |
 | `minority` | Choose the least common eligible neighbor tribe with a non-zero count | `selector`, `tie`, `fallback` |
-| `combine`  | Resolve an exact set of present inputs through a lookup table         | `strategy`                    |
+| `combine`  | Resolve an exact set of present inputs through lookup rows            | `entries` and `default`       |
 
 ### Fixed and Same Outcomes
 
@@ -344,6 +322,8 @@ Only candidates with a non-zero neighbor count participate.
 - multiple winning candidates evaluate `tie`;
 - no candidate evaluates `fallback`.
 
+Both `tie` and `fallback` may independently be a `same` outcome, a fixed tribe, or another `combine` outcome.
+
 A no-candidate case occurs when every eligible candidate has count $0$, the selector resolves to no valid candidates, or selector eligibility excludes every candidate for the current cell.
 
 For example:
@@ -360,9 +340,7 @@ Missing `tie` or `fallback` outcomes fall back to `dead` during shader generatio
 ```jsonc
 {
   "kind": "combine",
-  "strategy": {
-    "kind": "lookup",
-    "entries": [
+  "entries": [
       {
         "inputs": [
           {
@@ -376,11 +354,10 @@ Missing `tie` or `fallback` outcomes fall back to `dead` during shader generatio
         ],
         "output": "Purple"
       }
-    ],
-    "default": {
-      "kind": "fixed",
-      "tribe": "dead"
-    }
+  ],
+  "default": {
+    "kind": "fixed",
+    "tribe": "dead"
   }
 }
 ```
@@ -391,7 +368,7 @@ Each row describes the **exact set of participating inputs** and the tribe to wr
 
 A row containing `[Red, Blue]` is equivalent to `[Blue, Red]`. The editor rejects duplicate rows after normalizing input order.
 
-#### Matching Is Exact
+#### Matching Is Strict
 
 A lookup row is not a subset test.
 
@@ -412,9 +389,9 @@ This creates an ordering case:
 
 Both rows have the same non-dead mask. The row that explicitly requires `dead` must therefore be checked first.
 
-If no row matches, the combine `default` outcome is evaluated.
+If no row matches, the combine `default` outcome is evaluated. It can be `same`, so an unmatched combination can leave the current cell unchanged.
 
-Inside a ranked tie branch, a nested combine can use a `tie` selector to distinguish which tied candidates are present.
+For example, a table with rows `[Seed, Water] → Sprout` and `[Seed, Rock] → Root` matches the first row only when `Seed` and `Water` are present and no other non-dead tribe is present; it matches the second under the equivalent `Seed`/`Rock` condition. `dead` neighbors may be present in either case. Every other non-dead neighborhood combination, like `[Seed, Water, Rock]`, reaches the `default` outcome because matching is strict.
 
 ## Compilation
 
@@ -425,7 +402,7 @@ Rule expressions are compiled to WGSL. The compiler:
 - emits outcomes as assignments to `result`;
 - emits active rules as one first-match-wins branch chain.
 
-See [Rules engine internals](Rules-Engine-Internals) for the compiler pipeline and generated shader structure.
+See [Rule engine internals](Rule-Engine-Internals) for the compiler pipeline and generated shader structure.
 
 For example, the Conway birth rule can reduce to:
 
@@ -434,8 +411,6 @@ if (selfTribe == deadIndex && aliveCount == 3u) {
   result = aliveIndex;
 }
 ```
-
-The snippets in this wiki are representative rather than exact generated output; generated local names and numeric tribe indexes may differ.
 
 ## Complete Examples
 
@@ -550,9 +525,7 @@ A unique winner is written directly. If multiple candidates tie, or no candidate
   },
   "become": {
     "kind": "combine",
-    "strategy": {
-      "kind": "lookup",
-      "entries": [
+    "entries": [
         {
           "inputs": [
             { "kind": "tribes", "tribes": ["Red"] },
@@ -568,12 +541,11 @@ A unique winner is written directly. If multiple candidates tie, or no candidate
           ],
           "output": "Purple"
         }
-      ],
-      "default": {
-        "kind": "fixed",
-        "tribe": "dead"
-      }
-    }
+    ],
+    "default": {
+      "kind": "fixed",
+      "tribe": "dead"
+    },
   },
   "probability": 100,
   "muted": false

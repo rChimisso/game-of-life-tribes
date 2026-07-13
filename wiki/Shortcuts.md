@@ -5,7 +5,7 @@
 The Shortcuts section lists keyboard and pointer controls, available for desktop-mode only. Keyboard shortcuts are ignored while a text input, select, or textarea owns focus, and most shortcuts are blocked while a GPU error, rebuild, or backpressure overlay is active.
 
 <p align="center">
-  <img src="../readme/shortcuts.png" alt="Shortcuts section">
+  <img src="images/shortcuts.png" alt="Shortcuts section">
 </p>
 
 ## Playback Shortcuts

@@ -8,6 +8,10 @@ This page explains the editor controls. For runtime behavior and shader generati
 
 ## Rule List Controls
 
+<p align="center">
+  <img src="images/rules.png" alt="Rules section">
+</p>
+
 - **Random seed**:  
   Deterministic seed used by per-rule probability rolls. Changing the seed changes future probabilistic rule outcomes while preserving deterministic replay for the same state, rules, seed, and generation.
 - **Drag handle**:  
@@ -33,12 +37,20 @@ This page explains the editor controls. For runtime behavior and shader generati
 
 ## Probability Controls
 
+<p align="center">
+  <img src="images/rules-probability.png" alt="Rule probability">
+</p>
+
 Each expanded rule has a **Probability %** field at the top of the rule body. The field is a percentage with exactly $3$ decimal digits.  
 When a rule has a probability below $100\%$, the collapsed rule header shows a compact percentage badge. $0$ effectively disables the rule, as if it was muted.
 
 At runtime, a rule must first match its clause. If it has a probability below $100\%$, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.
 
 ## Clause Controls
+
+<p align="center">
+  <img src="images/rules-clauses.png" alt="Rule clauses">
+</p>
 
 Each rule has $1$ root clause. Logical clauses can contain nested clauses.
 
@@ -117,6 +129,10 @@ Combine outcomes use lookup rows:
   Creates another lookup row.
 
 ## Error Outlines
+
+<p align="center">
+  <img src="images/rules-error.png" alt="Ruleset error outlines">
+</p>
 
 Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.
 

@@ -6,6 +6,10 @@ The Download section exports recorded simulation data. Downloads depend on recor
 
 ## Controls
 
+<p align="center">
+  <img src="images/download.png" alt="Download section">
+</p>
+
 - **Storage bar**:  
   Shows pending raw recording bytes, compressed recording bytes, reserved recording headroom, and the browser-reported storage quota estimate.
 - **Saves**:  

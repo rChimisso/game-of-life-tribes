@@ -11,7 +11,7 @@
     <span class="rule-become-label" [matTooltip]="'Becomes ' + outputBecomeLabel()" [matTooltipDisabled]="!outputBecomeLabel()">{{ outputBecomeLabel() }}</span>
   }
   @if (showProbabilityBadge()) {
-    <span class="rule-probability-badge" [matTooltip]="'Applies ' + probabilityLabel() + '% of matching cells'" [matTooltipDisabled]="!probabilityLabel()">{{ probabilityLabel() }}%</span>
+    <span class="rule-probability-badge" [matTooltip]="'Applies to ' + probabilityLabel() + '% of matching cells'" [matTooltipDisabled]="!probabilityLabel()">{{ probabilityLabel() }}%</span>
   }
   <gol-button icon="content_copy" label="Duplicate rule" size="sm" tooltip="Duplicate rule" variant="icon" [disabled]="isInvalid" (click)="onDuplicate($event)" />
   <gol-button size="sm" variant="icon" [icon]="rule.muted ? 'visibility' : 'visibility_off'" [label]="rule.muted ? 'Unmute rule' : 'Mute rule'" [tooltip]="rule.muted ? 'Unmute rule' : 'Mute rule'" (click)="onToggleMute($event)" />

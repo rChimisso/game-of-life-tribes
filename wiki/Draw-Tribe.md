@@ -8,7 +8,7 @@ it sends brush commands to the WebGPU worker, which mutates the active grid buff
 ## Controls
 
 <p align="center">
-  <img src="../readme/draw-tribe.png" alt="Draw Tribe section">
+  <img src="images/draw-tribe.png" alt="Draw Tribe section">
 </p>
 
 - **Tribe swatches**:  

@@ -7,7 +7,7 @@ The Grid size section changes the number of columns, rows, and edge topology use
 ## Controls
 
 <p align="center">
-  <img src="../readme/grid-size.png" alt="Grid Size section">
+  <img src="images/grid-size.png" alt="Grid Size section">
 </p>
 
 - **VRAM usage bar**:  

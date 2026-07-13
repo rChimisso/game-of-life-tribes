@@ -7,7 +7,7 @@ The Playback section manages time in the simulation. It starts and stops the sim
 ## Controls
 
 <p align="center">
-  <img src="../readme/playback.png" alt="Playback section">
+  <img src="images/playback.png" alt="Playback section">
 </p>
 
 - **Run / Pause**:  

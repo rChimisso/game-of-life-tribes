@@ -154,10 +154,8 @@ export class SelectorEditor implements OnChanges, ControlValueAccessor, Validato
   public get selectorTribesPerRow(): number {
     const tribeCount = this.tribes.length;
     let perRow = Math.max(1, tribeCount);
-    if (tribeCount > 8) {
+    if (tribeCount >= 4) {
       perRow = Math.ceil(tribeCount / 2);
-    } else if (tribeCount > 4) {
-      perRow = 4;
     }
     return perRow;
   }

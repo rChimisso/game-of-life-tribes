@@ -27,16 +27,16 @@ The Packing section chooses how many bits are used to store each cell. Lower val
 
 ## Choosing A Value
 
-A packing value must support the number of states in the ruleset, including `dead`. The maximum state count is $2^\texttt{bitsPerCell}$:
+A packing value must support the number of states in the ruleset, including `dead`. The maximum state count is $\max\left(2^\texttt{bitsPerCell},\,256\right)$:
 
-| Bits/cell |             States | Cells per `u32` word |
-| --------- | -----------------: | -------------------: |
-| $1$       |                $2$ |                 $32$ |
-| $2$       |                $4$ |                 $16$ |
-| $4$       |               $16$ |                  $8$ |
-| $8$       |              $256$ |                  $4$ |
-| $16$      |          $65\,536$ |                  $2$ |
-| $32$      | $4\,294\,967\,296$ |                  $1$ |
+| Bits/cell | States | Cells per `u32` word |
+| --------- | -----: | -------------------: |
+| $1$       |    $2$ |                 $32$ |
+| $2$       |    $4$ |                 $16$ |
+| $4$       |   $16$ |                  $8$ |
+| $8$       |  $256$ |                  $4$ |
+| $16$      |  $256$ |                  $2$ |
+| $32$      |  $256$ |                  $1$ |
 
 As covered in the [benchmark results](Benchmark-Results), tighter packings are most useful when recording and to support larger grids, while wider packings are better suited to non-recording runs with small grids and to rulesets that need more tribes.
 

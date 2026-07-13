@@ -340,7 +340,7 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.4 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
 </gol-wiki-footer>
   </aside>
   <main>
@@ -348,41 +348,45 @@
       <article class="wiki-markdown" jsaction="click:;"><h1 id="tribes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#tribes" aria-label="Link to this section">#</a>Tribes</h1>
 <h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Tribes section edits the named cell states used by drawing, rules, bounded-grid boundaries, rendering, snapshots, and exports. Every ruleset includes the special <code>dead</code> tribe for empty cells; the UI only lists editable non-dead tribes. For the persisted tribe JSON shape, see <a href="/game-of-life-tribes/wiki/rule-expressions/#tribe-json">Tribe JSON</a>.</p>
-<h2 id="tribe-list"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#tribe-list" aria-label="Link to this section">#</a>Tribe List</h2>
+<h2 id="tribe-list-controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#tribe-list-controls" aria-label="Link to this section">#</a>Tribe List Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes.png" alt="Tribes section">
-</p><p>Each row shows a tribe's color swatch and ID. Its actions open the editor, discard an open edit, or remove the tribe from the pending list. <strong>Add tribe</strong> opens a separate editor for creating a new entry.</p>
+</p><ul>
+<li><strong>Tribe swatch</strong>:<br>Shows the tribe's current color.</li>
+<li><strong>Tribe name</strong>:<br>Shows the tribe's current ID.</li>
+<li><strong>Edit / confirm</strong>:<br>Opens the editor for an existing tribe. While editing, the same button becomes a check mark that confirms the tribe draft in the list.</li>
+<li><strong>Discard edit</strong>:<br>Closes an open editor and restores that tribe's values from before editing began.</li>
+<li><strong>Remove</strong>:<br>Removes the tribe from the list. Existing references may prevent that removal from being applied.</li>
+<li><strong>Add tribe</strong>:<br>Opens a separate editor with an empty name and a random color.</li>
+<li><strong>Apply</strong>:<br>Commits the complete tribe list. It is disabled while the simulation is running, a download is active, nothing has changed, the list is empty or invalid, a tribe is still being edited, or a rule, packing, or active bounded-boundary constraint blocks the change.</li>
+<li><strong>Restore</strong>:<br>Discards all additions, edits, and removals and restores the previously committed tribe list.</li>
+</ul>
 <h2 id="editing-a-tribe"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#editing-a-tribe" aria-label="Link to this section">#</a>Editing A Tribe</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes-edit.png" alt="Editing an existing tribe">
 </p><ol>
-<li>Select <strong>Edit</strong> on an existing tribe row.</li>
+<li>Select <strong>Edit</strong> on an existing tribe.</li>
 <li>Change its <strong>Name</strong> or color. The color can be selected from the palette, randomized, entered as a <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>6</mn></mrow><annotation encoding="application/x-tex">6</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">6</span></span></span></span>-character RGB hex value without <code>#</code>, or chosen with the browser's native color picker.</li>
-<li>Select the check-mark button to confirm the row edit. This updates the pending tribe list but does not yet change the running ruleset.</li>
-<li>Select <strong>Apply</strong> at the bottom of the section to commit all pending tribe changes.</li>
+<li>Select the check-mark button to confirm the edit. This updates the tribe list but does not yet change the running ruleset.</li>
+<li>Select <strong>Apply</strong> at the bottom of the section to commit all tribe changes.</li>
 </ol>
-<p>While a row editor is open, its close button discards that row's unconfirmed changes and restores the values from before the editor was opened. The check-mark button is enabled only when the draft is valid and differs from the current pending row.</p>
-<p>Renaming a tribe updates its ID in committed rules and in the boundary tribe setting when the pending list is applied. Recoloring changes the color used by rendering, snapshots, and exports.</p>
+<p>While a tribe editor is open, its close button discards its unconfirmed changes and restores the values from before the editor was opened. The check-mark button is enabled only when the draft is valid and differs from the current values.</p>
+<p>Renaming a tribe updates its ID in committed rules and in the boundary tribe setting when the list is applied. Recoloring changes the color used by rendering, snapshots, and exports.</p>
 <h2 id="adding-a-tribe"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#adding-a-tribe" aria-label="Link to this section">#</a>Adding A Tribe</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes-add.png" alt="Adding a new tribe">
 </p><ol>
 <li>Select <strong>Add tribe</strong>. The editor opens with an empty name and a random color.</li>
 <li>Enter a valid <strong>Name</strong> and adjust the color if needed.</li>
-<li>Select <strong>Add</strong> to place the new tribe in the pending list, or <strong>Cancel</strong> to close the editor without adding it.</li>
-<li>Select <strong>Apply</strong> to commit the pending tribe list to the ruleset.</li>
+<li>Select <strong>Add</strong> to place the new tribe in the list, or <strong>Cancel</strong> to close the editor without adding it.</li>
+<li>Select <strong>Apply</strong> to commit the tribe list to the ruleset.</li>
 </ol>
-<p>Adding a tribe may require a wider packing format. The section reports when packing will be increased automatically, warns when the wider format exceeds the recording frame limit, and blocks applying the list when the current grid would exceed the supported WebGPU frame-size limit.</p>
+<p>Adding a tribe may require a wider packing format. The section reports when packing will be increased automatically, warns when the wider format exceeds the recording frame limit, and blocks applying the list when the current grid would exceed the supported frame-size limit.</p>
 <h2 id="removing-a-tribe"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#removing-a-tribe" aria-label="Link to this section">#</a>Removing A Tribe</h2>
-<p>Select <strong>Remove</strong> on a tribe row to remove it from the pending list. Removal can be blocked if committed rules still reference the tribe, or if it is the active boundary tribe while the grid topology is bounded.</p>
-<h2 id="applying-or-restoring-changes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#applying-or-restoring-changes" aria-label="Link to this section">#</a>Applying Or Restoring Changes</h2>
-<ul>
-<li><strong>Apply</strong> commits the complete pending tribe list. It is disabled while the simulation is running, a download is active, nothing has changed, the list is empty or invalid, a tribe row is still being edited, or a rule or active bounded-boundary reference blocks the change.</li>
-<li><strong>Restore</strong> discards all pending additions, edits, and removals and restores the previously committed tribe list.</li>
-</ul>
+<p>Select <strong>Remove</strong> on a tribe to remove it from the list. Applying that removal is blocked if committed rules still reference the tribe, or if it is the active boundary tribe while the grid topology is bounded.</p>
 <h2 id="validation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/tribes#validation" aria-label="Link to this section">#</a>Validation</h2>
 <p>A tribe ID must be non-empty, unique, alphanumeric, and cannot be <code>dead</code>. Colors must be <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>6</mn></mrow><annotation encoding="application/x-tex">6</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">6</span></span></span></span> hex characters.</p>
-<p>The UI shows warnings for changes that affect packing or existing references and errors for conditions that block applying the pending list.</p>
+<p>The UI shows warnings for changes that affect packing or existing references and errors for conditions that block applying the list.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
         <!--ngtns-->
@@ -404,13 +408,13 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.27.4 · Open source</span>
+<span _ngcontent-ng-c1782639630>v0.27.5 · Open source</span>
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-F5K7RVV4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-B3ZC76OX.js">
-<link rel="modulepreload" href="chunk-HQFJDXIS.js">
+  <link rel="modulepreload" href="chunk-S2YSVMKP.js"><link rel="modulepreload" href="chunk-R2IIEJ4V.js"><link rel="modulepreload" href="chunk-MX3UQY3Y.js"><link rel="modulepreload" href="chunk-JDYZ45GB.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BSRQHKPZ.js" type="module"></script>
+<link rel="modulepreload" href="chunk-GNJOO6EX.js">
+<link rel="modulepreload" href="chunk-XB2PTZZW.js">
 <link rel="modulepreload" href="chunk-ZYODDBYK.js">
 
 

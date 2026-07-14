@@ -1,37 +1,10 @@
-import {COMPARISON_OPERATOR_WGSL} from '../model/comparison-operator-wgsl';
+import {ActiveRule, APPLIED_RULE_WGSL, COMPARISON_OPERATOR_WGSL, RULE_CHAIN_SIZE} from '../model/compute-wgsl';
 import {DispatchPlan2D} from '../model/dispatch-plan';
 
 import {normalizeBecome, normalizeBecomeExpression, normalizeCountExpression, normalizeRandomSeed, normalizeRuleProbability, normalizeSelector, normalizeSelectorForSignature, probabilityThresholdU32, selectorSignature} from '~gol/feature/home/logic/rule-editor';
 import {Grid} from '~gol/feature/home/model/grid';
 import {GridFormat} from '~gol/feature/home/model/grid-format';
-import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Rule, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
-
-/**
- * Active rule metadata used by shader generation.
- *
- * @interface ActiveRule
- * @typedef {ActiveRule}
- */
-interface ActiveRule {
-  /**
-   * Normalized rule.
-   *
-   * @type {Rule<readonly Tribe[]>}
-   */
-  rule: Rule<readonly Tribe[]>;
-  /**
-   * Stable priority index in the original ruleset.
-   *
-   * @type {number}
-   */
-  priorityIndex: number;
-  /**
-   * Normalized probability percentage.
-   *
-   * @type {number}
-   */
-  probability: number;
-}
+import {AND_CLAUSE_KIND, BOUNDED_GRID_TOPOLOGY, Become, Clause, COMBINE_BECOME_KIND, COMPARISON_CLAUSE_KIND, COUNT_CLAUSE_KIND, DEAD_TRIBE_ID, DIFFERENT_IN_TRIBE_SELECTOR_KIND, DIFFERENT_TRIBE_SELECTOR_KIND, EMPTY_CLAUSE_KIND, EXACTLY_CLAUSE_KIND, TRIBES_SELECTOR_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MAX_CLAUSE_KIND, MIN_CLAUSE_KIND, MINORITY_BECOME_KIND, NONE_CLAUSE_KIND, NOT_CLAUSE_KIND, OR_CLAUSE_KIND, Ruleset, SAME_BECOME_KIND, SAME_TRIBE_SELECTOR_KIND, Tribe, TribeSelector, XOR_CLAUSE_KIND} from '~gol/feature/home/model/rule';
 
 /**
  * Emits remapped dispatch constants when the workgroups cannot be submitted directly.
@@ -244,13 +217,19 @@ function pushRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: 
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
  */
 function pushDeterministicRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
-  for (let index = 0; index < activeRules.length; index++) {
-    const {rule} = activeRules[index]!;
-    const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
-    lines.push(index === 0 ? `  if (${condition}) {` : `  } else if (${condition}) {`);
-    pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '    ');
-  }
-  if (activeRules.length > 0) {
+  lines.push('  var applied = false;');
+  for (let start = 0; start < activeRules.length; start += RULE_CHAIN_SIZE) {
+    const chain = activeRules.slice(start, start + RULE_CHAIN_SIZE);
+    lines.push('  if (!applied) {');
+    for (let index = 0; index < chain.length; index++) {
+      const ruleIndex = start + index;
+      const {rule} = chain[index]!;
+      const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
+      lines.push(index === 0 ? `    if (${condition}) {` : `    } else if (${condition}) {`);
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${ruleIndex}`, '      ');
+      lines.push(`      ${APPLIED_RULE_WGSL}`);
+    }
+    lines.push('    }');
     lines.push('  }');
   }
   lines.push('');
@@ -268,20 +247,21 @@ function pushDeterministicRuleChain(lines: string[], activeRules: ActiveRule[], 
  */
 function pushProbabilisticRuleChain(lines: string[], activeRules: ActiveRule[], countVarMap: Map<string, string>, eqVarMap: Map<string, string>, tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): void {
   lines.push('  var applied = false;');
-  for (let index = 0; index < activeRules.length; index++) {
-    const activeRule = activeRules[index]!;
-    const {rule, probability, priorityIndex} = activeRule;
-    const condition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
-    lines.push(`  if (!applied && ${condition}) {`);
-    if (probability === 100) {
-      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '    ');
-      lines.push('    applied = true;');
-    } else {
-      lines.push(`    if (probabilityHash(x, y, generation, ${priorityIndex}u, RANDOM_SEED) < ${probabilityThresholdU32(probability)}u) {`);
-      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${index}`, '      ');
-      lines.push('      applied = true;');
-      lines.push('    }');
+  for (let start = 0; start < activeRules.length; start += RULE_CHAIN_SIZE) {
+    const chain = activeRules.slice(start, start + RULE_CHAIN_SIZE);
+    lines.push('  if (!applied) {');
+    for (let index = 0; index < chain.length; index++) {
+      const ruleIndex = start + index;
+      const activeRule = chain[index]!;
+      const {rule, probability, priorityIndex} = activeRule;
+      const clauseCondition = generateClauseExpr(rule.clause, countVarMap, eqVarMap, tribes, tribeIndex);
+      const probabilityCondition = probability === 100 ? 'true' : `probabilityHash(x, y, generation, ${priorityIndex}u, RANDOM_SEED) < ${probabilityThresholdU32(probability)}u`;
+      const condition = `(${clauseCondition} && ${probabilityCondition})`;
+      lines.push(index === 0 ? `    if ${condition} {` : `    } else if ${condition} {`);
+      pushBecomeAssignment(lines, normalizeBecomeExpression(normalizeBecome(rule.become)), tribes, tribeIndex, `rule_${ruleIndex}`, '      ');
+      lines.push(`      ${APPLIED_RULE_WGSL}`);
     }
+    lines.push('    }');
     lines.push('  }');
   }
   lines.push('');
@@ -442,6 +422,7 @@ function pushCombineBecomeAssignment(
   tieContext: RankTieContext | null
 ): void {
   const maskVar = `${label}_input_mask`;
+  const matchedVar = `${label}_matched`;
   lines.push(`${indent}var ${maskVar}: u32 = 0u;`);
   for (const candidateId of combineCandidateIds(tribes, tribeIndex, tieContext)) {
     const participationExpr = combineBaseParticipationExpr(candidateId, tribeIndex, tieContext);
@@ -452,16 +433,26 @@ function pushCombineBecomeAssignment(
   const deadPresentVar = `${label}_dead_present`;
   const deadCountExpr = buildNeighborPredicateCountExpr(neighbor => `${neighbor} == ${resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)}u`);
   lines.push(`${indent}let ${deadPresentVar} = ${deadCountExpr} > 0u;`);
+  lines.push(`${indent}var ${matchedVar} = false;`);
   const entries = [...become.entries].sort((left, right) => Number(rowRequiresExplicitDead(right, tribeIndex)) - Number(rowRequiresExplicitDead(left, tribeIndex)));
-  entries.forEach((entry, index) => {
-    const rowMask = combineRowMaskExpr(entry.inputs, tribes, tribeIndex, tieContext);
-    const deadCondition = rowRequiresExplicitDead(entry, tribeIndex) ? ` && ${deadPresentVar}` : '';
-    const rowCondition = `${maskVar} == (${rowMask})${deadCondition}`;
-    lines.push(index === 0 ? `${indent}if (${rowCondition}) {` : `${indent}} else if (${rowCondition}) {`);
-    lines.push(`${indent}  result = ${resolveTribeTarget(entry.output, tribeIndex)}u;`);
-  });
+  for (let start = 0; start < entries.length; start += RULE_CHAIN_SIZE) {
+    const chain = entries.slice(start, start + RULE_CHAIN_SIZE);
+    lines.push(`${indent}if (!${matchedVar}) {`);
+    for (let index = 0; index < chain.length; index++) {
+      const entry = chain[index]!;
+      const coverageMask = combineRowCoverageMaskExpr(entry.inputs, tribes, tribeIndex);
+      const inputPresence = combineRowInputPresenceExpr(entry.inputs, tribes, tribeIndex, tieContext, deadPresentVar);
+      const deadCondition = rowRequiresExplicitDead(entry, tribeIndex) ? ` && ${deadPresentVar}` : '';
+      const rowCondition = `((${maskVar} & ~(${coverageMask})) == 0u && ${inputPresence}${deadCondition})`;
+      lines.push(index === 0 ? `${indent}  if ${rowCondition} {` : `${indent}  } else if ${rowCondition} {`);
+      lines.push(`${indent}    result = ${resolveTribeTarget(entry.output, tribeIndex)}u;`);
+      lines.push(`${indent}    ${matchedVar} = true;`);
+    }
+    lines.push(`${indent}  }`);
+    lines.push(`${indent}}`);
+  }
   if (entries.length > 0) {
-    lines.push(`${indent}} else {`);
+    lines.push(`${indent}if (!${matchedVar}) {`);
     pushFallbackBecomeAssignment(lines, become.default, tribes, tribeIndex, `${label}_fallback`, `${indent}  `);
     lines.push(`${indent}}`);
   } else {
@@ -793,26 +784,56 @@ function combineBaseParticipationExpr(candidateId: number, tribeIndex: ReadonlyM
 }
 
 /**
- * Builds the dynamic mask expression for one combination lookup row.
+ * Builds the mask of non-dead tribes allowed by one combination lookup row.
  *
  * @param {readonly TribeSelector<readonly Tribe[]>[]} inputs row input selectors.
  * @param {readonly Tribe[]} tribes active tribe list.
  * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
- * @param {RankTieContext | null} tieContext active rank tie context.
  * @returns {string} WGSL mask expression.
  */
-function combineRowMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null): string {
+function combineRowCoverageMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>): string {
   const parts: string[] = [];
   for (const input of inputs) {
     const selector = normalizeSelector(input);
     for (const candidateId of selectorCandidateIds(selector, tribes, tribeIndex)) {
       if (candidateId !== resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)) {
-        const participationExpr = combineRowSelectorParticipationExpr(selector, candidateId, tribeIndex, tieContext);
-        parts.push(`select(0u, ${maskBitExpr(candidateId)}, ${participationExpr})`);
+        const eligibilityExpr = selectorCandidateEligibilityExpr(selector, candidateId, tribeIndex);
+        parts.push(`select(0u, ${maskBitExpr(candidateId)}, ${eligibilityExpr})`);
       }
     }
   }
   return parts.length > 0 ? parts.join(' | ') : '0u';
+}
+
+/**
+ * Builds the WGSL expression requiring each combination input to be present.
+ *
+ * @param {readonly TribeSelector<readonly Tribe[]>[]} inputs row input selectors.
+ * @param {readonly Tribe[]} tribes active tribe list.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ * @param {RankTieContext | null} tieContext active rank tie context.
+ * @param {string} deadPresentVar WGSL variable tracking dead-neighbor presence.
+ * @returns {string} WGSL boolean expression.
+ */
+function combineRowInputPresenceExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], tribes: readonly Tribe[], tribeIndex: ReadonlyMap<string, number>, tieContext: RankTieContext | null, deadPresentVar: string): string {
+  const inputExpressions: string[] = [];
+  for (const input of inputs) {
+    const selector = normalizeSelector(input);
+    const candidateExpressions: string[] = [];
+    for (const candidateId of selectorCandidateIds(selector, tribes, tribeIndex)) {
+      if (candidateId !== resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex)) {
+        candidateExpressions.push(combineRowSelectorParticipationExpr(selector, candidateId, tribeIndex, tieContext));
+      }
+    }
+    if (candidateExpressions.length > 0) {
+      inputExpressions.push(`(${candidateExpressions.join(' || ')})`);
+    } else if (selectorExplicitlyIncludesDead(selector, tribeIndex)) {
+      inputExpressions.push(deadPresentVar);
+    } else {
+      inputExpressions.push('false');
+    }
+  }
+  return inputExpressions.length > 0 ? inputExpressions.join(' && ') : 'false';
 }
 
 /**
@@ -823,11 +844,23 @@ function combineRowMaskExpr(inputs: readonly TribeSelector<readonly Tribe[]>[], 
  * @returns {boolean} whether the dead tribe is explicitly selected.
  */
 function rowRequiresExplicitDead(entry: Readonly<{inputs: readonly TribeSelector<readonly Tribe[]>[]}>, tribeIndex: ReadonlyMap<string, number>): boolean {
+  return entry.inputs.some(input => selectorExplicitlyIncludesDead(normalizeSelector(input), tribeIndex));
+}
+
+/**
+ * Returns whether one selector explicitly includes the dead tribe.
+ *
+ * @param {TribeSelector<readonly Tribe[]>} selector normalized selector.
+ * @param {ReadonlyMap<string, number>} tribeIndex runtime tribe lookup.
+ * @returns {boolean} whether dead is explicitly selected.
+ */
+function selectorExplicitlyIncludesDead(selector: TribeSelector<readonly Tribe[]>, tribeIndex: ReadonlyMap<string, number>): boolean {
   const deadId = resolveTribeTarget(DEAD_TRIBE_ID, tribeIndex);
-  return entry.inputs.some(input => {
-    const selector = normalizeSelector(input);
-    return (selector.kind === TRIBES_SELECTOR_KIND || selector.kind === DIFFERENT_IN_TRIBE_SELECTOR_KIND) && resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
-  });
+  let includesDead = false;
+  if (selector.kind === TRIBES_SELECTOR_KIND || selector.kind === DIFFERENT_IN_TRIBE_SELECTOR_KIND) {
+    includesDead = resolveTribeIds(selector.tribes as string[], tribeIndex).includes(deadId);
+  }
+  return includesDead;
 }
 
 /**

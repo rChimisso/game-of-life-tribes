@@ -1,6 +1,6 @@
 # Benchmark Results
 
-The normalized source data for these tables is stored in [`benchmark/benchmark-results.csv`](https://github.com/rChimisso/game-of-life-tribes/blob/main/benchmark/benchmark-results.csv), where the full benchmark values can be checked directly.
+The normalized source data for these tables is stored in [`benchmark/benchmark-results.csv`](https://github.com/rChimisso/game-of-life-tribes/tree/main/benchmark/benchmark-results.csv), where the full benchmark values can be checked directly.
 
 The tables report the best observed run out of $3$ repeats. For this kind of benchmark, the best run is often the most useful estimate of how fast the device can execute the workload when background interference is lowest. Slower repeats can still be useful to inspect, but they often include unrelated scheduling, browser, or system activity rather than a slower simulation engine. Since this table reports throughput, the selected value is the highest $\texttt{Gen/s}$ observed for that row.
 

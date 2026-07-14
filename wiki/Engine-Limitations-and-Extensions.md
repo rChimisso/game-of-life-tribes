@@ -64,7 +64,7 @@ A built-in experiment system could provide:
 
 NetLogo's [BehaviorSpace](https://docs.netlogo.org/behaviorspace) is a relevant interaction and reproducibility reference, although a WebGPU/browser implementation would need to account for device loss, storage quota, and background throttling.
 
-The project is primarily a concept and interactive engine rather than a high-performance scientific batch-execution tool. It therefore provides basic experimentation capabilities, while extensive sweeps are better suited to a non-browser implementation; the Angular API can also be used to automate experiments, with example scripts available in the repository's [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/blob/main/analysis/) directory.
+The project is primarily a concept and interactive engine rather than a high-performance scientific batch-execution tool. It therefore provides basic experimentation capabilities, while extensive sweeps are better suited to a non-browser implementation; the Angular API can also be used to automate experiments, with example scripts available in the repository's [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/) directory.
 
 ## Metrics
 

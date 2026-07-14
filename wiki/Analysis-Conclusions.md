@@ -4,7 +4,7 @@
 
 Both experiments show that initial occupied-cell density can change more than the scale of an outcome: it can change the dominant type of trajectory.
 
-For Wildfire, the strongest observed crossover is centred on $90\%$ initial vegetation density. Median burn fraction rises from $3.756\%$ at $89\%$ to $27.629\%$ at $90\%$ and $53.329\%$ at $91\%$. Run variability is maximal at $90\%$, where the burn-fraction IQR reaches $37.321$ percentage points, then drops to $2.343$ points at $91\%$. This combination of a rising median and a narrow post-transition distribution is stronger evidence than the median alone.
+For Wildfire, the strongest observed crossover is centered on $90\%$ initial vegetation density. Median burn fraction rises from $3.756\%$ at $89\%$ to $27.629\%$ at $90\%$ and $53.329\%$ at $91\%$. Run variability is maximal at $90\%$, where the burn-fraction IQR reaches $37.321$ percentage points, then drops to $2.343$ points at $91\%$. This combination of a rising median and a narrow post-transition distribution is stronger evidence than the median alone.
 
 For Epidemic, the clearest change is between $41\%$ and $42\%$ initial population density. Median infection episodes per initial population rise from $0.0717$ to $1.8876$, peak prevalence from $0.403\%$ to $3.211\%$, mortality from $0.135\%$ to $3.519\%$, and duration from $1\,092$ to $3\,189.5$ generations. Infectious-duration variability is greatest at $41\%$, immediately below the large shift in the median.
 

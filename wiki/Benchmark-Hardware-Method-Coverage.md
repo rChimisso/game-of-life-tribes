@@ -18,7 +18,7 @@ These benchmarks are measured on a laptop using the **Conway** preset and **Toro
 ## Method:
 
 - The laptop is plugged in and the browser is using the dedicated GPU.
-- Each sample is configured through the [benchmark runner](https://github.com/rChimisso/game-of-life-tribes/blob/main/benchmark/benchmark-runner.js), then measured in max speed mode.
+- Each sample is configured through the [benchmark runner](https://github.com/rChimisso/game-of-life-tribes/tree/main/benchmark/benchmark-runner.js), then measured in max speed mode.
 - The simulation warms up for $5$ seconds so adaptive batching can settle.
 - After warm-up, the runner pauses, waits $2$ seconds for the generation counter to settle, reads the starting generation, waits another $3$ seconds, then measures a $t=60$ second max-speed run.
 - The ending generation is read $2$ seconds after the measured run stops, and reported speed is $\frac{\text{end}-\text{start}}{t}$. Then, another $28$ seconds are waited to let the device cool down.

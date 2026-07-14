@@ -906,7 +906,7 @@ export interface Rule<T extends readonly Tribe[]> {
    *
    * @type {?Become<T>}
    */
-  become?: Become<T>;
+  become: Become<T>;
   /**
    * Rule application probability percentage.
    *

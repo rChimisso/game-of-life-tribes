@@ -28,9 +28,9 @@ Consequences include:
 
 ## Resurgence Sensitivity
 
-The resurgence definition uses an $11$-generation centred smoother, $0.15\%$ start threshold, $0.05\%$ end threshold held for $25$ generations, $8\times$ trough-to-peak rebound, and $10$-generation persistence requirement. These are explicit, arbitrary analysis choices rather than preset, derived, or standard parameters.
+The resurgence definition uses an $11$-generation centered smoother, $0.15\%$ start threshold, $0.05\%$ end threshold held for $25$ generations, $8\times$ trough-to-peak rebound, and $10$-generation persistence requirement. These are explicit, arbitrary analysis choices rather than preset, derived, or standard parameters.
 
-The current conclusions do not show whether the $31$ runs with at least $1$ resurgence remain the same under nearby settings. The centred mean also uses future values, making it appropriate for retrospective analysis but unsuitable as an online detector.
+The current conclusions do not show whether the $31$ runs with at least $1$ resurgence remain the same under nearby settings. The centered mean also uses future values, making it appropriate for retrospective analysis but unsuitable as an online detector.
 
 ## Possible Analysis Extensions
 

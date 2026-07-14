@@ -19,16 +19,18 @@
 </div>
 <div class="collapsible" [class.muted]="rule.muted" [class.open]="expanded" [formGroup]="form">
   <div class="collapsible-inner">
-    <div class="rule-body">
-      <div class="rule-probability-row gol-grid-tiny">
-        <span class="gol-cell-4" matTooltip="Rule probability percentage">Probability %</span>
-        <gol-number-input class="gol-cell-5" formControlName="probability" tooltip="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
-        <span class="gol-cell-3 error-message" [matTooltip]="probabilityError ?? ''" [matTooltipDisabled]="!probabilityError">{{ probabilityError }}</span>
+    @defer (when expanded) {
+      <div class="rule-body">
+        <div class="rule-probability-row gol-grid-tiny">
+          <span class="gol-cell-4" matTooltip="Rule probability percentage">Probability %</span>
+          <gol-number-input class="gol-cell-5" formControlName="probability" tooltip="Probability %" [class.invalid-field]="probabilityControl.invalid" [decimalDigits]="3" [max]="maxRuleProbability" [maxIntegerDigits]="maxRuleProbabilityIntegerDigits" [min]="minRuleProbability" (blurred)="touch()" />
+          <span class="gol-cell-3 error-message" [matTooltip]="probabilityError ?? ''" [matTooltipDisabled]="!probabilityError">{{ probabilityError }}</span>
+        </div>
+        <gol-rule-clause formControlName="clause" [baselineClause]="baselineRule?.clause ?? null" [depth]="0" [path]="[]" [tribes]="tribes" />
+        <div class="rule-output-row">
+          <gol-become-editor formControlName="become" [baselineBecome]="baselineBecome()" [tribes]="tribes" />
+        </div>
       </div>
-      <gol-rule-clause formControlName="clause" [baselineClause]="baselineRule?.clause ?? null" [depth]="0" [path]="[]" [tribes]="tribes" />
-      <div class="rule-output-row">
-        <gol-become-editor formControlName="become" [baselineBecome]="baselineBecome()" [tribes]="tribes" />
-      </div>
-    </div>
+    }
   </div>
 </div>

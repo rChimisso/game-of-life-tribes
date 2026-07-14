@@ -19,7 +19,7 @@ For each requested density:
 4. Download the recorded run and its metrics.
 5. Restart and repeat until $30$ runs have been collected, then move to the next density.
 
-This sweep was automated using the scripts under [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/blob/main/analysis/) in the repository while the project was served locally.
+This sweep was automated using the scripts under [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/) in the repository while the project was served locally.
 
 ## Shared Configuration
 
@@ -38,7 +38,7 @@ The fixed ruleset random seed makes Epidemic probability rolls reproducible for 
 
 ### Wildfire
 
-The analysis contains $570$ runs across $19$ densities percentages:
+The analysis contains $570$ runs across $19$ density percentages:
 
 | Sweep | Densities                                              |
 | :---- | :----------------------------------------------------- |
@@ -50,7 +50,7 @@ The dense $85\text{–}95\%$ sweep contains $330$ runs and was added to resolve 
 
 ### Epidemic
 
-The analysis contains $330$ runs across $11$ densities:
+The analysis contains $330$ runs across $11$ density percentages:
 
 | Sweep | Densities                     |
 | :---- | :---------------------------- |

@@ -32,7 +32,7 @@ import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings, LiveMet
 import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePreferences} from './model/preferences';
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, GpuWarningMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
 import {Preset} from './preset';
 import {CONWAY_PRESET} from './preset/conway';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
@@ -829,6 +829,16 @@ export class HomePage implements OnDestroy {
     this.gpuErrorMessage = data.reason;
     openHomeSnack(this.snackBar, `GPU error: ${data.reason}`, 'error');
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Handles engine GPU warnings.
+   *
+   * @public
+   * @param {GpuWarningMessage} data GPU warning message.
+   */
+  public onGpuWarning(data: GpuWarningMessage): void {
+    openHomeSnack(this.snackBar, data.reason, 'warn', 10000);
   }
 
   /**

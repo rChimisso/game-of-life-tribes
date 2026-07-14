@@ -1,5 +1,6 @@
 import {AFTERIMAGE_PRESET} from './afterimage';
 import {ANNEAL_PRESET} from './anneal';
+import {COLOR_MIXING_PRESET} from './color-mixing';
 import {CONWAY_PRESET} from './conway';
 import {CULTURAL_DRIFT_PRESET} from './cultural-drift';
 import {CYCLIC_DOMINANCE_PRESET} from './cyclic-dominance';
@@ -88,11 +89,12 @@ export const PRESETS: readonly Preset[] = [
   REPLICATOR_PRESET,
   DAY_AND_NIGHT_PRESET,
   ANNEAL_PRESET,
-  AFTERIMAGE_PRESET,
   SENESCENCE_PRESET,
+  AFTERIMAGE_PRESET,
   CYCLIC_DOMINANCE_PRESET,
   CULTURAL_DRIFT_PRESET,
   EPIDEMIC_PRESET,
   WILDFIRE_PRESET,
-  SLIME_MOLD_PRESET
+  SLIME_MOLD_PRESET,
+  COLOR_MIXING_PRESET
 ];

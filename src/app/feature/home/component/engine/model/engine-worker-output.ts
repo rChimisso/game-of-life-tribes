@@ -1,4 +1,4 @@
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '~gol/feature/home/model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, GpuWarningMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '~gol/feature/home/model/worker-message';
 import {WorkerMessageHandlerMap} from '~gol/feature/home/model/worker-runner';
 
 /**
@@ -21,7 +21,8 @@ export type EngineWorkerOutputMessage =
   | GenerationMessage
   | RebuildingMessage
   | DeviceLostMessage
-  | GpuErrorMessage;
+  | GpuErrorMessage
+  | GpuWarningMessage;
 
 /**
  * Output callbacks used by the engine worker client.

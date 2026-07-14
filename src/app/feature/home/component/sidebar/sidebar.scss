@@ -89,12 +89,21 @@
       padding: 8px 8px 8px 16px;
       flex-shrink: 0;
 
-      > span {
-        font-size: 0.9rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #d0d0d0;
+      > .sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+
+        > img {
+          width: 1.5rem;
+          height: 1.5rem;
+        }
+
+        > span {
+          font-size: 1rem;
+          font-weight: 650;
+          color: #ededed;
+        }
       }
     }
 

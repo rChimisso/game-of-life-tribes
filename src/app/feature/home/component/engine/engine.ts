@@ -9,7 +9,7 @@ import {ExportFrameOrigin} from '../../model/export-frame-origin';
 import {GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRICS_SETTINGS, LiveMetricsSettings} from '../../model/metrics';
 import {DEFAULT_RULESET, Ruleset, Tribe} from '../../model/rule';
-import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
+import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, GpuWarningMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from '../../model/worker-message';
 
 import {TypedChanges} from '~gol/core/model/typed-change';
 
@@ -316,6 +316,16 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
   public readonly gpuError = new EventEmitter<GpuErrorMessage>();
 
   /**
+   * GPU warning output stream.
+   *
+   * @public
+   * @readonly
+   * @type {EventEmitter<GpuWarningMessage>}
+   */
+  @Output()
+  public readonly gpuWarning = new EventEmitter<GpuWarningMessage>();
+
+  /**
    * Camera math helper.
    *
    * @private
@@ -346,7 +356,8 @@ export class Engine<T extends readonly Tribe[]> implements AfterViewInit, OnChan
     generation: message => this.generation.emit(message),
     rebuilding: message => this.rebuilding.emit(message),
     deviceLost: message => this.deviceLost.emit(message),
-    gpuError: message => this.gpuError.emit(message)
+    gpuError: message => this.gpuError.emit(message),
+    gpuWarning: message => this.gpuWarning.emit(message)
   });
 
   /**

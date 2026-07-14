@@ -28,6 +28,8 @@ For the full selector, clause, outcome, tribe, and rule JSON reference, see [Rul
 
 Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability $100\%$ do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.
 
+Top-level rules use bounded $32$-branch chains, to prevent reaching shader chaining length limit. An `applied` flag is checked only between chunks, so when a matching branch sets it, later chunks are skipped. For probabilistic rules, the probability roll is part of the branch condition, so a failed roll continues to later rules.
+
 ## Expression Handling
 
 Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.
@@ -46,7 +48,7 @@ Ranked outcomes evaluate eligible neighbor tribes selected by the outcome select
 
 The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome. If no candidate exists, the fallback outcome is evaluated. Either branch may keep the current tribe, write a fixed tribe, or use a Combine lookup.
 
-Combine outcomes build a bit mask of participating inputs. Lookup rows are sorted so rows explicitly requiring `dead` are checked before less specific rows. If no row matches, the default outcome is evaluated.
+Combine outcomes build a bit mask of participating non-dead inputs. A row requires every listed input to be present and rejects every non-dead input it does not list. `dead` remains a separate presence requirement, so it can coexist with any matching non-dead combination. Lookup rows are sorted so rows explicitly requiring `dead` are checked before less specific rows. Rows are emitted, like rules, in bounded $32$-row first-match chains, so large lookup tables remain compilable without giving up early-match performance. If no row matches, the default outcome is evaluated.
 
 ## Shader Generation
 
@@ -61,7 +63,8 @@ Combine outcomes build a bit mask of participating inputs. Lookup rows are sorte
 - It emits a local variable for each unique count selector.
 - It emits clause expressions as optimized WGSL boolean expressions, including direct equality or one-sided comparisons for count clauses when a full two-sided range is unnecessary.
 - It emits outcomes as assignments to `result`.
-- It emits one first-match-wins branch chain over active rules, with deterministic probability guards where needed.
+- It emits bounded first-match-wins branch chains over active rules, with deterministic probability guards where needed.
+- It waits for simulation shader diagnostics and asynchronous pipeline creation, surfacing compiler warnings separately from pipeline failures.
 - It emits direct assignment branches for $100\%$ rules, even when other active rules in the same shader are probabilistic.
 - It emits a random-seed constant and hash helper only when active probabilistic rules require probability rolls.
 

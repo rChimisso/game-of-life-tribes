@@ -2,8 +2,8 @@
 
 This section documents density-sweep experiments performed with the built-in [Wildfire](Presets#wildfire) and [SIRSD Epidemic](Presets#sirsd-epidemic) presets. It covers the run protocol, derived metrics, observed regime changes, and qualitative comparisons with established models.
 
-The reported numbers describe runs automatically collected using the scripts under [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/blob/main/analysis/) in the repository while the project was served locally.  
-For reproducibility, snapshots for all analysed runs can be found [along side the generation scripts](https://github.com/rChimisso/game-of-life-tribes/blob/main/analysis/snapshots.zip) in the repository.
+The reported numbers describe runs automatically collected using the scripts under [`analysis/`](https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/) in the repository while the project was served locally.  
+For reproducibility, snapshots for all analyzed runs can be found [alongside the generation scripts](https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/snapshots.zip) in the repository.
 
 Note that these runs describe the selected preset rules, grid, and seeding protocol; they are not universal critical thresholds or empirical estimates for real wildfires or epidemics.
 

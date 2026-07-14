@@ -1,6 +1,6 @@
 # Benchmark Conclusions
 
-These conclusions come from the [benchmark results](Benchmark-Results), measured with the **Conway** preset and **Toroidal** topology on the hardware described in [Benchmark hardware, method, and coverage](Benchmark-Hardware-Method-Coverage). The normalized source data is available in [`benchmark/benchmark-results.csv`](https://github.com/rChimisso/game-of-life-tribes/blob/main/benchmark/benchmark-results.csv).
+These conclusions come from the [benchmark results](Benchmark-Results), measured with the **Conway** preset and **Toroidal** topology on the hardware described in [Benchmark hardware, method, and coverage](Benchmark-Hardware-Method-Coverage). The normalized source data is available in [`benchmark/benchmark-results.csv`](https://github.com/rChimisso/game-of-life-tribes/tree/main/benchmark/benchmark-results.csv).
 
 ## Bit Packing Without Recording
 

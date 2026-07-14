@@ -1033,13 +1033,22 @@ function createSimulationParameterResources(): void {
 /**
  * Recreates the simulation compute pipeline and its bind groups.
  */
-function createComputePipeline(): void {
+async function createComputePipeline(): Promise<void> {
   destroySimulationParameterResources();
   simulationDispatchPlan = createSimulationDispatchPlan();
   probabilisticComputeActive = hasActiveProbabilisticRules();
   const wgsl = generateComputeWgsl(ruleset, tribes, packedCols, currentGridSize(), simulationDispatchPlan, gridFormat, tribeIndex);
   const module = device.createShaderModule({label: GPU_LABELS.simulationShaderModule, code: wgsl});
-  computePipeline = device.createComputePipeline({
+  const compilationInfo = await module.getCompilationInfo();
+  const errors = compilationInfo.messages.filter(message => message.type === 'error');
+  const warnings = compilationInfo.messages.filter(message => message.type === 'warning');
+  if (warnings.length > 0) {
+    self.postMessage({type: 'gpuWarning', reason: `Simulation shader warning: ${warnings.map(message => message.message).join(' ')}`});
+  }
+  if (errors.length > 0) {
+    throw new Error(`Simulation shader compilation failed: ${errors.map(message => message.message).join(' ')}`);
+  }
+  computePipeline = await device.createComputePipelineAsync({
     label: GPU_LABELS.simulationPipeline,
     layout: 'auto',
     compute: {module, entryPoint: 'main'}
@@ -2709,7 +2718,7 @@ async function buildPipelines(): Promise<void> {
   createTribeColorBuffer();
   createRenderPipeline();
   createRenderBindGroups();
-  createComputePipeline();
+  await createComputePipeline();
   createBrushPipeline();
   createMetricsPipelines();
   await initOpfs();
@@ -2767,7 +2776,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
       await createGridBuffers();
       createTribeColorBuffer();
       createRenderPipeline();
-      createComputePipeline();
+      await createComputePipeline();
       createBrushPipeline();
       createRenderBindGroups();
       createMetricsPipelines();
@@ -2792,7 +2801,7 @@ async function rebuildForNewRuleset(): Promise<boolean> {
         await createGridBuffers();
         createTribeColorBuffer();
         createRenderPipeline();
-        createComputePipeline();
+        await createComputePipeline();
         createBrushPipeline();
         createRenderBindGroups();
         createMetricsPipelines();

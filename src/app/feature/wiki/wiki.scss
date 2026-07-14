@@ -24,12 +24,20 @@ gol-wiki {
     backdrop-filter: blur(8px);
 
     > .wiki-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
       justify-self: start;
       color: #ededed;
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 650;
       text-align: left;
       min-width: 19rem;
+
+      > img {
+        width: 1.5rem;
+        height: 1.5rem;
+      }
     }
 
     > gol-wiki-search {
@@ -44,18 +52,18 @@ gol-wiki {
       justify-content: end;
       gap: 0.5rem;
       font-size: 0.85rem;
-      min-width: 19rem;
+      min-width: 16.78rem;
     }
 
     @media (max-width: $desktop-large) {
       > .wiki-brand {
         min-width: fit-content;
-        margin-right: 2rem;
+        margin-right: 1rem;
       }
 
       > nav {
         min-width: fit-content;
-        margin-left: 2rem;
+        margin-left: 1rem;
       }
     }
 
@@ -70,7 +78,7 @@ gol-wiki {
 
       > gol-wiki-search {
         min-width: 12rem;
-        width: clamp(12rem, 50vw, 32rem);
+        width: clamp(12rem, 100%, 32rem);
         justify-self: end;
         grid-column: 2;
         margin-right: 0;
@@ -88,7 +96,6 @@ gol-wiki {
 
       > .wiki-brand {
         justify-self: center;
-        font-size: 0.9rem;
       }
 
       > gol-wiki-search {

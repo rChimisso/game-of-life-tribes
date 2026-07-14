@@ -1091,6 +1091,27 @@ export interface GpuErrorMessage {
 }
 
 /**
+ * GPU compilation warning payload emitted by the worker.
+ *
+ * @interface GpuWarningMessage
+ * @typedef {GpuWarningMessage}
+ */
+export interface GpuWarningMessage {
+  /**
+   * Worker response discriminator.
+   *
+   * @type {'gpuWarning'}
+   */
+  type: 'gpuWarning';
+  /**
+   * Warning detail.
+   *
+   * @type {string}
+   */
+  reason: string;
+}
+
+/**
  * Inbound messages accepted by the simulation worker.
  *
  * @typedef {WorkerMessage}

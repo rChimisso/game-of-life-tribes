@@ -23,6 +23,7 @@
 | MP4 persisted FPS             |                             $1$ to $240$ | Bounds user settings.                                                 |
 | MP4 persisted bitrate         |                  $1$ to $60\text{ Mbps}$ | Bounds user settings.                                                 |
 | Max combine inputs per row    |                                      $8$ | Matches neighbor-scale logic and keeps generated rules bounded.       |
+| Rule branches per WGSL chain  |                                     $32$ | Avoids long chains to prevent reaching the shader chaining limit.     |
 | Random seed                   |                $1$ to $4\,294\,967\,295$ | Keeps deterministic probability rolls inside unsigned $32$-bit space. |
 | Rule probability input        |                             $0$ to $100$ | Percentage with up to $3$ decimal digits.                             |
 | Brush density                 |                           $1$ to $100\%$ | Bounds density validation and shader selection percentage.            |

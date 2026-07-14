@@ -1,170 +1,135 @@
 # Game of Life: Tribes
 
-##### A colorful cellular automata playground for rules, factions, histories, and emergent worlds.
+**A WebGPU cellular-automata playground for building rules, competing populations, and emergent worlds.**
 
-## Description
+[Open the app](https://rchimisso.github.io/game-of-life-tribes/) · [Read the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/) · [Browse the source](https://github.com/rChimisso/game-of-life-tribes)
 
-**Game of Life: Tribes** is an interactive engine for exploring [cellular automata](https://en.wikipedia.org/wiki/Cellular_automaton) inspired by [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life). It keeps the same simple foundation of a grid evolving one generation at a time, but expands it into a more powerful superset: cells can belong to different tribes, rules can target specific tribes or relationships between them, and outcomes can express more than the usual alive-or-dead transition.
+<!-- MEDIA SLOT — Hero: a 16:9 screenshot or 6–10 second loop of a colorful multi-tribe simulation, with the canvas occupying most of the frame and the sidebar open. Avoid tiny text. -->
 
-In classic Life, every cell is either alive or dead, and the next generation depends only on the number of live neighbors. In **Game of Life: Tribes**, a cell belongs to a named tribe, and rules decide whether it stays in that tribe, switches to another tribe, inherits a tribe from nearby cells, or disappears into the `dead` state. That extra vocabulary makes the engine useful for experimenting with competing populations, trails, territory, material spread, and other local interactions that emerge from simple neighbor-based rules.
+**Game of Life: Tribes** starts with the familiar idea of Conway's Game of Life, a grid that changes one generation at a time, and gives it a richer vocabulary: cells belong to named tribes, rules can reason about the relationship between neighboring tribes, and outcomes can preserve, replace, inherit, or combine states.
 
-> Image slot: main simulation screenshot, ideally showing the canvas and sidebar together.
+The result is a browser-based space for exploring classic Life-like rules, competing populations, fading trails, territorial behavior, critical densities, and rule systems of your own design. The simulation runs on a dedicated WebGPU worker, so the interface stays responsive while the engine advances the grid, records history, and prepares exports.
 
-## How The Logic Works
+## Start Here
 
-The simulation advances in generations. During each generation, every cell reads its current state and the state of its [Moore neighborhood](https://en.wikipedia.org/wiki/Moore_neighborhood) and changes state based on that.
+The app requires a browser with [WebGPU support](https://caniuse.com/webgpu).
 
-The grid can run as a torus or as a bounded surface. Toroidal grids wrap neighbor reads and brush strokes across opposite edges, so patterns leaving one side reappear from the other. Bounded grids keep the frame dimensions unchanged but resolve off-grid neighbor reads to a selected virtual boundary tribe, and drawing clips at the edge instead of wrapping.  
-Toroidal grid avoids hard borders and makes the simulation behave like a continuous surface with [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions), while bounded grid preserves a finite world with explicit edge effects, allowing borders to act as walls or as a fixed surrounding environment through the selected virtual boundary tribe.
+1. Open the sidebar and load a preset (defaults to Conway's).
+2. Choose a grid size, topology, and packing format if needed.
+3. Pick a draw tribe and paint an initial layout on the canvas.
+4. Run, pause, or step through generations; use **Max** for the highest available throughput.
+5. Enable recording before the part of a run you want to inspect or export.
 
-Rules are evaluated as clauses plus outcomes:
+The built-in presets are designed to be edited. Start with one, then change a threshold, mute a rule, add a tribe, or redraw the canvas and see how local changes alter global behavior.
 
-- A **clause** decides whether a rule matches a cell.
-- An **outcome** decides what the cell becomes when the clause matches.
-- Rules are evaluated from top to bottom, and the first matching rule wins.
-- If no rule matches, the cell becomes `dead`.
+For a guided tour of the controls, canvas, drawing tools, metrics, downloads, and snapshots, see the [UI section of the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/ui).
 
-This ordering matters. A broad rule placed near the top can catch cells before a more specific rule below it ever runs. When designing a ruleset, put exceptional or narrow cases first, and use broader fallback-style rules later.  
-Muting a rule removes it from this chain without deleting it, which is useful when testing whether a behavior comes from one rule or from an interaction between several rules.
+<!-- MEDIA SLOT — Quick-start: three small, labeled screenshots showing preset selection, painting an initial layout, and a running result. -->
 
-Clauses can ask questions such as:
+## What Makes It Different
 
-- Is the current cell part of a specific tribe?
-- Does it have exactly, at least, at most, or between a range of selected neighbors?
-- Are there no neighbors from a selected tribe?
-- Does one neighbor group outnumber another?
-- Do several smaller clauses all match, or does at least one of them match?
+### Tribes and rules
 
-Neighbor selection is also tribe-aware. A rule can count explicit tribes, the same tribe as the current cell, different tribes, or candidates involved in a majority-style choice. This is where the engine starts to move beyond ordinary birth/survival notation: rules can react to composition, not only to the total number of alive cells.
+Classic Life asks whether a cell is alive or dead. Here, a cell can belong to any named tribe, with the built-in `dead` state. Rules are evaluated from top to bottom, and the first matching rule determines the next state.
 
-Outcomes can be simple or dynamic. A matching rule can set a fixed tribe, keep the current tribe, choose the majority or minority tribe among selected neighbors, or combine selected tribes through a lookup. This lets you write rules for classic survival, tribe inheritance, decay, trails, territory pressure, resource spread, and other local interactions without changing the engine code.
+A rule can test the current tribe, count selected neighbors, compare groups of neighbors, and combine smaller conditions. Its outcome can set a fixed tribe, keep the current one, choose a majority or minority neighbor, or combine nearby tribes through a lookup. This makes rule order and composition part of the experiment, not just the neighbor count.
 
-You can edit tribes and rules directly in the app. Add a tribe, give it a color, create a few clauses, choose what matching cells become, and then draw material into the grid to see whether your local rules produce interesting global behavior.
+Read the [rules guide](https://rchimisso.github.io/game-of-life-tribes/wiki/rules), [rule-expression reference](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-expressions), [rule cost model](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-cost-model), and [engine internals](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-engine-internals) for the full rule syntax, capability and evaluation behavior.
 
-> Image slot: close-up of the rule editor with a few tribes and clauses visible.
+<!-- MEDIA SLOT — Rules: a close crop of one readable rule with its clause, neighbor selector, and outcome visible; use a real multi-tribe example rather than an empty editor. -->
 
-Very detailed rule syntax, file formats, metrics internals, and export details can be found in the [Wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/).
+### A canvas built to explore
 
-## Built-In Presets
+Pan and zoom the grid, draw with configurable brushes, switch between toroidal and bounded topology, and choose compact cell packing to balance state capacity against memory and recording cost. Live metrics expose population, tribe distribution, diversity, and interfaces while the simulation runs.
 
-The app ships with presets that act as examples or starting points for the rule system.
+<!-- MEDIA SLOT — Canvas: a before/after pair showing a painted seed at close zoom and the same area after several generations. -->
 
-Some presets stay close to familiar [Life-like](https://en.wikipedia.org/wiki/Life-like_cellular_automaton) automata:
+### History, snapshots, and exports
 
-- **Conway**: the classic Game of Life.
-- **Replicator**: a rule that copies its own structures indefinitely.
-- **Eternal**: cells are born like Life cells, then never die.
-- **Diamoeba**, **Day & Night**, and **Anneal**: single-tribe rules with different growth, symmetry, and smoothing behavior.
+Recording enables step-back and lets you export selected parts of a run as `.golt` saves, metrics, indexed PNG frames, or MP4 video. Snapshots preserve a restartable state; compressed chunk export supports recordings that are too large for a normal browser-side export.
 
-Other presets show why tribes make the engine more expressive:
+<!-- MEDIA SLOT — Recording and export: a 6–10 second loop showing a simulation run, a step-back action, and the resulting MP4 or frame-sequence output. -->
 
-- **Afterimage** adds fading cell states, leaving visible traces behind classic Life activity.
-- **Senescence** gives cells ages and lifecycle stages, so populations can become young, mature, fragile, or exhausted.
-- **Slime Mold** separates exploring tendrils from stable body tissue, creating porous growth and folding boundaries.
-- **Wildfire** uses vegetation density, fire, embers, ash, and obstacles to create spreading, recovering landscapes.
+## Included Presets
 
-Presets are not locked demos. Load one, resize the world, draw into it, change a color, mute a rule, edit a threshold, or add a new tribe. Small edits can turn a stable-looking rule into a chaotic one, or make a noisy preset settle into islands, waves, borders, filaments, and repeating structures.
+The preset library ranges from familiar rules to multi-state systems:
 
-> Image slot: preset gallery or a grid of four generated preset screenshots.
+- **Conway**, **Replicator**, **Diamoeba**, **Day & Night**, and **Anneal** explore Life-like behavior.
+- **Afterimage** and **Senescence** add history, decay, and lifecycle states.
+- **Slime Mold** separates exploring tendrils from stable body tissue.
+- **Wildfire** models vegetation, burning, embers, ash, and obstacles.
+- **SIRSD Epidemic** models local spread, recovery, waning immunity, and mortality.
 
-## Simulation Controls
+They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system.
 
-<img align="left" width="33%" src="readme/playback.png" alt="playback-section">
+<!-- MEDIA SLOT — Presets: a 2×3 gallery of consistently framed screenshots, ideally Conway, Afterimage, Slime Mold, Wildfire, SIRSD Epidemic, and one custom multi-tribe rule. -->
 
-The playback controls cover both watching and inspecting a simulation. You can run or pause, step forward one or more generations, step backward through available history, reset the current setup, and adjust speed. Max speed mode lets the GPU advance the simulation as fast as the current grid, rules, recording settings, and device allow.
+## Analysis
 
-<br clear="left">
+The project includes reproducible density-sweep studies for the Wildfire and SIRSD Epidemic presets on a $512\times512$ toroidal grid.
 
-<img align="right" width="33%" src="readme/grid-size.png" alt="grid-size-section">
+- **Wildfire:** a sharp shift from local fadeouts to sustained burns appears around $90\%$ initial vegetation density. Vegetation resistance produces a consistent `Grass > Bush > Tree` loss ordering.
+- **Epidemic:** the clearest transition occurs between $41\%$ and $42\%$ initial population density, where infection episodes, prevalence, mortality, and duration all rise markedly. Recovered cells can become susceptible again, so some runs produce later resurgences and reinfections.
 
-Navigation is canvas-like. Use pan and zoom to inspect dense regions, follow a moving structure, or work at a comfortable scale on large grids. The grid size and topology can be changed from the sidebar, and the app reports frame-size limits so you can see when a configuration is becoming too heavy for recording or your device. Bounded grids also clamp panning to the grid edges.
+Read the [analysis overview](https://rchimisso.github.io/game-of-life-tribes/wiki/analysis), [Wildfire results](https://rchimisso.github.io/game-of-life-tribes/wiki/wildfire-analysis), and [Epidemic results](https://rchimisso.github.io/game-of-life-tribes/wiki/epidemic-analysis). The source data and generation scripts live in [`analysis/`](analysis/).
 
-<br clear="right">
+<!-- MEDIA SLOT — Analysis: the Wildfire 85–95% regime-change figure, cropped so the crossover and distribution change are legible at README width. -->
 
-<img align="left" width="33%" src="readme/draw-tribe.png" alt="draw-tribe-section">
-
-Drawing tools turn the simulation into a live editor!  
-Pick one or more tribes to paint, or toggle delete mode to erase cells back to `dead`. Change brush size for fine edits or broad seeding. Switch brush shape and fill mode to draw points, blocks, outlines, or larger regions. Brush density controls how much of the footprint is rewritten for each mode: unselected cells stay unchanged in full and outline mode, while spray mode turns them dead.
-
-<br clear="left">
-
-<img align="right" width="33%" src="readme/shortcuts.png" alt="shortcuts-section">
-
-Keyboard shortcuts cover the common loop: play and pause, restart, step backward and forward, change speed, toggle max speed, toggle recording, toggle live metrics, cycle drawing tribes, switch brush shape and fill mode, resize the brush, pan, and zoom.
-
-<br clear="right">
-
-<img align="left" width="33%" src="readme/metrics.png" alt="metrics-section">
-
-Live metrics can be enabled while the simulation runs. They give immediate feedback about population, tribe distribution, diversity, and interfaces between states, which is especially useful for keeping an eye on how a multi-tribe simulation is evolving. Metrics cost extra work, so disabling them can increase maximum simulation speed when you only care about raw throughput.
-
-<br clear="left">
-
-<img align="right" width="33%" src="readme/download.png" alt="download-section">
-
-Recording stores simulation history for later use. It makes stepping backward possible and enables frame, video, and metrics exports, but it consumes storage and can reduce maximum speed. Larger grids create larger recorded frames; depending on how many tribes the ruleset needs, reducing bits per cell can keep frame size, recording storage, and export work more manageable.
-
-<br clear="right">
-
-## Downloads And Snapshots
-
-Snapshots save the current simulation state as a `.golt` file and can be loaded back into the app later. A snapshot is the right tool when you want to preserve a ruleset, grid size, topology, tribe setup, generation counter, and current cell state.
-
-Downloads are for recorded simulation history. After enabling recording and letting the simulation run, you can export selected outputs such as first and last saves, metrics, PNG frames, or an MP4 video. The download panel also lets you choose a frame range and adjust MP4 settings.
-
-For large recordings, chunk download mode can export compressed recording chunks instead of rendering every selected output at once, for later processing. This is useful when the recorded data is too large for a single browser-side export workflow.
-
-If you know you will want a video, frames, or metrics for a run, turn recording on before the interesting part happens. If you're unsure, save a snapshot of the initial state, and then load it back in case something interesting happens: you'll have a second chance at recording it.
-
-> Image slot: short MP4 or GIF preview exported from an interesting preset.
-
-## Technical Overview
-
-**Game of Life: Tribes** is a browser application built with [Angular 20](https://angular.dev/docs) and [WebGPU](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API).
-
-The simulation core runs in a Web Worker and uses WebGPU compute shaders written in [WGSL](https://www.w3.org/TR/WGSL/) to advance the grid and render it efficiently. This keeps the Angular UI responsive while the engine processes large grids, records frames, and communicates generation updates back to the main thread.
-
-The export pipeline also uses workers. Snapshots are encoded and parsed off the main thread, recordings are stored in chunks, and large downloads can stream work through background processing. PNG frame export, metrics export, compressed chunk export, and MP4 generation are all handled as separate workloads so the app can show progress and cancellation state while the browser does the heavy lifting.
-
-MP4 export uses browser media APIs together with [Mediabunny](https://mediabunny.dev/) for writing media output. Temporary recording and export data use the browser's [Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
-
-Browser support, device capabilities, GPU limits, and available storage can heavily affect what the engine can do. A browser without WebGPU cannot run the simulation engine, a device with smaller GPU limits may reject very large grids or exports, and limited storage can shorten practical recording sessions. These constraints matter most when combining large grids, many tribes, high bits-per-cell formats, live metrics, long recordings, PNG frame export, or MP4 generation.
-
-For local development:
-
-```bash
-pnpm install # Install dependencies
-pnpm run serve # Start the development server
-pnpm run build # Create the production build
-```
+<!-- MEDIA SLOT — Analysis: the Epidemic 40–45% regime-change figure, paired with a one-sentence caption about the change in outbreak behavior. -->
 
 ## Benchmark
 
-A detailed benchmark write-up is available in the wiki:
+Benchmarks measure the Conway preset on toroidal grids across packing widths, grid sizes, recording states, and max-speed behavior. Results are device- and browser-specific, but the practical pattern is clear:
 
-- [Hardware, method, and grid coverage](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage/)
-- [Results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results/)
-- [Conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions/)
+- Use the shortest packing that represents the tribes you need, especially while recording.
+- Large grids trade generations per second for high total cell-update throughput.
+- Recording adds GPU readback, CPU processing, compression, and OPFS storage pressure; it is often limited by the browser and storage path as much as by simulation compute.
+- Max speed can run faster than a fixed target because rendering is paused while it is active.
 
-The normalized source data is stored in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv). The runs use the **Conway** preset with **Toroidal** topology on a plugged-in laptop with an Intel Core i7-12700H, an NVIDIA RTX 3070 Ti Laptop GPU, 64 GB of DDR5 RAM, a Samsung SSD 980 PRO, and Opera GX running on the dedicated GPU.
+See the [benchmark method](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage), [results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results), and [conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions). The normalized measurements are in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv).
 
-Main takeaways:
+<!-- MEDIA SLOT — Benchmark: one clean throughput-versus-grid-size chart with a short caption that names the tested browser and hardware. -->
 
-- Without recording, smaller grids may favor wider bit packings, while larger grids generally benefit from shorter bit packings. This depends heavily on the device, browser, and grid size, so test the combinations you actually use.
-- When recording, prefer the shortest bit packing that can represent your tribes. Smaller frames reduce storage use and readback pressure.
-- Bigger grids do fewer generations per second because each generation updates more cells, but total cell updates per second stay fairly consistent once the grid is large enough. Very small grids are mostly overhead-limited.
-- If you only need a reproducible starting point, save a snapshot instead of recording the whole history.
-- If you are unsure whether you will need history later, save a snapshot first. Since evolution is deterministic, you can load it later and record the same run from that point.
-- Max speed can reach higher throughput than fixed target speeds because it disables rendering and does not need to keep the simulation interactive.
-- Every recording run hit backpressure. Recording throughput therefore depends strongly on readback, CPU-side work, browser storage behavior, and storage speed, not only on GPU simulation performance.
+## Game of Life: Tribes and NetLogo
 
-## Useful Notes
+Both tools make spatial models visible and interactive, but they solve different modeling problems. **Game of Life: Tribes** is a WebGPU cellular-automata engine: a packed, fixed grid updates synchronously from local rules. NetLogo is a programmable agent-based modeling environment: its world can contain stationary patches, mobile turtles, and links between turtles, each with its own variables and behavior.
 
-- Rules are evaluated over the whole grid at each generation, so larger grids and heavier metric or recording settings can use more memory, storage, and GPU time.
-- The `dead` tribe represents empty cells. Other tribes are the visible, editable states that rules can create, preserve, count, or transform.
-- Rule order is part of the ruleset. Moving a rule can change the simulation even when the rule itself is unchanged.
-- If a cell should survive, persist, or switch tribe, some rule must explicitly produce that result.
-- Tribe count and bits per cell are connected. More possible tribes require more bits per cell, while fewer tribes can use tighter packing.
-- Recording is most useful when enabled before the event you care about. Snapshots are better for saving a restart point.
-- Browser storage is not infinite. Long recordings on large grids can consume quota quickly, especially with larger bits-per-cell formats.
-- Presets are starting points. Muting one rule or changing one threshold is often enough to reveal what gives a ruleset its character.
+|                          | Game of Life: Tribes                                                                                                                                                         | NetLogo                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Best fit**             | Dense, synchronous grid dynamics and visual emergence                                                                                                                        | Agent-based models of individuals, movement, networks, and institutions                                                                                                   |
+| **Modeling unit**        | A grid cell with a tribe value                                                                                                                                               | Patches, mobile turtles, links, and an observer                                                                                                                           |
+| **Authoring style**      | Configure tribes, clauses, and outcomes in the app                                                                                                                           | Write procedures in the NetLogo language and build a model interface around them                                                                                          |
+| **Scale and speed**      | Designed to update dense packed grids in parallel on WebGPU; usually the better fit for very large cellular grids and high generation throughput                             | General agent behavior trades raw dense-grid throughput for flexibility; practical scale depends strongly on the model, agent count, and machine                          |
+| **Direction and biases** | Rules are local and non-directional: they inspect neighborhood composition, not a neighbor's compass position. The rule editor has no global variables or directional fields | A model can define globals, such as wind direction or strength, and use turtle headings, coordinates, patch values, and procedures to make movement or spread directional |
+| **Main trade-off**       | Fast visual iteration within a deliberately focused cellular-rule system                                                                                                     | A broader modeling language with more freedom, but more model code and performance costs                                                                                  |
+
+Use **Game of Life: Tribes** when you want to answer questions such as: "What patterns emerge if these local states transform under these neighborhood conditions?" It is particularly well suited to exploring reaction-like systems, competing territories, Life variants, and grid-based spread at a scale where immediate visual feedback, recorded history, and exported frames matter.
+
+Use **NetLogo** when the question needs things that are not just a cell's local state: individuals that move and carry their own variables, directed motion from wind or terrain, social/contact networks, choices made by different agent types, or repeatable parameter sweeps over a programmed model.
+
+For example, a grid wildfire with uniform local spread is a natural GoLT experiment; a wildfire model with changing wind, mobile firefighters, roads, and individually modeled trees is more naturally expressed in NetLogo.
+
+NetLogo's [programming guide](https://docs.netlogo.org/programming.html) describes globals, patches, turtles, links, and agentsets; its [BehaviorSpace guide](https://docs.netlogo.org/behaviorspace.html) covers automated experiments, including headless runs.
+
+<!-- MEDIA SLOT — Comparison: a side-by-side visual with a colorful Tribes grid on the left and a NetLogo model with visible turtles or links on the right; label the modeling unit in each panel. -->
+
+## Technical Overview
+
+The application is built with Angular and WebGPU. An `OffscreenCanvas` and the simulation engine run in a Web Worker; WGSL compute shaders evolve the grid and render it without putting the main UI loop under simulation load. Background workers handle snapshots, recording compression, and download work.
+
+Temporary recording data uses the browser's Origin Private File System (OPFS). Available GPU limits, browser APIs, and storage quota determine the largest usable grid and the practical recording/export capacity.
+
+For architecture, rule syntax, snapshot format, exports, limits, and browser requirements, see the [wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/engine).
+
+## Develop Locally
+
+```bash
+pnpm install
+pnpm run serve
+```
+
+Create a production build with:
+
+```bash
+pnpm run build
+```

@@ -7,9 +7,11 @@ import {ActivatedRoute, Router, RouterLink} from '@angular/router';
 import {fromEvent} from 'rxjs';
 
 import {WikiFooter} from './component/footer/wiki-footer';
+import {WikiSearch} from './component/search/wiki-search';
 import {WikiContent, WikiContentPage, WikiNavigationItem, WikiNavigationSection} from './model/wiki-content';
 import wikiContent from './model/wiki-content.generated.json';
 import {DEFAULT_WIKI_PREFERENCES, WIKI_PREFERENCES_STORAGE_KEY, WikiPreferences} from './model/wiki-preferences';
+import {WikiSearchPassage} from './model/wiki-search';
 import {WikiNavigationState} from './service/wiki-navigation-state';
 
 import {SEO_DEFAULT_TITLE, SEO_SITE_URL} from '~gol/core/model/seo-page';
@@ -25,7 +27,12 @@ import {SeoService} from '~gol/core/service/seo';
 @Component({
   selector: 'gol-wiki',
   standalone: true,
-  imports: [MatIcon, RouterLink, WikiFooter],
+  imports: [
+    MatIcon,
+    RouterLink,
+    WikiFooter,
+    WikiSearch
+  ],
   templateUrl: './wiki.html',
   styleUrl: './wiki.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,6 +56,15 @@ export class WikiPage {
    * @type {WikiNavigationSection[]}
    */
   public readonly navigation: WikiNavigationSection[] = this.wikiContent.navigation;
+
+  /**
+   * Build-generated readable passages used by Wiki search.
+   *
+   * @public
+   * @readonly
+   * @type {WikiSearchPassage[]}
+   */
+  public readonly searchPassages: WikiSearchPassage[] = this.wikiContent.searchPassages;
 
   /**
    * Current canonical page slug.

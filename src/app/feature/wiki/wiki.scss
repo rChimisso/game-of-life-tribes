@@ -12,12 +12,11 @@ gol-wiki {
 
   .wiki-header {
     position: sticky;
-    z-index: 5;
+    z-index: 7;
     top: 0;
     display: flex;
     min-height: 3.75rem;
     align-items: center;
-    justify-content: space-between;
     gap: 1rem;
     padding: 0.75rem 1.5rem;
     border-bottom: 1px solid #303044;
@@ -25,29 +24,78 @@ gol-wiki {
     backdrop-filter: blur(8px);
 
     > .wiki-brand {
+      justify-self: start;
       color: #ededed;
       font-size: 1.05rem;
       font-weight: 650;
-      text-align: center;
+      text-align: left;
+      min-width: 19rem;
+    }
+
+    > gol-wiki-search {
+      min-width: 24rem;
+      max-width: 48rem;
+      margin-inline: auto;
     }
 
     > nav {
       display: flex;
       align-items: center;
+      justify-content: end;
       gap: 0.5rem;
       font-size: 0.85rem;
+      min-width: 19rem;
     }
 
-    @media (max-width: $mobile) {
-      padding: 0.75rem 1rem;
-
+    @media (max-width: $desktop-large) {
       > .wiki-brand {
-        font-size: 0.9rem;
+        min-width: fit-content;
+        margin-right: 2rem;
       }
 
       > nav {
-        gap: 0.75rem;
-        font-size: 0.75rem;
+        min-width: fit-content;
+        margin-left: 2rem;
+      }
+    }
+
+    @media (max-width: $desktop-small) {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      padding-right: 1rem;
+
+      > .wiki-brand {
+        margin-right: 0;
+      }
+
+      > gol-wiki-search {
+        min-width: 12rem;
+        width: clamp(12rem, 50vw, 32rem);
+        justify-self: end;
+        grid-column: 2;
+        margin-right: 0;
+      }
+
+      > nav {
+        display: none;
+      }
+    }
+
+    @media (max-width: $mobile) {
+      gap: 0.65rem;
+      padding: 0.75rem 1rem;
+      grid-template-columns: minmax(0, 1fr);
+
+      > .wiki-brand {
+        justify-self: center;
+        font-size: 0.9rem;
+      }
+
+      > gol-wiki-search {
+        width: 100%;
+        justify-self: stretch;
+        grid-column: 1;
+        grid-row: 2;
       }
     }
   }
@@ -641,6 +689,14 @@ gol-wiki {
 
       > main {
         padding-top: 1.75rem;
+
+        > .wiki-markdown :is(h1, h2, h3, h4, h5, h6) > .heading-anchor {
+          position: static;
+          display: inline-block;
+          width: 1em;
+          opacity: 1;
+          text-align: left;
+        }
       }
     }
 
@@ -657,14 +713,6 @@ gol-wiki {
 
           h2 {
             font-size: 1.35em;
-          }
-
-          :is(h1, h2, h3, h4, h5, h6) > .heading-anchor {
-            position: static;
-            display: inline-block;
-            width: 1em;
-            opacity: 0.65;
-            text-align: left;
           }
         }
 
@@ -686,6 +734,16 @@ gol-wiki {
             }
           }
         }
+      }
+    }
+
+    @media (pointer: coarse) {
+      > main > .wiki-markdown :is(h1, h2, h3, h4, h5, h6) > .heading-anchor {
+        position: static;
+        display: inline-block;
+        width: 1em;
+        opacity: 1;
+        text-align: left;
       }
     }
   }

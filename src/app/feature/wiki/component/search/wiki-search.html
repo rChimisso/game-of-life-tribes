@@ -1,0 +1,65 @@
+<div class="wiki-search" (focusin)="onFocusIn()" (focusout)="onFocusOut($event)">
+  <div class="wiki-search-input" [class.results-visible]="resultsVisible">
+    <input
+      #searchInput
+      aria-autocomplete="list"
+      aria-controls="wiki-search-results"
+      aria-haspopup="listbox"
+      aria-label="Search Wiki"
+      autocomplete="off"
+      placeholder="Search"
+      role="combobox"
+      spellcheck="false"
+      type="text"
+      [attr.aria-activedescendant]="activeDescendant"
+      [attr.aria-expanded]="resultsVisible"
+      [value]="query"
+      (input)="onInput($event)"
+      (keydown)="onKeydown($event)"
+    />
+    @if (query.length > 0) {
+      <button aria-label="Clear Wiki search" type="button" (click)="clearSearch(searchInput)">
+        <mat-icon>close</mat-icon>
+      </button>
+    } @else {
+      <mat-icon aria-hidden="true">search</mat-icon>
+    }
+  </div>
+  @if (resultsVisible) {
+    <div aria-label="Wiki search results" class="wiki-search-results" id="wiki-search-results" role="listbox">
+      @if (results.length > 0) {
+        @for (result of results; track result.passage.order; let index = $index) {
+          <a
+            role="option"
+            [attr.aria-selected]="activeResultIndex === index"
+            [class.active]="activeResultIndex === index"
+            [href]="result.href"
+            [id]="resultId(index)"
+            (click)="onResultClick($event, result)"
+            (mouseenter)="activateResult(index)"
+          >
+            <span class="wiki-search-result-heading">
+              <strong>{{ result.passage.pageTitle }}</strong>
+              @if (result.passage.sectionTitle !== result.passage.pageTitle) {
+                <small>{{ result.passage.sectionTitle }}</small>
+              }
+            </span>
+            @if (result.preview.length > 0) {
+              <span class="wiki-search-result-preview">
+                @for (segment of result.preview; track $index) {
+                  @if (segment.matched) {
+                    <mark>{{ segment.text }}</mark>
+                  } @else {
+                    <span>{{ segment.text }}</span>
+                  }
+                }
+              </span>
+            }
+          </a>
+        }
+      } @else {
+        <p role="status">No matching Wiki content</p>
+      }
+    </div>
+  }
+</div>

@@ -1,3 +1,5 @@
+import {WikiSearchPassage} from './wiki-search';
+
 /**
  * Prerendered Wiki page content.
  *
@@ -72,6 +74,10 @@ export interface WikiContent {
    * Sidebar navigation sections.
    */
   navigation: WikiNavigationSection[];
+  /**
+   * Readable passages used by the client-side Wiki search.
+   */
+  searchPassages: WikiSearchPassage[];
   /**
    * Canonical slugs emitted during prerendering.
    */

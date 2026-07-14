@@ -54,6 +54,191 @@ function plainText(value) {
 }
 
 /**
+ * Extracts readable search text without indexing LaTeX command names.
+ *
+ * @param {string} value Markdown or token text.
+ * @returns {string} readable searchable text.
+ */
+function searchPlainText(value) {
+  return plainText(value
+    .replace(/\\[A-Za-z]+/g, ' ')
+    .replace(/\\[^\sA-Za-z]/g, ' ')
+    .replace(/[{}]/g, ' '));
+}
+
+/**
+ * Removes media-only Markdown and HTML content from the searchable source.
+ *
+ * @param {string} value page Markdown.
+ * @returns {string} Markdown without video fallbacks or image descriptions.
+ */
+function searchableMarkdown(value) {
+  return value
+    .replace(/<video\b[^>]*>[\s\S]*?<\/video\s*>/gi, ' ')
+    .replace(/<img\b[^>]*>/gi, ' ')
+    .replace(/!\[[^\]]*\]\s*(?:\([^)]*\)|\[[^\]]*\])/g, ' ');
+}
+
+/**
+ * Extracts readable search text from inline Marked tokens.
+ *
+ * @param {Array<object>} tokens inline Marked tokens.
+ * @returns {string} readable inline text.
+ */
+function inlineSearchText(tokens) {
+  const parts = [];
+  for (const token of tokens) {
+    if (token.type === 'image') {
+      parts.push('');
+    } else if (Array.isArray(token.tokens)) {
+      parts.push(inlineSearchText(token.tokens));
+    } else if (typeof token.text === 'string') {
+      parts.push(token.text);
+    } else if (typeof token.raw === 'string' && token.type !== 'html') {
+      parts.push(token.raw);
+    }
+  }
+  return searchPlainText(parts.join(''));
+}
+
+/**
+ * Extracts readable search text from a block-level Marked token.
+ *
+ * @param {object} token block-level Marked token.
+ * @returns {string} readable block text.
+ */
+function blockSearchText(token) {
+  const parts = [];
+  if (token.type === 'code') {
+    parts.push(token.text);
+  } else if (token.type === 'html') {
+    parts.push(token.raw.replace(/<[^>]+>/g, ' '));
+  } else if (token.type === 'table') {
+    for (const cell of [...token.header, ...token.rows.flat()]) {
+      parts.push(inlineSearchText(cell.tokens));
+    }
+  } else if (token.type === 'list') {
+    for (const item of token.items) {
+      for (const itemToken of item.tokens) {
+        parts.push(blockSearchText(itemToken));
+      }
+    }
+  } else if (token.type === 'blockquote') {
+    for (const quoteToken of token.tokens) {
+      parts.push(blockSearchText(quoteToken));
+    }
+  } else if (Array.isArray(token.tokens)) {
+    parts.push(inlineSearchText(token.tokens));
+  } else if (typeof token.text === 'string') {
+    parts.push(token.text);
+  } else if (typeof token.raw === 'string' && token.type !== 'space') {
+    parts.push(token.raw);
+  }
+  return searchPlainText(parts.join(' '));
+}
+
+/**
+ * Extracts search text grouped by its rendered block-level element.
+ *
+ * @param {object} token block-level Marked token.
+ * @returns {Array<string>} readable rendered text blocks.
+ */
+function blockSearchTextSegments(token) {
+  const segments = [];
+  if (token.type === 'list') {
+    for (const item of token.items) {
+      for (const itemToken of item.tokens) {
+        segments.push(...blockSearchTextSegments(itemToken));
+      }
+    }
+  } else if (token.type === 'blockquote') {
+    for (const quoteToken of token.tokens) {
+      segments.push(...blockSearchTextSegments(quoteToken));
+    }
+  } else {
+    const text = blockSearchText(token);
+    if (text.length > 0) {
+      segments.push(text);
+    }
+  }
+  return segments;
+}
+
+/**
+ * Whether a Marked token contains search text that is not stable visible DOM text.
+ *
+ * @param {object} token Marked token.
+ * @returns {boolean} true when native text-fragment targeting should be avoided.
+ */
+function containsNonTargetableText(token) {
+  let containsNonTargetable = ['image', 'inlineKatex', 'blockKatex', 'table'].includes(token.type);
+  if (!containsNonTargetable && token.type === 'html' && /<(?:img|video|svg)\b/i.test(token.raw)) {
+    containsNonTargetable = true;
+  }
+  if (!containsNonTargetable && Array.isArray(token.tokens)) {
+    containsNonTargetable = token.tokens.some(child => containsNonTargetableText(child));
+  }
+  if (!containsNonTargetable && Array.isArray(token.items)) {
+    containsNonTargetable = token.items.some(item => item.tokens.some(child => containsNonTargetableText(child)));
+  }
+  return containsNonTargetable;
+}
+
+/**
+ * Builds searchable passages associated with their nearest Wiki heading.
+ *
+ * @param {string} markdown page Markdown.
+ * @param {string} pageSlug canonical page slug.
+ * @param {string} pageTitle page title.
+ * @param {number} startingOrder first source-order value.
+ * @returns {Array<object>} searchable page passages.
+ */
+function extractSearchPassages(markdown, pageSlug, pageTitle, startingOrder) {
+  const slugger = new GithubSlugger();
+  const fallbackSlugger = new GithubSlugger();
+  const passages = [];
+  let sectionId = fallbackSlugger.slug(pageTitle);
+  let sectionTitle = pageTitle;
+  let sectionHasPassage = false;
+  for (const token of marked.lexer(searchableMarkdown(markdown), {gfm: true})) {
+    if (token.type === 'heading') {
+      if (!sectionHasPassage && passages.length > 0) {
+        passages.push({pageSlug, pageTitle, sectionId, sectionTitle, text: '', textBlocks: [], textFragmentEligible: false, order: startingOrder + passages.length});
+      }
+      sectionTitle = inlineSearchText(token.tokens);
+      sectionId = slugger.slug(plainText(marked.parseInline(token.text)));
+      sectionHasPassage = false;
+    } else if (token.type !== 'space') {
+      const textSegments = blockSearchTextSegments(token);
+      const text = textSegments.join(' ');
+      if (text.length > 0) {
+        const textBlocks = [];
+        let textOffset = 0;
+        for (const textSegment of textSegments) {
+          textBlocks.push({start: textOffset, end: textOffset + textSegment.length});
+          textOffset += textSegment.length + 1;
+        }
+        passages.push({
+          pageSlug,
+          pageTitle,
+          sectionId,
+          sectionTitle,
+          text,
+          textBlocks,
+          textFragmentEligible: !containsNonTargetableText(token),
+          order: startingOrder + passages.length
+        });
+        sectionHasPassage = true;
+      }
+    }
+  }
+  if (!sectionHasPassage) {
+    passages.push({pageSlug, pageTitle, sectionId, sectionTitle, text: '', textBlocks: [], textFragmentEligible: false, order: startingOrder + passages.length});
+  }
+  return passages;
+}
+
+/**
  * Extracts a concise description from page prose.
  *
  * @param {string} markdown page Markdown.
@@ -244,6 +429,7 @@ if (sourceBySlug.size !== sourceFiles.length) {
 }
 
 const pages = {};
+const searchPassages = [];
 const headingsByPage = new Map();
 const linkReferences = [];
 for (const [slug, filename] of sourceBySlug) {
@@ -264,6 +450,7 @@ for (const [slug, filename] of sourceBySlug) {
     description: extractDescription(markdown),
     html: sanitizeWikiHtml(rendered)
   };
+  searchPassages.push(...extractSearchPassages(markdown, slug, pages[slug].title, searchPassages.length));
   headingsByPage.set(slug, headingIds);
 }
 
@@ -273,9 +460,15 @@ for (const reference of linkReferences) {
   }
 }
 
+for (const passage of searchPassages) {
+  if (!headingsByPage.get(passage.pageSlug)?.has(passage.sectionId)) {
+    throw new Error(`Wiki search passage references missing heading: ${passage.pageSlug}#${passage.sectionId}`);
+  }
+}
+
 const navigation = parseNavigation(readFileSync(join(wikiDirectory, '_Sidebar.md'), 'utf8'), knownSlugs);
 const orderedSlugs = ['home', ...sourceFiles.map(filename => slugifyPage(basename(filename, '.md'))).filter(slug => slug !== 'home')];
-const content = {pages, navigation, slugs: orderedSlugs};
+const content = {pages, navigation, searchPassages, slugs: orderedSlugs};
 mkdirSync(join(root, 'src', 'app', 'feature', 'wiki', 'model'), {recursive: true});
 mkdirSync(join(root, '.angular'), {recursive: true});
 writeFileSync(generatedFile, `${JSON.stringify(content, null, 2)}\n`, 'utf8');

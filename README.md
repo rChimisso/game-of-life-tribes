@@ -70,8 +70,8 @@ The project includes reproducible density-sweep studies for the Wildfire and SIR
 - **Epidemic:** the clearest transition occurs between $41\%$ and $42\%$ initial population density, where infection episodes, prevalence, mortality, and duration all rise markedly. Recovered cells can become susceptible again, so some runs produce later resurgences and reinfections.
 
 <p align="center">
-  <img src="analysis/wildfire_res/plots/06_regime_change_highlight_85_to_95.png" alt="Regime change highlight for Wildfire" width="46.5%">
-  <img src="analysis/epidemic_res/plots/06_regime_change_highlight_40_to_45.png" alt="Regime change highlight for Epidemic" width="53%">
+  <img src="analysis/wildfire_res/plots/06_regime_change_highlight_85_to_95.png" alt="Regime change highlight for Wildfire" width="46%">
+  <img src="analysis/epidemic_res/plots/06_regime_change_highlight_40_to_45.png" alt="Regime change highlight for Epidemic" width="52.4%">
 </p>
 
 Read the [analysis overview](https://rchimisso.github.io/game-of-life-tribes/wiki/analysis), [Wildfire results](https://rchimisso.github.io/game-of-life-tribes/wiki/wildfire-analysis), and [Epidemic results](https://rchimisso.github.io/game-of-life-tribes/wiki/epidemic-analysis). The source data and generation scripts live in [`analysis/`](analysis/).

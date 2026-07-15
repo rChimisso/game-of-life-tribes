@@ -106,7 +106,7 @@
       "slug": "home",
       "title": "Game of Life: Tribes Wiki",
       "description": "Game of Life: Tribes is a browser-based cellular automata playground built around a WebGPU simulation engine. It is a superset of Conway's Game of Life, exte...",
-      "html": "<h1 id=\"game-of-life-tribes-wiki\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#game-of-life-tribes-wiki\" aria-label=\"Link to this section\">#</a>Game of Life: Tribes Wiki</h1>\n<p><strong>Game of Life: Tribes</strong> is a browser-based cellular automata playground built around a WebGPU simulation engine.<br />It is a superset of Conway's Game of Life, extending it with multiple named tribes, more powerful rules, recording, and specialized export tools.</p>\n<p>The app has <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span> main surfaces:</p>\n<ul>\n<li>A full-screen canvas where the simulation is rendered and can be panned, zoomed, and edited with brush strokes.</li>\n<li>A controls sidebar with sections for playback, speed, drawing, grid and packing setup, presets, tribes, rules, metrics, downloads, snapshots, and shortcuts.</li>\n</ul>\n<h2 id=\"start-here\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#start-here\" aria-label=\"Link to this section\">#</a>Start Here</h2>\n<ul>\n<li><a href=\"/game-of-life-tribes/wiki/ui/\">UI</a>: how to use the sidebar, canvas controls, rules, metrics, downloads, snapshots, and shortcuts.</li>\n<li><a href=\"/game-of-life-tribes/wiki/engine/\">Engine</a>: how the application works internally, including Angular orchestration, workers, WebGPU, storage, exports, file formats, limits, and performance.</li>\n<li><a href=\"/game-of-life-tribes/wiki/benchmark/\">Benchmark</a>: benchmark setup, measured results, and practical conclusions about grid size, packing, recording, and max speed.</li>\n<li><a href=\"/game-of-life-tribes/wiki/analysis/\">Analysis</a>: density-sweep experiments for Wildfire and SIRSD Epidemic, including methods, results, model comparisons, and conclusions.</li>\n<li><a href=\"/game-of-life-tribes/wiki/limitations-and-extensions/\">Limitations and extensions</a>: analysis boundaries, engine constraints, future directions, and references.</li>\n</ul>\n<h2 id=\"basic-workflow\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#basic-workflow\" aria-label=\"Link to this section\">#</a>Basic Workflow</h2>\n<ol>\n<li>Open the sidebar with the menu button.</li>\n<li>Choose or create a ruleset with Presets, Tribes, and Rules.</li>\n<li>Resize the grid, choose topology, or choose packing if needed.</li>\n<li>Pick a draw tribe and paint cells on the canvas.</li>\n<li>Run the simulation, step through it, or use max speed.</li>\n<li>Enable recording before the part you want to export.</li>\n<li>Save a snapshot for restartable state, or download recorded outputs.</li>\n</ol>\n<h2 id=\"browser-requirements\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#browser-requirements\" aria-label=\"Link to this section\">#</a>Browser Requirements</h2>\n<p>The simulation requires WebGPU. Recording, snapshots, downloads, MP4 generation, and large exports also depend on browser storage, OPFS, compression streams, and media APIs. Device and browser limits can affect the largest usable grid, whether recording is available, whether live metrics are available, and whether an export uses normal output or compressed chunk mode.</p>\n<h2 id=\"versioning\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#versioning\" aria-label=\"Link to this section\">#</a>Versioning</h2>\n<p>This Wiki is current for application version <code>v0.27.3</code>.</p>\n<p><strong>Game of Life: Tribes</strong> follows <a href=\"https://semver.org/\" target=\"_blank\" rel=\"noopener noreferrer\">Semantic Versioning</a> using <code>MAJOR.MINOR.PATCH</code> version numbers:</p>\n<ul>\n<li><strong>MAJOR</strong> identifies incompatible changes to stable public application contracts after version <code>1.0.0</code>.</li>\n<li><strong>MINOR</strong> identifies new functionality. While the project remains in initial development under <code>0.y.z</code>, incompatible changes also increment this number because the public contracts are not yet considered stable.</li>\n<li><strong>PATCH</strong> identifies backward-compatible bug fixes and small implementation corrections.</li>\n</ul>\n<p>Wiki-only updates do not increment the application version because they do not change the released application behavior or its public contracts.</p>\n"
+      "html": "<h1 id=\"game-of-life-tribes-wiki\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#game-of-life-tribes-wiki\" aria-label=\"Link to this section\">#</a>Game of Life: Tribes Wiki</h1>\n<p><strong>Game of Life: Tribes</strong> is a browser-based cellular automata playground built around a WebGPU simulation engine.<br />It is a superset of Conway's Game of Life, extending it with multiple named tribes, more powerful rules, recording, and specialized export tools.</p>\n<p>The app has <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span> main surfaces:</p>\n<ul>\n<li>A full-screen canvas where the simulation is rendered and can be panned, zoomed, and edited with brush strokes.</li>\n<li>A controls sidebar with sections for playback, speed, drawing, grid and packing setup, presets, tribes, rules, metrics, downloads, snapshots, and shortcuts.</li>\n</ul>\n<h2 id=\"start-here\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#start-here\" aria-label=\"Link to this section\">#</a>Start Here</h2>\n<ul>\n<li><a href=\"/game-of-life-tribes/wiki/ui/\">UI</a>: how to use the sidebar, canvas controls, rules, metrics, downloads, snapshots, and shortcuts.</li>\n<li><a href=\"/game-of-life-tribes/wiki/engine/\">Engine</a>: how the application works internally, including Angular orchestration, workers, WebGPU, storage, exports, file formats, limits, and performance.</li>\n<li><a href=\"/game-of-life-tribes/wiki/benchmark/\">Benchmark</a>: benchmark setup, measured results, and practical conclusions about grid size, packing, recording, and max speed.</li>\n<li><a href=\"/game-of-life-tribes/wiki/analysis/\">Analysis</a>: density-sweep experiments for Wildfire and SIRSD Epidemic, including methods, results, model comparisons, and conclusions.</li>\n<li><a href=\"/game-of-life-tribes/wiki/limitations-and-extensions/\">Limitations and extensions</a>: analysis boundaries, engine constraints, future directions, and references.</li>\n</ul>\n<h2 id=\"basic-workflow\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#basic-workflow\" aria-label=\"Link to this section\">#</a>Basic Workflow</h2>\n<ol>\n<li>Open the sidebar with the menu button.</li>\n<li>Choose or create a ruleset with Presets, Tribes, and Rules.</li>\n<li>Resize the grid, choose topology, or choose packing if needed.</li>\n<li>Pick a draw tribe and paint cells on the canvas.</li>\n<li>Run the simulation, step through it, or use max speed.</li>\n<li>Enable recording before the part you want to export.</li>\n<li>Save a snapshot for restartable state, or download recorded outputs.</li>\n</ol>\n<h2 id=\"browser-requirements\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#browser-requirements\" aria-label=\"Link to this section\">#</a>Browser Requirements</h2>\n<p>The simulation requires WebGPU. Recording, snapshots, downloads, MP4 generation, and large exports also depend on browser storage, OPFS, compression streams, and media APIs. Device and browser limits can affect the largest usable grid, whether recording is available, whether live metrics are available, and whether an export uses normal output or compressed chunk mode.</p>\n<h2 id=\"versioning\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/#versioning\" aria-label=\"Link to this section\">#</a>Versioning</h2>\n<p>This Wiki is current for application version <code>v1.0.0</code>.</p>\n<p><strong>Game of Life: Tribes</strong> follows <a href=\"https://semver.org/\" target=\"_blank\" rel=\"noopener noreferrer\">Semantic Versioning</a> using <code>MAJOR.MINOR.PATCH</code> version numbers:</p>\n<ul>\n<li><strong>MAJOR</strong> identifies incompatible changes to stable public application contracts after version <code>1.0.0</code>.</li>\n<li><strong>MINOR</strong> identifies new functionality. While the project remains in initial development under <code>0.y.z</code>, incompatible changes also increment this number because the public contracts are not yet considered stable.</li>\n<li><strong>PATCH</strong> identifies backward-compatible bug fixes and small implementation corrections.</li>\n</ul>\n<p>Wiki-only updates do not increment the application version because they do not change the released application behavior or its public contracts.</p>\n"
     },
     "limitations-and-extensions": {
       "slug": "limitations-and-extensions",
@@ -148,7 +148,7 @@
       "slug": "presets",
       "title": "Presets",
       "description": "The Presets section loads example rulesets that demonstrate the rule system. Presets keep the current grid dimensions, topology, and boundary tribe, but repl...",
-      "html": "<h1 id=\"presets\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#presets\" aria-label=\"Link to this section\">#</a>Presets</h1>\n<h2 id=\"purpose\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#purpose\" aria-label=\"Link to this section\">#</a>Purpose</h2>\n<p>The Presets section loads example rulesets that demonstrate the rule system. Presets keep the current grid dimensions, topology, and boundary tribe, but replace tribes, rules, and random seed metadata. They are useful starting points for classic Life-like automata, lifecycle rules, trails, territory, and multi-state material simulations.</p>\n<h2 id=\"controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#controls\" aria-label=\"Link to this section\">#</a>Controls</h2>\n<ul>\n<li><strong>Preset buttons</strong>:<br />Each button shows the preset name, short description, and minimum required packing.</li>\n<li><strong>Apply</strong>:<br />Commits the selected preset. Disabled while running, downloading, or when no preset is selected.</li>\n<li><strong>Cancel</strong>:<br />Clears the current preset selection without changing the simulation.</li>\n</ul>\n<p>When a preset is applied, the app checks whether the preset's tribe count can fit the current grid under current WebGPU frame-size limits. If not, it shows an error asking you to reduce the grid size before applying the preset.</p>\n<p>Presets can define their own random seed for probabilistic rules.</p>\n<h2 id=\"built-in-presets\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#built-in-presets\" aria-label=\"Link to this section\">#</a>Built-In Presets</h2>\n<table>\n<thead>\n<tr>\n<th>Preset</th>\n<th>Description</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Conway</td>\n<td>Classic Game of Life</td>\n</tr>\n<tr>\n<td>Replicator</td>\n<td>Replicates itself indefinitely</td>\n</tr>\n<tr>\n<td>Day &amp; Night</td>\n<td>Symmetric under on-off reversal</td>\n</tr>\n<tr>\n<td>Anneal</td>\n<td>Converges to smooth blobs</td>\n</tr>\n<tr>\n<td>Afterimage</td>\n<td>Classic Life with fading cells</td>\n</tr>\n<tr>\n<td>Senescence</td>\n<td>Life where cells age</td>\n</tr>\n<tr>\n<td>Cyclic Dominance</td>\n<td>Rock-paper-scissors territory contest</td>\n</tr>\n<tr>\n<td>SIRSD Epidemic</td>\n<td>Probabilistic infection, recovery, mortality, and waning immunity</td>\n</tr>\n<tr>\n<td>Slime Mold</td>\n<td>Slime body with explorer tendrils</td>\n</tr>\n<tr>\n<td>Wildfire</td>\n<td>Fire spreads through varied vegetation</td>\n</tr>\n</tbody></table>\n<p>The minimum packing shown on each button is derived from the number of tribes in that preset. For example, <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span>-state presets can use <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit packing, while presets with many lifecycle or material states need a larger value.</p>\n<h3 id=\"afterimage\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#afterimage\" aria-label=\"Link to this section\">#</a>Afterimage</h3>\n<p>TODO</p>\n<h3 id=\"senescence\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#senescence\" aria-label=\"Link to this section\">#</a>Senescence</h3>\n<p>TODO</p>\n<h3 id=\"sirsd-epidemic\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#sirsd-epidemic\" aria-label=\"Link to this section\">#</a>SIRSD Epidemic</h3>\n<p>TODO</p>\n<h3 id=\"wildfire\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#wildfire\" aria-label=\"Link to this section\">#</a>Wildfire</h3>\n<p>TODO</p>\n"
+      "html": "<h1 id=\"presets\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#presets\" aria-label=\"Link to this section\">#</a>Presets</h1>\n<h2 id=\"purpose\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#purpose\" aria-label=\"Link to this section\">#</a>Purpose</h2>\n<p>The Presets section loads example rulesets that demonstrate the rule system. Presets keep the current grid dimensions, topology, and boundary tribe, but replace tribes, rules, and random seed metadata. They are useful starting points for classic Life-like automata, lifecycle rules, trails, territory, and multi-state material simulations.</p>\n<h2 id=\"controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#controls\" aria-label=\"Link to this section\">#</a>Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets.png\" alt=\"Presets section\" />\n</p><ul>\n<li><strong>Preset buttons</strong>:<br />Each button shows the preset name, short description, and minimum required packing.</li>\n<li><strong>Apply</strong>:<br />Commits the selected preset. Disabled while running, downloading, or when no preset is selected.</li>\n<li><strong>Cancel</strong>:<br />Clears the current preset selection without changing the simulation.</li>\n</ul>\n<p>When a preset is applied, the app checks whether the preset's tribe count can fit the current grid under current WebGPU frame-size limits. If not, it shows an error asking you to reduce the grid size before applying the preset.</p>\n<p>Presets can define their own random seed for probabilistic rules.</p>\n<h2 id=\"built-in-presets\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#built-in-presets\" aria-label=\"Link to this section\">#</a>Built-In Presets</h2>\n<table>\n<thead>\n<tr>\n<th>Preset</th>\n<th>Description</th>\n<th>Minimum packing</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Conway</td>\n<td>Classic Game of Life</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Replicator</td>\n<td>Replicates itself indefinitely</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Day &amp; Night</td>\n<td>Symmetric under on-off reversal</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Anneal</td>\n<td>Converges to smooth blobs</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Senescence</td>\n<td>Life where cells age and become nutrient</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding=\"application/x-tex\">4</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">4</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Afterimage</td>\n<td>Classic Life with fading cells</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Cyclic Dominance</td>\n<td>Rock-paper-scissors territory contest</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Cultural Drift</td>\n<td>Local influence forms shifting cultural regions</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding=\"application/x-tex\">4</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">4</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>SIRSD Epidemic</td>\n<td>Probabilistic infection, recovery, and mortality</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Wildfire</td>\n<td>Fire spreads through varied vegetation</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding=\"application/x-tex\">4</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">4</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Slime Mold</td>\n<td>Slime body with explorer tendrils</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span>-bit</td>\n</tr>\n<tr>\n<td>Color Mixing</td>\n<td>Colors combine additively</td>\n<td><span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding=\"application/x-tex\">4</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">4</span></span></span></span>-bit</td>\n</tr>\n</tbody></table>\n<p>The minimum packing shown on each button is derived from the number of tribes in that preset. For example, <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding=\"application/x-tex\">2</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">2</span></span></span></span>-state presets can use <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span>-bit packing, while presets with many lifecycle or material states need a larger value.</p>\n<h3 id=\"conway\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#conway\" aria-label=\"Link to this section\">#</a>Conway</h3>\n<p>Conway is the original two-state Game of Life: cells are born with exactly three living neighbors and survive with two or three. Its small ruleset produces familiar still lifes, oscillators, spaceships, and long-lived chaotic patterns.</p>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets-conway.png\" alt=\"Conway preset\" />\n</p><p><strong>Tips to start:</strong> Draw a small random patch with the Live tribe, then try simple patterns such as a block, blinker, glider, or lightweight spaceship. Slow the simulation down when a pattern becomes interesting so you can identify its repeating structure.</p>\n<h3 id=\"replicator\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#replicator\" aria-label=\"Link to this section\">#</a>Replicator</h3>\n<p>Replicator is a HighLife-style rule that supports self-copying patterns. Small seeds can expand into recurring fragments that fill large areas while continually producing new copies of their original structure.</p>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets-replicator.png\" alt=\"Replicator preset\" />\n</p><p><strong>Tips to start:</strong> Use a small spray-painted seed rather than filling the grid. Let it evolve at a moderate speed and leave enough empty space around it to watch separate copies emerge and interact.</p>\n<h3 id=\"day-amp-night\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#day-amp-night\" aria-label=\"Link to this section\">#</a>Day &amp; Night</h3>\n<p>Day &amp; Night is a Life-like rule with a complementary symmetry: swapping living and dead cells produces an equally valid evolution. Dense and sparse regions therefore create similarly rich structures.</p>\n<p><strong>Tips to start:</strong> Paint both a sparse patch and a dense patch of Live cells. Compare how the two regions evolve, then invert your intuition by treating the empty background as part of the pattern.</p>\n<h3 id=\"anneal\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#anneal\" aria-label=\"Link to this section\">#</a>Anneal</h3>\n<p>Anneal smooths irregular cell clusters into rounded, slowly changing blobs. It is useful for observing local majority behavior and how small gaps, islands, and thin connections disappear or merge over time.</p>\n<p><strong>Tips to start:</strong> Start with a noisy spray-painted region at medium density. Watch the initial noise settle, then add a few narrow bridges or holes to see which features remain after the rule smooths them.</p>\n<h3 id=\"senescence\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#senescence\" aria-label=\"Link to this section\">#</a>Senescence</h3>\n<p>Senescence extends Life with visible stages of aging. Spark cells mature through successive living states, leave nutrient-like remnants, and can support later regrowth, creating expanding frontiers and evolving interior tissue.</p>\n<p><strong>Tips to start:</strong> Begin with a small seed of Spark. Wait for the frontier to expand, then reignite the interior by adding more Spark cells.</p>\n<h3 id=\"afterimage\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#afterimage\" aria-label=\"Link to this section\">#</a>Afterimage</h3>\n<p>Afterimage preserves the behavior of classic Life while giving dead cells a long cyan fade. The trailing age states make the motion and history of gliders, oscillators, and chaotic regions visible long after a living cell has moved on.</p>\n<p><strong>Tips to start:</strong> Draw a glider or a small random Live-cell seed on an otherwise empty grid. Run slowly at first to follow the fading trail, then increase the speed once several moving patterns are present.</p>\n<h3 id=\"cyclic-dominance\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#cyclic-dominance\" aria-label=\"Link to this section\">#</a>Cyclic Dominance</h3>\n<p>Cyclic Dominance is a three-tribe rock-paper-scissors contest. Each color can overtake one rival and be overtaken by another, producing moving fronts, rotating spirals, and continually shifting territories.</p>\n<p><strong>Tips to start:</strong> Select all three tribes, use a spray brush, and paint the whole grid. Then start the simulation and let the competing territories form naturally.</p>\n<h3 id=\"cultural-drift\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#cultural-drift\" aria-label=\"Link to this section\">#</a>Cultural Drift</h3>\n<p>Cultural Drift models local influence among five cultures. Neighboring cells tend to align with nearby majorities, forming broad colored regions that may appear settled before slower boundary changes eventually decide the remaining competition.</p>\n<p><strong>Tips to start:</strong> Select all tribes, choose a full brush, and paint the entire grid. Let it run until it looks stable, then increase the simulation speed to reveal that it is still changing. Repeat with progressively higher speeds until only one tribe remains.</p>\n<h3 id=\"sirsd-epidemic\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#sirsd-epidemic\" aria-label=\"Link to this section\">#</a>SIRSD Epidemic</h3>\n<p>SIRSD Epidemic models susceptible, infectious, and recovered populations with probabilistic infection, recovery, mortality, and loss of immunity. It can produce localized waves, repeated outbreaks, and strong sensitivity to the initial population layout.</p>\n<p><strong>Tips to start:</strong> Use a full brush at low density to paint the whole grid, deliberately leaving areas with different densities. Add a small number of Infectious cells, then watch the epidemic unfold.</p>\n<h3 id=\"wildfire\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#wildfire\" aria-label=\"Link to this section\">#</a>Wildfire</h3>\n<p>Wildfire simulates fire moving through grass, bushes, and trees with different resistance levels. Embers, fire, blaze, char, and rock make the spread, burnout, and firebreak effects visible across a heterogeneous landscape.</p>\n<p><strong>Tips to start:</strong> Paint vegetation across the whole grid with a spray brush at 90% density, then ignite even a very small area and compare how differently each run spreads. Add Rocks to make firebreaks, or unmute the vegetation-reproduction rule to explore regrowth.</p>\n<h3 id=\"slime-mold\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#slime-mold\" aria-label=\"Link to this section\">#</a>Slime Mold</h3>\n<p>Slime Mold separates an advancing Head state from stable Body tissue and food. Tendrils explore empty space, grow rapidly near food, and leave behind a connected body that can launch new exploratory heads.</p>\n<p><strong>Tips to start:</strong> Add a small initial seed containing only Head cells and watch it slowly spread across the grid. Optionally add patches of Food to observe rapid local growth.</p>\n<h3 id=\"color-mixing\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/presets#color-mixing\" aria-label=\"Link to this section\">#</a>Color Mixing</h3>\n<p>Color Mixing uses red, green, and blue primary tribes that combine into cyan, magenta, yellow, and ultimately white. Neighbor interactions make additive color blending visible as neighboring patches exchange and recombine colors.</p>\n<p><strong>Tips to start:</strong> Either draw three bands of primary colors and watch them slowly mix into secondary colors and then white, or select only the three primary colors, use a full brush at 100% density to paint the whole grid, and watch primary-color patches exchange smaller patches of white and a secondary color.</p>\n"
     },
     "recording-and-opfs": {
       "slug": "recording-and-opfs",
@@ -184,7 +184,7 @@
       "slug": "rules",
       "title": "Rules",
       "description": "The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability rol...",
-      "html": "<h1 id=\"rules\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#rules\" aria-label=\"Link to this section\">#</a>Rules</h1>\n<h2 id=\"purpose\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#purpose\" aria-label=\"Link to this section\">#</a>Purpose</h2>\n<p>The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes <code>dead</code>.</p>\n<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href=\"/game-of-life-tribes/wiki/rule-engine-internals/\">Rule engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href=\"/game-of-life-tribes/wiki/rule-expressions/#rule-json\">Rule JSON</a>.</p>\n<h2 id=\"rule-list-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#rule-list-controls\" aria-label=\"Link to this section\">#</a>Rule List Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules.png\" alt=\"Rules section\" />\n</p><ul>\n<li><strong>Random seed</strong>:<br />Deterministic seed used by per-rule probability rolls. Changing the seed changes future probabilistic rule outcomes while preserving deterministic replay for the same state, rules, seed, and generation.</li>\n<li><strong>Drag handle</strong>:<br />Reorder a rule. Rule order is part of behavior, so dragging can change the simulation outcome.</li>\n<li><strong>Expand / collapse</strong>:<br />Opens or closes the rule editor body.</li>\n<li><strong>Summary</strong>:<br />Compact description of the rule clause.</li>\n<li><strong>Output label or swatch</strong>:<br />Compact display of what the rule produces.</li>\n<li><strong>Duplicate rule</strong>:<br />Inserts a cloned rule below the current rule.</li>\n<li><strong>Mute / unmute</strong>:<br />Temporarily disables or enables the rule without deleting it. Muted rules are skipped by the runtime.</li>\n<li><strong>Delete rule</strong>:<br />Removes the rule from the list.</li>\n<li><strong>Add rule</strong>:<br />Creates a new expanded rule with an empty clause and a fixed output to the first non-dead tribe.</li>\n<li><strong>Apply</strong>:<br />Commits valid rule changes. Disabled while running, downloading, unchanged, or invalid.</li>\n<li><strong>Restore</strong>:<br />Discards rule edits and restores previously committed rules.</li>\n</ul>\n<h2 id=\"probability-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#probability-controls\" aria-label=\"Link to this section\">#</a>Probability Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-probability.png\" alt=\"Rule probability\" />\n</p><p>Each expanded rule has a <strong>Probability %</strong> field at the top of the rule body. The field is a percentage with exactly <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding=\"application/x-tex\">3</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">3</span></span></span></span> decimal digits.<br />When a rule has a probability below <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding=\"application/x-tex\">100\\%</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.8056em;vertical-align:-0.0556em\"></span><span class=\"mord\">100%</span></span></span></span>, the collapsed rule header shows a compact percentage badge. <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span> effectively disables the rule, as if it was muted.</p>\n<p>At runtime, a rule must first match its clause. If it has a probability below <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding=\"application/x-tex\">100\\%</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.8056em;vertical-align:-0.0556em\"></span><span class=\"mord\">100%</span></span></span></span>, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.</p>\n<h2 id=\"clause-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#clause-controls\" aria-label=\"Link to this section\">#</a>Clause Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-clauses.png\" alt=\"Rule clauses\" />\n</p><p>Each rule has <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span> root clause. Logical clauses can contain nested clauses.</p>\n<ul>\n<li><strong>Clause type</strong>:<br />Select <code>IS</code>, <code>COUNT</code>, <code>NONE</code>, <code>EXACTLY</code>, <code>MIN</code>, <code>MAX</code>, <code>COMP</code>, <code>NOT</code>, <code>AND</code>, <code>OR</code>, or <code>XOR</code>.</li>\n<li><strong>Delete clause</strong>:<br />Replaces or removes the selected clause. If a logical group would have too few children, the removed child becomes an empty placeholder.</li>\n<li><strong>Group collapse</strong>:<br />Hides nested clauses and shows a summary for <code>AND</code>, <code>OR</code>, <code>XOR</code>, and <code>NOT</code> groups.</li>\n<li><strong>Add child</strong>:<br />Adds an empty child to <code>AND</code>, <code>OR</code>, or <code>XOR</code> groups.</li>\n<li><strong>Tribe swatches</strong>:<br />Used by <code>IS</code> and other explicit selector clauses to select tribes.</li>\n<li><strong>Selector editor</strong>:<br />Used by count-style clauses and comparison sides. It can target specific tribes, the same tribe as the current cell, tribes different from the current cell, or tribes different from the current cell within a selected subset.</li>\n<li><strong>Count inputs</strong>:<br />Neighbor values must be integers from <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span> to <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> because the engine uses the <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span>-cell Moore neighborhood. Invalid edits stay visible and block Apply.</li>\n<li><strong>Comparison operator</strong>:<br />One of <code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, or <code>&lt;=</code>.</li>\n<li><strong>Comparison margin</strong>:<br />Integer from <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mo>−</mo><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">-8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.7278em;vertical-align:-0.0833em\"></span><span class=\"mord\">−</span><span class=\"mord\">8</span></span></span></span> to <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> added to the right-hand comparison count.</li>\n</ul>\n<p>Clause meanings:</p>\n<table>\n<thead>\n<tr>\n<th>Clause</th>\n<th>Meaning</th>\n</tr>\n</thead>\n<tbody><tr>\n<td><code>IS</code></td>\n<td>Current cell is one of the selected tribes.</td>\n</tr>\n<tr>\n<td><code>COUNT</code></td>\n<td>Selected neighbor count is inside the specified inclusive range.</td>\n</tr>\n<tr>\n<td><code>NONE</code></td>\n<td>Selected neighbor count is <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span>.</td>\n</tr>\n<tr>\n<td><code>EXACTLY</code></td>\n<td>Selected neighbor count equals <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>MIN</code></td>\n<td>Selected neighbor count is at least <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>MAX</code></td>\n<td>Selected neighbor count is at most <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>COMP</code></td>\n<td>One selected neighbor count is compared with another selected count plus an optional margin.</td>\n</tr>\n<tr>\n<td><code>NOT</code></td>\n<td>Inverts one child clause.</td>\n</tr>\n<tr>\n<td><code>AND</code></td>\n<td>All child clauses must match.</td>\n</tr>\n<tr>\n<td><code>OR</code></td>\n<td>At least one child clause must match.</td>\n</tr>\n<tr>\n<td><code>XOR</code></td>\n<td>An odd number of child clauses must match.</td>\n</tr>\n</tbody></table>\n<h2 id=\"outcome-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#outcome-controls\" aria-label=\"Link to this section\">#</a>Outcome Controls</h2>\n<p>The outcome editor starts with a <code>becomes</code> mode selector:</p>\n<ul>\n<li><strong>Fixed tribe</strong>:<br />Cell becomes <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span> selected tribe.</li>\n<li><strong>Same</strong>:<br />Cell keeps its current tribe.</li>\n<li><strong>Majority</strong>:<br />Cell becomes the most common selected neighbor tribe.</li>\n<li><strong>Minority</strong>:<br />Cell becomes the least common selected neighbor tribe with a non-zero count.</li>\n<li><strong>Combine</strong>:<br />Cell uses a lookup table over selected inputs.</li>\n</ul>\n<p>Ranked outcomes have extra controls:</p>\n<ul>\n<li><strong>Majority of / Minority of</strong>:<br />Selector used to choose candidates.</li>\n<li><strong>Tie</strong>:<br />What happens when multiple candidates tie. Options are fixed tribe, same, or combine.</li>\n<li><strong>Fallback</strong>:<br />What happens when no ranked candidate exists. Options are fixed tribe, same, or combine.</li>\n</ul>\n<p>Combine outcomes use lookup rows:</p>\n<ul>\n<li><strong>Inputs</strong>:<br />One or more selectors in an unordered combination row. Inputs can be concrete tribes, Same, Different, and in tie contexts the active Majority or Minority candidates.</li>\n<li><strong>Add input / remove input</strong>:<br />Changes the inputs for one row. A row can have at most <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> inputs and cannot repeat the same input.</li>\n<li><strong>Output tribe</strong>:<br />Fixed tribe produced by that row.</li>\n<li><strong>Remove row</strong>:<br />Deletes the row.</li>\n<li><strong>Otherwise</strong>:<br />Default output when no row matches.</li>\n<li><strong>Add combination row</strong>:<br />Creates another lookup row.</li>\n</ul>\n<h2 id=\"error-outlines\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#error-outlines\" aria-label=\"Link to this section\">#</a>Error Outlines</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-error.png\" alt=\"Ruleset error outlines\" />\n</p><p>Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.</p>\n<p>The editor marks invalid rule structures with red outlines so the blocking part can be traced from the rule card down to the specific nested clause or field:</p>\n<ul>\n<li>A rule with any invalid content gets a red outline around the rule card.</li>\n<li>A clause gets a red outline when that clause, one of its fields, or any descendant clause is invalid.</li>\n<li>A numeric clause field gets its own red outline when its value is invalid, for example when it is empty or outside the allowed count range.</li>\n<li><code>EMPTY</code> placeholder clauses are invalid and also mark their parent clauses and rule as invalid.</li>\n</ul>\n"
+      "html": "<h1 id=\"rules\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#rules\" aria-label=\"Link to this section\">#</a>Rules</h1>\n<h2 id=\"purpose\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#purpose\" aria-label=\"Link to this section\">#</a>Purpose</h2>\n<p>The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes <code>dead</code>.</p>\n<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href=\"/game-of-life-tribes/wiki/rule-engine-internals/\">Rule engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href=\"/game-of-life-tribes/wiki/rule-expressions/#rule-json\">Rule JSON</a>.</p>\n<h2 id=\"rule-list-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#rule-list-controls\" aria-label=\"Link to this section\">#</a>Rule List Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules.png\" alt=\"Rules section\" />\n</p><ul>\n<li><strong>Random seed</strong>:<br />Deterministic seed used by per-rule probability rolls. Changing the seed changes future probabilistic rule outcomes while preserving deterministic replay for the same state, rules, seed, and generation.</li>\n<li><strong>Drag handle</strong>:<br />Reorder a rule. Rule order is part of behavior, so dragging can change the simulation outcome.</li>\n<li><strong>Expand / collapse</strong>:<br />Opens or closes the rule editor body.</li>\n<li><strong>Summary</strong>:<br />Compact description of the rule clause.</li>\n<li><strong>Output label or swatch</strong>:<br />Compact display of what the rule produces.</li>\n<li><strong>Duplicate rule</strong>:<br />Inserts a cloned rule below the current rule.</li>\n<li><strong>Mute / unmute</strong>:<br />Temporarily disables or enables the rule without deleting it. Muted rules are skipped by the runtime.</li>\n<li><strong>Delete rule</strong>:<br />Removes the rule from the list.</li>\n<li><strong>Add rule</strong>:<br />Creates a new expanded rule with an empty clause and a fixed output to the first non-dead tribe.</li>\n<li><strong>Apply</strong>:<br />Commits valid rule changes. Disabled while running, downloading, unchanged, or invalid.</li>\n<li><strong>Restore</strong>:<br />Discards rule edits and restores previously committed rules.</li>\n</ul>\n<h2 id=\"probability-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#probability-controls\" aria-label=\"Link to this section\">#</a>Probability Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-probability.png\" alt=\"Rule probability\" />\n</p><p>Each expanded rule has a <strong>Probability %</strong> field at the top of the rule body. The field is a percentage with exactly <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding=\"application/x-tex\">3</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">3</span></span></span></span> decimal digits.<br />When a rule has a probability below <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding=\"application/x-tex\">100\\%</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.8056em;vertical-align:-0.0556em\"></span><span class=\"mord\">100%</span></span></span></span>, the collapsed rule header shows a compact percentage badge. <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span> effectively disables the rule, as if it was muted.</p>\n<p>At runtime, a rule must first match its clause. If it has a probability below <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding=\"application/x-tex\">100\\%</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.8056em;vertical-align:-0.0556em\"></span><span class=\"mord\">100%</span></span></span></span>, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.</p>\n<h2 id=\"clause-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#clause-controls\" aria-label=\"Link to this section\">#</a>Clause Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-clauses.png\" alt=\"Rule clauses\" />\n</p><p>Each rule has <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span> root clause. Logical clauses can contain nested clauses.</p>\n<ul>\n<li><strong>Clause type</strong>:<br />Select <code>IS</code>, <code>COUNT</code>, <code>NONE</code>, <code>EXACTLY</code>, <code>MIN</code>, <code>MAX</code>, <code>COMP</code>, <code>NOT</code>, <code>AND</code>, <code>OR</code>, or <code>XOR</code>.</li>\n<li><strong>Delete clause</strong>:<br />Replaces or removes the selected clause. If a logical group would have too few children, the removed child becomes an empty placeholder.</li>\n<li><strong>Group collapse</strong>:<br />Hides nested clauses and shows a summary for <code>AND</code>, <code>OR</code>, <code>XOR</code>, and <code>NOT</code> groups.</li>\n<li><strong>Add child</strong>:<br />Adds an empty child to <code>AND</code>, <code>OR</code>, or <code>XOR</code> groups.</li>\n<li><strong>Tribe swatches</strong>:<br />Used by <code>IS</code> and other explicit selector clauses to select tribes.</li>\n<li><strong>Selector editor</strong>:<br />Used by count-style clauses and comparison sides. It can target specific tribes, the same tribe as the current cell, tribes different from the current cell, or tribes different from the current cell within a selected subset.</li>\n<li><strong>Count inputs</strong>:<br />Neighbor values must be integers from <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span> to <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> because the engine uses the <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span>-cell Moore neighborhood. Invalid edits stay visible and block Apply.</li>\n<li><strong>Comparison operator</strong>:<br />One of <code>=</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, or <code>&lt;=</code>.</li>\n<li><strong>Comparison margin</strong>:<br />Integer from <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mo>−</mo><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">-8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.7278em;vertical-align:-0.0833em\"></span><span class=\"mord\">−</span><span class=\"mord\">8</span></span></span></span> to <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> added to the right-hand comparison count.</li>\n</ul>\n<p>Clause meanings:</p>\n<table>\n<thead>\n<tr>\n<th>Clause</th>\n<th>Meaning</th>\n</tr>\n</thead>\n<tbody><tr>\n<td><code>IS</code></td>\n<td>Current cell is one of the selected tribes.</td>\n</tr>\n<tr>\n<td><code>COUNT</code></td>\n<td>Selected neighbor count is inside the specified inclusive range.</td>\n</tr>\n<tr>\n<td><code>NONE</code></td>\n<td>Selected neighbor count is <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding=\"application/x-tex\">0</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">0</span></span></span></span>.</td>\n</tr>\n<tr>\n<td><code>EXACTLY</code></td>\n<td>Selected neighbor count equals <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>MIN</code></td>\n<td>Selected neighbor count is at least <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>MAX</code></td>\n<td>Selected neighbor count is at most <code>N</code>.</td>\n</tr>\n<tr>\n<td><code>COMP</code></td>\n<td>One selected neighbor count is compared with another selected count plus an optional margin.</td>\n</tr>\n<tr>\n<td><code>NOT</code></td>\n<td>Inverts one child clause.</td>\n</tr>\n<tr>\n<td><code>AND</code></td>\n<td>All child clauses must match.</td>\n</tr>\n<tr>\n<td><code>OR</code></td>\n<td>At least one child clause must match.</td>\n</tr>\n<tr>\n<td><code>XOR</code></td>\n<td>An odd number of child clauses must match.</td>\n</tr>\n</tbody></table>\n<h2 id=\"outcome-controls\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#outcome-controls\" aria-label=\"Link to this section\">#</a>Outcome Controls</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-outcome.png\" alt=\"Rule combine outcome\" />\n</p><p>The outcome editor starts with a <code>becomes</code> mode selector:</p>\n<ul>\n<li><strong>Fixed tribe</strong>:<br />Cell becomes <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding=\"application/x-tex\">1</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">1</span></span></span></span> selected tribe.</li>\n<li><strong>Same</strong>:<br />Cell keeps its current tribe.</li>\n<li><strong>Majority</strong>:<br />Cell becomes the most common selected neighbor tribe.</li>\n<li><strong>Minority</strong>:<br />Cell becomes the least common selected neighbor tribe with a non-zero count.</li>\n<li><strong>Combine</strong>:<br />Cell uses a lookup table over selected inputs.</li>\n</ul>\n<p>Ranked outcomes have extra controls:</p>\n<ul>\n<li><strong>Majority of / Minority of</strong>:<br />Selector used to choose candidates.</li>\n<li><strong>Tie</strong>:<br />What happens when multiple candidates tie. Options are fixed tribe, same, or combine.</li>\n<li><strong>Fallback</strong>:<br />What happens when no ranked candidate exists. Options are fixed tribe, same, or combine.</li>\n</ul>\n<p>Combine outcomes use lookup rows:</p>\n<ul>\n<li><strong>Inputs</strong>:<br />One or more selectors in an unordered combination row. Inputs can be concrete tribes, Same, Different, and in tie contexts the active Majority or Minority candidates.</li>\n<li><strong>Add input / remove input</strong>:<br />Changes the inputs for one row. A row can have at most <span class=\"katex\"><span class=\"katex-mathml\"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding=\"application/x-tex\">8</annotation></semantics></math></span><span class=\"katex-html\" aria-hidden=\"true\"><span class=\"base\"><span class=\"strut\" style=\"height:0.6444em\"></span><span class=\"mord\">8</span></span></span></span> inputs and cannot repeat the same input.</li>\n<li><strong>Output tribe</strong>:<br />Fixed tribe produced by that row.</li>\n<li><strong>Remove row</strong>:<br />Deletes the row.</li>\n<li><strong>Otherwise</strong>:<br />Default output when no row matches.</li>\n<li><strong>Add combination row</strong>:<br />Creates another lookup row.</li>\n</ul>\n<h2 id=\"error-outlines\"><a class=\"heading-anchor\" href=\"/game-of-life-tribes/wiki/rules#error-outlines\" aria-label=\"Link to this section\">#</a>Error Outlines</h2>\n<p>\n  <img src=\"https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules-error.png\" alt=\"Ruleset error outlines\" />\n</p><p>Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.</p>\n<p>The editor marks invalid rule structures with red outlines so the blocking part can be traced from the rule card down to the specific nested clause or field:</p>\n<ul>\n<li>A rule with any invalid content gets a red outline around the rule card.</li>\n<li>A clause gets a red outline when that clause, one of its fields, or any descendant clause is invalid.</li>\n<li>A numeric clause field gets its own red outline when its value is invalid, for example when it is empty or outside the allowed count range.</li>\n<li><code>EMPTY</code> placeholder clauses are invalid and also mark their parent clauses and rule as invalid.</li>\n</ul>\n"
     },
     "shortcuts": {
       "slug": "shortcuts",
@@ -5102,11 +5102,11 @@
       "pageTitle": "Game of Life: Tribes Wiki",
       "sectionId": "versioning",
       "sectionTitle": "Versioning",
-      "text": "This Wiki is current for application version v0.27.3.",
+      "text": "This Wiki is current for application version v1.0.0.",
       "textBlocks": [
         {
           "start": 0,
-          "end": 53
+          "end": 52
         }
       ],
       "textFragmentEligible": true,
@@ -6064,11 +6064,11 @@
       "pageTitle": "Presets",
       "sectionId": "built-in-presets",
       "sectionTitle": "Built-In Presets",
-      "text": "Preset Description Conway Classic Game of Life Replicator Replicates itself indefinitely Day & Night Symmetric under on-off reversal Anneal Converges to smooth blobs Afterimage Classic Life with fading cells Senescence Life where cells age Cyclic Dominance Rock-paper-scissors territory contest SIRSD Epidemic Probabilistic infection, recovery, mortality, and waning immunity Slime Mold Slime body with explorer tendrils Wildfire Fire spreads through varied vegetation",
+      "text": "Preset Description Minimum packing Conway Classic Game of Life 1-bit Replicator Replicates itself indefinitely 1-bit Day & Night Symmetric under on-off reversal 1-bit Anneal Converges to smooth blobs 1-bit Senescence Life where cells age and become nutrient 4-bit Afterimage Classic Life with fading cells 8-bit Cyclic Dominance Rock-paper-scissors territory contest 2-bit Cultural Drift Local influence forms shifting cultural regions 4-bit SIRSD Epidemic Probabilistic infection, recovery, and mortality 2-bit Wildfire Fire spreads through varied vegetation 4-bit Slime Mold Slime body with explorer tendrils 2-bit Color Mixing Colors combine additively 4-bit",
       "textBlocks": [
         {
           "start": 0,
-          "end": 468
+          "end": 661
         }
       ],
       "textFragmentEligible": false,
@@ -6092,13 +6092,13 @@
     {
       "pageSlug": "presets",
       "pageTitle": "Presets",
-      "sectionId": "afterimage",
-      "sectionTitle": "Afterimage",
-      "text": "TODO",
+      "sectionId": "conway",
+      "sectionTitle": "Conway",
+      "text": "Conway is the original two-state Game of Life: cells are born with exactly three living neighbors and survive with two or three. Its small ruleset produces familiar still lifes, oscillators, spaceships, and long-lived chaotic patterns.",
       "textBlocks": [
         {
           "start": 0,
-          "end": 4
+          "end": 235
         }
       ],
       "textFragmentEligible": true,
@@ -6107,13 +6107,13 @@
     {
       "pageSlug": "presets",
       "pageTitle": "Presets",
-      "sectionId": "senescence",
-      "sectionTitle": "Senescence",
-      "text": "TODO",
+      "sectionId": "conway",
+      "sectionTitle": "Conway",
+      "text": "Tips to start: Draw a small random patch with the Live tribe, then try simple patterns such as a block, blinker, glider, or lightweight spaceship. Slow the simulation down when a pattern becomes interesting so you can identify its repeating structure.",
       "textBlocks": [
         {
           "start": 0,
-          "end": 4
+          "end": 251
         }
       ],
       "textFragmentEligible": true,
@@ -6122,13 +6122,13 @@
     {
       "pageSlug": "presets",
       "pageTitle": "Presets",
-      "sectionId": "sirsd-epidemic",
-      "sectionTitle": "SIRSD Epidemic",
-      "text": "TODO",
+      "sectionId": "replicator",
+      "sectionTitle": "Replicator",
+      "text": "Replicator is a HighLife-style rule that supports self-copying patterns. Small seeds can expand into recurring fragments that fill large areas while continually producing new copies of their original structure.",
       "textBlocks": [
         {
           "start": 0,
-          "end": 4
+          "end": 210
         }
       ],
       "textFragmentEligible": true,
@@ -6137,17 +6137,317 @@
     {
       "pageSlug": "presets",
       "pageTitle": "Presets",
-      "sectionId": "wildfire",
-      "sectionTitle": "Wildfire",
-      "text": "TODO",
+      "sectionId": "replicator",
+      "sectionTitle": "Replicator",
+      "text": "Tips to start: Use a small spray-painted seed rather than filling the grid. Let it evolve at a moderate speed and leave enough empty space around it to watch separate copies emerge and interact.",
       "textBlocks": [
         {
           "start": 0,
-          "end": 4
+          "end": 194
         }
       ],
       "textFragmentEligible": true,
       "order": 313
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "day-amp-night",
+      "sectionTitle": "Day & Night",
+      "text": "Day & Night is a Life-like rule with a complementary symmetry: swapping living and dead cells produces an equally valid evolution. Dense and sparse regions therefore create similarly rich structures.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 199
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 314
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "day-amp-night",
+      "sectionTitle": "Day & Night",
+      "text": "Tips to start: Paint both a sparse patch and a dense patch of Live cells. Compare how the two regions evolve, then invert your intuition by treating the empty background as part of the pattern.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 193
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 315
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "anneal",
+      "sectionTitle": "Anneal",
+      "text": "Anneal smooths irregular cell clusters into rounded, slowly changing blobs. It is useful for observing local majority behavior and how small gaps, islands, and thin connections disappear or merge over time.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 206
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 316
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "anneal",
+      "sectionTitle": "Anneal",
+      "text": "Tips to start: Start with a noisy spray-painted region at medium density. Watch the initial noise settle, then add a few narrow bridges or holes to see which features remain after the rule smooths them.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 202
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 317
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "senescence",
+      "sectionTitle": "Senescence",
+      "text": "Senescence extends Life with visible stages of aging. Spark cells mature through successive living states, leave nutrient-like remnants, and can support later regrowth, creating expanding frontiers and evolving interior tissue.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 227
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 318
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "senescence",
+      "sectionTitle": "Senescence",
+      "text": "Tips to start: Begin with a small seed of Spark. Wait for the frontier to expand, then reignite the interior by adding more Spark cells.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 136
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 319
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "afterimage",
+      "sectionTitle": "Afterimage",
+      "text": "Afterimage preserves the behavior of classic Life while giving dead cells a long cyan fade. The trailing age states make the motion and history of gliders, oscillators, and chaotic regions visible long after a living cell has moved on.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 235
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 320
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "afterimage",
+      "sectionTitle": "Afterimage",
+      "text": "Tips to start: Draw a glider or a small random Live-cell seed on an otherwise empty grid. Run slowly at first to follow the fading trail, then increase the speed once several moving patterns are present.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 203
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 321
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "cyclic-dominance",
+      "sectionTitle": "Cyclic Dominance",
+      "text": "Cyclic Dominance is a three-tribe rock-paper-scissors contest. Each color can overtake one rival and be overtaken by another, producing moving fronts, rotating spirals, and continually shifting territories.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 206
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 322
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "cyclic-dominance",
+      "sectionTitle": "Cyclic Dominance",
+      "text": "Tips to start: Select all three tribes, use a spray brush, and paint the whole grid. Then start the simulation and let the competing territories form naturally.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 160
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 323
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "cultural-drift",
+      "sectionTitle": "Cultural Drift",
+      "text": "Cultural Drift models local influence among five cultures. Neighboring cells tend to align with nearby majorities, forming broad colored regions that may appear settled before slower boundary changes eventually decide the remaining competition.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 244
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 324
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "cultural-drift",
+      "sectionTitle": "Cultural Drift",
+      "text": "Tips to start: Select all tribes, choose a full brush, and paint the entire grid. Let it run until it looks stable, then increase the simulation speed to reveal that it is still changing. Repeat with progressively higher speeds until only one tribe remains.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 257
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 325
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "sirsd-epidemic",
+      "sectionTitle": "SIRSD Epidemic",
+      "text": "SIRSD Epidemic models susceptible, infectious, and recovered populations with probabilistic infection, recovery, mortality, and loss of immunity. It can produce localized waves, repeated outbreaks, and strong sensitivity to the initial population layout.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 254
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 326
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "sirsd-epidemic",
+      "sectionTitle": "SIRSD Epidemic",
+      "text": "Tips to start: Use a full brush at low density to paint the whole grid, deliberately leaving areas with different densities. Add a small number of Infectious cells, then watch the epidemic unfold.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 196
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 327
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "wildfire",
+      "sectionTitle": "Wildfire",
+      "text": "Wildfire simulates fire moving through grass, bushes, and trees with different resistance levels. Embers, fire, blaze, char, and rock make the spread, burnout, and firebreak effects visible across a heterogeneous landscape.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 223
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 328
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "wildfire",
+      "sectionTitle": "Wildfire",
+      "text": "Tips to start: Paint vegetation across the whole grid with a spray brush at 90% density, then ignite even a very small area and compare how differently each run spreads. Add Rocks to make firebreaks, or unmute the vegetation-reproduction rule to explore regrowth.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 263
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 329
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "slime-mold",
+      "sectionTitle": "Slime Mold",
+      "text": "Slime Mold separates an advancing Head state from stable Body tissue and food. Tendrils explore empty space, grow rapidly near food, and leave behind a connected body that can launch new exploratory heads.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 205
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 330
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "slime-mold",
+      "sectionTitle": "Slime Mold",
+      "text": "Tips to start: Add a small initial seed containing only Head cells and watch it slowly spread across the grid. Optionally add patches of Food to observe rapid local growth.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 172
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 331
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "color-mixing",
+      "sectionTitle": "Color Mixing",
+      "text": "Color Mixing uses red, green, and blue primary tribes that combine into cyan, magenta, yellow, and ultimately white. Neighbor interactions make additive color blending visible as neighboring patches exchange and recombine colors.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 229
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 332
+    },
+    {
+      "pageSlug": "presets",
+      "pageTitle": "Presets",
+      "sectionId": "color-mixing",
+      "sectionTitle": "Color Mixing",
+      "text": "Tips to start: Either draw three bands of primary colors and watch them slowly mix into secondary colors and then white, or select only the three primary colors, use a full brush at 100% density to paint the whole grid, and watch primary-color patches exchange smaller patches of white and a secondary color.",
+      "textBlocks": [
+        {
+          "start": 0,
+          "end": 308
+        }
+      ],
+      "textFragmentEligible": true,
+      "order": 333
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6162,7 +6462,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 314
+      "order": 334
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6177,7 +6477,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 315
+      "order": 335
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6192,7 +6492,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 316
+      "order": 336
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6207,7 +6507,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 317
+      "order": 337
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6222,7 +6522,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 318
+      "order": 338
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6237,7 +6537,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 319
+      "order": 339
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6252,7 +6552,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 320
+      "order": 340
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6303,7 +6603,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 321
+      "order": 341
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6318,7 +6618,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 322
+      "order": 342
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6333,7 +6633,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 323
+      "order": 343
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6348,7 +6648,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 324
+      "order": 344
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6363,7 +6663,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 325
+      "order": 345
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6390,7 +6690,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 326
+      "order": 346
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6405,7 +6705,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 327
+      "order": 347
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6420,7 +6720,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 328
+      "order": 348
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6443,7 +6743,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 329
+      "order": 349
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6458,7 +6758,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 330
+      "order": 350
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6473,7 +6773,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 331
+      "order": 351
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6500,7 +6800,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 332
+      "order": 352
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6515,7 +6815,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 333
+      "order": 353
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6530,7 +6830,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 334
+      "order": 354
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6545,7 +6845,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 335
+      "order": 355
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6572,7 +6872,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 336
+      "order": 356
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6587,7 +6887,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 337
+      "order": 357
     },
     {
       "pageSlug": "recording-and-opfs",
@@ -6602,7 +6902,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 338
+      "order": 358
     },
     {
       "pageSlug": "references",
@@ -6617,7 +6917,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 339
+      "order": 359
     },
     {
       "pageSlug": "references",
@@ -6648,7 +6948,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 340
+      "order": 360
     },
     {
       "pageSlug": "references",
@@ -6679,7 +6979,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 341
+      "order": 361
     },
     {
       "pageSlug": "references",
@@ -6710,7 +7010,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 342
+      "order": 362
     },
     {
       "pageSlug": "references",
@@ -6729,7 +7029,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 343
+      "order": 363
     },
     {
       "pageSlug": "references",
@@ -6760,7 +7060,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 344
+      "order": 364
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6775,7 +7075,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 345
+      "order": 365
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6790,7 +7090,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 346
+      "order": 366
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6805,7 +7105,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 347
+      "order": 367
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6820,7 +7120,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 348
+      "order": 368
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6835,7 +7135,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 349
+      "order": 369
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6850,7 +7150,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 350
+      "order": 370
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6865,7 +7165,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 351
+      "order": 371
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6880,7 +7180,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 352
+      "order": 372
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6895,7 +7195,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 353
+      "order": 373
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6910,7 +7210,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 354
+      "order": 374
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6925,7 +7225,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 355
+      "order": 375
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6935,7 +7235,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 356
+      "order": 376
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6950,7 +7250,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 357
+      "order": 377
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6965,7 +7265,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 358
+      "order": 378
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6980,7 +7280,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 359
+      "order": 379
     },
     {
       "pageSlug": "rule-cost-model",
@@ -6995,7 +7295,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 360
+      "order": 380
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7010,7 +7310,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 361
+      "order": 381
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7025,7 +7325,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 362
+      "order": 382
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7040,7 +7340,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 363
+      "order": 383
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7055,7 +7355,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 364
+      "order": 384
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7070,7 +7370,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 365
+      "order": 385
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7085,7 +7385,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 366
+      "order": 386
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7100,7 +7400,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 367
+      "order": 387
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7115,7 +7415,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 368
+      "order": 388
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7130,7 +7430,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 369
+      "order": 389
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7145,7 +7445,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 370
+      "order": 390
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7160,7 +7460,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 371
+      "order": 391
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7175,7 +7475,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 372
+      "order": 392
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7190,7 +7490,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 373
+      "order": 393
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7205,7 +7505,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 374
+      "order": 394
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7240,7 +7540,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 375
+      "order": 395
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7255,7 +7555,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 376
+      "order": 396
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7270,7 +7570,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 377
+      "order": 397
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7285,7 +7585,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 378
+      "order": 398
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7295,7 +7595,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 379
+      "order": 399
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7310,7 +7610,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 380
+      "order": 400
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7325,7 +7625,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 381
+      "order": 401
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7340,7 +7640,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 382
+      "order": 402
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7355,7 +7655,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 383
+      "order": 403
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7370,7 +7670,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 384
+      "order": 404
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7385,7 +7685,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 385
+      "order": 405
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7400,7 +7700,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 386
+      "order": 406
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7415,7 +7715,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 387
+      "order": 407
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7430,7 +7730,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 388
+      "order": 408
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7445,7 +7745,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 389
+      "order": 409
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7460,7 +7760,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 390
+      "order": 410
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7475,7 +7775,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 391
+      "order": 411
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7485,7 +7785,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 392
+      "order": 412
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7500,7 +7800,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 393
+      "order": 413
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7515,7 +7815,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 394
+      "order": 414
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7530,7 +7830,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 395
+      "order": 415
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7545,7 +7845,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 396
+      "order": 416
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7560,7 +7860,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 397
+      "order": 417
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7575,7 +7875,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 398
+      "order": 418
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7590,7 +7890,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 399
+      "order": 419
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7600,7 +7900,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 400
+      "order": 420
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7615,7 +7915,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 401
+      "order": 421
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7630,7 +7930,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 402
+      "order": 422
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7645,7 +7945,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 403
+      "order": 423
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7660,7 +7960,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 404
+      "order": 424
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7675,7 +7975,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 405
+      "order": 425
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7690,7 +7990,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 406
+      "order": 426
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7705,7 +8005,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 407
+      "order": 427
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7720,7 +8020,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 408
+      "order": 428
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7735,7 +8035,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 409
+      "order": 429
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7750,7 +8050,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 410
+      "order": 430
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7765,7 +8065,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 411
+      "order": 431
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7780,7 +8080,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 412
+      "order": 432
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7795,7 +8095,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 413
+      "order": 433
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7810,7 +8110,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 414
+      "order": 434
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7825,7 +8125,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 415
+      "order": 435
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7840,7 +8140,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 416
+      "order": 436
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7855,7 +8155,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 417
+      "order": 437
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7870,7 +8170,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 418
+      "order": 438
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7885,7 +8185,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 419
+      "order": 439
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7900,7 +8200,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 420
+      "order": 440
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7915,7 +8215,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 421
+      "order": 441
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7930,7 +8230,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 422
+      "order": 442
     },
     {
       "pageSlug": "rule-cost-model",
@@ -7945,7 +8245,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 423
+      "order": 443
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -7960,7 +8260,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 424
+      "order": 444
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -7979,7 +8279,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 425
+      "order": 445
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -7994,7 +8294,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 426
+      "order": 446
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8009,7 +8309,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 427
+      "order": 447
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8036,7 +8336,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 428
+      "order": 448
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8051,7 +8351,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 429
+      "order": 449
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8074,7 +8374,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 430
+      "order": 450
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8089,7 +8389,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 431
+      "order": 451
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8104,7 +8404,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 432
+      "order": 452
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8119,7 +8419,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 433
+      "order": 453
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8134,7 +8434,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 434
+      "order": 454
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8161,7 +8461,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 435
+      "order": 455
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8176,7 +8476,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 436
+      "order": 456
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8195,7 +8495,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 437
+      "order": 457
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8210,7 +8510,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 438
+      "order": 458
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8225,7 +8525,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 439
+      "order": 459
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8240,7 +8540,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 440
+      "order": 460
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8303,7 +8603,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 441
+      "order": 461
     },
     {
       "pageSlug": "rule-engine-internals",
@@ -8318,7 +8618,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 442
+      "order": 462
     },
     {
       "pageSlug": "rule-expressions",
@@ -8333,7 +8633,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 443
+      "order": 463
     },
     {
       "pageSlug": "rule-expressions",
@@ -8348,7 +8648,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 444
+      "order": 464
     },
     {
       "pageSlug": "rule-expressions",
@@ -8363,7 +8663,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 445
+      "order": 465
     },
     {
       "pageSlug": "rule-expressions",
@@ -8378,7 +8678,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 446
+      "order": 466
     },
     {
       "pageSlug": "rule-expressions",
@@ -8388,7 +8688,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 447
+      "order": 467
     },
     {
       "pageSlug": "rule-expressions",
@@ -8403,7 +8703,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 448
+      "order": 468
     },
     {
       "pageSlug": "rule-expressions",
@@ -8418,7 +8718,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 449
+      "order": 469
     },
     {
       "pageSlug": "rule-expressions",
@@ -8433,7 +8733,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 450
+      "order": 470
     },
     {
       "pageSlug": "rule-expressions",
@@ -8448,7 +8748,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 451
+      "order": 471
     },
     {
       "pageSlug": "rule-expressions",
@@ -8463,7 +8763,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 452
+      "order": 472
     },
     {
       "pageSlug": "rule-expressions",
@@ -8478,7 +8778,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 453
+      "order": 473
     },
     {
       "pageSlug": "rule-expressions",
@@ -8493,7 +8793,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 454
+      "order": 474
     },
     {
       "pageSlug": "rule-expressions",
@@ -8508,7 +8808,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 455
+      "order": 475
     },
     {
       "pageSlug": "rule-expressions",
@@ -8523,7 +8823,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 456
+      "order": 476
     },
     {
       "pageSlug": "rule-expressions",
@@ -8538,7 +8838,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 457
+      "order": 477
     },
     {
       "pageSlug": "rule-expressions",
@@ -8553,7 +8853,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 458
+      "order": 478
     },
     {
       "pageSlug": "rule-expressions",
@@ -8584,7 +8884,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 459
+      "order": 479
     },
     {
       "pageSlug": "rule-expressions",
@@ -8599,7 +8899,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 460
+      "order": 480
     },
     {
       "pageSlug": "rule-expressions",
@@ -8614,7 +8914,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 461
+      "order": 481
     },
     {
       "pageSlug": "rule-expressions",
@@ -8629,7 +8929,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 462
+      "order": 482
     },
     {
       "pageSlug": "rule-expressions",
@@ -8644,7 +8944,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 463
+      "order": 483
     },
     {
       "pageSlug": "rule-expressions",
@@ -8659,7 +8959,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 464
+      "order": 484
     },
     {
       "pageSlug": "rule-expressions",
@@ -8674,7 +8974,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 465
+      "order": 485
     },
     {
       "pageSlug": "rule-expressions",
@@ -8689,7 +8989,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 466
+      "order": 486
     },
     {
       "pageSlug": "rule-expressions",
@@ -8712,7 +9012,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 467
+      "order": 487
     },
     {
       "pageSlug": "rule-expressions",
@@ -8727,7 +9027,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 468
+      "order": 488
     },
     {
       "pageSlug": "rule-expressions",
@@ -8742,7 +9042,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 469
+      "order": 489
     },
     {
       "pageSlug": "rule-expressions",
@@ -8757,7 +9057,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 470
+      "order": 490
     },
     {
       "pageSlug": "rule-expressions",
@@ -8772,7 +9072,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 471
+      "order": 491
     },
     {
       "pageSlug": "rule-expressions",
@@ -8787,7 +9087,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 472
+      "order": 492
     },
     {
       "pageSlug": "rule-expressions",
@@ -8802,7 +9102,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 473
+      "order": 493
     },
     {
       "pageSlug": "rule-expressions",
@@ -8817,7 +9117,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 474
+      "order": 494
     },
     {
       "pageSlug": "rule-expressions",
@@ -8832,7 +9132,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 475
+      "order": 495
     },
     {
       "pageSlug": "rule-expressions",
@@ -8847,7 +9147,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 476
+      "order": 496
     },
     {
       "pageSlug": "rule-expressions",
@@ -8862,7 +9162,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 477
+      "order": 497
     },
     {
       "pageSlug": "rule-expressions",
@@ -8877,7 +9177,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 478
+      "order": 498
     },
     {
       "pageSlug": "rule-expressions",
@@ -8892,7 +9192,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 479
+      "order": 499
     },
     {
       "pageSlug": "rule-expressions",
@@ -8907,7 +9207,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 480
+      "order": 500
     },
     {
       "pageSlug": "rule-expressions",
@@ -8922,7 +9222,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 481
+      "order": 501
     },
     {
       "pageSlug": "rule-expressions",
@@ -8937,7 +9237,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 482
+      "order": 502
     },
     {
       "pageSlug": "rule-expressions",
@@ -8952,7 +9252,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 483
+      "order": 503
     },
     {
       "pageSlug": "rule-expressions",
@@ -8967,7 +9267,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 484
+      "order": 504
     },
     {
       "pageSlug": "rule-expressions",
@@ -8982,7 +9282,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 485
+      "order": 505
     },
     {
       "pageSlug": "rule-expressions",
@@ -8997,7 +9297,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 486
+      "order": 506
     },
     {
       "pageSlug": "rule-expressions",
@@ -9012,7 +9312,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 487
+      "order": 507
     },
     {
       "pageSlug": "rule-expressions",
@@ -9027,7 +9327,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 488
+      "order": 508
     },
     {
       "pageSlug": "rule-expressions",
@@ -9042,7 +9342,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 489
+      "order": 509
     },
     {
       "pageSlug": "rule-expressions",
@@ -9057,7 +9357,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 490
+      "order": 510
     },
     {
       "pageSlug": "rule-expressions",
@@ -9072,7 +9372,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 491
+      "order": 511
     },
     {
       "pageSlug": "rule-expressions",
@@ -9087,7 +9387,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 492
+      "order": 512
     },
     {
       "pageSlug": "rule-expressions",
@@ -9102,7 +9402,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 493
+      "order": 513
     },
     {
       "pageSlug": "rule-expressions",
@@ -9117,7 +9417,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 494
+      "order": 514
     },
     {
       "pageSlug": "rule-expressions",
@@ -9132,7 +9432,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 495
+      "order": 515
     },
     {
       "pageSlug": "rule-expressions",
@@ -9147,7 +9447,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 496
+      "order": 516
     },
     {
       "pageSlug": "rule-expressions",
@@ -9162,7 +9462,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 497
+      "order": 517
     },
     {
       "pageSlug": "rule-expressions",
@@ -9177,7 +9477,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 498
+      "order": 518
     },
     {
       "pageSlug": "rule-expressions",
@@ -9192,7 +9492,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 499
+      "order": 519
     },
     {
       "pageSlug": "rule-expressions",
@@ -9207,7 +9507,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 500
+      "order": 520
     },
     {
       "pageSlug": "rule-expressions",
@@ -9222,7 +9522,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 501
+      "order": 521
     },
     {
       "pageSlug": "rule-expressions",
@@ -9237,7 +9537,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 502
+      "order": 522
     },
     {
       "pageSlug": "rule-expressions",
@@ -9252,7 +9552,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 503
+      "order": 523
     },
     {
       "pageSlug": "rule-expressions",
@@ -9267,7 +9567,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 504
+      "order": 524
     },
     {
       "pageSlug": "rule-expressions",
@@ -9282,7 +9582,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 505
+      "order": 525
     },
     {
       "pageSlug": "rule-expressions",
@@ -9297,7 +9597,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 506
+      "order": 526
     },
     {
       "pageSlug": "rule-expressions",
@@ -9328,7 +9628,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 507
+      "order": 527
     },
     {
       "pageSlug": "rule-expressions",
@@ -9343,7 +9643,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 508
+      "order": 528
     },
     {
       "pageSlug": "rule-expressions",
@@ -9358,7 +9658,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 509
+      "order": 529
     },
     {
       "pageSlug": "rule-expressions",
@@ -9373,7 +9673,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 510
+      "order": 530
     },
     {
       "pageSlug": "rule-expressions",
@@ -9392,7 +9692,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 511
+      "order": 531
     },
     {
       "pageSlug": "rule-expressions",
@@ -9407,7 +9707,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 512
+      "order": 532
     },
     {
       "pageSlug": "rule-expressions",
@@ -9422,7 +9722,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 513
+      "order": 533
     },
     {
       "pageSlug": "rule-expressions",
@@ -9437,7 +9737,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 514
+      "order": 534
     },
     {
       "pageSlug": "rule-expressions",
@@ -9452,7 +9752,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 515
+      "order": 535
     },
     {
       "pageSlug": "rule-expressions",
@@ -9467,7 +9767,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 516
+      "order": 536
     },
     {
       "pageSlug": "rule-expressions",
@@ -9482,7 +9782,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 517
+      "order": 537
     },
     {
       "pageSlug": "rule-expressions",
@@ -9497,7 +9797,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 518
+      "order": 538
     },
     {
       "pageSlug": "rule-expressions",
@@ -9512,7 +9812,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 519
+      "order": 539
     },
     {
       "pageSlug": "rule-expressions",
@@ -9527,7 +9827,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 520
+      "order": 540
     },
     {
       "pageSlug": "rule-expressions",
@@ -9542,7 +9842,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 521
+      "order": 541
     },
     {
       "pageSlug": "rule-expressions",
@@ -9557,7 +9857,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 522
+      "order": 542
     },
     {
       "pageSlug": "rule-expressions",
@@ -9572,7 +9872,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 523
+      "order": 543
     },
     {
       "pageSlug": "rule-expressions",
@@ -9587,7 +9887,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 524
+      "order": 544
     },
     {
       "pageSlug": "rule-expressions",
@@ -9602,7 +9902,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 525
+      "order": 545
     },
     {
       "pageSlug": "rule-expressions",
@@ -9617,7 +9917,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 526
+      "order": 546
     },
     {
       "pageSlug": "rule-expressions",
@@ -9644,7 +9944,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 527
+      "order": 547
     },
     {
       "pageSlug": "rule-expressions",
@@ -9659,7 +9959,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 528
+      "order": 548
     },
     {
       "pageSlug": "rule-expressions",
@@ -9674,7 +9974,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 529
+      "order": 549
     },
     {
       "pageSlug": "rule-expressions",
@@ -9689,7 +9989,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 530
+      "order": 550
     },
     {
       "pageSlug": "rule-expressions",
@@ -9699,7 +9999,7 @@
       "text": "",
       "textBlocks": [],
       "textFragmentEligible": false,
-      "order": 531
+      "order": 551
     },
     {
       "pageSlug": "rule-expressions",
@@ -9714,7 +10014,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 532
+      "order": 552
     },
     {
       "pageSlug": "rule-expressions",
@@ -9729,7 +10029,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 533
+      "order": 553
     },
     {
       "pageSlug": "rule-expressions",
@@ -9744,7 +10044,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 534
+      "order": 554
     },
     {
       "pageSlug": "rule-expressions",
@@ -9759,7 +10059,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 535
+      "order": 555
     },
     {
       "pageSlug": "rule-expressions",
@@ -9774,7 +10074,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 536
+      "order": 556
     },
     {
       "pageSlug": "rule-expressions",
@@ -9789,7 +10089,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 537
+      "order": 557
     },
     {
       "pageSlug": "rule-expressions",
@@ -9804,7 +10104,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 538
+      "order": 558
     },
     {
       "pageSlug": "rule-expressions",
@@ -9819,7 +10119,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 539
+      "order": 559
     },
     {
       "pageSlug": "rule-expressions",
@@ -9834,7 +10134,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 540
+      "order": 560
     },
     {
       "pageSlug": "rule-expressions",
@@ -9849,7 +10149,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 541
+      "order": 561
     },
     {
       "pageSlug": "rule-expressions",
@@ -9864,7 +10164,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 542
+      "order": 562
     },
     {
       "pageSlug": "rule-expressions",
@@ -9879,7 +10179,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 543
+      "order": 563
     },
     {
       "pageSlug": "rule-expressions",
@@ -9894,7 +10194,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 544
+      "order": 564
     },
     {
       "pageSlug": "rule-expressions",
@@ -9909,7 +10209,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 545
+      "order": 565
     },
     {
       "pageSlug": "rule-expressions",
@@ -9924,7 +10224,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 546
+      "order": 566
     },
     {
       "pageSlug": "rule-expressions",
@@ -9975,7 +10275,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 547
+      "order": 567
     },
     {
       "pageSlug": "rule-expressions",
@@ -9990,7 +10290,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 548
+      "order": 568
     },
     {
       "pageSlug": "rules",
@@ -10005,7 +10305,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 549
+      "order": 569
     },
     {
       "pageSlug": "rules",
@@ -10020,7 +10320,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 550
+      "order": 570
     },
     {
       "pageSlug": "rules",
@@ -10075,7 +10375,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 551
+      "order": 571
     },
     {
       "pageSlug": "rules",
@@ -10090,7 +10390,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 552
+      "order": 572
     },
     {
       "pageSlug": "rules",
@@ -10105,7 +10405,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 553
+      "order": 573
     },
     {
       "pageSlug": "rules",
@@ -10120,7 +10420,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 554
+      "order": 574
     },
     {
       "pageSlug": "rules",
@@ -10167,7 +10467,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 555
+      "order": 575
     },
     {
       "pageSlug": "rules",
@@ -10182,7 +10482,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 556
+      "order": 576
     },
     {
       "pageSlug": "rules",
@@ -10197,7 +10497,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 557
+      "order": 577
     },
     {
       "pageSlug": "rules",
@@ -10212,7 +10512,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 558
+      "order": 578
     },
     {
       "pageSlug": "rules",
@@ -10243,7 +10543,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 559
+      "order": 579
     },
     {
       "pageSlug": "rules",
@@ -10258,7 +10558,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 560
+      "order": 580
     },
     {
       "pageSlug": "rules",
@@ -10281,7 +10581,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 561
+      "order": 581
     },
     {
       "pageSlug": "rules",
@@ -10296,7 +10596,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 562
+      "order": 582
     },
     {
       "pageSlug": "rules",
@@ -10331,7 +10631,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 563
+      "order": 583
     },
     {
       "pageSlug": "rules",
@@ -10346,7 +10646,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 564
+      "order": 584
     },
     {
       "pageSlug": "rules",
@@ -10361,7 +10661,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 565
+      "order": 585
     },
     {
       "pageSlug": "rules",
@@ -10388,7 +10688,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 566
+      "order": 586
     },
     {
       "pageSlug": "shortcuts",
@@ -10403,7 +10703,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 567
+      "order": 587
     },
     {
       "pageSlug": "shortcuts",
@@ -10418,7 +10718,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 568
+      "order": 588
     },
     {
       "pageSlug": "shortcuts",
@@ -10433,7 +10733,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 569
+      "order": 589
     },
     {
       "pageSlug": "shortcuts",
@@ -10448,7 +10748,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 570
+      "order": 590
     },
     {
       "pageSlug": "snapshot-format",
@@ -10463,7 +10763,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 571
+      "order": 591
     },
     {
       "pageSlug": "snapshot-format",
@@ -10478,7 +10778,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 572
+      "order": 592
     },
     {
       "pageSlug": "snapshot-format",
@@ -10493,7 +10793,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 573
+      "order": 593
     },
     {
       "pageSlug": "snapshot-format",
@@ -10508,7 +10808,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 574
+      "order": 594
     },
     {
       "pageSlug": "snapshot-format",
@@ -10523,7 +10823,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 575
+      "order": 595
     },
     {
       "pageSlug": "snapshot-format",
@@ -10538,7 +10838,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 576
+      "order": 596
     },
     {
       "pageSlug": "snapshot-format",
@@ -10553,7 +10853,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 577
+      "order": 597
     },
     {
       "pageSlug": "snapshot-format",
@@ -10568,7 +10868,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 578
+      "order": 598
     },
     {
       "pageSlug": "snapshot-format",
@@ -10583,7 +10883,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 579
+      "order": 599
     },
     {
       "pageSlug": "snapshot-format",
@@ -10598,7 +10898,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 580
+      "order": 600
     },
     {
       "pageSlug": "snapshot-format",
@@ -10613,7 +10913,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 581
+      "order": 601
     },
     {
       "pageSlug": "snapshot-format",
@@ -10660,7 +10960,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 582
+      "order": 602
     },
     {
       "pageSlug": "snapshot-format",
@@ -10675,7 +10975,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 583
+      "order": 603
     },
     {
       "pageSlug": "snapshot-format",
@@ -10690,7 +10990,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 584
+      "order": 604
     },
     {
       "pageSlug": "snapshot-format",
@@ -10705,7 +11005,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 585
+      "order": 605
     },
     {
       "pageSlug": "snapshot-format",
@@ -10720,7 +11020,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 586
+      "order": 606
     },
     {
       "pageSlug": "snapshot-format",
@@ -10743,7 +11043,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 587
+      "order": 607
     },
     {
       "pageSlug": "snapshot-format",
@@ -10758,7 +11058,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 588
+      "order": 608
     },
     {
       "pageSlug": "snapshot-format",
@@ -10773,7 +11073,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 589
+      "order": 609
     },
     {
       "pageSlug": "snapshot-format",
@@ -10788,7 +11088,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 590
+      "order": 610
     },
     {
       "pageSlug": "snapshot-format",
@@ -10803,7 +11103,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 591
+      "order": 611
     },
     {
       "pageSlug": "snapshot-format",
@@ -10818,7 +11118,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 592
+      "order": 612
     },
     {
       "pageSlug": "snapshot-format",
@@ -10833,7 +11133,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 593
+      "order": 613
     },
     {
       "pageSlug": "snapshot-format",
@@ -10848,7 +11148,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 594
+      "order": 614
     },
     {
       "pageSlug": "snapshot-format",
@@ -10863,7 +11163,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 595
+      "order": 615
     },
     {
       "pageSlug": "snapshot-format",
@@ -10878,7 +11178,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 596
+      "order": 616
     },
     {
       "pageSlug": "snapshot-format",
@@ -10893,7 +11193,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 597
+      "order": 617
     },
     {
       "pageSlug": "snapshot-format",
@@ -10908,7 +11208,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 598
+      "order": 618
     },
     {
       "pageSlug": "snapshot-format",
@@ -10923,7 +11223,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 599
+      "order": 619
     },
     {
       "pageSlug": "snapshot-format",
@@ -10938,7 +11238,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 600
+      "order": 620
     },
     {
       "pageSlug": "snapshot-format",
@@ -10957,7 +11257,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 601
+      "order": 621
     },
     {
       "pageSlug": "snapshot-format",
@@ -10972,7 +11272,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 602
+      "order": 622
     },
     {
       "pageSlug": "snapshot-format",
@@ -10987,7 +11287,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 603
+      "order": 623
     },
     {
       "pageSlug": "snapshot-format",
@@ -11014,7 +11314,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 604
+      "order": 624
     },
     {
       "pageSlug": "snapshot-format",
@@ -11029,7 +11329,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 605
+      "order": 625
     },
     {
       "pageSlug": "snapshot-format",
@@ -11044,7 +11344,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 606
+      "order": 626
     },
     {
       "pageSlug": "snapshot-format",
@@ -11059,7 +11359,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 607
+      "order": 627
     },
     {
       "pageSlug": "snapshot-format",
@@ -11074,7 +11374,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 608
+      "order": 628
     },
     {
       "pageSlug": "snapshot-format",
@@ -11089,7 +11389,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 609
+      "order": 629
     },
     {
       "pageSlug": "snapshot-format",
@@ -11124,7 +11424,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 610
+      "order": 630
     },
     {
       "pageSlug": "snapshot-format",
@@ -11139,7 +11439,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 611
+      "order": 631
     },
     {
       "pageSlug": "snapshot",
@@ -11154,7 +11454,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 612
+      "order": 632
     },
     {
       "pageSlug": "snapshot",
@@ -11177,7 +11477,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 613
+      "order": 633
     },
     {
       "pageSlug": "snapshot",
@@ -11192,7 +11492,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 614
+      "order": 634
     },
     {
       "pageSlug": "snapshot",
@@ -11207,7 +11507,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 615
+      "order": 635
     },
     {
       "pageSlug": "snapshot",
@@ -11254,7 +11554,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 616
+      "order": 636
     },
     {
       "pageSlug": "snapshot",
@@ -11269,7 +11569,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 617
+      "order": 637
     },
     {
       "pageSlug": "snapshot",
@@ -11284,7 +11584,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 618
+      "order": 638
     },
     {
       "pageSlug": "snapshot",
@@ -11299,7 +11599,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 619
+      "order": 639
     },
     {
       "pageSlug": "speed",
@@ -11314,7 +11614,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 620
+      "order": 640
     },
     {
       "pageSlug": "speed",
@@ -11341,7 +11641,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 621
+      "order": 641
     },
     {
       "pageSlug": "speed",
@@ -11356,7 +11656,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 622
+      "order": 642
     },
     {
       "pageSlug": "speed",
@@ -11371,7 +11671,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 623
+      "order": 643
     },
     {
       "pageSlug": "technical-architecture",
@@ -11386,7 +11686,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 624
+      "order": 644
     },
     {
       "pageSlug": "technical-architecture",
@@ -11401,7 +11701,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 625
+      "order": 645
     },
     {
       "pageSlug": "technical-architecture",
@@ -11440,7 +11740,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 626
+      "order": 646
     },
     {
       "pageSlug": "technical-architecture",
@@ -11455,7 +11755,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 627
+      "order": 647
     },
     {
       "pageSlug": "technical-architecture",
@@ -11470,7 +11770,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 628
+      "order": 648
     },
     {
       "pageSlug": "technical-architecture",
@@ -11505,7 +11805,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 629
+      "order": 649
     },
     {
       "pageSlug": "technical-architecture",
@@ -11520,7 +11820,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 630
+      "order": 650
     },
     {
       "pageSlug": "technical-architecture",
@@ -11551,7 +11851,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 631
+      "order": 651
     },
     {
       "pageSlug": "technical-architecture",
@@ -11566,7 +11866,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 632
+      "order": 652
     },
     {
       "pageSlug": "technical-architecture",
@@ -11593,7 +11893,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 633
+      "order": 653
     },
     {
       "pageSlug": "technical-architecture",
@@ -11608,7 +11908,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 634
+      "order": 654
     },
     {
       "pageSlug": "tribes",
@@ -11623,7 +11923,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 635
+      "order": 655
     },
     {
       "pageSlug": "tribes",
@@ -11666,7 +11966,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 636
+      "order": 656
     },
     {
       "pageSlug": "tribes",
@@ -11693,7 +11993,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 637
+      "order": 657
     },
     {
       "pageSlug": "tribes",
@@ -11708,7 +12008,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 638
+      "order": 658
     },
     {
       "pageSlug": "tribes",
@@ -11723,7 +12023,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 639
+      "order": 659
     },
     {
       "pageSlug": "tribes",
@@ -11750,7 +12050,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 640
+      "order": 660
     },
     {
       "pageSlug": "tribes",
@@ -11765,7 +12065,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 641
+      "order": 661
     },
     {
       "pageSlug": "tribes",
@@ -11780,7 +12080,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 642
+      "order": 662
     },
     {
       "pageSlug": "tribes",
@@ -11795,7 +12095,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 643
+      "order": 663
     },
     {
       "pageSlug": "tribes",
@@ -11810,7 +12110,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 644
+      "order": 664
     },
     {
       "pageSlug": "ui",
@@ -11825,7 +12125,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 645
+      "order": 665
     },
     {
       "pageSlug": "ui",
@@ -11884,7 +12184,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 646
+      "order": 666
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11899,7 +12199,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 647
+      "order": 667
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11914,7 +12214,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 648
+      "order": 668
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11929,7 +12229,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 649
+      "order": 669
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11944,7 +12244,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 650
+      "order": 670
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11959,7 +12259,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 651
+      "order": 671
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11974,7 +12274,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 652
+      "order": 672
     },
     {
       "pageSlug": "vram-and-packing",
@@ -11989,7 +12289,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 653
+      "order": 673
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12004,7 +12304,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 654
+      "order": 674
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12019,7 +12319,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 655
+      "order": 675
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12034,7 +12334,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 656
+      "order": 676
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12049,7 +12349,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 657
+      "order": 677
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12068,7 +12368,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 658
+      "order": 678
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12083,7 +12383,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 659
+      "order": 679
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12098,7 +12398,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 660
+      "order": 680
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12113,7 +12413,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 661
+      "order": 681
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12128,7 +12428,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 662
+      "order": 682
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12143,7 +12443,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 663
+      "order": 683
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12166,7 +12466,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 664
+      "order": 684
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12181,7 +12481,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 665
+      "order": 685
     },
     {
       "pageSlug": "vram-and-packing",
@@ -12196,7 +12496,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 666
+      "order": 686
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12211,7 +12511,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 667
+      "order": 687
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12242,7 +12542,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 668
+      "order": 688
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12257,7 +12557,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 669
+      "order": 689
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12272,7 +12572,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 670
+      "order": 690
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12287,7 +12587,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 671
+      "order": 691
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12334,7 +12634,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 672
+      "order": 692
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12349,7 +12649,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 673
+      "order": 693
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12364,7 +12664,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 674
+      "order": 694
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12399,7 +12699,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 675
+      "order": 695
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12414,7 +12714,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 676
+      "order": 696
     },
     {
       "pageSlug": "webgpu-webengine",
@@ -12429,7 +12729,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 677
+      "order": 697
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12444,7 +12744,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 678
+      "order": 698
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12459,7 +12759,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 679
+      "order": 699
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12474,7 +12774,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 680
+      "order": 700
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12541,7 +12841,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 681
+      "order": 701
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12556,7 +12856,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 682
+      "order": 702
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12571,7 +12871,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 683
+      "order": 703
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12586,7 +12886,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 684
+      "order": 704
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12601,7 +12901,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 685
+      "order": 705
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12616,7 +12916,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 686
+      "order": 706
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12655,7 +12955,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 687
+      "order": 707
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12670,7 +12970,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 688
+      "order": 708
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12685,7 +12985,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 689
+      "order": 709
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12700,7 +13000,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 690
+      "order": 710
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12751,7 +13051,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 691
+      "order": 711
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12766,7 +13066,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 692
+      "order": 712
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12781,7 +13081,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 693
+      "order": 713
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12800,7 +13100,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 694
+      "order": 714
     },
     {
       "pageSlug": "wgsl-shaders",
@@ -12815,7 +13115,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 695
+      "order": 715
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12830,7 +13130,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 696
+      "order": 716
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12845,7 +13145,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 697
+      "order": 717
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12860,7 +13160,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 698
+      "order": 718
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12875,7 +13175,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 699
+      "order": 719
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12890,7 +13190,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 700
+      "order": 720
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12905,7 +13205,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 701
+      "order": 721
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12936,7 +13236,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 702
+      "order": 722
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12951,7 +13251,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 703
+      "order": 723
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12966,7 +13266,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 704
+      "order": 724
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12981,7 +13281,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 705
+      "order": 725
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -12996,7 +13296,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 706
+      "order": 726
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13011,7 +13311,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 707
+      "order": 727
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13026,7 +13326,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 708
+      "order": 728
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13041,7 +13341,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 709
+      "order": 729
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13056,7 +13356,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 710
+      "order": 730
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13071,7 +13371,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 711
+      "order": 731
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13086,7 +13386,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 712
+      "order": 732
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13101,7 +13401,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 713
+      "order": 733
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13116,7 +13416,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 714
+      "order": 734
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13131,7 +13431,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 715
+      "order": 735
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13146,7 +13446,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 716
+      "order": 736
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13161,7 +13461,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 717
+      "order": 737
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13176,7 +13476,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 718
+      "order": 738
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13191,7 +13491,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 719
+      "order": 739
     },
     {
       "pageSlug": "wildfire-analysis",
@@ -13206,7 +13506,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 720
+      "order": 740
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13221,7 +13521,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 721
+      "order": 741
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13236,7 +13536,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 722
+      "order": 742
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13251,7 +13551,7 @@
         }
       ],
       "textFragmentEligible": false,
-      "order": 723
+      "order": 743
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13266,7 +13566,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 724
+      "order": 744
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13281,7 +13581,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 725
+      "order": 745
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13316,7 +13616,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 726
+      "order": 746
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13331,7 +13631,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 727
+      "order": 747
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13346,7 +13646,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 728
+      "order": 748
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13361,7 +13661,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 729
+      "order": 749
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13376,7 +13676,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 730
+      "order": 750
     },
     {
       "pageSlug": "wildfire-model-comparison",
@@ -13415,7 +13715,7 @@
         }
       ],
       "textFragmentEligible": true,
-      "order": 731
+      "order": 751
     }
   ],
   "slugs": [

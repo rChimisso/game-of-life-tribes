@@ -1,5 +1,5 @@
 import {Preset, staticRule} from '.';
-import {AND_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MIN_CLAUSE_KIND, Rule, Tribe, TRIBES_SELECTOR_KIND} from '../model/rule';
+import {AND_CLAUSE_KIND, DEAD_TRIBE, DEAD_TRIBE_ID, EXACTLY_CLAUSE_KIND, FIXED_BECOME_KIND, IS_CLAUSE_KIND, MAJORITY_BECOME_KIND, MIN_CLAUSE_KIND, Rule, SAME_BECOME_KIND, Tribe, TRIBES_SELECTOR_KIND} from '../model/rule';
 
 /**
  * Red competitor tribe ID.
@@ -110,12 +110,10 @@ export const CYCLIC_DOMINANCE_PRESET: Preset = {
             tribes: [CYCLIC_DOMINANCE_RED_TRIBE, CYCLIC_DOMINANCE_GREEN_TRIBE, CYCLIC_DOMINANCE_BLUE_TRIBE]
           },
           tie: {
-            kind: FIXED_BECOME_KIND,
-            tribe: DEAD_TRIBE_ID
+            kind: SAME_BECOME_KIND
           },
           fallback: {
-            kind: FIXED_BECOME_KIND,
-            tribe: DEAD_TRIBE_ID
+            kind: SAME_BECOME_KIND
           }
         }
       }

@@ -351,7 +351,7 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.28.1 · Open source</span>
+<span _ngcontent-ng-c1782639630>v1.0.0 · Open source</span>
 </gol-wiki-footer>
   </aside>
   <main>
@@ -360,7 +360,9 @@
 <h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Presets section loads example rulesets that demonstrate the rule system. Presets keep the current grid dimensions, topology, and boundary tribe, but replace tribes, rules, and random seed metadata. They are useful starting points for classic Life-like automata, lifecycle rules, trails, territory, and multi-state material simulations.</p>
 <h2 id="controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#controls" aria-label="Link to this section">#</a>Controls</h2>
-<ul>
+<p>
+  <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets.png" alt="Presets section">
+</p><ul>
 <li><strong>Preset buttons</strong>:<br>Each button shows the preset name, short description, and minimum required packing.</li>
 <li><strong>Apply</strong>:<br>Commits the selected preset. Disabled while running, downloading, or when no preset is selected.</li>
 <li><strong>Cancel</strong>:<br>Clears the current preset selection without changing the simulation.</li>
@@ -373,58 +375,111 @@
 <tr>
 <th>Preset</th>
 <th>Description</th>
+<th>Minimum packing</th>
 </tr>
 </thead>
 <tbody><tr>
 <td>Conway</td>
 <td>Classic Game of Life</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Replicator</td>
 <td>Replicates itself indefinitely</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Day &amp; Night</td>
 <td>Symmetric under on-off reversal</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Anneal</td>
 <td>Converges to smooth blobs</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-bit</td>
+</tr>
+<tr>
+<td>Senescence</td>
+<td>Life where cells age and become nutrient</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Afterimage</td>
 <td>Classic Life with fading cells</td>
-</tr>
-<tr>
-<td>Senescence</td>
-<td>Life where cells age</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Cyclic Dominance</td>
 <td>Rock-paper-scissors territory contest</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span>-bit</td>
+</tr>
+<tr>
+<td>Cultural Drift</td>
+<td>Local influence forms shifting cultural regions</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>SIRSD Epidemic</td>
-<td>Probabilistic infection, recovery, mortality, and waning immunity</td>
-</tr>
-<tr>
-<td>Slime Mold</td>
-<td>Slime body with explorer tendrils</td>
+<td>Probabilistic infection, recovery, and mortality</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span>-bit</td>
 </tr>
 <tr>
 <td>Wildfire</td>
 <td>Fire spreads through varied vegetation</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-bit</td>
+</tr>
+<tr>
+<td>Slime Mold</td>
+<td>Slime body with explorer tendrils</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span>-bit</td>
+</tr>
+<tr>
+<td>Color Mixing</td>
+<td>Colors combine additively</td>
+<td><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-bit</td>
 </tr>
 </tbody></table>
 <p>The minimum packing shown on each button is derived from the number of tribes in that preset. For example, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span>-state presets can use <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>-bit packing, while presets with many lifecycle or material states need a larger value.</p>
-<h3 id="afterimage"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#afterimage" aria-label="Link to this section">#</a>Afterimage</h3>
-<p>TODO</p>
+<h3 id="conway"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#conway" aria-label="Link to this section">#</a>Conway</h3>
+<p>Conway is the original two-state Game of Life: cells are born with exactly three living neighbors and survive with two or three. Its small ruleset produces familiar still lifes, oscillators, spaceships, and long-lived chaotic patterns.</p>
+<p>
+  <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets-conway.png" alt="Conway preset">
+</p><p><strong>Tips to start:</strong> Draw a small random patch with the Live tribe, then try simple patterns such as a block, blinker, glider, or lightweight spaceship. Slow the simulation down when a pattern becomes interesting so you can identify its repeating structure.</p>
+<h3 id="replicator"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#replicator" aria-label="Link to this section">#</a>Replicator</h3>
+<p>Replicator is a HighLife-style rule that supports self-copying patterns. Small seeds can expand into recurring fragments that fill large areas while continually producing new copies of their original structure.</p>
+<p>
+  <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/presets-replicator.png" alt="Replicator preset">
+</p><p><strong>Tips to start:</strong> Use a small spray-painted seed rather than filling the grid. Let it evolve at a moderate speed and leave enough empty space around it to watch separate copies emerge and interact.</p>
+<h3 id="day-amp-night"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#day-amp-night" aria-label="Link to this section">#</a>Day &amp; Night</h3>
+<p>Day &amp; Night is a Life-like rule with a complementary symmetry: swapping living and dead cells produces an equally valid evolution. Dense and sparse regions therefore create similarly rich structures.</p>
+<p><strong>Tips to start:</strong> Paint both a sparse patch and a dense patch of Live cells. Compare how the two regions evolve, then invert your intuition by treating the empty background as part of the pattern.</p>
+<h3 id="anneal"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#anneal" aria-label="Link to this section">#</a>Anneal</h3>
+<p>Anneal smooths irregular cell clusters into rounded, slowly changing blobs. It is useful for observing local majority behavior and how small gaps, islands, and thin connections disappear or merge over time.</p>
+<p><strong>Tips to start:</strong> Start with a noisy spray-painted region at medium density. Watch the initial noise settle, then add a few narrow bridges or holes to see which features remain after the rule smooths them.</p>
 <h3 id="senescence"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#senescence" aria-label="Link to this section">#</a>Senescence</h3>
-<p>TODO</p>
+<p>Senescence extends Life with visible stages of aging. Spark cells mature through successive living states, leave nutrient-like remnants, and can support later regrowth, creating expanding frontiers and evolving interior tissue.</p>
+<p><strong>Tips to start:</strong> Begin with a small seed of Spark. Wait for the frontier to expand, then reignite the interior by adding more Spark cells.</p>
+<h3 id="afterimage"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#afterimage" aria-label="Link to this section">#</a>Afterimage</h3>
+<p>Afterimage preserves the behavior of classic Life while giving dead cells a long cyan fade. The trailing age states make the motion and history of gliders, oscillators, and chaotic regions visible long after a living cell has moved on.</p>
+<p><strong>Tips to start:</strong> Draw a glider or a small random Live-cell seed on an otherwise empty grid. Run slowly at first to follow the fading trail, then increase the speed once several moving patterns are present.</p>
+<h3 id="cyclic-dominance"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#cyclic-dominance" aria-label="Link to this section">#</a>Cyclic Dominance</h3>
+<p>Cyclic Dominance is a three-tribe rock-paper-scissors contest. Each color can overtake one rival and be overtaken by another, producing moving fronts, rotating spirals, and continually shifting territories.</p>
+<p><strong>Tips to start:</strong> Select all three tribes, use a spray brush, and paint the whole grid. Then start the simulation and let the competing territories form naturally.</p>
+<h3 id="cultural-drift"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#cultural-drift" aria-label="Link to this section">#</a>Cultural Drift</h3>
+<p>Cultural Drift models local influence among five cultures. Neighboring cells tend to align with nearby majorities, forming broad colored regions that may appear settled before slower boundary changes eventually decide the remaining competition.</p>
+<p><strong>Tips to start:</strong> Select all tribes, choose a full brush, and paint the entire grid. Let it run until it looks stable, then increase the simulation speed to reveal that it is still changing. Repeat with progressively higher speeds until only one tribe remains.</p>
 <h3 id="sirsd-epidemic"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#sirsd-epidemic" aria-label="Link to this section">#</a>SIRSD Epidemic</h3>
-<p>TODO</p>
+<p>SIRSD Epidemic models susceptible, infectious, and recovered populations with probabilistic infection, recovery, mortality, and loss of immunity. It can produce localized waves, repeated outbreaks, and strong sensitivity to the initial population layout.</p>
+<p><strong>Tips to start:</strong> Use a full brush at low density to paint the whole grid, deliberately leaving areas with different densities. Add a small number of Infectious cells, then watch the epidemic unfold.</p>
 <h3 id="wildfire"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#wildfire" aria-label="Link to this section">#</a>Wildfire</h3>
-<p>TODO</p>
+<p>Wildfire simulates fire moving through grass, bushes, and trees with different resistance levels. Embers, fire, blaze, char, and rock make the spread, burnout, and firebreak effects visible across a heterogeneous landscape.</p>
+<p><strong>Tips to start:</strong> Paint vegetation across the whole grid with a spray brush at 90% density, then ignite even a very small area and compare how differently each run spreads. Add Rocks to make firebreaks, or unmute the vegetation-reproduction rule to explore regrowth.</p>
+<h3 id="slime-mold"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#slime-mold" aria-label="Link to this section">#</a>Slime Mold</h3>
+<p>Slime Mold separates an advancing Head state from stable Body tissue and food. Tendrils explore empty space, grow rapidly near food, and leave behind a connected body that can launch new exploratory heads.</p>
+<p><strong>Tips to start:</strong> Add a small initial seed containing only Head cells and watch it slowly spread across the grid. Optionally add patches of Food to observe rapid local growth.</p>
+<h3 id="color-mixing"><a class="heading-anchor" href="/game-of-life-tribes/wiki/presets#color-mixing" aria-label="Link to this section">#</a>Color Mixing</h3>
+<p>Color Mixing uses red, green, and blue primary tribes that combine into cyan, magenta, yellow, and ultimately white. Neighbor interactions make additive color blending visible as neighboring patches exchange and recombine colors.</p>
+<p><strong>Tips to start:</strong> Either draw three bands of primary colors and watch them slowly mix into secondary colors and then white, or select only the three primary colors, use a full brush at 100% density to paint the whole grid, and watch primary-color patches exchange smaller patches of white and a secondary color.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
         <!--ngtns-->
@@ -446,13 +501,13 @@
   ·
   <a _ngcontent-ng-c1782639630 rel="noopener noreferrer" routerlink="/" target="_blank" href="/game-of-life-tribes/" jsaction="click:;">Simulation</a>
 </span>
-<span _ngcontent-ng-c1782639630>v0.28.1 · Open source</span>
+<span _ngcontent-ng-c1782639630>v1.0.0 · Open source</span>
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BLK7ELXE.js" type="module"></script>
-<link rel="modulepreload" href="chunk-EUGEULRT.js">
-<link rel="modulepreload" href="chunk-55SZPWH3.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-JTPPXUYI.js" type="module"></script>
+<link rel="modulepreload" href="chunk-MI7XHAGF.js">
+<link rel="modulepreload" href="chunk-VJB6NQHU.js">
 <link rel="modulepreload" href="chunk-65JKILFC.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">
 

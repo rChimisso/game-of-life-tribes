@@ -32,7 +32,7 @@ The simulation requires WebGPU. Recording, snapshots, downloads, MP4 generation,
 
 ## Versioning
 
-This Wiki is current for application version `v0.27.3`.
+This Wiki is current for application version `v1.0.0`.
 
 **Game of Life: Tribes** follows [Semantic Versioning](https://semver.org/) using `MAJOR.MINOR.PATCH` version numbers:
 

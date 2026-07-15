@@ -10,7 +10,7 @@ export const SEO_DEFAULT_TITLE = 'Game of Life: Tribes';
  *
  * @type {string}
  */
-export const SEO_DEFAULT_DESCRIPTION = 'A superset of the classic Game of Life that adds multiple cell tribes! Experiment, learn, and have fun with the provided UI editor!';
+export const SEO_DEFAULT_DESCRIPTION = 'An interactive, browser-based cellular automata simulator extending Conway\'s Game of Life with multiple tribes and configurable rules.';
 
 /**
  * Absolute deployed application URL without a trailing slash.

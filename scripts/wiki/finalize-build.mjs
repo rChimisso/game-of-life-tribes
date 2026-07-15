@@ -25,7 +25,8 @@ if (!/<meta[^>]+name=["']robots["']/i.test(errorHtml)) {
 }
 writeFileSync(customErrorDocument, errorHtml, 'utf8');
 
-const urls = metadata.slugs.map(slug => `${siteUrl}/wiki/${slug === 'home' ? '' : `${slug}/`}`);
+const wikiUrls = metadata.slugs.map(slug => `${siteUrl}/wiki/${slug === 'home' ? '' : `${slug}/`}`);
+const urls = [`${siteUrl}/`, ...wikiUrls];
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(url => `  <url><loc>${url}</loc></url>`).join('\n')}\n</urlset>\n`;
 writeFileSync(join(outputDirectory, 'sitemap.xml'), sitemap, 'utf8');
 writeFileSync(join(outputDirectory, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${siteUrl}/sitemap.xml\n`, 'utf8');
@@ -47,4 +48,4 @@ while (pendingDirectories.length > 0) {
 if (forbiddenFiles.length > 0) {
   throw new Error(`Unexpected Wiki media or Markdown in the Pages build:\n${forbiddenFiles.join('\n')}`);
 }
-console.info(`[GOLT] Finalized ${urls.length} indexable Wiki routes and the custom 404 document.`);
+console.info(`[GOLT] Finalized the homepage, ${wikiUrls.length} indexable Wiki routes, and the custom 404 document.`);

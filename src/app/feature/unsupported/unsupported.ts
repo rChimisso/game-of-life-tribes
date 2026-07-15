@@ -42,6 +42,12 @@ export class UnsupportedPage {
       icon: 'open_in_new',
       label: 'Check support',
       execute: () => this.store$.dispatch(openBlank({link: 'https://caniuse.com/webgpu'}))
+    },
+    {
+      id: 'wiki',
+      icon: 'menu_book',
+      label: 'Wiki',
+      route: '/wiki'
     }
   ];
 

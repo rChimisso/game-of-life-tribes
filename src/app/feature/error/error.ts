@@ -45,6 +45,12 @@ export class ErrorPage {
       route: '/'
     },
     {
+      id: 'wiki',
+      icon: 'menu_book',
+      label: 'Wiki',
+      route: '/wiki'
+    },
+    {
       id: 'report',
       icon: 'open_in_new',
       label: 'Report',

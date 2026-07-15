@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
 import {ApplyRestoreButtons} from '~gol/shared/component/apply-restore/button-pair';
@@ -20,6 +20,14 @@ import {ProgressStatus} from '~gol/shared/component/progress-status/progress-sta
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SnapshotSection {
+  /**
+   * Snapshot file input.
+   *
+   * @private
+   * @type {ElementRef<HTMLInputElement>}
+   */
+  @ViewChild('fileInput') private readonly fileInput!: ElementRef<HTMLInputElement>;
+
   /**
    * Whether a snapshot is being saved.
    *
@@ -163,6 +171,17 @@ export class SnapshotSection {
    */
   public get displayedSnapshotProgressStatus(): string {
     return this.snapshotProgressStatus || (this.savingState ? 'Saving snapshot' : 'Loading snapshot');
+  }
+
+  /**
+   * Opens the snapshot file picker when loading is available.
+   *
+   * @public
+   */
+  public openFilePicker(): void {
+    if (!this.snapshotLoadDisabled) {
+      this.fileInput.nativeElement.click();
+    }
   }
 
   /**

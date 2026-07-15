@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, Output} from '@angular/core';
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, Output, ViewChild} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 
@@ -9,7 +9,7 @@ import {BrushFill, BrushShape, TouchMode} from '../../model/draw-mode';
 import {BitsPerCell, GridFormatMetadata} from '../../model/grid-format';
 import {DEFAULT_LIVE_METRIC_SECTION_SETTINGS, LiveMetricSectionSettings} from '../../model/metrics';
 import {DEFAULT_SIDEBAR_PREFERENCES, MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH, SidebarPreferences} from '../../model/preferences';
-import {DEAD_TRIBE_ID, Ruleset, Tribe} from '../../model/rule';
+import {Ruleset, Tribe} from '../../model/rule';
 import {SidebarEvent, UpdateRulesPayload, UpdateTribesPayload} from '../../model/sidebar-event';
 import {MetricMessage} from '../../model/worker-message';
 import {Preset} from '../../preset';
@@ -74,6 +74,14 @@ import {StorageBar} from '~gol/shared/component/storage-bar/storage-bar';
   }
 })
 export class Sidebar implements OnDestroy {
+  /**
+   * Snapshot controls.
+   *
+   * @private
+   * @type {SnapshotSection}
+   */
+  @ViewChild(SnapshotSection) private readonly snapshotSection!: SnapshotSection;
+
   /**
    * Current ruleset tribes.
    *
@@ -816,6 +824,15 @@ export class Sidebar implements OnDestroy {
   }
 
   /**
+   * Opens the snapshot file picker when loading is available.
+   *
+   * @public
+   */
+  public openSnapshotFilePicker(): void {
+    this.snapshotSection.openFilePicker();
+  }
+
+  /**
    * Emits a typed sidebar action.
    *
    * @public
@@ -832,7 +849,11 @@ export class Sidebar implements OnDestroy {
    * @param {string} id tribe id.
    */
   public onTribeChange(id: string): void {
-    this.emit({action: 'selectTribes', value: this.toggleTribeSelection(id)});
+    if (this.deleteMode) {
+      this.emit({action: 'selectTribe', value: id});
+    } else {
+      this.emit({action: 'selectTribes', value: this.toggleTribeSelection(id)});
+    }
   }
 
   /**
@@ -1219,21 +1240,15 @@ export class Sidebar implements OnDestroy {
    */
   private toggleTribeSelection(id: string): string[] {
     let selection: string[];
-    if (id === DEAD_TRIBE_ID) {
-      selection = [DEAD_TRIBE_ID];
-    } else if (this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID) {
-      selection = [id];
-    } else {
-      const current = this.drawTribes.filter(t => t !== DEAD_TRIBE_ID);
-      const idx = current.indexOf(id);
-      if (idx >= 0) {
-        if (current.length > 1) {
-          current.splice(idx, 1);
-        }
-        selection = current;
-      } else {
-        selection = [...current, id];
+    const current = [...this.drawTribes];
+    const idx = current.indexOf(id);
+    if (idx >= 0) {
+      if (current.length > 1) {
+        current.splice(idx, 1);
       }
+      selection = current;
+    } else {
+      selection = [...current, id];
     }
     return selection;
   }

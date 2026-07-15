@@ -32,7 +32,7 @@ export class ShortcutsSection {
       values: [
         {
           code: 'Space',
-          label: 'Play / Pause',
+          label: 'Run / Stop',
           tooltip: 'Press Space to play or pause the simulation'
         },
         {
@@ -57,12 +57,12 @@ export class ShortcutsSection {
         },
         {
           code: 'E',
-          label: 'Toggle recording',
+          label: 'Recording',
           tooltip: 'Press E to toggle recording'
         },
         {
           code: 'W',
-          label: 'Toggle live metrics',
+          label: 'Metrics',
           tooltip: 'Press W to toggle live metrics'
         }
       ]
@@ -77,18 +77,13 @@ export class ShortcutsSection {
         },
         {
           code: 'D',
-          label: 'Delete mode',
+          label: 'Delete',
           tooltip: 'Press D to toggle delete mode'
         },
         {
           code: 'T',
           label: 'Draw tribe',
           tooltip: 'Press T to cycle the tribe selected for drawing'
-        },
-        {
-          code: '+ / −',
-          label: 'Brush size',
-          tooltip: 'Use plus or minus to increase or decrease brush size'
         },
         {
           code: 'B',
@@ -99,6 +94,16 @@ export class ShortcutsSection {
           code: 'F',
           label: 'Brush mode',
           tooltip: 'Press F to cycle brush fill modes'
+        },
+        {
+          code: '+ / −',
+          label: 'Brush size',
+          tooltip: 'Use plus or minus to increase or decrease brush size'
+        },
+        {
+          code: '* / /',
+          label: 'Brush density',
+          tooltip: 'Use asterisk or slash to increase or decrease brush density'
         }
       ]
     },
@@ -119,6 +124,26 @@ export class ShortcutsSection {
           code: 'Scroll',
           label: 'Zoom',
           tooltip: 'Use the mouse wheel to zoom in and out'
+        }
+      ]
+    },
+    {
+      title: 'Extras',
+      values: [
+        {
+          code: 'Ctrl+Alt+S',
+          label: 'Save',
+          tooltip: 'Press Ctrl + Alt + S to save a snapshot'
+        },
+        {
+          code: 'Ctrl+Alt+O',
+          label: 'Load',
+          tooltip: 'Press Ctrl + Alt + O to choose a snapshot to load'
+        },
+        {
+          code: 'Ctrl+Alt+FN',
+          label: 'Preset',
+          tooltip: 'Press Ctrl + Alt + F1 through F12 to apply the corresponding preset'
         }
       ]
     }

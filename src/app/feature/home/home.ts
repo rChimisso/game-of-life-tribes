@@ -33,7 +33,7 @@ import {DEFAULT_HOME_PREFERENCES, DEFAULT_METRICS_SECTION_PREFERENCES, HomePrefe
 import {BOUNDED_GRID_TOPOLOGY, DEAD_TRIBE_ID, DEFAULT_RANDOM_SEED, Ruleset, TOROIDAL_GRID_TOPOLOGY, Tribe} from './model/rule';
 import {SidebarEvent} from './model/sidebar-event';
 import {BackpressureMessage, ChunkSealedMessage, ChunksSavingMessage, DeviceLostMessage, GenerationMessage, GpuErrorMessage, GpuWarningMessage, LimitsMessage, MetricMessage, RebuildingMessage, RecordingMessage, RecordingStoppedMessage, SnapshotMessage, SteppingMessage, StorageQuotaMessage, UncompressedChunksMessage} from './model/worker-message';
-import {Preset} from './preset';
+import {PRESETS, Preset} from './preset';
 import {CONWAY_PRESET} from './preset/conway';
 import {ParsedGoltState} from './worker/snapshot/model/golt-types';
 
@@ -578,6 +578,17 @@ export class HomePage implements OnDestroy {
    */
   public get tribes(): readonly Tribe[] {
     return this.ruleset.tribes;
+  }
+
+  /**
+   * Tribe IDs currently applied by the brush.
+   *
+   * @public
+   * @readonly
+   * @type {string[]}
+   */
+  public get activeDrawTribes(): string[] {
+    return this.deleteMode ? [DEAD_TRIBE_ID] : this.drawTribes;
   }
 
   /**
@@ -1166,14 +1177,12 @@ export class HomePage implements OnDestroy {
     this.rebuilding = true;
     const normalizedRuleset = this.normalizeRulesetGridSettings(newRuleset);
     const gridSettingsChanged = normalizedRuleset.topology !== this.ruleset.topology || normalizedRuleset.boundaryTribe !== this.ruleset.boundaryTribe;
-    this.simulationGridFormat = preferSmallestFormat ?
-      this.smallestSimulationGridFormatForRuleset(normalizedRuleset) :
-      this.resolveSimulationGridFormat(this.simulationGridFormat, normalizedRuleset);
+    this.simulationGridFormat = preferSmallestFormat ? this.smallestSimulationGridFormatForRuleset(normalizedRuleset) : this.resolveSimulationGridFormat(this.simulationGridFormat, normalizedRuleset);
     this.ruleset = normalizedRuleset;
-    if (!normalizedRuleset.tribes.some(t => this.drawTribes.includes(t.id))) {
-      this.drawTribes = [normalizedRuleset.tribes.find(t => t.id !== DEAD_TRIBE_ID)?.id ?? DEAD_TRIBE_ID];
-    }
-    this.drawTribeIndex = normalizedRuleset.tribes.findIndex(t => t.id === this.drawTribes[0]);
+    const drawableTribes = normalizedRuleset.tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID);
+    const retainedDrawTribes = this.drawTribes.filter(id => drawableTribes.some(tribe => tribe.id === id));
+    this.drawTribes = retainedDrawTribes.length > 0 ? retainedDrawTribes : [drawableTribes[0]?.id ?? DEAD_TRIBE_ID];
+    this.drawTribeIndex = normalizedRuleset.tribes.findIndex(tribe => tribe.id === this.drawTribes[0]);
     this.latestMetrics = null;
     return this.clampBrushSize() || gridSettingsChanged;
   }
@@ -1218,7 +1227,7 @@ export class HomePage implements OnDestroy {
    */
   private handleKeydown(ev: KeyboardEvent): void {
     const shortcutBlockedByFocus = this.activeElementBlocksShortcut(document.activeElement);
-    let shortcut = shortcutBlockedByFocus ? {handled: false, shouldSavePreferences: false} : this.handleInterfaceShortcut(ev.key);
+    let shortcut = this.initialKeyboardShortcut(ev, shortcutBlockedByFocus);
     if (!shortcut.handled && this.downloadProgress < 0) {
       if (this.stepping) {
         if (ev.key === ' ' && !shortcutBlockedByFocus) {
@@ -1244,6 +1253,56 @@ export class HomePage implements OnDestroy {
       (document.activeElement as HTMLElement)?.blur?.();
       this.cdr.markForCheck();
     }
+  }
+
+  /**
+   * Resolves a shortcut before playback, selection, and brush processing.
+   *
+   * @private
+   * @param {KeyboardEvent} event keyboard event.
+   * @param {boolean} shortcutBlockedByFocus whether the active element blocks shortcuts.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
+  private initialKeyboardShortcut(event: KeyboardEvent, shortcutBlockedByFocus: boolean): {handled: boolean; shouldSavePreferences: boolean} {
+    let shortcut: {handled: boolean; shouldSavePreferences: boolean};
+    if (event.ctrlKey && event.altKey) {
+      shortcut = this.handleControlShortcut(event.key);
+    } else if (event.ctrlKey || event.altKey || event.metaKey) {
+      shortcut = {handled: false, shouldSavePreferences: false};
+    } else if (shortcutBlockedByFocus) {
+      shortcut = {handled: false, shouldSavePreferences: false};
+    } else {
+      shortcut = this.handleInterfaceShortcut(event.key);
+    }
+    return shortcut;
+  }
+
+  /**
+   * Handles Ctrl+Alt keyboard shortcuts.
+   *
+   * @private
+   * @param {string} key pressed key.
+   * @returns {{ handled: boolean; shouldSavePreferences: boolean }} shortcut result.
+   */
+  private handleControlShortcut(key: string): {handled: boolean; shouldSavePreferences: boolean} {
+    const presetIndex = /^F(?:[1-9]|1[0-2])$/.test(key) ? Number.parseInt(key.slice(1), 10) - 1 : -1;
+    if (key === 's') {
+      this.requestSnapshotSave();
+      return {handled: true, shouldSavePreferences: false};
+    }
+    if (key === 'o') {
+      this.sidebar.openSnapshotFilePicker();
+      return {handled: true, shouldSavePreferences: false};
+    }
+    if (presetIndex >= 0) {
+      const preset = PRESETS[presetIndex];
+      let shouldSavePreferences = false;
+      if (preset && this.state !== 'running' && this.downloadProgress < 0) {
+        shouldSavePreferences = this.applyPreset(preset);
+      }
+      return {handled: true, shouldSavePreferences};
+    }
+    return {handled: false, shouldSavePreferences: false};
   }
 
   /**
@@ -1333,11 +1392,6 @@ export class HomePage implements OnDestroy {
         return {handled: true, shouldSavePreferences: true};
       case 'd':
         this.deleteMode = !this.deleteMode;
-        if (this.deleteMode) {
-          this.drawTribes = [DEAD_TRIBE_ID];
-        } else {
-          this.drawTribes = [this.tribes[this.drawTribeIndex]!.id];
-        }
         return {handled: true, shouldSavePreferences: false};
       case 't':
         this.selectNextDrawTribe();
@@ -1354,7 +1408,7 @@ export class HomePage implements OnDestroy {
   private selectNextDrawTribe(): void {
     const selectableTribes = this.tribes.filter(tribe => tribe.id !== DEAD_TRIBE_ID);
     if (selectableTribes.length > 0) {
-      const selectedTribeId = this.deleteMode ? this.tribes[this.drawTribeIndex]?.id : this.drawTribes[0];
+      const selectedTribeId = this.drawTribes[0];
       const selectedIndex = selectableTribes.findIndex(tribe => tribe.id === selectedTribeId);
       const nextTribe = selectableTribes[(selectedIndex + 1) % selectableTribes.length]!;
       this.deleteMode = false;
@@ -1377,6 +1431,18 @@ export class HomePage implements OnDestroy {
         return {handled: true, shouldSavePreferences: true};
       case '-':
         this.brushSize = clampBrushSizeValue(this.brushSize - 1, this.ruleset);
+        return {handled: true, shouldSavePreferences: true};
+      case '*':
+        this.brushDensityByFill = {
+          ...this.brushDensityByFill,
+          [this.brushFill]: clampBrushDensity(this.activeBrushDensity + 1)
+        };
+        return {handled: true, shouldSavePreferences: true};
+      case '/':
+        this.brushDensityByFill = {
+          ...this.brushDensityByFill,
+          [this.brushFill]: clampBrushDensity(this.activeBrushDensity - 1)
+        };
         return {handled: true, shouldSavePreferences: true};
       case 'b':
         this.brushShape = BRUSH_SHAPE_VALUES[(BRUSH_SHAPE_VALUES.indexOf(this.brushShape) + 1) % BRUSH_SHAPE_VALUES.length]!;
@@ -1836,6 +1902,21 @@ export class HomePage implements OnDestroy {
   }
 
   /**
+   * Requests a snapshot from the engine when saving is available.
+   *
+   * @private
+   */
+  private requestSnapshotSave(): void {
+    const snapshotSaveDisabled = this.gpuErrorMessage !== null || this.state === 'running' || this.downloadProgress >= 0 || this.savingState || this.loadingState || this.stepping;
+    if (!snapshotSaveDisabled) {
+      this.savingState = true;
+      this.setSnapshotProgress('indeterminate', null, PREPARING_SNAPSHOT_STATUS);
+      this.cdr.markForCheck();
+      this.engine.requestSnapshot();
+    }
+  }
+
+  /**
    * Loads a saved GOLT state from a file buffer.
    *
    * @private
@@ -2043,8 +2124,7 @@ export class HomePage implements OnDestroy {
         break;
       case 'selectTribes':
         this.drawTribes = event.value;
-        this.deleteMode = this.drawTribes.length === 1 && this.drawTribes[0] === DEAD_TRIBE_ID;
-        if (!this.deleteMode && this.drawTribes.length === 1) {
+        if (this.drawTribes.length === 1) {
           this.drawTribeIndex = this.tribes.findIndex(t => t.id === this.drawTribes[0]);
         }
         break;
@@ -2121,17 +2201,13 @@ export class HomePage implements OnDestroy {
         this.cancelDownload();
         break;
       case 'saveState':
-        this.savingState = true;
-        this.setSnapshotProgress('indeterminate', null, PREPARING_SNAPSHOT_STATUS);
-        this.cdr.markForCheck();
-        this.engine.requestSnapshot();
+        this.requestSnapshotSave();
         break;
       case 'loadState':
         this.loadState(event.value);
         break;
       case 'deleteMode':
         this.deleteMode = !this.deleteMode;
-        this.drawTribes = this.deleteMode ? [DEAD_TRIBE_ID] : [this.tribes[this.drawTribeIndex]!.id];
         break;
       case 'updateTribes':
         shouldSavePreferences = this.applyCommittedRuleset({

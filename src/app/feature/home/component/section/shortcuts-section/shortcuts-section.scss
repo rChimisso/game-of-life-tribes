@@ -1,19 +1,23 @@
-.shortcuts-grid {
+:host {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  align-items: center;
-}
+  grid-template-columns: repeat(2, minmax(max-content, 1fr));
+  gap: 1rem;
 
-.shortcuts-subheading {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 12px 0 4px;
+  > .shortcuts-group {
+    > .shortcuts-subheading {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
 
-  &:first-child {
-    margin-top: 0;
+    > .shortcuts-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.25rem 0.5rem;
+      align-items: center;
+    }
   }
 }

@@ -23,6 +23,10 @@ It supports both desktop and mobile devices.
 
 The built-in presets are designed to be edited. Start with one, then change a threshold, mute a rule, add a tribe, or redraw the canvas and see how local changes alter global behavior.
 
+<p align="center">
+  <img src="readme/showcase.png" alt="Rule example">
+</p>
+
 For a guided tour of the controls, canvas, drawing tools, metrics, downloads, and snapshots, see the [UI section of the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/ui).
 
 ## What Makes It Different
@@ -34,8 +38,6 @@ Classic Life asks whether a cell is alive or dead. Here, a cell can belong to an
 A rule can test the current tribe, count selected neighbors, compare groups of neighbors, and combine smaller conditions. Its outcome can set a fixed tribe, keep the current one, choose a majority or minority neighbor, or combine nearby tribes through a lookup. This makes rule order and composition part of the experiment, not just the neighbor count.
 
 Read the [rules guide](https://rchimisso.github.io/game-of-life-tribes/wiki/rules), [rule-expression reference](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-expressions), [rule cost model](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-cost-model), and [engine internals](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-engine-internals) for the full rule syntax, capability and evaluation behavior.
-
-<!-- MEDIA SLOT — Rules: a close crop of one readable rule with its clause, neighbor selector, and outcome visible; use a real multi-tribe example rather than an empty editor. -->
 
 ### A canvas built to explore
 
@@ -54,9 +56,11 @@ The twelve built-in presets keep the current grid dimensions, topology, and boun
 - **Cyclic Dominance**, **Cultural Drift**, and **Color Mixing** model territory competition, local cultural influence, and additive color blending.
 - **SIRSD Epidemic**, **Wildfire**, and **Slime Mold** model probabilistic outbreaks, fire through varied vegetation, and exploratory tendrils with stable body tissue.
 
-They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system. See the [Presets wiki page](https://rchimisso.github.io/game-of-life-tribes/wiki/presets) for the full descriptions and starting tips.
+<p align="center">
+  <img src="readme/presets.png" alt="Presets gallery">
+</p>
 
-<!-- MEDIA SLOT — Presets: a 2×3 gallery of consistently framed screenshots, ideally Conway, Afterimage, Slime Mold, Wildfire, SIRSD Epidemic, and one custom multi-tribe rule. -->
+They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system. See the [Presets wiki page](https://rchimisso.github.io/game-of-life-tribes/wiki/presets) for the full descriptions and starting tips.
 
 ## Analysis
 
@@ -65,11 +69,12 @@ The project includes reproducible density-sweep studies for the Wildfire and SIR
 - **Wildfire:** a sharp shift from local fadeouts to sustained burns appears around $90\%$ initial vegetation density. Vegetation resistance produces a consistent `Grass > Bush > Tree` loss ordering.
 - **Epidemic:** the clearest transition occurs between $41\%$ and $42\%$ initial population density, where infection episodes, prevalence, mortality, and duration all rise markedly. Recovered cells can become susceptible again, so some runs produce later resurgences and reinfections.
 
+<p align="center">
+  <img src="analysis/wildfire_res/plots/06_regime_change_highlight_85_to_95.png" alt="Regime change highlight for Wildfire" width="46.5%">
+  <img src="analysis/epidemic_res/plots/06_regime_change_highlight_40_to_45.png" alt="Regime change highlight for Epidemic" width="53%">
+</p>
+
 Read the [analysis overview](https://rchimisso.github.io/game-of-life-tribes/wiki/analysis), [Wildfire results](https://rchimisso.github.io/game-of-life-tribes/wiki/wildfire-analysis), and [Epidemic results](https://rchimisso.github.io/game-of-life-tribes/wiki/epidemic-analysis). The source data and generation scripts live in [`analysis/`](analysis/).
-
-<!-- MEDIA SLOT — Analysis: the Wildfire 85–95% regime-change figure, cropped so the crossover and distribution change are legible at README width. -->
-
-<!-- MEDIA SLOT — Analysis: the Epidemic 40–45% regime-change figure, paired with a one-sentence caption about the change in outbreak behavior. -->
 
 ## Benchmark
 
@@ -80,9 +85,13 @@ Benchmarks measure the Conway preset on toroidal grids across packing widths, gr
 - Recording adds GPU readback, CPU processing, compression, and OPFS storage pressure; it is often limited by the browser and storage path as much as by simulation compute.
 - Max speed can run faster than a fixed target because rendering is paused while it is active.
 
-See the [benchmark method](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage), [results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results), and [conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions). The normalized measurements are in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv).
+<p align="center">
+  <img src="benchmark/plots/benchmark-baseline-cell-updates.png" alt="Benchmark raw throughput per grid size">
+</p>
 
-<!-- MEDIA SLOT — Benchmark: one clean throughput-versus-grid-size chart with a short caption that names the tested browser and hardware. -->
+<!-- add a short caption that names the tested browser and hardware. -->
+
+See the [benchmark method](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage), [results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results), and [conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions). The normalized measurements are in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv).
 
 ## Game of Life: Tribes and NetLogo
 
@@ -105,13 +114,15 @@ For example, a grid wildfire with uniform local spread is a natural GoLT experim
 
 NetLogo's [programming guide](https://docs.netlogo.org/programming.html) describes globals, patches, turtles, links, and agentsets; its [BehaviorSpace guide](https://docs.netlogo.org/behaviorspace.html) covers automated experiments, including headless runs.
 
-<!-- MEDIA SLOT — Comparison: a side-by-side visual with a colorful Tribes grid on the left and a NetLogo model with visible turtles or links on the right; label the modeling unit in each panel. -->
-
 ## Technical Overview
 
 The application is built with Angular and WebGPU. An `OffscreenCanvas` and the simulation engine run in a Web Worker; WGSL compute shaders evolve the grid and render it without putting the main UI loop under simulation load. Background workers handle snapshots, recording compression, and download work.
 
 Temporary recording data uses the browser's Origin Private File System (OPFS). Available GPU limits, browser APIs, and storage quota determine the largest usable grid and the practical recording/export capacity.
+
+<p align="center">
+  <img src="wiki/mermaid/technical-architecture.svg" alt="Technical architecture overview">
+</p>
 
 For architecture, rule syntax, snapshot format, exports, limits, and browser requirements, see the [wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/engine).
 

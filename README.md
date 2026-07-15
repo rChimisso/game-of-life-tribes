@@ -4,7 +4,7 @@
 
 [Open the app](https://rchimisso.github.io/game-of-life-tribes/) · [Read the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/) · [Browse the source](https://github.com/rChimisso/game-of-life-tribes)
 
-<!-- MEDIA SLOT — Hero: a 16:9 screenshot or 6–10 second loop of a colorful multi-tribe simulation, with the canvas occupying most of the frame and the sidebar open. Avoid tiny text. -->
+https://github.com/user-attachments/assets/f0c2898a-57d1-4e6c-aba4-182da30f08cc
 
 **Game of Life: Tribes** starts with the familiar idea of Conway's Game of Life, a grid that changes one generation at a time, and gives it a richer vocabulary: cells belong to named tribes, rules can reason about the relationship between neighboring tribes, and outcomes can preserve, replace, inherit, or combine states.
 

@@ -12,7 +12,8 @@ The result is a browser-based space for exploring classic Life-like rules, compe
 
 ## Start Here
 
-The app requires a browser with [WebGPU support](https://caniuse.com/webgpu).
+The app requires a browser with [WebGPU support](https://caniuse.com/webgpu).  
+It supports both desktop and mobile devices.
 
 1. Open the sidebar and load a preset (defaults to Conway's).
 2. Choose a grid size, topology, and packing format if needed.
@@ -23,8 +24,6 @@ The app requires a browser with [WebGPU support](https://caniuse.com/webgpu).
 The built-in presets are designed to be edited. Start with one, then change a threshold, mute a rule, add a tribe, or redraw the canvas and see how local changes alter global behavior.
 
 For a guided tour of the controls, canvas, drawing tools, metrics, downloads, and snapshots, see the [UI section of the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/ui).
-
-<!-- MEDIA SLOT — Quick-start: three small, labeled screenshots showing preset selection, painting an initial layout, and a running result. -->
 
 ## What Makes It Different
 
@@ -42,25 +41,20 @@ Read the [rules guide](https://rchimisso.github.io/game-of-life-tribes/wiki/rule
 
 Pan and zoom the grid, draw with configurable brushes, switch between toroidal and bounded topology, and choose compact cell packing to balance state capacity against memory and recording cost. Live metrics expose population, tribe distribution, diversity, and interfaces while the simulation runs.
 
-<!-- MEDIA SLOT — Canvas: a before/after pair showing a painted seed at close zoom and the same area after several generations. -->
-
 ### History, snapshots, and exports
 
 Recording enables step-back and lets you export selected parts of a run as `.golt` saves, metrics, indexed PNG frames, or MP4 video. Snapshots preserve a restartable state; compressed chunk export supports recordings that are too large for a normal browser-side export.
 
-<!-- MEDIA SLOT — Recording and export: a 6–10 second loop showing a simulation run, a step-back action, and the resulting MP4 or frame-sequence output. -->
-
 ## Included Presets
 
-The preset library ranges from familiar rules to multi-state systems:
+The twelve built-in presets keep the current grid dimensions, topology, and boundary tribe while replacing tribes and rules:
 
-- **Conway**, **Replicator**, **Diamoeba**, **Day & Night**, and **Anneal** explore Life-like behavior.
-- **Afterimage** and **Senescence** add history, decay, and lifecycle states.
-- **Slime Mold** separates exploring tendrils from stable body tissue.
-- **Wildfire** models vegetation, burning, embers, ash, and obstacles.
-- **SIRSD Epidemic** models local spread, recovery, waning immunity, and mortality.
+- **Conway**, **Replicator**, **Day & Night**, and **Anneal** explore classic Life-like behavior, self-copying patterns, complementary symmetry, and smoothing.
+- **Senescence** and **Afterimage** add aging, nutrient-like remnants, and visible fading trails.
+- **Cyclic Dominance**, **Cultural Drift**, and **Color Mixing** model territory competition, local cultural influence, and additive color blending.
+- **SIRSD Epidemic**, **Wildfire**, and **Slime Mold** model probabilistic outbreaks, fire through varied vegetation, and exploratory tendrils with stable body tissue.
 
-They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system.
+They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system. See the [Presets wiki page](https://rchimisso.github.io/game-of-life-tribes/wiki/presets) for the full descriptions and starting tips.
 
 <!-- MEDIA SLOT — Presets: a 2×3 gallery of consistently framed screenshots, ideally Conway, Afterimage, Slime Mold, Wildfire, SIRSD Epidemic, and one custom multi-tribe rule. -->
 

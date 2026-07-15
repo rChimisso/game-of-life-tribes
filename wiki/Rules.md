@@ -38,7 +38,7 @@ This page explains the editor controls. For runtime behavior and shader generati
 ## Probability Controls
 
 <p align="center">
-  <img src="images/rules-probability.png" alt="Rule probability">
+  <img src="images/rules/probability.png" alt="Rule probability">
 </p>
 
 Each expanded rule has a **Probability %** field at the top of the rule body. The field is a percentage with exactly $3$ decimal digits.  
@@ -49,7 +49,7 @@ At runtime, a rule must first match its clause. If it has a probability below $1
 ## Clause Controls
 
 <p align="center">
-  <img src="images/rules-clauses.png" alt="Rule clauses">
+  <img src="images/rules/clauses.png" alt="Rule clauses">
 </p>
 
 Each rule has $1$ root clause. Logical clauses can contain nested clauses.
@@ -92,7 +92,7 @@ Clause meanings:
 ## Outcome Controls
 
 <p align="center">
-  <img src="images/rules-outcome.png" alt="Rule combine outcome">
+  <img src="images/rules/outcome.png" alt="Rule combine outcome">
 </p>
 
 The outcome editor starts with a `becomes` mode selector:
@@ -135,7 +135,7 @@ Combine outcomes use lookup rows:
 ## Error Outlines
 
 <p align="center">
-  <img src="images/rules-error.png" alt="Ruleset error outlines">
+  <img src="images/rules/error.png" alt="Ruleset error outlines">
 </p>
 
 Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.

@@ -30,7 +30,7 @@ The Tribes section edits the named cell states used by drawing, rules, bounded-g
 ## Editing A Tribe
 
 <p align="center">
-  <img src="images/tribes-edit.png" alt="Editing an existing tribe">
+  <img src="images/tribes/edit.png" alt="Editing an existing tribe">
 </p>
 
 1. Select **Edit** on an existing tribe.
@@ -45,7 +45,7 @@ Renaming a tribe updates its ID in committed rules and in the boundary tribe set
 ## Adding A Tribe
 
 <p align="center">
-  <img src="images/tribes-add.png" alt="Adding a new tribe">
+  <img src="images/tribes/add.png" alt="Adding a new tribe">
 </p>
 
 1. Select **Add tribe**. The editor opens with an empty name and a random color.

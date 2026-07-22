@@ -1,6 +1,6 @@
 var Pn="goltTimestampedConsoleInstalled";function Di(){let e=globalThis;e[Pn]||(e[Pn]=!0,Tt("info"),Tt("warn"),Tt("error"),console.log=console.info.bind(console))}function Tt(e){let r=console[e].bind(console);console[e]=(...t)=>{r(`[${new Date().toISOString()}]`,...t)}}Di();var kn=`// Render shader: draws the grid as a full-screen quad.\r
-// Reads cell tribe IDs from a storage buffer, looks up colors from a uniform array.
-// Supports zoom, pan, toroidal tiling, and bounded-grid clipping.
+// Reads cell tribe IDs from a storage buffer, looks up colors from a uniform array.\r
+// Supports zoom, pan, toroidal tiling, and bounded-grid clipping.\r
 \r
 struct Uniforms {\r
   canvas_size: vec2f,    // Canvas width, height in pixels.\r
@@ -58,9 +58,9 @@ fn signedWrapDelta(cell: u32, center: i32, size: u32) -> i32 {\r
   return delta;\r
 }\r
 \r
-fn signedGridDelta(cell: u32, center: i32, size: u32) -> i32 {
-__SIGNED_GRID_DELTA_BODY__
-}
+fn signedGridDelta(cell: u32, center: i32, size: u32) -> i32 {\r
+__SIGNED_GRID_DELTA_BODY__\r
+}\r
 \r
 fn previewInShape(bx: i32, by: i32, size: u32, shape: u32) -> bool {\r
   if (bx < 0 || by < 0 || bx >= i32(size) || by >= i32(size)) { return false; }\r
@@ -94,9 +94,9 @@ fn signedWrapWorldDelta(world: f32, center: i32, size: u32) -> f32 {\r
   return delta - floor((delta + gridSize * 0.5) / gridSize) * gridSize;\r
 }\r
 \r
-fn signedGridWorldDelta(world: f32, center: i32, size: u32) -> f32 {
-__SIGNED_GRID_WORLD_DELTA_BODY__
-}
+fn signedGridWorldDelta(world: f32, center: i32, size: u32) -> f32 {\r
+__SIGNED_GRID_WORLD_DELTA_BODY__\r
+}\r
 \r
 fn previewRectangleOutline(p: vec2f, halfSize: vec2f, stroke: f32) -> bool {\r
   let distanceInside = halfSize - abs(p);\r
@@ -265,7 +265,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {\r
   let px = in.uv * u.canvas_size;\r
   let local = px / u.scale + u.offset_frac;\r
 \r
-__GRID_COORDINATE_ASSIGNMENTS__
+__GRID_COORDINATE_ASSIGNMENTS__\r
 \r
   // Read tribe ID from the active packed grid buffer.\r
   let packed_cols = (u.grid_size.x + CELLS_PER_WORD - 1u) >> WORD_SHIFT;\r
@@ -283,7 +283,7 @@ __GRID_COORDINATE_ASSIGNMENTS__
     return vec4f(0.82, 0.84, 0.86, 1.0);\r
   }\r
 \r
-__EXPORT_OVERLAY_BLOCK__
+__EXPORT_OVERLAY_BLOCK__\r
 \r
   return vec4f(r, g, b, 1.0);\r
 }\r

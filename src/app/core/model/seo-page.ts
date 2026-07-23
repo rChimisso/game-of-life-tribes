@@ -17,7 +17,7 @@ export const SEO_DEFAULT_DESCRIPTION = 'An interactive, browser-based cellular a
  *
  * @type {string}
  */
-export const SEO_SITE_URL = 'https://rchimisso.github.io/game-of-life-tribes';
+export const SEO_SITE_URL = 'https://game-of-life-tribes.dev';
 
 /**
  * Search and sharing metadata for an indexable page.

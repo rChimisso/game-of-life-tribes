@@ -2,7 +2,7 @@
 
 **A WebGPU cellular-automata playground for building rules, competing populations, and emergent worlds.**
 
-[Open the app](https://rchimisso.github.io/game-of-life-tribes/) · [Read the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/) · [Browse the source](https://github.com/rChimisso/game-of-life-tribes)
+[Open the app](https://game-of-life-tribes.dev/) · [Read the wiki](https://game-of-life-tribes.dev/wiki/) · [Browse the source](https://github.com/rChimisso/game-of-life-tribes)
 
 https://github.com/user-attachments/assets/f0c2898a-57d1-4e6c-aba4-182da30f08cc
 
@@ -27,7 +27,7 @@ The built-in presets are designed to be edited. Start with one, then change a th
   <img src="readme/showcase.png" alt="Rule example">
 </p>
 
-For a guided tour of the controls, canvas, drawing tools, metrics, downloads, and snapshots, see the [UI section of the wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/ui).
+For a guided tour of the controls, canvas, drawing tools, metrics, downloads, and snapshots, see the [UI section of the wiki](https://game-of-life-tribes.dev/wiki/ui).
 
 ## What Makes It Different
 
@@ -37,7 +37,7 @@ Classic Life asks whether a cell is alive or dead. Here, a cell can belong to an
 
 A rule can test the current tribe, count selected neighbors, compare groups of neighbors, and combine smaller conditions. Its outcome can set a fixed tribe, keep the current one, choose a majority or minority neighbor, or combine nearby tribes through a lookup. This makes rule order and composition part of the experiment, not just the neighbor count.
 
-Read the [rules guide](https://rchimisso.github.io/game-of-life-tribes/wiki/rules), [rule-expression reference](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-expressions), [rule cost model](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-cost-model), and [engine internals](https://rchimisso.github.io/game-of-life-tribes/wiki/rule-engine-internals) for the full rule syntax, capability and evaluation behavior.
+Read the [rules guide](https://game-of-life-tribes.dev/wiki/rules), [rule-expression reference](https://game-of-life-tribes.dev/wiki/rule-expressions), [rule cost model](https://game-of-life-tribes.dev/wiki/rule-cost-model), and [engine internals](https://game-of-life-tribes.dev/wiki/rule-engine-internals) for the full rule syntax, capability and evaluation behavior.
 
 ### A canvas built to explore
 
@@ -60,7 +60,7 @@ The twelve built-in presets keep the current grid dimensions, topology, and boun
   <img src="readme/presets.png" alt="Presets gallery">
 </p>
 
-They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system. See the [Presets wiki page](https://rchimisso.github.io/game-of-life-tribes/wiki/presets) for the full descriptions and starting tips.
+They are starting points, not locked demonstrations. A small change to a rule, tribe, or initial layout can create a substantially different system. See the [Presets wiki page](https://game-of-life-tribes.dev/wiki/presets) for the full descriptions and starting tips.
 
 ## Analysis
 
@@ -74,7 +74,7 @@ The project includes reproducible density-sweep studies for the Wildfire and SIR
   <img src="analysis/epidemic_res/plots/06_regime_change_highlight_40_to_45.png" alt="Regime change highlight for Epidemic" width="52.4%">
 </p>
 
-Read the [analysis overview](https://rchimisso.github.io/game-of-life-tribes/wiki/analysis), [Wildfire results](https://rchimisso.github.io/game-of-life-tribes/wiki/wildfire-analysis), and [Epidemic results](https://rchimisso.github.io/game-of-life-tribes/wiki/epidemic-analysis). The source data and generation scripts live in [`analysis/`](analysis/).
+Read the [analysis overview](https://game-of-life-tribes.dev/wiki/analysis), [Wildfire results](https://game-of-life-tribes.dev/wiki/wildfire-analysis), and [Epidemic results](https://game-of-life-tribes.dev/wiki/epidemic-analysis). The source data and generation scripts live in [`analysis/`](analysis/).
 
 ## Benchmark
 
@@ -91,7 +91,7 @@ Benchmarks measure the Conway preset on toroidal grids across packing widths, gr
 
 <!-- add a short caption that names the tested browser and hardware. -->
 
-See the [benchmark method](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-hardware-method-coverage), [results](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-results), and [conclusions](https://rchimisso.github.io/game-of-life-tribes/wiki/benchmark-conclusions). The normalized measurements are in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv).
+See the [benchmark method](https://game-of-life-tribes.dev/wiki/benchmark-hardware-method-coverage), [results](https://game-of-life-tribes.dev/wiki/benchmark-results), and [conclusions](https://game-of-life-tribes.dev/wiki/benchmark-conclusions). The normalized measurements are in [`benchmark/benchmark-results.csv`](benchmark/benchmark-results.csv).
 
 ## Game of Life: Tribes and NetLogo
 
@@ -124,7 +124,7 @@ Temporary recording data uses the browser's Origin Private File System (OPFS). A
   <img src="wiki/mermaid/technical-architecture.svg" alt="Technical architecture overview">
 </p>
 
-For architecture, rule syntax, snapshot format, exports, limits, and browser requirements, see the [wiki](https://rchimisso.github.io/game-of-life-tribes/wiki/engine).
+For architecture, rule syntax, snapshot format, exports, limits, and browser requirements, see the [wiki](https://game-of-life-tribes.dev/wiki/engine).
 
 ## Develop Locally
 

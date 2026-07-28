@@ -359,10 +359,10 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="wgsl-shaders"><a class="heading-anchor" aria-label="Link to this section">#</a>WGSL Shaders</h1>
-<h2 id="simulation-compute-shader"><a class="heading-anchor" aria-label="Link to this section">#</a>Simulation Compute Shader</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="wgsl-shaders"><a class="heading-anchor" href="/wiki/wgsl-shaders#wgsl-shaders" aria-label="Link to this section">#</a>WGSL Shaders</h1>
+<h2 id="simulation-compute-shader"><a class="heading-anchor" href="/wiki/wgsl-shaders#simulation-compute-shader" aria-label="Link to this section">#</a>Simulation Compute Shader</h2>
 <p>The simulation shader is generated at runtime by <code>generateComputeWgsl</code>. It specializes the shader for the current ruleset, rule probabilities, random seed, tribe order, grid dimensions, grid topology, virtual boundary tribe, packed grid format, and dispatch plan.</p>
-<p>For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see <a>Rule expressions</a>. For runtime evaluation order and normalization before shader generation, see <a>Rule engine internals</a>.</p>
+<p>For the persisted rule, selector, clause, outcome, and tribe JSON shapes that feed shader generation, see <a href="/wiki/rule-expressions/">Rule expressions</a>. For runtime evaluation order and normalization before shader generation, see <a href="/wiki/rule-engine-internals/">Rule engine internals</a>.</p>
 <p>Key properties:</p>
 <ul>
 <li>It reads from <code>gridIn</code> and writes to <code>gridOut</code>.</li>
@@ -383,7 +383,7 @@
 <p>The shader emits packing constants such as <code>CELLS_PER_WORD</code>, <code>WORD_SHIFT</code>, <code>CELL_SHIFT</code>, <code>CELL_INDEX_MASK</code>, and <code>CELL_MASK</code>. This avoids generic bit math branches at runtime.</p>
 <p>When at least <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> active rule has probability between <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">0\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">0%</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span>, the generated shader also emits a <code>RANDOM_SEED</code> constant and a probability hash helper. Fully deterministic rules do not need that extra probability branch. In mixed rule chains, only rules whose probability is <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>&gt;</mo><mn>0</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">&gt;0\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5782em;vertical-align:-0.0391em"></span><span class="mrel">&gt;</span><span class="mspace" style="margin-right:0.2778em"></span></span><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">0%</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mo>&lt;</mo><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">&lt;100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.5782em;vertical-align:-0.0391em"></span><span class="mrel">&lt;</span><span class="mspace" style="margin-right:0.2778em"></span></span><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> call the hash helper; active <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> rules use the direct assignment fast path, and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">0\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">0%</span></span></span></span> rules are filtered out before code generation.</p>
 <p>If the logical dispatch dimensions exceed the device per-dimension limit, <code>plan2DDispatch</code> remaps logical workgroups into a flattened dispatch grid and reconstructs logical coordinates inside WGSL.</p>
-<h2 id="render-shader"><a class="heading-anchor" aria-label="Link to this section">#</a>Render Shader</h2>
+<h2 id="render-shader"><a class="heading-anchor" href="/wiki/wgsl-shaders#render-shader" aria-label="Link to this section">#</a>Render Shader</h2>
 <p><code>render.wgsl</code> draws a full-screen triangle and maps pixels into grid cells using camera scale, integer offset, and fractional offset. Separating integer and fractional camera offset avoids float precision loss on wide grids.</p>
 <p>The fragment shader:</p>
 <ul>
@@ -396,7 +396,7 @@
 <li>Draws visual export framing markers while a PNG or MP4 download is being prepared.</li>
 </ul>
 <p>The render shader is a template. <code>generateRenderWgsl</code> replaces packing placeholders with constants for the active grid format and injects topology-specific coordinate, preview-distance, and export-overlay code. The worker builds the active render pipeline from the shader variant matching the current topology.</p>
-<h2 id="brush-shader"><a class="heading-anchor" aria-label="Link to this section">#</a>Brush Shader</h2>
+<h2 id="brush-shader"><a class="heading-anchor" href="/wiki/wgsl-shaders#brush-shader" aria-label="Link to this section">#</a>Brush Shader</h2>
 <p>The brush shader is generated by <code>generateBrushWgsl</code>. It writes directly into the active packed grid buffer.</p>
 <p>Key properties:</p>
 <ul>
@@ -412,7 +412,7 @@
 <li>Multiple selected tribes are selected by hashing into the <code>tribeIds</code> array for cells selected by density.</li>
 </ul>
 <p>The brush uniform carries the active density percentage and reserves <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>32</mn></mrow><annotation encoding="application/x-tex">32</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">32</span></span></span></span> selected tribe IDs.</p>
-<h2 id="metric-shaders"><a class="heading-anchor" aria-label="Link to this section">#</a>Metric Shaders</h2>
+<h2 id="metric-shaders"><a class="heading-anchor" href="/wiki/wgsl-shaders#metric-shaders" aria-label="Link to this section">#</a>Metric Shaders</h2>
 <p>Live metrics generate separate WGSL compute shaders:</p>
 <ul>
 <li>Histogram metrics count cells by tribe into <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>256</mn></mrow><annotation encoding="application/x-tex">256</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">256</span></span></span></span> atomic counters.</li>
@@ -444,8 +444,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

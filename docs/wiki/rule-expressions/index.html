@@ -359,15 +359,15 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="rule-expressions"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule Expressions</h1>
-<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="rule-expressions"><a class="heading-anchor" href="/wiki/rule-expressions#rule-expressions" aria-label="Link to this section">#</a>Rule Expressions</h1>
+<h2 id="purpose"><a class="heading-anchor" href="/wiki/rule-expressions#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>This page is the canonical reference for persisted tribe and rule expressions. Use it when writing snapshots, reading compressed chunk metadata, or understanding the expression language used by rules.</p>
-<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a>Snapshot format</a>. For evaluation order and WGSL generation, see <a>Rule engine internals</a>. For detailed cost formulas, see <a>Rule cost model</a>.</p>
-<h2 id="language-at-a-glance"><a class="heading-anchor" aria-label="Link to this section">#</a>Language at a Glance</h2>
+<p>For the <code>.golt</code> container layout, header bytes, and packed grid payload, see <a href="/wiki/snapshot-format/">Snapshot format</a>. For evaluation order and WGSL generation, see <a href="/wiki/rule-engine-internals/">Rule engine internals</a>. For detailed cost formulas, see <a href="/wiki/rule-cost-model/">Rule cost model</a>.</p>
+<h2 id="language-at-a-glance"><a class="heading-anchor" href="/wiki/rule-expressions#language-at-a-glance" aria-label="Link to this section">#</a>Language at a Glance</h2>
 <p>A rule has a <strong>clause</strong>, which may contain other clauses and decides whether the rule matches, and an <strong>outcome</strong>, which decides the tribe change.</p>
 <p>All neighbor-count expressions use the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span>-cell Moore neighborhood.</p>
-<h2 id="rule-structure"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule Structure</h2>
-<h3 id="tribe-json"><a class="heading-anchor" aria-label="Link to this section">#</a>Tribe JSON</h3>
+<h2 id="rule-structure"><a class="heading-anchor" href="/wiki/rule-expressions#rule-structure" aria-label="Link to this section">#</a>Rule Structure</h2>
+<h3 id="tribe-json"><a class="heading-anchor" href="/wiki/rule-expressions#tribe-json" aria-label="Link to this section">#</a>Tribe JSON</h3>
 <p>Each tribe is a named cell state:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Alive"</span><span class="hljs-punctuation">,</span>
@@ -396,7 +396,7 @@
   <span class="hljs-attr">"color"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"000000"</span><span class="hljs-punctuation">,</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Rule and boundary references should point to existing tribe IDs.</p>
-<h3 id="rule-json"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule JSON</h3>
+<h3 id="rule-json"><a class="heading-anchor" href="/wiki/rule-expressions#rule-json" aria-label="Link to this section">#</a>Rule JSON</h3>
 <p>Rules are persisted in this normalized shape:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"clause"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
@@ -417,11 +417,11 @@
 </thead>
 <tbody><tr>
 <td><code>clause</code></td>
-<td>Required <a>clause expression</a>. Decides whether the rule matches.</td>
+<td>Required <a href="/wiki/rule-expressions/#clauses">clause expression</a>. Decides whether the rule matches.</td>
 </tr>
 <tr>
 <td><code>become</code></td>
-<td>Required <a>outcome expression</a>. Decides the next tribe when the rule applies.</td>
+<td>Required <a href="/wiki/rule-expressions/#outcomes">outcome expression</a>. Decides the next tribe when the rule applies.</td>
 </tr>
 <tr>
 <td><code>probability</code></td>
@@ -440,10 +440,10 @@
 <li>A failed roll continues to later rules.</li>
 <li>If no rule applies, the result remains <code>dead</code>.</li>
 </ol>
-<h3 id="default-dead-result"><a class="heading-anchor" aria-label="Link to this section">#</a>Default Dead Result</h3>
+<h3 id="default-dead-result"><a class="heading-anchor" href="/wiki/rule-expressions#default-dead-result" aria-label="Link to this section">#</a>Default Dead Result</h3>
 <p>Each cell starts with <code>dead</code> as its next result. Rulesets should therefore usually describe only cases that keep or create non-dead states.</p>
 <p>A fixed-<code>dead</code> outcome often adds work without changing the result. It is mainly useful when an earlier rule must deliberately prevent an overlapping later rule from applying. Even then, narrowing the later positive rule is usually clearer.</p>
-<h2 id="selectors"><a class="heading-anchor" aria-label="Link to this section">#</a>Selectors</h2>
+<h2 id="selectors"><a class="heading-anchor" href="/wiki/rule-expressions#selectors" aria-label="Link to this section">#</a>Selectors</h2>
 <p>Selectors define which tribes a clause or dynamic outcome considers.</p>
 <table>
 <thead>
@@ -491,7 +491,7 @@
 <li>combine inputs test whether matching tribes are present;</li>
 </ul>
 <p>Explicit tribe selector signatures are sorted and deduplicated for stable reuse during compilation.</p>
-<h2 id="clauses"><a class="heading-anchor" aria-label="Link to this section">#</a>Clauses</h2>
+<h2 id="clauses"><a class="heading-anchor" href="/wiki/rule-expressions#clauses" aria-label="Link to this section">#</a>Clauses</h2>
 <p>Clauses decide whether a rule is eligible to apply to the current cell.</p>
 <table>
 <thead>
@@ -562,7 +562,7 @@
 <td>—</td>
 </tr>
 </tbody></table>
-<h3 id="current-cell-tests"><a class="heading-anchor" aria-label="Link to this section">#</a>Current-Cell Tests</h3>
+<h3 id="current-cell-tests"><a class="heading-anchor" href="/wiki/rule-expressions#current-cell-tests" aria-label="Link to this section">#</a>Current-Cell Tests</h3>
 <p><code>is</code> matches when the current cell tribe appears in <code>tribes</code>:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"is"</span><span class="hljs-punctuation">,</span>
@@ -570,7 +570,7 @@
 <span class="hljs-punctuation">}</span></code></pre>
 <p>A birth rule can start with <code>is dead</code>; a survival rule can start with <code>is Alive</code>.</p>
 <p>If the selected list covers every known tribe, the clause is always true. If no selected ID resolves to a known tribe, it is always false.</p>
-<h3 id="count-tests"><a class="heading-anchor" aria-label="Link to this section">#</a>Count Tests</h3>
+<h3 id="count-tests"><a class="heading-anchor" href="/wiki/rule-expressions#count-tests" aria-label="Link to this section">#</a>Count Tests</h3>
 <p>Count clauses operate on <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> selector over the <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>8</mn></mrow><annotation encoding="application/x-tex">8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">8</span></span></span></span> Moore neighbors.</p>
 <p>For example:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
@@ -592,7 +592,7 @@
 \end{aligned}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:7.2em;vertical-align:-3.35em"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.85em"><span style="top:-6.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">count</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">:</span></span></span><span style="top:-4.51em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">none</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">:</span></span></span><span style="top:-3.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">exactly</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">:</span></span></span><span style="top:-1.51em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">min</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">:</span></span></span><span style="top:-0.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">max</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">:</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.35em"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:3.85em"><span style="top:-6.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em"></span><span class="mord text"><span class="mord texttt">min</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">count(selector)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">max</span></span></span></span><span style="top:-4.51em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em"></span><span class="mord text"><span class="mord texttt">count(selector)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord">0</span></span></span><span style="top:-3.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em"></span><span class="mord text"><span class="mord texttt">count(selector)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">value</span></span></span></span><span style="top:-1.51em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em"></span><span class="mord text"><span class="mord texttt">count(selector)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">≥</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">value</span></span></span></span><span style="top:-0.01em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em"></span><span class="mord text"><span class="mord texttt">count(selector)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">value</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.35em"><span></span></span></span></span></span></span></span></span></span></span></span>
 <p><code>count</code> intervals are inclusive. A full <code>[0, 8]</code> interval always matches. Likewise, <code>min 0</code> and <code>max 8</code> always match.</p>
 <p>The compiler precomputes each unique selector count once and reuses it across clauses that need the same count.</p>
-<h3 id="count-comparisons"><a class="heading-anchor" aria-label="Link to this section">#</a>Count Comparisons</h3>
+<h3 id="count-comparisons"><a class="heading-anchor" href="/wiki/rule-expressions#count-comparisons" aria-label="Link to this section">#</a>Count Comparisons</h3>
 <p><code>comparison</code> compares <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span> count expressions. <code>margin</code> is added to the right side before comparison:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"comparison"</span><span class="hljs-punctuation">,</span>
@@ -615,7 +615,7 @@
 <span class="hljs-punctuation">}</span></code></pre>
 <p>This means: <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mtext>count(Red)</mtext><mo>&gt;</mo><mtext>count(Blue)</mtext><mo>+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\texttt{count(Red)}&gt;\texttt{count(Blue)}+1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em"></span><span class="mord text"><span class="mord texttt">count(Red)</span></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">&gt;</span><span class="mspace" style="margin-right:0.2778em"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.0833em"></span><span class="mord text"><span class="mord texttt">count(Blue)</span></span><span class="mspace" style="margin-right:0.2222em"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em"></span></span><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span>.</p>
 <p>Persisted operators are <code>"="</code>, <code>"≠"</code>, <code>"&gt;"</code>, <code>"&lt;"</code>, <code>"≥"</code>, and <code>"≤"</code>. <code>margin</code> is clamped to <code>-8..8</code>.</p>
-<h3 id="logical-composition"><a class="heading-anchor" aria-label="Link to this section">#</a>Logical Composition</h3>
+<h3 id="logical-composition"><a class="heading-anchor" href="/wiki/rule-expressions#logical-composition" aria-label="Link to this section">#</a>Logical Composition</h3>
 <p>Logical clauses are recursive.</p>
 <p>For example, Conway birth requires both a <code>dead</code> current cell and exactly <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> <code>Alive</code> neighbors:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
@@ -641,14 +641,14 @@ and    every child is true
 or     at least one child is true
 xor    an odd number of children are true</code></pre>
 <p><code>xor</code> uses parity semantics: with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span> children it behaves like ordinary exclusive-or, while with more children it matches whenever the number of matching children is odd.</p>
-<h3 id="empty"><a class="heading-anchor" aria-label="Link to this section">#</a><code>empty</code></h3>
+<h3 id="empty"><a class="heading-anchor" href="/wiki/rule-expressions#empty" aria-label="Link to this section">#</a><code>empty</code></h3>
 <p>The editor uses:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"empty"</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>as a temporary placeholder while a rule is being built.</p>
 <p>It always evaluates to false. Rules containing empty placeholders are invalid for application and should not be written in generated snapshots intended to run.</p>
-<h2 id="outcomes"><a class="heading-anchor" aria-label="Link to this section">#</a>Outcomes</h2>
+<h2 id="outcomes"><a class="heading-anchor" href="/wiki/rule-expressions#outcomes" aria-label="Link to this section">#</a>Outcomes</h2>
 <p>Outcomes decide which tribe a matched rule writes.</p>
 <table>
 <thead>
@@ -684,7 +684,7 @@ xor    an odd number of children are true</code></pre>
 <td><code>entries</code> and <code>default</code></td>
 </tr>
 </tbody></table>
-<h3 id="fixed-and-same-outcomes"><a class="heading-anchor" aria-label="Link to this section">#</a>Fixed and Same Outcomes</h3>
+<h3 id="fixed-and-same-outcomes"><a class="heading-anchor" href="/wiki/rule-expressions#fixed-and-same-outcomes" aria-label="Link to this section">#</a>Fixed and Same Outcomes</h3>
 <p>A fixed outcome writes <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> tribe ID:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"fixed"</span><span class="hljs-punctuation">,</span>
@@ -695,7 +695,7 @@ xor    an odd number of children are true</code></pre>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"same"</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>These are the simplest outcomes.</p>
-<h3 id="ranked-outcomes"><a class="heading-anchor" aria-label="Link to this section">#</a>Ranked Outcomes</h3>
+<h3 id="ranked-outcomes"><a class="heading-anchor" href="/wiki/rule-expressions#ranked-outcomes" aria-label="Link to this section">#</a>Ranked Outcomes</h3>
 <p><code>majority</code> and <code>minority</code> choose among candidate tribes supplied by a selector:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"majority"</span><span class="hljs-punctuation">,</span>
@@ -728,7 +728,7 @@ xor    an odd number of children are true</code></pre>
 <li><code>["Red", "Blue"]</code> has no candidate when neither <code>Red</code> nor <code>Blue</code> is present.</li>
 </ul>
 <p>Missing <code>tie</code> or <code>fallback</code> outcomes fall back to <code>dead</code> during shader generation. The editor requires explicit valid outcomes for applied ranked rules.</p>
-<h3 id="combine-outcomes"><a class="heading-anchor" aria-label="Link to this section">#</a>Combine Outcomes</h3>
+<h3 id="combine-outcomes"><a class="heading-anchor" href="/wiki/rule-expressions#combine-outcomes" aria-label="Link to this section">#</a>Combine Outcomes</h3>
 <p><code>combine</code> uses unordered lookup rows over selector inputs:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"combine"</span><span class="hljs-punctuation">,</span>
@@ -753,12 +753,12 @@ xor    an odd number of children are true</code></pre>
   <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Each row describes the <strong>exact set of participating inputs</strong> and the tribe to write.</p>
-<h4 id="input-order-does-not-matter"><a class="heading-anchor" aria-label="Link to this section">#</a>Input Order Does Not Matter</h4>
+<h4 id="input-order-does-not-matter"><a class="heading-anchor" href="/wiki/rule-expressions#input-order-does-not-matter" aria-label="Link to this section">#</a>Input Order Does Not Matter</h4>
 <p>A row containing <code>[Red, Blue]</code> is equivalent to <code>[Blue, Red]</code>. The editor rejects duplicate rows after normalizing input order.</p>
-<h4 id="matching-is-strict"><a class="heading-anchor" aria-label="Link to this section">#</a>Matching Is Strict</h4>
+<h4 id="matching-is-strict"><a class="heading-anchor" href="/wiki/rule-expressions#matching-is-strict" aria-label="Link to this section">#</a>Matching Is Strict</h4>
 <p>A lookup row is not a subset test.</p>
 <p>A row for <code>[Red]</code> does not match when both <code>Red</code> and <code>Blue</code> are present. The runtime input set must exactly match the row's input set.</p>
-<h4 id="dead-is-handled-separately"><a class="heading-anchor" aria-label="Link to this section">#</a><code>dead</code> Is Handled Separately</h4>
+<h4 id="dead-is-handled-separately"><a class="heading-anchor" href="/wiki/rule-expressions#dead-is-handled-separately" aria-label="Link to this section">#</a><code>dead</code> Is Handled Separately</h4>
 <p><code>dead</code> is not represented in the non-dead input mask because it is the absence state and can coexist with any non-dead combination.</p>
 <p>Instead, rows that explicitly include <code>dead</code> also require <code>deadPresent</code>.</p>
 <p>This creates an ordering case:</p>
@@ -767,7 +767,7 @@ xor    an odd number of children are true</code></pre>
 <p>Both rows have the same non-dead mask. The row that explicitly requires <code>dead</code> must therefore be checked first.</p>
 <p>If no row matches, the combine <code>default</code> outcome is evaluated. It can be <code>same</code>, so an unmatched combination can leave the current cell unchanged.</p>
 <p>For example, a table with rows <code>[Seed, Water] → Sprout</code> and <code>[Seed, Rock] → Root</code> matches the first row only when <code>Seed</code> and <code>Water</code> are present and no other non-dead tribe is present; it matches the second under the equivalent <code>Seed</code>/<code>Rock</code> condition. <code>dead</code> neighbors may be present in either case. Every other non-dead neighborhood combination, like <code>[Seed, Water, Rock]</code>, reaches the <code>default</code> outcome because matching is strict.</p>
-<h2 id="compilation"><a class="heading-anchor" aria-label="Link to this section">#</a>Compilation</h2>
+<h2 id="compilation"><a class="heading-anchor" href="/wiki/rule-expressions#compilation" aria-label="Link to this section">#</a>Compilation</h2>
 <p>Rule expressions are compiled to WGSL. The compiler:</p>
 <ul>
 <li>collects unique count selectors and computes each once;</li>
@@ -775,15 +775,15 @@ xor    an odd number of children are true</code></pre>
 <li>emits outcomes as assignments to <code>result</code>;</li>
 <li>emits active rules as one first-match-wins branch chain.</li>
 </ul>
-<p>See <a>Rule engine internals</a> for the compiler pipeline and generated shader structure.</p>
+<p>See <a href="/wiki/rule-engine-internals/">Rule engine internals</a> for the compiler pipeline and generated shader structure.</p>
 <p>For example, the Conway birth rule can reduce to:</p>
 <pre><code class="hljs language-plaintext">if (selfTribe == deadIndex &amp;&amp; aliveCount == 3u) {
   result = aliveIndex;
 }</code></pre>
-<h2 id="complete-examples"><a class="heading-anchor" aria-label="Link to this section">#</a>Complete Examples</h2>
-<h3 id="conway39s-game-of-life"><a class="heading-anchor" aria-label="Link to this section">#</a>Conway's Game of Life</h3>
+<h2 id="complete-examples"><a class="heading-anchor" href="/wiki/rule-expressions#complete-examples" aria-label="Link to this section">#</a>Complete Examples</h2>
+<h3 id="conway39s-game-of-life"><a class="heading-anchor" href="/wiki/rule-expressions#conway39s-game-of-life" aria-label="Link to this section">#</a>Conway's Game of Life</h3>
 <p>Conway's Game of Life can be represented with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> birth rule and <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> survival rule.</p>
-<h4 id="birth"><a class="heading-anchor" aria-label="Link to this section">#</a>Birth</h4>
+<h4 id="birth"><a class="heading-anchor" href="/wiki/rule-expressions#birth" aria-label="Link to this section">#</a>Birth</h4>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"clause"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"and"</span><span class="hljs-punctuation">,</span>
@@ -810,7 +810,7 @@ xor    an odd number of children are true</code></pre>
   <span class="hljs-attr">"muted"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>A <code>dead</code> cell becomes <code>Alive</code> when exactly <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> <code>Alive</code> neighbors surround it.</p>
-<h4 id="survival"><a class="heading-anchor" aria-label="Link to this section">#</a>Survival</h4>
+<h4 id="survival"><a class="heading-anchor" href="/wiki/rule-expressions#survival" aria-label="Link to this section">#</a>Survival</h4>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"clause"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"and"</span><span class="hljs-punctuation">,</span>
@@ -837,7 +837,7 @@ xor    an odd number of children are true</code></pre>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>An <code>Alive</code> cell remains <code>Alive</code> with <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span> or <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> <code>Alive</code> neighbors. Otherwise no rule applies and the default result is <code>dead</code>.</p>
 <p>Both rules use the same <code>Alive</code> neighbor selector, so the generated shader computes that count once and reuses it.</p>
-<h3 id="ranked-majority-with-tie-handling"><a class="heading-anchor" aria-label="Link to this section">#</a>Ranked Majority With Tie Handling</h3>
+<h3 id="ranked-majority-with-tie-handling"><a class="heading-anchor" href="/wiki/rule-expressions#ranked-majority-with-tie-handling" aria-label="Link to this section">#</a>Ranked Majority With Tie Handling</h3>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"clause"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"min"</span><span class="hljs-punctuation">,</span>
@@ -863,7 +863,7 @@ xor    an odd number of children are true</code></pre>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>Any cell with at least <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> different neighbor adopts the most common different neighboring tribe.</p>
 <p>A unique winner is written directly. If multiple candidates tie, or no candidate can be selected, the cell keeps its current tribe.</p>
-<h3 id="combine-with-dead-priority"><a class="heading-anchor" aria-label="Link to this section">#</a>Combine With Dead Priority</h3>
+<h3 id="combine-with-dead-priority"><a class="heading-anchor" href="/wiki/rule-expressions#combine-with-dead-priority" aria-label="Link to this section">#</a>Combine With Dead Priority</h3>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"clause"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
     <span class="hljs-attr">"kind"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"is"</span><span class="hljs-punctuation">,</span>
@@ -900,7 +900,7 @@ xor    an odd number of children are true</code></pre>
 <p>If <code>Red</code> and <code>Blue</code> are present but no <code>dead</code> neighbor is present, it becomes <code>Purple</code>.</p>
 <p>Any other input set reaches the default outcome and remains <code>dead</code>.</p>
 <p>The explicit-<code>dead</code> row is checked first because both rows share the same non-dead mask.</p>
-<h2 id="performance-notes"><a class="heading-anchor" aria-label="Link to this section">#</a>Performance Notes</h2>
+<h2 id="performance-notes"><a class="heading-anchor" href="/wiki/rule-expressions#performance-notes" aria-label="Link to this section">#</a>Performance Notes</h2>
 <p>The main costs come from neighbor counting and dynamic outcome selection.</p>
 <ul>
 <li><code>is</code>, <code>fixed</code>, and <code>same</code> are cheap.</li>
@@ -914,7 +914,7 @@ xor    an odd number of children are true</code></pre>
 <li>Failed probabilistic rolls continue to later rules, so overlapping probabilistic rules can add work.</li>
 <li>Bounded topology can add edge-specific overhead because off-grid reads resolve to the virtual boundary tribe.</li>
 </ul>
-<p>See <a>Rule cost model</a> for detailed formulas and worked cost examples.</p>
+<p>See <a href="/wiki/rule-cost-model/">Rule cost model</a> for detailed formulas and worked cost examples.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
         <!--ngtns-->
@@ -940,8 +940,8 @@ xor    an odd number of children are true</code></pre>
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

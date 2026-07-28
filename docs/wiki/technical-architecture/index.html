@@ -359,8 +359,8 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="technical-architecture"><a class="heading-anchor" aria-label="Link to this section">#</a>Technical Architecture</h1>
-<h2 id="runtime-pieces"><a class="heading-anchor" aria-label="Link to this section">#</a>Runtime Pieces</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="technical-architecture"><a class="heading-anchor" href="/wiki/technical-architecture#technical-architecture" aria-label="Link to this section">#</a>Technical Architecture</h1>
+<h2 id="runtime-pieces"><a class="heading-anchor" href="/wiki/technical-architecture#runtime-pieces" aria-label="Link to this section">#</a>Runtime Pieces</h2>
 <p>The website is an Angular application. The home page owns high-level state and preferences, while the <code>gol-engine</code> component owns the canvas and worker transport. The simulation itself runs in <code>src/app/feature/home/worker/webengine.ts</code>, not on the Angular main thread.</p>
 <p>Main pieces:</p>
 <ul>
@@ -372,10 +372,10 @@
 <li><strong>Compression workers</strong>:<br>Compress sealed recording chunks in the background.</li>
 <li><strong>Download worker</strong>:<br>Writes ZIP output, metrics, PNG frames, MP4, <code>.golt</code> saves, or compressed chunk export.</li>
 </ul>
-<h2 id="architecture-diagram"><a class="heading-anchor" aria-label="Link to this section">#</a>Architecture Diagram</h2>
+<h2 id="architecture-diagram"><a class="heading-anchor" href="/wiki/technical-architecture#architecture-diagram" aria-label="Link to this section">#</a>Architecture Diagram</h2>
 <p><img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/mermaid/technical-architecture.svg" alt="Technical architecture" loading="lazy" decoding="async"></p>
 <p>The engine component creates the webengine worker. The home page and home-side helper classes create the utility workers: the snapshot runner starts <code>snapshot.ts</code>, the compression scheduler starts <code>compress.ts</code>, and the download runner starts <code>download.ts</code>. Compression is coordinated by the home page: sealed chunks come back from the engine as messages, home-side compression workers process them, and the home page tells the engine to update the stored chunk codec.</p>
-<h2 id="message-flow"><a class="heading-anchor" aria-label="Link to this section">#</a>Message Flow</h2>
+<h2 id="message-flow"><a class="heading-anchor" href="/wiki/technical-architecture#message-flow" aria-label="Link to this section">#</a>Message Flow</h2>
 <p>The flow is mostly one-way at each layer:</p>
 <ol>
 <li>Sidebar emits <code>SidebarEvent</code> values.</li>
@@ -393,7 +393,7 @@
 <li><code>getSnapshot</code> requests packed grid state, topology metadata, and random seed from the worker.</li>
 <li><code>getRecording</code> asks the worker to seal pending recording state and return a manifest.</li>
 </ul>
-<h2 id="workers"><a class="heading-anchor" aria-label="Link to this section">#</a>Workers</h2>
+<h2 id="workers"><a class="heading-anchor" href="/wiki/technical-architecture#workers" aria-label="Link to this section">#</a>Workers</h2>
 <p>The project uses workers to keep expensive work off the UI thread:</p>
 <ul>
 <li><code>webengine.ts</code>:<br>Simulation, rendering, recording, live metrics, OPFS recording writes.</li>
@@ -427,8 +427,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

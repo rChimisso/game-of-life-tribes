@@ -359,11 +359,11 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="rules"><a class="heading-anchor" aria-label="Link to this section">#</a>Rules</h1>
-<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="rules"><a class="heading-anchor" href="/wiki/rules#rules" aria-label="Link to this section">#</a>Rules</h1>
+<h2 id="purpose"><a class="heading-anchor" href="/wiki/rules#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Rules section defines how each cell becomes its next state. Rules are evaluated from top to bottom. The first matching unmuted rule whose probability roll passes wins. If no rule matches or all matching probabilistic rules fail their rolls, the cell becomes <code>dead</code>.</p>
-<p>This page explains the editor controls. For runtime behavior and shader generation, see <a>Rule engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a>Rule JSON</a>.</p>
-<h2 id="rule-list-controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule List Controls</h2>
+<p>This page explains the editor controls. For runtime behavior and shader generation, see <a href="/wiki/rule-engine-internals/">Rule engine internals</a>. For the persisted rule JSON shape used by snapshots and exports, see <a href="/wiki/rule-expressions/#rule-json">Rule JSON</a>.</p>
+<h2 id="rule-list-controls"><a class="heading-anchor" href="/wiki/rules#rule-list-controls" aria-label="Link to this section">#</a>Rule List Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules.png" alt="Rules section">
 </p><ul>
@@ -379,12 +379,12 @@
 <li><strong>Apply</strong>:<br>Commits valid rule changes. Disabled while running, downloading, unchanged, or invalid.</li>
 <li><strong>Restore</strong>:<br>Discards rule edits and restores previously committed rules.</li>
 </ul>
-<h2 id="probability-controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Probability Controls</h2>
+<h2 id="probability-controls"><a class="heading-anchor" href="/wiki/rules#probability-controls" aria-label="Link to this section">#</a>Probability Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules/probability.png" alt="Rule probability">
 </p><p>Each expanded rule has a <strong>Probability %</strong> field at the top of the rule body. The field is a percentage with exactly <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> decimal digits.<br>When a rule has a probability below <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span>, the collapsed rule header shows a compact percentage badge. <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>0</mn></mrow><annotation encoding="application/x-tex">0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">0</span></span></span></span> effectively disables the rule, as if it was muted.</p>
 <p>At runtime, a rule must first match its clause. If it has a probability below <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span>, the engine then performs a deterministic probability roll. A failed roll does not stop evaluation; the next rules can still match and apply.</p>
-<h2 id="clause-controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Clause Controls</h2>
+<h2 id="clause-controls"><a class="heading-anchor" href="/wiki/rules#clause-controls" aria-label="Link to this section">#</a>Clause Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules/clauses.png" alt="Rule clauses">
 </p><p>Each rule has <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> root clause. Logical clauses can contain nested clauses.</p>
@@ -452,7 +452,7 @@
 <td>An odd number of child clauses must match.</td>
 </tr>
 </tbody></table>
-<h2 id="outcome-controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Outcome Controls</h2>
+<h2 id="outcome-controls"><a class="heading-anchor" href="/wiki/rules#outcome-controls" aria-label="Link to this section">#</a>Outcome Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules/outcome.png" alt="Rule combine outcome">
 </p><p>The outcome editor starts with a <code>becomes</code> mode selector:</p>
@@ -478,7 +478,7 @@
 <li><strong>Otherwise</strong>:<br>Default output when no row matches.</li>
 <li><strong>Add combination row</strong>:<br>Creates another lookup row.</li>
 </ul>
-<h2 id="error-outlines"><a class="heading-anchor" aria-label="Link to this section">#</a>Error Outlines</h2>
+<h2 id="error-outlines"><a class="heading-anchor" href="/wiki/rules#error-outlines" aria-label="Link to this section">#</a>Error Outlines</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/rules/error.png" alt="Ruleset error outlines">
 </p><p>Invalid rules cannot be applied. Common invalid states are empty clauses, selectors with no tribe, references to removed tribes, missing tie/fallback behavior, duplicate combine rows, invalid combination inputs, invalid random seed values, or invalid probability values.</p>
@@ -514,8 +514,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

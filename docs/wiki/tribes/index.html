@@ -359,10 +359,10 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="tribes"><a class="heading-anchor" aria-label="Link to this section">#</a>Tribes</h1>
-<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
-<p>The Tribes section edits the named cell states used by drawing, rules, bounded-grid boundaries, rendering, snapshots, and exports. Every ruleset includes the special <code>dead</code> tribe for empty cells; the UI only lists editable non-dead tribes. For the persisted tribe JSON shape, see <a>Tribe JSON</a>.</p>
-<h2 id="tribe-list-controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Tribe List Controls</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="tribes"><a class="heading-anchor" href="/wiki/tribes#tribes" aria-label="Link to this section">#</a>Tribes</h1>
+<h2 id="purpose"><a class="heading-anchor" href="/wiki/tribes#purpose" aria-label="Link to this section">#</a>Purpose</h2>
+<p>The Tribes section edits the named cell states used by drawing, rules, bounded-grid boundaries, rendering, snapshots, and exports. Every ruleset includes the special <code>dead</code> tribe for empty cells; the UI only lists editable non-dead tribes. For the persisted tribe JSON shape, see <a href="/wiki/rule-expressions/#tribe-json">Tribe JSON</a>.</p>
+<h2 id="tribe-list-controls"><a class="heading-anchor" href="/wiki/tribes#tribe-list-controls" aria-label="Link to this section">#</a>Tribe List Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes.png" alt="Tribes section">
 </p><ul>
@@ -375,7 +375,7 @@
 <li><strong>Apply</strong>:<br>Commits the complete tribe list. It is disabled while the simulation is running, a download is active, nothing has changed, the list is empty or invalid, a tribe is still being edited, or a rule, packing, or active bounded-boundary constraint blocks the change.</li>
 <li><strong>Restore</strong>:<br>Discards all additions, edits, and removals and restores the previously committed tribe list.</li>
 </ul>
-<h2 id="editing-a-tribe"><a class="heading-anchor" aria-label="Link to this section">#</a>Editing A Tribe</h2>
+<h2 id="editing-a-tribe"><a class="heading-anchor" href="/wiki/tribes#editing-a-tribe" aria-label="Link to this section">#</a>Editing A Tribe</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes/edit.png" alt="Editing an existing tribe">
 </p><ol>
@@ -386,7 +386,7 @@
 </ol>
 <p>While a tribe editor is open, its close button discards its unconfirmed changes and restores the values from before the editor was opened. The check-mark button is enabled only when the draft is valid and differs from the current values.</p>
 <p>Renaming a tribe updates its ID in committed rules and in the boundary tribe setting when the list is applied. Recoloring changes the color used by rendering, snapshots, and exports.</p>
-<h2 id="adding-a-tribe"><a class="heading-anchor" aria-label="Link to this section">#</a>Adding A Tribe</h2>
+<h2 id="adding-a-tribe"><a class="heading-anchor" href="/wiki/tribes#adding-a-tribe" aria-label="Link to this section">#</a>Adding A Tribe</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/tribes/add.png" alt="Adding a new tribe">
 </p><ol>
@@ -396,9 +396,9 @@
 <li>Select <strong>Apply</strong> to commit the tribe list to the ruleset.</li>
 </ol>
 <p>Adding a tribe may require a wider packing format. The section reports when packing will be increased automatically, warns when the wider format exceeds the recording frame limit, and blocks applying the list when the current grid would exceed the supported frame-size limit.</p>
-<h2 id="removing-a-tribe"><a class="heading-anchor" aria-label="Link to this section">#</a>Removing A Tribe</h2>
+<h2 id="removing-a-tribe"><a class="heading-anchor" href="/wiki/tribes#removing-a-tribe" aria-label="Link to this section">#</a>Removing A Tribe</h2>
 <p>Select <strong>Remove</strong> on a tribe to remove it from the list. Applying that removal is blocked if committed rules still reference the tribe, or if it is the active boundary tribe while the grid topology is bounded.</p>
-<h2 id="validation"><a class="heading-anchor" aria-label="Link to this section">#</a>Validation</h2>
+<h2 id="validation"><a class="heading-anchor" href="/wiki/tribes#validation" aria-label="Link to this section">#</a>Validation</h2>
 <p>A tribe ID must be non-empty, unique, alphanumeric, and cannot be <code>dead</code>. Colors must be <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>6</mn></mrow><annotation encoding="application/x-tex">6</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">6</span></span></span></span> hex characters.</p>
 <p>The UI shows warnings for changes that affect packing or existing references and errors for conditions that block applying the list.</p>
 </article>
@@ -426,8 +426,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

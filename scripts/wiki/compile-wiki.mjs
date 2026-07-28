@@ -11,7 +11,6 @@ const root = resolve(import.meta.dirname, '..', '..');
 const wikiDirectory = join(root, 'wiki');
 const generatedFile = join(root, 'src', 'app', 'feature', 'wiki', 'model', 'wiki-content.generated.json');
 const buildMetadataFile = join(root, '.angular', 'wiki-pages.json');
-const siteBase = '/';
 const rawBase = 'https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/';
 
 marked.use(markedKatex({nonStandard: true, strict: false, throwOnError: false}));
@@ -306,7 +305,7 @@ function resolveLink(href, currentSlug, knownSlugs, linkReferences) {
       throw new Error(`Broken Wiki link from ${currentSlug}: ${href}`);
     }
     linkReferences.push({source: currentSlug, target: targetSlug, fragment});
-    resolvedHref = `${siteBase}/wiki/${targetSlug === 'home' ? '' : `${targetSlug}/`}${fragment.length > 0 ? `#${fragment}` : ''}`;
+    resolvedHref = `/wiki/${targetSlug === 'home' ? '' : `${targetSlug}/`}${fragment.length > 0 ? `#${fragment}` : ''}`;
   }
   return {href: resolvedHref, external};
 }
@@ -337,7 +336,7 @@ function createRenderer(currentSlug, knownSlugs, headingIds, linkReferences) {
       const text = this.parser.parseInline(tokens);
       const id = slugger.slug(plainText(text));
       headingIds.add(id);
-      const anchor = `${siteBase}/wiki/${currentSlug === 'home' ? '' : currentSlug}#${id}`;
+      const anchor = `/wiki/${currentSlug === 'home' ? '' : currentSlug}#${id}`;
       return `<h${depth} id="${escapeAttribute(id)}"><a class="heading-anchor" href="${escapeAttribute(anchor)}" aria-label="Link to this section">#</a>${text}</h${depth}>\n`;
   };
   renderer.code = function({text, lang}) {

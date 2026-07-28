@@ -359,10 +359,10 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="snapshot"><a class="heading-anchor" aria-label="Link to this section">#</a>Snapshot</h1>
-<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="snapshot"><a class="heading-anchor" href="/wiki/snapshot#snapshot" aria-label="Link to this section">#</a>Snapshot</h1>
+<h2 id="purpose"><a class="heading-anchor" href="/wiki/snapshot#purpose" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Snapshot section saves or loads the current simulation state as a <code>.golt</code> file. Snapshots are restartable state, not rendered media. Use downloads for PNG, MP4, metrics, and recorded-frame exports.</p>
-<h2 id="controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Controls</h2>
+<h2 id="controls"><a class="heading-anchor" href="/wiki/snapshot#controls" aria-label="Link to this section">#</a>Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/snapshot.png" alt="Snapshot section">
 </p><ul>
@@ -371,7 +371,7 @@
 <li><strong>Load</strong>:<br>Opens a file picker for <code>.golt</code> files and loads the selected snapshot.</li>
 </ul>
 <p>Both Save and Load are disabled while running, downloading, stepping, saving, or loading.</p>
-<h2 id="snapshot-contents"><a class="heading-anchor" aria-label="Link to this section">#</a>Snapshot Contents</h2>
+<h2 id="snapshot-contents"><a class="heading-anchor" href="/wiki/snapshot#snapshot-contents" aria-label="Link to this section">#</a>Snapshot Contents</h2>
 <p>A <code>.golt</code> snapshot contains:</p>
 <ul>
 <li>Grid columns and rows.</li>
@@ -381,11 +381,11 @@
 <li>Generation counter.</li>
 <li>Packed grid data.</li>
 <li>Grid packing metadata.</li>
-<li>Tribe IDs and colors, using the <a>Tribe JSON</a> shape.</li>
-<li>Rules, using the <a>Rule JSON</a> shape.</li>
+<li>Tribe IDs and colors, using the <a href="/wiki/rule-expressions/#tribe-json">Tribe JSON</a> shape.</li>
+<li>Rules, using the <a href="/wiki/rule-expressions/#rule-json">Rule JSON</a> shape.</li>
 </ul>
 <p>Boundary cells for bounded topology are not stored in the grid payload. The snapshot stores only the selected boundary tribe; off-grid neighbor reads reconstruct the virtual boundary behavior after loading.</p>
-<p>For the low-level file layout and how to parse it, see <a>Snapshot format</a>.</p>
+<p>For the low-level file layout and how to parse it, see <a href="/wiki/snapshot-format/">Snapshot format</a>.</p>
 <p>Loading a snapshot rebuilds the engine if grid, topology, tribes, rules, random seed, or packing need new GPU resources.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
@@ -412,8 +412,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
-<link rel="modulepreload" href="chunk-6VWAWKYO.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-WYAT3IKL.js" type="module"></script>
+<link rel="modulepreload" href="chunk-DHXDRJJO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

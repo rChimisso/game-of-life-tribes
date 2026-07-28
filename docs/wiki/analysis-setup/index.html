@@ -359,15 +359,15 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="analysis-setup-and-method"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#analysis-setup-and-method" aria-label="Link to this section">#</a>Analysis Setup And Method</h1>
-<h2 id="study-question"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#study-question" aria-label="Link to this section">#</a>Study Question</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="analysis-setup-and-method"><a class="heading-anchor" aria-label="Link to this section">#</a>Analysis Setup And Method</h1>
+<h2 id="study-question"><a class="heading-anchor" aria-label="Link to this section">#</a>Study Question</h2>
 <p>The experiments ask how changing initial occupied-cell density changes the evolution and final outcome of <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn></mrow><annotation encoding="application/x-tex">2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">2</span></span></span></span> presets:</p>
 <ul>
-<li>In <a href="/game-of-life-tribes/wiki/presets/#wildfire">Wildfire</a>, occupied cells are combustible <code>Grass</code>, <code>Bush</code>, or <code>Tree</code> cells.</li>
-<li>In <a href="/game-of-life-tribes/wiki/presets/#sirsd-epidemic">SIRSD Epidemic</a>, occupied cells are living population cells, initially all <code>Susceptible</code>.</li>
+<li>In <a>Wildfire</a>, occupied cells are combustible <code>Grass</code>, <code>Bush</code>, or <code>Tree</code> cells.</li>
+<li>In <a>SIRSD Epidemic</a>, occupied cells are living population cells, initially all <code>Susceptible</code>.</li>
 </ul>
 <p>The target density was varied while the preset rules, grid, topology, random seed, and initial active cells were kept fixed.</p>
-<h2 id="run-protocol"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#run-protocol" aria-label="Link to this section">#</a>Run Protocol</h2>
+<h2 id="run-protocol"><a class="heading-anchor" aria-label="Link to this section">#</a>Run Protocol</h2>
 <p>For each requested density:</p>
 <ol>
 <li>Set the brush density and generate the initial vegetation or <code>Susceptible</code> population.</li>
@@ -377,7 +377,7 @@
 <li>Restart and repeat until <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>30</mn></mrow><annotation encoding="application/x-tex">30</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">30</span></span></span></span> runs have been collected, then move to the next density.</li>
 </ol>
 <p>This sweep was automated using the scripts under <a href="https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/" target="_blank" rel="noopener noreferrer"><code>analysis/</code></a> in the repository while the project was served locally.</p>
-<h2 id="shared-configuration"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#shared-configuration" aria-label="Link to this section">#</a>Shared Configuration</h2>
+<h2 id="shared-configuration"><a class="heading-anchor" aria-label="Link to this section">#</a>Shared Configuration</h2>
 <table>
 <thead>
 <tr>
@@ -407,8 +407,8 @@
 </tr>
 </tbody></table>
 <p>Applying a preset does not itself select the grid size, topology, or initial layout, so these settings must be manually set to reproduce the runs.<br>The fixed ruleset random seed makes Epidemic probability rolls reproducible for a given cell, generation, and rule. Wildfire has no probabilistic evolution rules, so it is deterministic once its initial grid is fixed, regardless of random seed. Initial brush layouts still differ because brush strokes use a separate advancing randomization counter. Consequently, the runs vary mainly through their randomized initial layouts.</p>
-<h2 id="density-coverage"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#density-coverage" aria-label="Link to this section">#</a>Density Coverage</h2>
-<h3 id="wildfire"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#wildfire" aria-label="Link to this section">#</a>Wildfire</h3>
+<h2 id="density-coverage"><a class="heading-anchor" aria-label="Link to this section">#</a>Density Coverage</h2>
+<h3 id="wildfire"><a class="heading-anchor" aria-label="Link to this section">#</a>Wildfire</h3>
 <p>The analysis contains <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>570</mn></mrow><annotation encoding="application/x-tex">570</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">570</span></span></span></span> runs across <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>19</mn></mrow><annotation encoding="application/x-tex">19</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">19</span></span></span></span> density percentages:</p>
 <table>
 <thead>
@@ -431,7 +431,7 @@
 </tr>
 </tbody></table>
 <p>The dense <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>85</mn><mtext>–</mtext><mn>95</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">85\text{–}95\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">85</span><span class="mord text"><span class="mord">–</span></span><span class="mord">95%</span></span></span></span> sweep contains <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>330</mn></mrow><annotation encoding="application/x-tex">330</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">330</span></span></span></span> runs and was added to resolve the observed regime change from the initial sweep.</p>
-<h3 id="epidemic"><a class="heading-anchor" href="/game-of-life-tribes/wiki/analysis-setup#epidemic" aria-label="Link to this section">#</a>Epidemic</h3>
+<h3 id="epidemic"><a class="heading-anchor" aria-label="Link to this section">#</a>Epidemic</h3>
 <p>The analysis contains <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>330</mn></mrow><annotation encoding="application/x-tex">330</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">330</span></span></span></span> runs across <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>11</mn></mrow><annotation encoding="application/x-tex">11</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">11</span></span></span></span> density percentages:</p>
 <table>
 <thead>
@@ -479,8 +479,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

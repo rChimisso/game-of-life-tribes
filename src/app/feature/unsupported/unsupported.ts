@@ -58,6 +58,7 @@ export class UnsupportedPage {
    * @param {SeoService} seo document metadata service.
    */
   public constructor(private readonly store$: Store, seo: SeoService) {
-    seo.setNoIndex('WebGPU unsupported', 'This browser or device does not support the WebGPU API required by Game of Life: Tribes.');
+    // Seo.setNoIndex('WebGPU unsupported', 'This browser or device does not support the WebGPU API required by Game of Life: Tribes.');
+    seo.setDefault();
   }
 }

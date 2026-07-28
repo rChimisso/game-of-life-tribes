@@ -359,17 +359,17 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="snapshot-format"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#snapshot-format" aria-label="Link to this section">#</a>Snapshot Format</h1>
-<h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#purpose" aria-label="Link to this section">#</a>Purpose</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="snapshot-format"><a class="heading-anchor" aria-label="Link to this section">#</a>Snapshot Format</h1>
+<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
 <p>A <code>.golt</code> snapshot is a single saved simulation state. It contains the current grid, generation number, topology, virtual boundary tribe, random seed, tribes, rules, and the packing metadata needed to decode the grid. It is the format used by the Snapshot section's Save and Load buttons.</p>
 <p>Use this page when you want to inspect, convert, generate, or modify snapshots outside the website.</p>
-<h2 id="file-layout"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#file-layout" aria-label="Link to this section">#</a>File Layout</h2>
+<h2 id="file-layout"><a class="heading-anchor" aria-label="Link to this section">#</a>File Layout</h2>
 <p>A <code>.golt</code> file has <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>3</mn></mrow><annotation encoding="application/x-tex">3</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">3</span></span></span></span> parts:</p>
 <pre><code class="hljs language-text">12-byte preamble
 UTF-8 JSON header
 raw-deflate compressed packed grid payload</code></pre>
-<p>The payload is <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> packed frame, not a sequence of frames. For recorded multi-frame data, see <a href="/game-of-life-tribes/wiki/compressed-chunk-export/">Compressed chunk export</a>.</p>
-<h2 id="preamble"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#preamble" aria-label="Link to this section">#</a>Preamble</h2>
+<p>The payload is <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> packed frame, not a sequence of frames. For recorded multi-frame data, see <a>Compressed chunk export</a>.</p>
+<h2 id="preamble"><a class="heading-anchor" aria-label="Link to this section">#</a>Preamble</h2>
 <p><code>.golt</code> files start with a <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>12</mn></mrow><annotation encoding="application/x-tex">12</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">12</span></span></span></span>-byte preamble:</p>
 <table>
 <thead>
@@ -396,7 +396,7 @@ raw-deflate compressed packed grid payload</code></pre>
 </tr>
 </tbody></table>
 <p>The current version is <code>1</code>.</p>
-<h2 id="header"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#header" aria-label="Link to this section">#</a>Header</h2>
+<h2 id="header"><a class="heading-anchor" aria-label="Link to this section">#</a>Header</h2>
 <p>The header is UTF-8 JSON immediately after the preamble. It has this shape:</p>
 <pre><code class="hljs language-jsonc"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">"generation"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">123</span><span class="hljs-punctuation">,</span>
@@ -432,20 +432,20 @@ raw-deflate compressed packed grid payload</code></pre>
 <li><code>boundaryTribe</code>: selected virtual tribe used for off-grid neighbor reads in bounded mode. Missing values load as <code>dead</code>. Provided values must reference a known tribe. The value may be preserved while <code>topology</code> is <code>toroidal</code>, but it is ignored until bounded topology is selected.</li>
 <li><code>randomSeed</code>: deterministic seed used by probabilistic rules.</li>
 <li><code>gridFormat.bitsPerCell</code>: packing used by the compressed grid payload.</li>
-<li><code>tribes</code>: ordered tribe table. Numeric cell values are indexes into this array. See <a href="/game-of-life-tribes/wiki/rule-expressions/#tribe-json">Tribe JSON</a>.</li>
-<li><code>rules</code>: persisted rule list used by the rules editor and engine. See <a href="/game-of-life-tribes/wiki/rule-expressions/#rule-json">Rule JSON</a>.</li>
+<li><code>tribes</code>: ordered tribe table. Numeric cell values are indexes into this array. See <a>Tribe JSON</a>.</li>
+<li><code>rules</code>: persisted rule list used by the rules editor and engine. See <a>Rule JSON</a>.</li>
 </ul>
 <p>The app treats the parsed JSON header as untrusted data. Before loading, it recursively strips unsupported fields from recognized header, grid-format, tribe, rule, clause, selector, outcome, combine-strategy, and combination-entry objects. Stripped fields are reported with console warning paths such as <code>gridFormat.obsoleteField</code> or <code>rules[2].clause.tribes</code>; they do not show a snackbar by themselves.</p>
 <p>After stripping unsupported fields, the app applies only explicit defaults, then validates the complete canonical header. Missing <code>generation</code>, <code>topology</code>, <code>boundaryTribe</code>, <code>randomSeed</code>, rule <code>probability</code>, rule <code>muted</code>, comparison <code>margin</code>, and defaultable selector fields use the application defaults. Missing required fields, unsupported discriminants, invalid values, duplicate tribe IDs, invalid colors, invalid tribe references, invalid neighbor counts, invalid comparison operators, invalid logical clause shapes, and packing that cannot represent every tribe cause loading to abort. Detailed validation paths are logged to the console and the UI shows a concise snapshot-load error.</p>
 <p>The app validates the magic bytes, version, header bounds, supported <code>bitsPerCell</code>, grid dimensions, topology, tribe array, rule array, canonical rule expressions, and compressed payload size before accepting a snapshot.</p>
-<h2 id="rule-and-tribe-metadata"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#rule-and-tribe-metadata" aria-label="Link to this section">#</a>Rule and Tribe Metadata</h2>
-<p>Snapshot rule and tribe metadata uses the same persisted shapes as compressed chunk exports and presets. The full reference lives in <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>:</p>
+<h2 id="rule-and-tribe-metadata"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule and Tribe Metadata</h2>
+<p>Snapshot rule and tribe metadata uses the same persisted shapes as compressed chunk exports and presets. The full reference lives in <a>Rule expressions</a>:</p>
 <ul>
-<li><a href="/game-of-life-tribes/wiki/rule-expressions/#tribe-json">Tribe JSON</a>: tribe IDs, colors, and grid-value indexing.</li>
-<li><a href="/game-of-life-tribes/wiki/rule-expressions/#rule-json">Rule JSON</a>: rule object fields, probability, and muted state.</li>
-<li><a href="/game-of-life-tribes/wiki/rule-expressions/#selectors">Selectors</a>, <a href="/game-of-life-tribes/wiki/rule-expressions/#clauses">clauses</a>, and <a href="/game-of-life-tribes/wiki/rule-expressions/#outcomes">outcomes</a>: expression behavior, JSON shapes, constraints, and examples.</li>
+<li><a>Tribe JSON</a>: tribe IDs, colors, and grid-value indexing.</li>
+<li><a>Rule JSON</a>: rule object fields, probability, and muted state.</li>
+<li><a>Selectors</a>, <a>clauses</a>, and <a>outcomes</a>: expression behavior, JSON shapes, constraints, and examples.</li>
 </ul>
-<h2 id="grid-payload"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#grid-payload" aria-label="Link to this section">#</a>Grid Payload</h2>
+<h2 id="grid-payload"><a class="heading-anchor" aria-label="Link to this section">#</a>Grid Payload</h2>
 <p>After the header, all remaining bytes are the packed grid payload compressed with raw DEFLATE (<code>deflate-raw</code>). Raw DEFLATE means there is no zlib or gzip wrapper.</p>
 <p>When saving, the app repacks the current grid to the tightest storage format that can represent the tribe count. That means <code>header.gridFormat.bitsPerCell</code> is the source of truth for decoding the file, even if the simulation was using a larger runtime packing value before saving.</p>
 <p>The expected uncompressed payload size is:</p>
@@ -455,7 +455,7 @@ raw-deflate compressed packed grid payload</code></pre>
 \texttt{payloadBytes} &amp;= \texttt{packedCols}\cdot\texttt{rows}\cdot4
 \end{aligned}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:8.2914em;vertical-align:-3.8957em"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:4.3957em"><span style="top:-6.5243em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord text"><span class="mord texttt">cellsPerWord</span></span></span></span><span style="top:-2.9143em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord text"><span class="mord texttt">packedCols</span></span></span></span><span style="top:0.0857em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord text"><span class="mord texttt">payloadBytes</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.8957em"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:4.3957em"><span style="top:-6.5243em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3214em"><span style="top:-2.314em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">bitsPerCell</span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:0.04em"></span></span><span style="top:-3.677em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord">32</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span><span style="top:-2.9143em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em"></span><span class="minner"><span class="mopen delimcenter" style="top:0em"><span class="delimsizing size3">⌈</span></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.2881em"><span style="top:-2.314em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">cellsPerWord</span></span></span></span><span style="top:-3.23em"><span class="pstrut" style="height:3em"></span><span class="frac-line" style="border-bottom-width:0.04em"></span></span><span style="top:-3.677em"><span class="pstrut" style="height:3em"></span><span class="mord"><span class="mord text"><span class="mord texttt">cols</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mclose delimcenter" style="top:0em"><span class="delimsizing size3">⌉</span></span></span></span></span><span style="top:0.0857em"><span class="pstrut" style="height:3.45em"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.2778em"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em"></span><span class="mord text"><span class="mord texttt">packedCols</span></span><span class="mspace" style="margin-right:0.2222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em"></span><span class="mord text"><span class="mord texttt">rows</span></span><span class="mspace" style="margin-right:0.2222em"></span><span class="mbin">⋅</span><span class="mspace" style="margin-right:0.2222em"></span><span class="mord">4</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:3.8957em"><span></span></span></span></span></span></span></span></span></span></span></span>
 <p>If decompression produces anything other than exactly <code>payloadBytes</code>, the app rejects the snapshot.</p>
-<h2 id="cell-packing"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#cell-packing" aria-label="Link to this section">#</a>Cell Packing</h2>
+<h2 id="cell-packing"><a class="heading-anchor" aria-label="Link to this section">#</a>Cell Packing</h2>
 <p>The uncompressed payload is a row-major array of little-endian <code>u32</code> words. Each word stores <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> or more cell values.</p>
 <p>To read <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> cell:</p>
 <span class="katex-display"><span class="katex"><span class="katex-mathml"><math><semantics><mtable><mtr><mtd><mtext>wordIndex</mtext></mtd><mtd><mrow><mrow/><mo>=</mo><mi>y</mi><mo>⋅</mo><mtext>packedCols</mtext><mo>+</mo><mrow><mo>⌊</mo><mfrac><mi>x</mi><mtext>cellsPerWord</mtext></mfrac><mo>⌋</mo></mrow></mrow></mtd></mtr><mtr><mtd><mtext>cellIndex</mtext></mtd><mtd><mrow><mrow/><mo>=</mo><mi>x</mi><mtext> </mtext><mo><mrow><mi>m</mi><mi>o</mi><mi>d</mi></mrow></mo><mtext> </mtext><mtext>cellsPerWord</mtext></mrow></mtd></mtr><mtr><mtd><mtext>shift</mtext></mtd><mtd><mrow><mrow/><mo>=</mo><mtext>cellIndex</mtext><mo>⋅</mo><mtext>bitsPerCell</mtext></mrow></mtd></mtr><mtr><mtd><mtext>value</mtext></mtd><mtd><mrow><mrow/><mo>=</mo><mo>(</mo><mtext>word</mtext><mo>≫</mo><mtext>shift</mtext><mo>)</mo><mo>&amp;</mo><mrow><mo>(</mo><mo>(</mo><mn>1</mn><mo>≪</mo><mtext>bitsPerCell</mtext><mo>)</mo><mo>−</mo><mn>1</mn><mo>)</mo></mrow></mrow></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
@@ -469,7 +469,7 @@ raw-deflate compressed packed grid payload</code></pre>
 <pre><code class="hljs language-text">tribe = header.tribes[value]
 tribe.id     -&gt; user-facing state name
 tribe.color  -&gt; RGB hex color without '#'</code></pre>
-<h2 id="streaming-path"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#streaming-path" aria-label="Link to this section">#</a>Streaming Path</h2>
+<h2 id="streaming-path"><a class="heading-anchor" aria-label="Link to this section">#</a>Streaming Path</h2>
 <p>Small snapshots are compressed or decompressed as <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> payload. Large snapshots use a streaming-shaped path so the browser does not need <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> extra full packed-grid copy during save/load.</p>
 <p>Current thresholds:</p>
 <ul>
@@ -477,7 +477,7 @@ tribe.color  -&gt; RGB hex color without '#'</code></pre>
 <li>Stream repack block target: <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>64</mn><mtext>&nbsp;MiB</mtext></mrow><annotation encoding="application/x-tex">64\text{ MiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">64</span><span class="mord text"><span class="mord">&nbsp;MiB</span></span></span></span></span>.</li>
 </ul>
 <p>This does not change the file format. It only changes how the browser produces or consumes the same layout.</p>
-<h2 id="example-python-tools"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#example-python-tools" aria-label="Link to this section">#</a>Example Python Tools</h2>
+<h2 id="example-python-tools"><a class="heading-anchor" aria-label="Link to this section">#</a>Example Python Tools</h2>
 <p>The script below can:</p>
 <ul>
 <li>Read a <code>.golt</code> file.</li>
@@ -710,7 +710,7 @@ GridValues = <span class="hljs-built_in">list</span>[<span class="hljs-built_in"
   main()</code></pre>
 </details><p>Run it with:</p>
 <pre><code class="hljs language-bash">python golt_snapshot.py my-state.golt</code></pre>
-<h2 id="creating-your-own-snapshot"><a class="heading-anchor" href="/game-of-life-tribes/wiki/snapshot-format#creating-your-own-snapshot" aria-label="Link to this section">#</a>Creating Your Own Snapshot</h2>
+<h2 id="creating-your-own-snapshot"><a class="heading-anchor" aria-label="Link to this section">#</a>Creating Your Own Snapshot</h2>
 <p>To create a snapshot yourself:</p>
 <ol>
 <li>Choose <code>cols</code>, <code>rows</code>, <code>generation</code>, <code>topology</code>, <code>boundaryTribe</code>, <code>randomSeed</code>, <code>tribes</code>, and <code>rules</code>.</li>
@@ -746,8 +746,8 @@ GridValues = <span class="hljs-built_in">list</span>[<span class="hljs-built_in"
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

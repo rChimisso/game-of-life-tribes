@@ -11,7 +11,7 @@ const root = resolve(import.meta.dirname, '..', '..');
 const wikiDirectory = join(root, 'wiki');
 const generatedFile = join(root, 'src', 'app', 'feature', 'wiki', 'model', 'wiki-content.generated.json');
 const buildMetadataFile = join(root, '.angular', 'wiki-pages.json');
-const siteBase = '/game-of-life-tribes';
+const siteBase = '/';
 const rawBase = 'https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/';
 
 marked.use(markedKatex({nonStandard: true, strict: false, throwOnError: false}));

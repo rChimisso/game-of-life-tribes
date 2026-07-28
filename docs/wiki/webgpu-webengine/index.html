@@ -359,8 +359,8 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="webgpu-webengine"><a class="heading-anchor" href="/game-of-life-tribes/wiki/webgpu-webengine#webgpu-webengine" aria-label="Link to this section">#</a>WebGPU Webengine</h1>
-<h2 id="initialization"><a class="heading-anchor" href="/game-of-life-tribes/wiki/webgpu-webengine#initialization" aria-label="Link to this section">#</a>Initialization</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="webgpu-webengine"><a class="heading-anchor" aria-label="Link to this section">#</a>WebGPU Webengine</h1>
+<h2 id="initialization"><a class="heading-anchor" aria-label="Link to this section">#</a>Initialization</h2>
 <p>The engine component transfers an <code>OffscreenCanvas</code> to <code>webengine.ts</code> with an <code>init</code> message. The worker then:</p>
 <ol>
 <li>Requests a WebGPU device through the worker GPU device helper.</li>
@@ -370,7 +370,7 @@
 <li>Posts initial limits and rebuild state back to the UI.</li>
 </ol>
 <p>The worker watches <code>device.lost</code>. On loss, it stops active runs, marks the device as lost, pauses simulation state, and posts a device-loss message to the app.</p>
-<h2 id="rebuild-lifecycle"><a class="heading-anchor" href="/game-of-life-tribes/wiki/webgpu-webengine#rebuild-lifecycle" aria-label="Link to this section">#</a>Rebuild Lifecycle</h2>
+<h2 id="rebuild-lifecycle"><a class="heading-anchor" aria-label="Link to this section">#</a>Rebuild Lifecycle</h2>
 <p>Ruleset, rule probability, random seed, topology, grid size, and packing changes require a full GPU rebuild. Rebuilds stop active runs, mark the worker as rebuilding, wait for GPU work to finish, destroy or replace resources, rebuild buffers and pipelines, reset OPFS recording state as needed, and post fresh recording limits.</p>
 <p>Important rebuild resources include:</p>
 <ul>
@@ -385,7 +385,7 @@
 <li>Recording chunk buffer and staging ring when recording is available.</li>
 </ul>
 <p>Topology is compiled into generated simulation, brush, and render shader behavior. Toroidal mode uses wrapping reads, wrapped brush dispatch, and a toroidal render pipeline. Bounded mode uses virtual boundary reads for off-grid neighbors, clipped brush dispatch, and a bounded render pipeline. The virtual boundary is not a GPU grid buffer and does not change frame dimensions.</p>
-<h2 id="run-loop"><a class="heading-anchor" href="/game-of-life-tribes/wiki/webgpu-webengine#run-loop" aria-label="Link to this section">#</a>Run Loop</h2>
+<h2 id="run-loop"><a class="heading-anchor" aria-label="Link to this section">#</a>Run Loop</h2>
 <p>The worker has a render loop and an active run pump.</p>
 <ul>
 <li>Fixed speed uses a target step duration derived from <code>gen/s</code>.</li>
@@ -396,7 +396,7 @@
 <li>Target-generation runs are used for step forward and step back operations.</li>
 </ul>
 <p>The run loop also applies pending brush input, updates FPS, emits generation updates, runs periodic metrics, applies recording backpressure, and schedules the next pump with animation-frame or timeout-style pacing depending on the active run.</p>
-<h2 id="device-limits"><a class="heading-anchor" href="/game-of-life-tribes/wiki/webgpu-webengine#device-limits" aria-label="Link to this section">#</a>Device Limits</h2>
+<h2 id="device-limits"><a class="heading-anchor" aria-label="Link to this section">#</a>Device Limits</h2>
 <p>The worker derives the maximum simulation frame bytes from the minimum of <code>device.limits.maxBufferSize</code> and <code>device.limits.maxStorageBufferBindingSize</code>. Recording availability is then capped by the app's <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn><mtext>&nbsp;GiB</mtext></mrow><annotation encoding="application/x-tex">1\text{ GiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">1</span><span class="mord text"><span class="mord">&nbsp;GiB</span></span></span></span></span> recording-frame limit. These values are posted to the UI and shown in Grid size, Packing, and the VRAM/storage displays.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
@@ -423,8 +423,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

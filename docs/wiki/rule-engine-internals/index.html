@@ -359,8 +359,8 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="rules-engine-internals"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#rules-engine-internals" aria-label="Link to this section">#</a>Rules Engine Internals</h1>
-<h2 id="rule-semantics"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#rule-semantics" aria-label="Link to this section">#</a>Rule Semantics</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="rules-engine-internals"><a class="heading-anchor" aria-label="Link to this section">#</a>Rules Engine Internals</h1>
+<h2 id="rule-semantics"><a class="heading-anchor" aria-label="Link to this section">#</a>Rule Semantics</h2>
 <p>Each generation evaluates every real grid cell independently against the current grid. Edge behavior depends on the selected topology:</p>
 <ul>
 <li><code>Toroidal</code>: neighbor reads wrap across opposite edges.</li>
@@ -381,10 +381,10 @@
 <li>Probability: percentage chance that a matched rule applies.</li>
 <li>Outcome: expression that computes the next tribe id.</li>
 </ul>
-<p>For the full selector, clause, outcome, tribe, and rule JSON reference, see <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a>. This page focuses on evaluation behavior and shader generation.</p>
+<p>For the full selector, clause, outcome, tribe, and rule JSON reference, see <a>Rule expressions</a>. This page focuses on evaluation behavior and shader generation.</p>
 <p>Probability uses deterministic randomness. The roll is derived from the cell coordinates, generation, rule index, and ruleset random seed, so the same snapshot, rules, seed, and generation reproduce the same outcomes. Rules with probability <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn><mi>%</mi></mrow><annotation encoding="application/x-tex">100\%</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8056em;vertical-align:-0.0556em"></span><span class="mord">100%</span></span></span></span> do not roll; once their clause matches, they apply through the same direct path as a deterministic rule. Failed probability rolls fall through to later rules instead of ending the first-match chain.</p>
 <p>Top-level rules use bounded <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>32</mn></mrow><annotation encoding="application/x-tex">32</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">32</span></span></span></span>-branch chains, to prevent reaching shader chaining length limit. An <code>applied</code> flag is checked only between chunks, so when a matching branch sets it, later chunks are skipped. For probabilistic rules, the probability roll is part of the branch condition, so a failed roll continues to later rules.</p>
-<h2 id="expression-handling"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#expression-handling" aria-label="Link to this section">#</a>Expression Handling</h2>
+<h2 id="expression-handling"><a class="heading-anchor" aria-label="Link to this section">#</a>Expression Handling</h2>
 <p>Selectors, clauses, and outcomes are normalized before comparison, persistence, and shader generation. The normalized form keeps equivalent editor states stable and gives shader generation predictable inputs.</p>
 <ul>
 <li>Explicit tribe selector signatures sort and deduplicate selected tribe IDs for stable lookup keys.</li>
@@ -392,7 +392,7 @@
 <li>Count-style clause bounds compile to the smallest equivalent boolean expression: <code>none</code> and <code>exactly</code> use equality, <code>min</code> uses only a lower-bound check, <code>max</code> uses only an upper-bound check, partial <code>count</code> intervals use a two-sided range, and always-true ranges such as <code>count 0..8</code>, <code>min 0</code>, and <code>max 8</code> compile to <code>true</code>.</li>
 <li>Empty clauses are editor placeholders. They compile as false, and the editor rejects applied rules that still contain empty placeholders.</li>
 </ul>
-<h2 id="dynamic-outcomes"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#dynamic-outcomes" aria-label="Link to this section">#</a>Dynamic Outcomes</h2>
+<h2 id="dynamic-outcomes"><a class="heading-anchor" aria-label="Link to this section">#</a>Dynamic Outcomes</h2>
 <p>Ranked outcomes evaluate eligible neighbor tribes selected by the outcome selector:</p>
 <ul>
 <li><code>majority</code> chooses the most common eligible neighbor tribe.</li>
@@ -400,7 +400,7 @@
 </ul>
 <p>The generated shader tracks the best candidate, best count, and tie count. A single winner writes that candidate. A tie evaluates the configured tie outcome. If no candidate exists, the fallback outcome is evaluated. Either branch may keep the current tribe, write a fixed tribe, or use a Combine lookup.</p>
 <p>Combine outcomes build a bit mask of participating non-dead inputs. A row requires every listed input to be present and rejects every non-dead input it does not list. <code>dead</code> remains a separate presence requirement, so it can coexist with any matching non-dead combination. Lookup rows are sorted so rows explicitly requiring <code>dead</code> are checked before less specific rows. Rows are emitted, like rules, in bounded <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>32</mn></mrow><annotation encoding="application/x-tex">32</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">32</span></span></span></span>-row first-match chains, so large lookup tables remain compilable without giving up early-match performance. If no row matches, the default outcome is evaluated.</p>
-<h2 id="shader-generation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/rule-engine-internals#shader-generation" aria-label="Link to this section">#</a>Shader Generation</h2>
+<h2 id="shader-generation"><a class="heading-anchor" aria-label="Link to this section">#</a>Shader Generation</h2>
 <p><code>generateComputeWgsl</code> converts the normalized rule list and grid topology into WGSL:</p>
 <ul>
 <li>It specializes neighbor reads for toroidal or bounded topology.</li>
@@ -443,8 +443,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

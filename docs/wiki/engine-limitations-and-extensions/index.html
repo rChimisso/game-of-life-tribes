@@ -359,8 +359,8 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="engine-limitations-and-extensions"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#engine-limitations-and-extensions" aria-label="Link to this section">#</a>Engine Limitations And Extensions</h1>
-<h2 id="current-model-class"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#current-model-class" aria-label="Link to this section">#</a>Current Model Class</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="engine-limitations-and-extensions"><a class="heading-anchor" aria-label="Link to this section">#</a>Engine Limitations And Extensions</h1>
+<h2 id="current-model-class"><a class="heading-anchor" aria-label="Link to this section">#</a>Current Model Class</h2>
 <p>The engine is a synchronous finite-state cellular automaton on a rectangular square lattice. Every generation reads the complete current grid and writes a separate next grid, then swaps the buffers.</p>
 <p>Current structural constraints are:</p>
 <ul>
@@ -373,7 +373,7 @@
 </ul>
 <p>This design is well suited to Life-like rules, multi-state local automata, Wildfire, and lattice epidemics. It does not natively represent continuous fields, arbitrary contact networks, mobile agents, or multiple independent attributes attached to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span> cell.</p>
 <p>These constraints keep the engine a powerful, well-defined superset of Life-like cellular automata rather than a universal cellular-automaton framework. The project began as an extension of Game of Life for multiple tribes with potentially different behavior; later features were chosen to improve expressivity without straying too far from that original idea.</p>
-<h2 id="neighborhood-and-space"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#neighborhood-and-space" aria-label="Link to this section">#</a>Neighborhood And Space</h2>
+<h2 id="neighborhood-and-space"><a class="heading-anchor" aria-label="Link to this section">#</a>Neighborhood And Space</h2>
 <p>The fixed Moore neighborhood prevents exact expression of models that use <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span>-neighbor von Neumann contact, larger radii, weighted distance, or direction-specific influence. For example, the standard NetLogo Fire model spreads through <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>4</mn></mrow><annotation encoding="application/x-tex">4</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">4</span></span></span></span> orthogonal neighbors, so it cannot be reproduced exactly.</p>
 <p>Useful extensions would include:</p>
 <ul>
@@ -384,8 +384,8 @@
 </ul>
 <p>These features would need corresponding rule-editor validation, shader generation, cost estimates, snapshot fields, and migration rules.</p>
 <p>They have not been implemented because they would expand the engine beyond its Life-like focus, require changes throughout the application, and reduce performance through more expensive neighborhood evaluation.</p>
-<h2 id="state-representation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#state-representation" aria-label="Link to this section">#</a>State Representation</h2>
-<p>A tribe is the cell's entire persistent state. Additional memory must be encoded by adding more tribes, as presets such as <a href="/game-of-life-tribes/wiki/presets/#afterimage">Afterimage</a> and <a href="/game-of-life-tribes/wiki/presets/#senescence">Senescence</a> already do. This becomes cumbersome when several attributes combine - for example vegetation type × moisture × burn age, or health state × age group × vaccination status.</p>
+<h2 id="state-representation"><a class="heading-anchor" aria-label="Link to this section">#</a>State Representation</h2>
+<p>A tribe is the cell's entire persistent state. Additional memory must be encoded by adding more tribes, as presets such as <a>Afterimage</a> and <a>Senescence</a> already do. This becomes cumbersome when several attributes combine - for example vegetation type × moisture × burn age, or health state × age group × vaccination status.</p>
 <p>Possible extensions are:</p>
 <ul>
 <li>multiple packed state channels per cell;</li>
@@ -396,7 +396,7 @@
 </ul>
 <p>An agent layer would be a substantial change, but models such as <a href="https://ccl.northwestern.edu/netlogo/models/Sugarscape1ImmediateGrowback" target="_blank" rel="noopener noreferrer">Sugarscape</a> illustrate why it is useful: agents carry metabolism, vision, and resources while moving over a spatial resource landscape. Encoding that behavior only as fixed cell tribes would not preserve the same model semantics.</p>
 <p>These extensions have not been implemented because they would make the state model and GPU pipeline substantially more complex, while increasing memory use and reducing simulation performance.</p>
-<h2 id="built-in-experiment-automation"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#built-in-experiment-automation" aria-label="Link to this section">#</a>Built-in Experiment Automation</h2>
+<h2 id="built-in-experiment-automation"><a class="heading-anchor" aria-label="Link to this section">#</a>Built-in Experiment Automation</h2>
 <p>The current run-state stop conditions are "none" and target generation. There is no native stop-on-extinction, stop-on-stability, parameter sweep, or multi-repetition runner.</p>
 <p>A built-in experiment system could provide:</p>
 <ul>
@@ -410,7 +410,7 @@
 </ul>
 <p>NetLogo's <a href="https://docs.netlogo.org/behaviorspace" target="_blank" rel="noopener noreferrer">BehaviorSpace</a> is a relevant interaction and reproducibility reference, although a WebGPU/browser implementation would need to account for device loss, storage quota, and background throttling.</p>
 <p>The project is primarily a concept and interactive engine rather than a high-performance scientific batch-execution tool. It therefore provides basic experimentation capabilities, while extensive sweeps are better suited to a non-browser implementation; the Angular API can also be used to automate experiments, with example scripts available in the repository's <a href="https://github.com/rChimisso/game-of-life-tribes/tree/main/analysis/" target="_blank" rel="noopener noreferrer"><code>analysis/</code></a> directory.</p>
-<h2 id="metrics"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#metrics" aria-label="Link to this section">#</a>Metrics</h2>
+<h2 id="metrics"><a class="heading-anchor" aria-label="Link to this section">#</a>Metrics</h2>
 <p>Offline exports provide tribe populations, deltas, changed cells, births, deaths, switches, diversity, and contact/frontier values. Transition metrics are exact only when consecutive generations are exported.</p>
 <p>Current limitations and extensions include:</p>
 <ul>
@@ -420,8 +420,8 @@
 <li>Allow preset-defined metrics with names and denominator metadata.</li>
 </ul>
 <p>Online metrics are intentionally limited and sampled less frequently to keep simulation performance high, while offline metrics are limited to avoid long computations in the browser.<br>Frame exports nevertheless preserve the complete state history of the run, thus an export can be parsed afterward to compute any additional needed metric.</p>
-<h2 id="browser-gpu-and-storage-limits"><a class="heading-anchor" href="/game-of-life-tribes/wiki/engine-limitations-and-extensions#browser-gpu-and-storage-limits" aria-label="Link to this section">#</a>Browser, GPU, And Storage Limits</h2>
-<p>Grid and recording capacity depend on WebGPU adapter limits, VRAM, browser storage, and OPFS behavior. Important application caps include a <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn><mtext>&nbsp;GiB</mtext></mrow><annotation encoding="application/x-tex">1\text{ GiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">1</span><span class="mord text"><span class="mord">&nbsp;GiB</span></span></span></span></span> recording frame, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>256</mn><mtext>&nbsp;MiB</mtext></mrow><annotation encoding="application/x-tex">256\text{ MiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">256</span><span class="mord text"><span class="mord">&nbsp;MiB</span></span></span></span></span> preferred recording chunks, pending-write and compression budgets, and device-specific maximum buffer and storage-binding sizes. See <a href="/game-of-life-tribes/wiki/limits-and-performance/">Limits and performance</a> and <a href="/game-of-life-tribes/wiki/vram-and-packing/">VRAM and packing</a>.</p>
+<h2 id="browser-gpu-and-storage-limits"><a class="heading-anchor" aria-label="Link to this section">#</a>Browser, GPU, And Storage Limits</h2>
+<p>Grid and recording capacity depend on WebGPU adapter limits, VRAM, browser storage, and OPFS behavior. Important application caps include a <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn><mtext>&nbsp;GiB</mtext></mrow><annotation encoding="application/x-tex">1\text{ GiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">1</span><span class="mord text"><span class="mord">&nbsp;GiB</span></span></span></span></span> recording frame, <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>256</mn><mtext>&nbsp;MiB</mtext></mrow><annotation encoding="application/x-tex">256\text{ MiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">256</span><span class="mord text"><span class="mord">&nbsp;MiB</span></span></span></span></span> preferred recording chunks, pending-write and compression budgets, and device-specific maximum buffer and storage-binding sizes. See <a>Limits and performance</a> and <a>VRAM and packing</a>.</p>
 <p>A possible useful extension could be to allow parallel, distributed, or server-side batch execution of runs or parameter sweeps.</p>
 <p>The hardcoded caps were selected as high but generally safe limits for most devices and browsers. More ambitious execution extensions have not been implemented because the project is browser-based and hosted on GitHub Pages without a server-side compute service; as with built-in automation, extensive experimentation is better handled outside the browser or with ad-hoc extension scripts leveraging Angular API.</p>
 </article>
@@ -449,8 +449,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

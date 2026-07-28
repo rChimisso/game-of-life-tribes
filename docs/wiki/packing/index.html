@@ -359,10 +359,10 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="packing"><a class="heading-anchor" href="/game-of-life-tribes/wiki/packing#packing" aria-label="Link to this section">#</a>Packing</h1>
-<h2 id="purpose"><a class="heading-anchor" href="/game-of-life-tribes/wiki/packing#purpose" aria-label="Link to this section">#</a>Purpose</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="packing"><a class="heading-anchor" aria-label="Link to this section">#</a>Packing</h1>
+<h2 id="purpose"><a class="heading-anchor" aria-label="Link to this section">#</a>Purpose</h2>
 <p>The Packing section chooses how many bits are used to store each cell. Lower values reduce VRAM and recording/storage size. Higher values support more tribes and can make shader math simpler.</p>
-<h2 id="controls"><a class="heading-anchor" href="/game-of-life-tribes/wiki/packing#controls" aria-label="Link to this section">#</a>Controls</h2>
+<h2 id="controls"><a class="heading-anchor" aria-label="Link to this section">#</a>Controls</h2>
 <p>
   <img src="https://raw.githubusercontent.com/rChimisso/game-of-life-tribes/main/wiki/images/packing.png" alt="Packing section">
 </p><ul>
@@ -374,7 +374,7 @@
 <li><strong>Apply</strong>:<br>Commits the pending packing and rebuilds GPU resources. Disabled while running, downloading, unchanged, or over the allowed frame limit.</li>
 <li><strong>Restore</strong>:<br>Resets the pending value back to the committed packing.</li>
 </ul>
-<h2 id="choosing-a-value"><a class="heading-anchor" href="/game-of-life-tribes/wiki/packing#choosing-a-value" aria-label="Link to this section">#</a>Choosing A Value</h2>
+<h2 id="choosing-a-value"><a class="heading-anchor" aria-label="Link to this section">#</a>Choosing A Value</h2>
 <p>A packing value must support the number of states in the ruleset, including <code>dead</code>. The maximum state count is <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mi>max</mi><mo>⁡</mo><mrow><mo>(</mo><msup><mn>2</mn><mtext>bitsPerCell</mtext></msup><mo>,</mo><mtext> </mtext><mn>256</mn><mo>)</mo></mrow></mrow><annotation encoding="application/x-tex">\max\left(2^\texttt{bitsPerCell},\,256\right)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.0408em;vertical-align:-0.25em"></span><span class="mop">max</span><span class="mspace" style="margin-right:0.1667em"></span><span class="minner"><span class="mopen delimcenter" style="top:0em">(</span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7908em"><span style="top:-3.063em;margin-right:0.05em"><span class="pstrut" style="height:2.7em"></span><span class="sizing reset-size6 size3 mtight"><span class="mord text mtight"><span class="mord texttt mtight">bitsPerCell</span></span></span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em"></span><span class="mspace" style="margin-right:0.1667em"></span><span class="mord">256</span><span class="mclose delimcenter" style="top:0em">)</span></span></span></span></span>:</p>
 <table>
 <thead>
@@ -415,7 +415,7 @@
 <td align="right"><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>1</mn></mrow><annotation encoding="application/x-tex">1</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">1</span></span></span></span></td>
 </tr>
 </tbody></table>
-<p>As covered in the <a href="/game-of-life-tribes/wiki/benchmark-results/">benchmark results</a>, tighter packings are most useful when recording and to support larger grids, while wider packings are better suited to non-recording runs with small grids and to rulesets that need more tribes.</p>
+<p>As covered in the <a>benchmark results</a>, tighter packings are most useful when recording and to support larger grids, while wider packings are better suited to non-recording runs with small grids and to rulesets that need more tribes.</p>
 <p>The app disables packing choices that cannot represent the current tribe count. If a preset or snapshot requires more states, the app chooses the smallest fitting format that also fits current buffer limits.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
@@ -442,8 +442,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

@@ -359,8 +359,8 @@
   </aside>
   <main>
     <!--ngtns-->
-      <article class="wiki-markdown" jsaction="click:;"><h1 id="downloads-and-exports"><a class="heading-anchor" href="/game-of-life-tribes/wiki/downloads-and-exports#downloads-and-exports" aria-label="Link to this section">#</a>Downloads And Exports</h1>
-<h2 id="normal-zip-mode"><a class="heading-anchor" href="/game-of-life-tribes/wiki/downloads-and-exports#normal-zip-mode" aria-label="Link to this section">#</a>Normal ZIP Mode</h2>
+      <article class="wiki-markdown" jsaction="click:;"><h1 id="downloads-and-exports"><a class="heading-anchor" aria-label="Link to this section">#</a>Downloads And Exports</h1>
+<h2 id="normal-zip-mode"><a class="heading-anchor" aria-label="Link to this section">#</a>Normal ZIP Mode</h2>
 <p>Downloads are produced by <code>download.ts</code> as <code>golt-export.zip</code>. Normal mode can include:</p>
 <ul>
 <li><code>.golt</code> saves for first and last selected states.</li>
@@ -376,16 +376,16 @@
 <li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>55</mn></mrow><annotation encoding="application/x-tex">55</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">55</span></span></span></span> to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>85</mn></mrow><annotation encoding="application/x-tex">85</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">85</span></span></span></span>: recorded frame outputs.</li>
 <li><span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>90</mn></mrow><annotation encoding="application/x-tex">90</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">90</span></span></span></span> to <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>100</mn></mrow><annotation encoding="application/x-tex">100</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6444em"></span><span class="mord">100</span></span></span></span>: ZIP finalization.</li>
 </ul>
-<h2 id="compressed-chunk-mode"><a class="heading-anchor" href="/game-of-life-tribes/wiki/downloads-and-exports#compressed-chunk-mode" aria-label="Link to this section">#</a>Compressed Chunk Mode</h2>
-<p>Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn><mtext>&nbsp;GiB</mtext></mrow><annotation encoding="application/x-tex">2\text{ GiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">2</span><span class="mord text"><span class="mord">&nbsp;GiB</span></span></span></span></span>. It exports compressed recording chunks instead of rendering the selected outputs. See <a href="/game-of-life-tribes/wiki/compressed-chunk-export/">Compressed chunk export</a> for the standalone file contract and a Python reader example.</p>
+<h2 id="compressed-chunk-mode"><a class="heading-anchor" aria-label="Link to this section">#</a>Compressed Chunk Mode</h2>
+<p>Compressed chunk mode is selected when Force chunk download is enabled or the estimated working set exceeds <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>2</mn><mtext>&nbsp;GiB</mtext></mrow><annotation encoding="application/x-tex">2\text{ GiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">2</span><span class="mord text"><span class="mord">&nbsp;GiB</span></span></span></span></span>. It exports compressed recording chunks instead of rendering the selected outputs. See <a>Compressed chunk export</a> for the standalone file contract and a Python reader example.</p>
 <p>The ZIP contains:</p>
 <ul>
 <li><code>manifest.json</code>: chunk export version, grid size, grid format, selected frame range, and output chunk metadata.</li>
-<li><code>metadata.json</code>: rules, per-rule probabilities, random seed, tribes, topology, boundary tribe, and recording generation range. Rule and tribe metadata uses the <a href="/game-of-life-tribes/wiki/rule-expressions/">Rule expressions</a> shapes.</li>
+<li><code>metadata.json</code>: rules, per-rule probabilities, random seed, tribes, topology, boundary tribe, and recording generation range. Rule and tribe metadata uses the <a>Rule expressions</a> shapes.</li>
 <li><code>chunks/chunk-000000.bin</code> and following chunk payload files.</li>
 </ul>
 <p>Whole selected source chunks are copied. Boundary chunks are rebuilt when the selected range starts or ends inside a source chunk.</p>
-<h2 id="png-and-mp4"><a class="heading-anchor" href="/game-of-life-tribes/wiki/downloads-and-exports#png-and-mp4" aria-label="Link to this section">#</a>PNG And MP4</h2>
+<h2 id="png-and-mp4"><a class="heading-anchor" aria-label="Link to this section">#</a>PNG And MP4</h2>
 <p>PNG export writes indexed-color PNG frames with a palette derived from tribes. Scanlines are streamed through a <code>CompressionStream('deflate')</code>, and row blocks are bounded by a memory budget.</p>
 <p>PNG and MP4 visual exports use full-grid framing. When Download is clicked, the home page captures a framing origin and passes it to the download worker. In toroidal topology, that origin is viewport-centered and the worker unwraps each visual frame from it so every grid cell appears exactly once. In bounded topology, the origin is <code>(0, 0)</code>, so the finite grid is exported from its top-left corner. This only affects visual frame outputs; <code>.golt</code> saves, metrics, and compressed chunk exports keep the recorded packed-grid order.</p>
 <p>Bounded topology does not write virtual boundary cells into PNG, MP4, <code>.golt</code>, or chunk exports. The selected boundary tribe is stored as metadata and affects simulation neighbor reads only.</p>
@@ -397,7 +397,7 @@
 <li>AVC support is checked before writing, optionally changing the dimensions to support the requested FPS and Bitrate.</li>
 </ul>
 <p>The MP4 entry path inside the ZIP is <code>simulation.mp4</code>.</p>
-<h2 id="working-set-estimate"><a class="heading-anchor" href="/game-of-life-tribes/wiki/downloads-and-exports#working-set-estimate" aria-label="Link to this section">#</a>Working Set Estimate</h2>
+<h2 id="working-set-estimate"><a class="heading-anchor" aria-label="Link to this section">#</a>Working Set Estimate</h2>
 <p>The download estimator accounts for selected chunks, decompression footprint, previous-frame metrics memory, row buffers, metric entries, and estimated CSV output. Metrics switch to streaming output when retained metric-entry memory exceeds <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>512</mn><mtext>&nbsp;MiB</mtext></mrow><annotation encoding="application/x-tex">512\text{ MiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">512</span><span class="mord text"><span class="mord">&nbsp;MiB</span></span></span></span></span>. Metrics CSV emits a large-output warning above <span class="katex"><span class="katex-mathml"><math><semantics><mrow><mn>512</mn><mtext>&nbsp;MiB</mtext></mrow><annotation encoding="application/x-tex">512\text{ MiB}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6833em"></span><span class="mord">512</span><span class="mord text"><span class="mord">&nbsp;MiB</span></span></span></span></span>.</p>
 </article>
       <nav aria-label="Article navigation" class="wiki-article-navigation">
@@ -424,8 +424,8 @@
 </gol-wiki-footer>
 </gol-wiki><!---->
 </gol-root>
-  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-TNFK276G.js" type="module"></script>
-<link rel="modulepreload" href="chunk-QSMIO2UW.js">
+  <link rel="modulepreload" href="chunk-Z6ZDDAOB.js"><link rel="modulepreload" href="chunk-53XUKOG7.js"><link rel="modulepreload" href="chunk-7HE6JHYU.js"><link rel="modulepreload" href="chunk-CWEF3VXC.js"><link rel="modulepreload" href="chunk-4LCRR6EA.js"><link rel="modulepreload" href="chunk-JT7NOR4F.js"><link rel="modulepreload" href="chunk-PBIRRULS.js"><link rel="modulepreload" href="chunk-34ZMBW72.js"><link rel="modulepreload" href="chunk-T4E5GL3D.js"><link rel="modulepreload" href="chunk-5KWPPAMC.js"><script src="polyfills-BDUEPS5N.js" type="module"></script><script src="main-BG2QB3K4.js" type="module"></script>
+<link rel="modulepreload" href="chunk-6VWAWKYO.js">
 <link rel="modulepreload" href="chunk-XZHQPP5F.js">
 <link rel="modulepreload" href="chunk-F4NP4DWB.js">
 <link rel="modulepreload" href="chunk-A6ABMHF6.js">

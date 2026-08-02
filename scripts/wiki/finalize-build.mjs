@@ -4,7 +4,7 @@ import {extname, join, resolve} from 'node:path';
 const root = resolve(import.meta.dirname, '..', '..');
 const outputDirectory = join(root, 'docs');
 const metadata = JSON.parse(readFileSync(join(root, '.angular', 'wiki-pages.json'), 'utf8'));
-const siteUrl = 'https://game-of-life-tribes.dev/';
+const siteUrl = 'https://game-of-life-tribes.dev';
 const errorDocument = join(outputDirectory, '404', 'index.html');
 const customErrorDocument = join(outputDirectory, '404.html');
 const clientIndexDocument = join(outputDirectory, 'index.csr.html');
